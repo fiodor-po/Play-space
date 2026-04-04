@@ -1,5 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Group, Layer, Rect, Stage, Text, Transformer } from "react-konva";
+import {
+  Group,
+  Image as KonvaImage,
+  Layer,
+  Rect,
+  Stage,
+  Text,
+  Transformer,
+} from "react-konva";
 import type Konva from "konva";
 import { initialObjects } from "../data/initialBoard";
 import {
@@ -24,6 +32,9 @@ const TEXT_CARD_BODY_FONT_SIZE = 22;
 const TEXT_CARD_BODY_LINE_HEIGHT = 1.2;
 const TEXT_CARD_BODY_FONT_FAMILY = "Arial, sans-serif";
 const MIN_IMAGE_SIZE = 80;
+const MAX_UPLOADED_IMAGE_SOURCE_DIMENSION = 1600;
+const MAX_INITIAL_IMAGE_DISPLAY_WIDTH = 360;
+const MAX_INITIAL_IMAGE_DISPLAY_HEIGHT = 240;
 
 const objectLayerOrder: Record<BoardObjectKind, number> = {
   image: 0,
@@ -42,6 +53,7 @@ function getDefaultViewport(width: number, height: number) {
 export default function BoardStage() {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const imageInputRef = useRef<HTMLInputElement | null>(null);
   const [stageSize, setStageSize] = useState({
     width: window.innerWidth,
     height: window.innerHeight,
@@ -98,7 +110,7 @@ export default function BoardStage() {
   );
 
   const textCardRefs = useRef<Record<string, Konva.Group | null>>({});
-  const imageRefs = useRef<Record<string, Konva.Rect | null>>({});
+  const imageRefs = useRef<Record<string, Konva.Image | null>>({});
   const imageTransformerRef = useRef<Konva.Transformer | null>(null);
   const boardBackgroundRef = useRef<Konva.Rect | null>(null);
   const panStateRef = useRef<{
@@ -109,6 +121,9 @@ export default function BoardStage() {
     startStageY: number;
   } | null>(null);
   const ignoreNextBlurRef = useRef(false);
+  const [loadedImages, setLoadedImages] = useState<Record<string, HTMLImageElement>>(
+    {}
+  );
 
   useEffect(() => {
     const handleResize = () => {
@@ -128,6 +143,28 @@ export default function BoardStage() {
   useEffect(() => {
     saveBoardObjects(objects);
   }, [objects]);
+
+  useEffect(() => {
+    objects.forEach((object) => {
+      if (object.kind !== "image" || !object.src || loadedImages[object.src]) {
+        return;
+      }
+
+      const image = new window.Image();
+
+      image.onload = () => {
+        setLoadedImages((current) => {
+          if (current[object.src!]) {
+            return current;
+          }
+
+          return { ...current, [object.src!]: image };
+        });
+      };
+
+      image.src = object.src;
+    });
+  }, [loadedImages, objects]);
 
   useEffect(() => {
     saveViewportState({
@@ -260,6 +297,82 @@ export default function BoardStage() {
 
     setObjects((currentObjects) => [...currentObjects, newNote]);
     setSelectedObjectId(newNote.id);
+  };
+
+  const createImageFromFile = (file: File) => {
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      const originalSrc = reader.result;
+
+      if (typeof originalSrc !== "string") {
+        return;
+      }
+
+      const image = new window.Image();
+
+      image.onload = () => {
+        const center = getViewportCenterInBoardCoords();
+        const displayScale = Math.min(
+          1,
+          MAX_INITIAL_IMAGE_DISPLAY_WIDTH / image.naturalWidth,
+          MAX_INITIAL_IMAGE_DISPLAY_HEIGHT / image.naturalHeight
+        );
+        const width = Math.max(
+          Math.round(image.naturalWidth * displayScale),
+          MIN_IMAGE_SIZE
+        );
+        const height = Math.max(
+          Math.round(image.naturalHeight * displayScale),
+          MIN_IMAGE_SIZE
+        );
+        const storageScale = Math.min(
+          1,
+          MAX_UPLOADED_IMAGE_SOURCE_DIMENSION / image.naturalWidth,
+          MAX_UPLOADED_IMAGE_SOURCE_DIMENSION / image.naturalHeight
+        );
+        let src = originalSrc;
+
+        if (storageScale < 1) {
+          const canvas = document.createElement("canvas");
+
+          canvas.width = Math.max(Math.round(image.naturalWidth * storageScale), 1);
+          canvas.height = Math.max(Math.round(image.naturalHeight * storageScale), 1);
+
+          const context = canvas.getContext("2d");
+
+          if (context) {
+            context.drawImage(image, 0, 0, canvas.width, canvas.height);
+            src =
+              file.type === "image/png"
+                ? canvas.toDataURL("image/png")
+                : canvas.toDataURL("image/jpeg", 0.9);
+          }
+        }
+
+        setLoadedImages((current) => ({ ...current, [src]: image }));
+
+        const newImage: BoardObject = {
+          id: `image-${crypto.randomUUID()}`,
+          kind: "image",
+          x: center.x - width / 2,
+          y: center.y - height / 2,
+          width,
+          height,
+          fill: "#64748b",
+          label: file.name,
+          src,
+          textColor: "#0f172a",
+        };
+
+        setObjects((currentObjects) => [...currentObjects, newImage]);
+        setSelectedObjectId(newImage.id);
+      };
+
+      image.src = originalSrc;
+    };
+
+    reader.readAsDataURL(file);
   };
 
   const resetBoard = () => {
@@ -438,6 +551,22 @@ export default function BoardStage() {
         </button>
 
         <button
+          onClick={() => {
+            imageInputRef.current?.click();
+          }}
+          style={{
+            padding: "10px 14px",
+            borderRadius: 10,
+            border: "1px solid #0f766e",
+            background: "#0f766e",
+            color: "#ecfeff",
+            cursor: "pointer",
+          }}
+        >
+          Add image
+        </button>
+
+        <button
           onClick={createNote}
           style={{
             padding: "10px 14px",
@@ -465,6 +594,22 @@ export default function BoardStage() {
           Reset board
         </button>
       </div>
+
+      <input
+        ref={imageInputRef}
+        type="file"
+        accept="image/*"
+        style={{ display: "none" }}
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+
+          if (file) {
+            createImageFromFile(file);
+          }
+
+          event.target.value = "";
+        }}
+      />
 
       <Stage
         width={stageSize.width}
@@ -624,17 +769,20 @@ export default function BoardStage() {
             const isTextCard = object.kind === "text-card";
 
             if (isImage) {
+              const loadedImage = object.src ? loadedImages[object.src] : undefined;
+
               return (
-                <Rect
+                <KonvaImage
                   key={object.id}
                   ref={(node) => {
                     imageRefs.current[object.id] = node;
                   }}
                   x={object.x}
                   y={object.y}
+                  image={loadedImage}
                   width={object.width}
                   height={object.height}
-                  fill={object.fill}
+                  fill={loadedImage ? undefined : object.fill}
                   shadowBlur={8}
                   draggable={transformingImageId !== object.id}
                   onMouseDown={(event) => {
