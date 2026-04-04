@@ -20,6 +20,7 @@ import {
   getInitialImageDisplaySize,
 } from "../lib/boardImage";
 import {
+  updateBoardObjectById,
   removeBoardObjectById,
   updateBoardObjectLabel,
   updateBoardObjectPosition,
@@ -192,6 +193,87 @@ export default function BoardStage({
     applyBoardObjectsUpdate((currentObjects) => [...currentObjects, object]);
   };
 
+  const updateBoardObject = (
+    id: string,
+    updater: (object: BoardObject) => BoardObject
+  ) => {
+    applyBoardObjectsUpdate((currentObjects) =>
+      updateBoardObjectById(currentObjects, id, updater)
+    );
+  };
+
+  const removeBoardObject = (id: string) => {
+    applyBoardObjectsUpdate((currentObjects) =>
+      removeBoardObjectById(currentObjects, id)
+    );
+  };
+
+  const clearImageDrawing = (id: string) => {
+    applyBoardObjectsUpdate((currentObjects) =>
+      clearImageStrokesInObjects(currentObjects, id)
+    );
+  };
+
+  const startImageStroke = (
+    id: string,
+    point: { x: number; y: number },
+    color: string
+  ) => {
+    updateBoardObject(id, (object) => {
+      if (object.kind !== "image") {
+        return object;
+      }
+
+      const imageStrokes = object.imageStrokes ?? [];
+
+      activeImageStrokeRef.current = {
+        imageId: id,
+        strokeIndex: imageStrokes.length,
+      };
+
+      return {
+        ...object,
+        imageStrokes: [
+          ...imageStrokes,
+          {
+            color,
+            points: [point.x, point.y],
+            width: DEFAULT_IMAGE_STROKE_WIDTH,
+          },
+        ],
+      };
+    });
+  };
+
+  const resizeImageObject = (
+    id: string,
+    nextBounds: { x: number; y: number; width: number; height: number },
+    scale: { x: number; y: number },
+    strokeWidthScale: number
+  ) => {
+    updateBoardObject(id, (object) => {
+      if (object.kind !== "image") {
+        return object;
+      }
+
+      return {
+        ...object,
+        x: nextBounds.x,
+        y: nextBounds.y,
+        width: nextBounds.width,
+        height: nextBounds.height,
+        imageStrokes: (object.imageStrokes ?? []).map((stroke) => ({
+          ...stroke,
+          points: stroke.points.map((point, index) =>
+            index % 2 === 0 ? point * scale.x : point * scale.y
+          ),
+          width:
+            (stroke.width ?? DEFAULT_IMAGE_STROKE_WIDTH) * strokeWidthScale,
+        })),
+      };
+    });
+  };
+
   useEffect(() => {
     const savedViewport = loadViewportState(roomId);
     const defaultViewport = getDefaultViewport(
@@ -339,9 +421,7 @@ export default function BoardStage({
       if (isBackspaceKey && drawingImageId) {
         event.preventDefault();
         endImageStroke();
-        applyBoardObjectsUpdate((currentObjects) =>
-          clearImageStrokesInObjects(currentObjects, drawingImageId)
-        );
+        clearImageDrawing(drawingImageId);
         return;
       }
 
@@ -362,9 +442,7 @@ export default function BoardStage({
 
       event.preventDefault();
 
-      applyBoardObjectsUpdate((currentObjects) =>
-        removeBoardObjectById(currentObjects, selectedObjectId)
-      );
+      removeBoardObject(selectedObjectId);
       setSelectedObjectId(null);
     };
 
@@ -1313,35 +1391,7 @@ export default function BoardStage({
                         return;
                       }
 
-                      applyBoardObjectsUpdate((currentObjects) =>
-                        currentObjects.map((currentObject) => {
-                          if (
-                            currentObject.id !== object.id ||
-                            currentObject.kind !== "image"
-                          ) {
-                            return currentObject;
-                          }
-
-                          const imageStrokes = currentObject.imageStrokes ?? [];
-
-                          activeImageStrokeRef.current = {
-                            imageId: object.id,
-                            strokeIndex: imageStrokes.length,
-                          };
-
-                          return {
-                            ...currentObject,
-                            imageStrokes: [
-                              ...imageStrokes,
-                              {
-                                color: currentUserColor,
-                                points: [point.x, point.y],
-                                width: DEFAULT_IMAGE_STROKE_WIDTH,
-                              },
-                            ],
-                          };
-                        })
-                      );
+                      startImageStroke(object.id, point, currentUserColor);
                     }}
                     onMouseMove={(event) => {
                       if (!isDrawing) {
@@ -1430,32 +1480,16 @@ export default function BoardStage({
                       node.scaleY(1);
                       node.draggable(true);
 
-                      applyBoardObjectsUpdate((currentObjects) =>
-                        currentObjects.map((currentObject) => {
-                          if (
-                            currentObject.id !== object.id ||
-                            currentObject.kind !== "image"
-                          ) {
-                            return currentObject;
-                          }
-
-                          return {
-                            ...currentObject,
-                            x: node.x(),
-                            y: node.y(),
-                            width: nextWidth,
-                            height: nextHeight,
-                            imageStrokes: (currentObject.imageStrokes ?? []).map((stroke) => ({
-                              ...stroke,
-                              points: stroke.points.map((point, index) =>
-                                index % 2 === 0 ? point * scaleX : point * scaleY
-                              ),
-                              width:
-                                (stroke.width ?? DEFAULT_IMAGE_STROKE_WIDTH) *
-                                strokeWidthScale,
-                            })),
-                          };
-                        })
+                      resizeImageObject(
+                        object.id,
+                        {
+                          x: node.x(),
+                          y: node.y(),
+                          width: nextWidth,
+                          height: nextHeight,
+                        },
+                        { x: scaleX, y: scaleY },
+                        strokeWidthScale
                       );
                       syncImageStrokeLayerTransform(object.id, node.x(), node.y(), 1, 1);
                       setTransformingImageId(null);
