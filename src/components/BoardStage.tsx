@@ -202,35 +202,44 @@ export default function BoardStage({
   }, [participantSession.name]);
 
   useEffect(() => {
-    if (!isEditingParticipantName) {
+    if (!isEditingParticipantName && !isColorPickerOpen) {
       return;
     }
 
-    const handlePointerDown = (event: MouseEvent) => {
+    const handlePointerDown = (event: MouseEvent | TouchEvent) => {
       if (sessionPanelRef.current?.contains(event.target as Node)) {
         return;
       }
 
-      const trimmedName = participantNameDraft.trim();
+      if (isEditingParticipantName) {
+        const trimmedName = participantNameDraft.trim();
 
-      if (trimmedName && trimmedName !== participantSession.name) {
-        onUpdateParticipantSession((session) => ({
-          ...session,
-          name: trimmedName,
-        }));
+        if (trimmedName && trimmedName !== participantSession.name) {
+          onUpdateParticipantSession((session) => ({
+            ...session,
+            name: trimmedName,
+          }));
+        }
+
+        setParticipantNameDraft(trimmedName || participantSession.name);
+        setIsEditingParticipantName(false);
       }
 
-      setParticipantNameDraft(trimmedName || participantSession.name);
-      setIsEditingParticipantName(false);
+      if (isColorPickerOpen) {
+        setIsColorPickerOpen(false);
+      }
     };
 
     window.addEventListener("mousedown", handlePointerDown);
+    window.addEventListener("touchstart", handlePointerDown);
 
     return () => {
       window.removeEventListener("mousedown", handlePointerDown);
+      window.removeEventListener("touchstart", handlePointerDown);
     };
   }, [
     isEditingParticipantName,
+    isColorPickerOpen,
     onUpdateParticipantSession,
     participantNameDraft,
     participantSession.name,
