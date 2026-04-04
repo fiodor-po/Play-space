@@ -94,6 +94,44 @@ export function createLocalParticipantPresenceMap(
   };
 }
 
+export function updateParticipantPresenceMap(
+  presences: ParticipantPresenceMap,
+  participantId: string,
+  updater: (presence: ParticipantPresence | null) => ParticipantPresence | null
+): ParticipantPresenceMap {
+  const currentPresence = presences[participantId] ?? null;
+  const nextPresence = updater(currentPresence);
+
+  if (!nextPresence) {
+    const { [participantId]: _removed, ...rest } = presences;
+    return rest;
+  }
+
+  return {
+    ...presences,
+    [participantId]: nextPresence,
+  };
+}
+
+export function syncParticipantPresenceWithSession(
+  presences: ParticipantPresenceMap,
+  participantId: string,
+  session: LocalParticipantSession
+): ParticipantPresenceMap {
+  return updateParticipantPresenceMap(presences, participantId, (presence) =>
+    presence
+      ? {
+          ...presence,
+          name: session.name,
+          color: session.color,
+        }
+      : {
+          ...createLocalParticipantPresence(session),
+          participantId,
+        }
+  );
+}
+
 function getRoomSessionStorageKey(roomId: string) {
   return `${ROOM_SESSION_STORAGE_PREFIX}:${roomId}`;
 }

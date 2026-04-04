@@ -1,12 +1,13 @@
 import { useMemo, useState } from "react";
 import BoardStage from "./components/BoardStage";
 import {
-  createLocalParticipantPresence,
   createLocalParticipantPresenceMap,
   getRoomIdFromLocation,
   loadLocalParticipantSession,
   PARTICIPANT_COLOR_OPTIONS,
   saveLocalParticipantSession,
+  syncParticipantPresenceWithSession,
+  updateParticipantPresenceMap,
 } from "./lib/roomSession";
 import type { FormEvent } from "react";
 import type {
@@ -59,26 +60,11 @@ export default function App() {
       const nextSession = updater(currentSession);
       saveLocalParticipantSession(roomId, nextSession);
       setParticipantPresences((currentPresences) => {
-        const currentPresence = currentPresences[participantId];
-
-        if (currentPresence) {
-          return {
-            ...currentPresences,
-            [participantId]: {
-              ...currentPresence,
-              name: nextSession.name,
-              color: nextSession.color,
-            },
-          };
-        }
-
-        return {
-          ...currentPresences,
-          [participantId]: {
-            ...createLocalParticipantPresence(nextSession),
-            participantId,
-          },
-        };
+        return syncParticipantPresenceWithSession(
+          currentPresences,
+          participantId,
+          nextSession
+        );
       });
       return nextSession;
     });
@@ -195,20 +181,13 @@ export default function App() {
       roomId={roomId}
       onUpdateParticipantSession={updateParticipantSession}
       onUpdateLocalPresence={(updater) => {
-        setParticipantPresences((currentPresences) => {
-          const currentPresence = currentPresences[participantSession.id] ?? null;
-          const nextPresence = updater(currentPresence);
-
-          if (!nextPresence) {
-            const { [participantSession.id]: _removed, ...rest } = currentPresences;
-            return rest;
-          }
-
-          return {
-            ...currentPresences,
-            [participantSession.id]: nextPresence,
-          };
-        });
+        setParticipantPresences((currentPresences) =>
+          updateParticipantPresenceMap(
+            currentPresences,
+            participantSession.id,
+            updater
+          )
+        );
       }}
     />
   );
