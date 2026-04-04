@@ -1,5 +1,11 @@
 export type BoardObjectKind = "image" | "text-card" | "token";
 
+export type ImageStroke = {
+  color: string;
+  points: number[];
+  width?: number;
+};
+
 export type BoardObject = {
   id: string;
   kind: BoardObjectKind;
@@ -10,6 +16,7 @@ export type BoardObject = {
   fill: string;
   label: string;
   authorColor?: string;
+  imageStrokes?: ImageStroke[];
   src?: string;
   textColor?: string;
 };

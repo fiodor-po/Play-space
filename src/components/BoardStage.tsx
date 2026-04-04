@@ -3,6 +3,7 @@ import {
   Group,
   Image as KonvaImage,
   Layer,
+  Line,
   Rect,
   Stage,
   Text,
@@ -17,7 +18,7 @@ import {
   saveBoardObjects,
   saveViewportState,
 } from "../lib/storage";
-import type { BoardObject, BoardObjectKind } from "../types/board";
+import type { BoardObject, BoardObjectKind, ImageStroke } from "../types/board";
 
 const BOARD_WIDTH = 4000;
 const BOARD_HEIGHT = 3000;
@@ -36,6 +37,7 @@ const MAX_UPLOADED_IMAGE_SOURCE_DIMENSION = 1600;
 const MAX_INITIAL_IMAGE_DISPLAY_WIDTH = 360;
 const MAX_INITIAL_IMAGE_DISPLAY_HEIGHT = 240;
 const DEFAULT_CURRENT_USER_COLOR = "#0f766e";
+const IMAGE_STROKE_WIDTH = 4;
 
 const objectLayerOrder: Record<BoardObjectKind, number> = {
   image: 0,
@@ -109,10 +111,12 @@ export default function BoardStage() {
   const [transformingImageId, setTransformingImageId] = useState<string | null>(
     null
   );
+  const [drawingImageId, setDrawingImageId] = useState<string | null>(null);
   const [currentUserColor] = useState(DEFAULT_CURRENT_USER_COLOR);
 
   const textCardRefs = useRef<Record<string, Konva.Group | null>>({});
   const imageRefs = useRef<Record<string, Konva.Image | null>>({});
+  const imageStrokeLayerRefs = useRef<Record<string, Konva.Group | null>>({});
   const imageTransformerRef = useRef<Konva.Transformer | null>(null);
   const boardBackgroundRef = useRef<Konva.Rect | null>(null);
   const panStateRef = useRef<{
@@ -123,6 +127,10 @@ export default function BoardStage() {
     startStageY: number;
   } | null>(null);
   const ignoreNextBlurRef = useRef(false);
+  const activeImageStrokeRef = useRef<{
+    imageId: string;
+    strokeIndex: number;
+  } | null>(null);
   const [loadedImages, setLoadedImages] = useState<Record<string, HTMLImageElement>>(
     {}
   );
@@ -184,8 +192,30 @@ export default function BoardStage() {
         (target.tagName === "INPUT" ||
           target.tagName === "TEXTAREA" ||
           target.isContentEditable);
+      const isEnterKey = event.key === "Enter";
+      const isBackspaceKey = event.key === "Backspace";
       const isEscapeKey = event.key === "Escape";
       const isDeleteKey = event.key === "Backspace" || event.key === "Delete";
+
+      if (isEnterKey && drawingImageId) {
+        event.preventDefault();
+        endImageStroke();
+        setDrawingImageId(null);
+        return;
+      }
+
+      if (isBackspaceKey && drawingImageId) {
+        event.preventDefault();
+        endImageStroke();
+        setObjects((currentObjects) =>
+          currentObjects.map((object) =>
+            object.id === drawingImageId && object.kind === "image"
+              ? { ...object, imageStrokes: [] }
+              : object
+          )
+        );
+        return;
+      }
 
       if (isEscapeKey && !editingTextCardId && selectedObjectId) {
         event.preventDefault();
@@ -215,7 +245,7 @@ export default function BoardStage() {
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [editingTextCardId, selectedObjectId]);
+  }, [drawingImageId, editingTextCardId, selectedObjectId]);
 
   const sortedObjects = useMemo(() => {
     return [...objects].sort(
@@ -239,18 +269,73 @@ export default function BoardStage() {
     );
   };
 
-  const updateObjectBounds = (
+  const updateImageStroke = (
+    id: string,
+    strokeIndex: number,
+    updater: (stroke: ImageStroke) => ImageStroke
+  ) => {
+    setObjects((currentObjects) =>
+      currentObjects.map((object) => {
+        if (object.id !== id || object.kind !== "image") {
+          return object;
+        }
+
+        const imageStrokes = object.imageStrokes ?? [];
+
+        return {
+          ...object,
+          imageStrokes: imageStrokes.map((stroke, index) =>
+            index === strokeIndex ? updater(stroke) : stroke
+          ),
+        };
+      })
+    );
+  };
+
+  const appendStrokePoint = (imageId: string, point: { x: number; y: number }) => {
+    const activeStroke = activeImageStrokeRef.current;
+
+    if (!activeStroke || activeStroke.imageId !== imageId) {
+      return;
+    }
+
+    updateImageStroke(imageId, activeStroke.strokeIndex, (stroke) => ({
+      ...stroke,
+      points: [...stroke.points, point.x, point.y],
+    }));
+  };
+
+  const endImageStroke = () => {
+    activeImageStrokeRef.current = null;
+  };
+
+  const syncImageStrokeLayerPosition = (id: string, x: number, y: number) => {
+    const strokeLayer = imageStrokeLayerRefs.current[id];
+
+    if (!strokeLayer) {
+      return;
+    }
+
+    strokeLayer.position({ x, y });
+    strokeLayer.getLayer()?.batchDraw();
+  };
+
+  const syncImageStrokeLayerTransform = (
     id: string,
     x: number,
     y: number,
-    width: number,
-    height: number
+    scaleX: number,
+    scaleY: number
   ) => {
-    setObjects((currentObjects) =>
-      currentObjects.map((object) =>
-        object.id === id ? { ...object, x, y, width, height } : object
-      )
-    );
+    const strokeLayer = imageStrokeLayerRefs.current[id];
+
+    if (!strokeLayer) {
+      return;
+    }
+
+    strokeLayer.position({ x, y });
+    strokeLayer.scale({ x: scaleX, y: scaleY });
+    strokeLayer.getLayer()?.batchDraw();
   };
 
   const getViewportCenterInBoardCoords = () => {
@@ -460,7 +545,7 @@ export default function BoardStage() {
     }
 
     const selectedImageNode =
-      selectedObjectId && !editingTextCardId
+      selectedObjectId && !editingTextCardId && drawingImageId !== selectedObjectId
         ? imageRefs.current[selectedObjectId] ?? null
         : null;
 
@@ -471,7 +556,14 @@ export default function BoardStage() {
     }
 
     transformer.getLayer()?.batchDraw();
-  }, [editingTextCardId, objects, selectedObjectId]);
+  }, [drawingImageId, editingTextCardId, objects, selectedObjectId]);
+
+  useEffect(() => {
+    if (drawingImageId && drawingImageId !== selectedObjectId) {
+      setDrawingImageId(null);
+      activeImageStrokeRef.current = null;
+    }
+  }, [drawingImageId, selectedObjectId]);
 
   const editingTextCard = editingTextCardId
     ? objects.find((object) => object.id === editingTextCardId && object.kind === "text-card") ?? null
@@ -691,9 +783,11 @@ export default function BoardStage() {
         }}
         onMouseUp={() => {
           panStateRef.current = null;
+          endImageStroke();
         }}
         onMouseLeave={() => {
           panStateRef.current = null;
+          endImageStroke();
         }}
         onTouchStart={(event) => {
           const stage = event.target.getStage();
@@ -732,6 +826,7 @@ export default function BoardStage() {
         }}
         onTouchEnd={() => {
           panStateRef.current = null;
+          endImageStroke();
         }}
         onWheel={(event) => {
           event.evt.preventDefault();
@@ -806,66 +901,206 @@ export default function BoardStage() {
 
             if (isImage) {
               const loadedImage = object.src ? loadedImages[object.src] : undefined;
+              const isDrawing = drawingImageId === object.id;
 
               return (
-                <KonvaImage
-                  key={object.id}
-                  ref={(node) => {
-                    imageRefs.current[object.id] = node;
-                  }}
-                  x={object.x}
-                  y={object.y}
-                  image={loadedImage}
-                  width={object.width}
-                  height={object.height}
-                  fill={loadedImage ? undefined : object.fill}
-                  shadowBlur={8}
-                  draggable={transformingImageId !== object.id}
-                  onMouseDown={(event) => {
-                    event.cancelBubble = true;
-                    setSelectedObjectId(object.id);
-                  }}
-                  onDragStart={(event) => {
-                    event.cancelBubble = true;
-                    setSelectedObjectId(object.id);
-                  }}
-                  onDragMove={(event) => {
-                    event.cancelBubble = true;
-                  }}
-                  onDragEnd={(event) => {
-                    event.cancelBubble = true;
-                    updateObjectPosition(object.id, event.target.x(), event.target.y());
-                  }}
-                  onTransformStart={(event) => {
-                    event.cancelBubble = true;
-                    setSelectedObjectId(object.id);
-                    setTransformingImageId(object.id);
-                    event.target.draggable(false);
-                  }}
-                  onTransformEnd={(event) => {
-                    event.cancelBubble = true;
+                <Group key={object.id}>
+                  <KonvaImage
+                    ref={(node) => {
+                      imageRefs.current[object.id] = node;
+                    }}
+                    x={object.x}
+                    y={object.y}
+                    image={loadedImage}
+                    width={object.width}
+                    height={object.height}
+                    fill={loadedImage ? undefined : object.fill}
+                    shadowBlur={8}
+                    draggable={!isDrawing && transformingImageId !== object.id}
+                    onMouseDown={(event) => {
+                      event.cancelBubble = true;
+                      setSelectedObjectId(object.id);
 
-                    const node = event.target;
-                    const nextWidth = Math.max(node.width() * node.scaleX(), MIN_IMAGE_SIZE);
-                    const nextHeight = Math.max(
-                      node.height() * node.scaleY(),
-                      MIN_IMAGE_SIZE
-                    );
+                      if (!isDrawing) {
+                        return;
+                      }
 
-                    node.scaleX(1);
-                    node.scaleY(1);
-                    node.draggable(true);
+                      const point = event.target.getRelativePointerPosition();
 
-                    updateObjectBounds(
-                      object.id,
-                      node.x(),
-                      node.y(),
-                      nextWidth,
-                      nextHeight
-                    );
-                    setTransformingImageId(null);
-                  }}
-                />
+                      if (!point) {
+                        return;
+                      }
+
+                      setObjects((currentObjects) =>
+                        currentObjects.map((currentObject) => {
+                          if (
+                            currentObject.id !== object.id ||
+                            currentObject.kind !== "image"
+                          ) {
+                            return currentObject;
+                          }
+
+                          const imageStrokes = currentObject.imageStrokes ?? [];
+
+                          activeImageStrokeRef.current = {
+                            imageId: object.id,
+                            strokeIndex: imageStrokes.length,
+                          };
+
+                          return {
+                            ...currentObject,
+                            imageStrokes: [
+                              ...imageStrokes,
+                              {
+                                color: currentUserColor,
+                                points: [point.x, point.y],
+                                width: IMAGE_STROKE_WIDTH,
+                              },
+                            ],
+                          };
+                        })
+                      );
+                    }}
+                    onMouseMove={(event) => {
+                      if (!isDrawing) {
+                        return;
+                      }
+
+                      const point = event.target.getRelativePointerPosition();
+
+                      if (!point) {
+                        return;
+                      }
+
+                      appendStrokePoint(object.id, point);
+                    }}
+                    onMouseUp={() => {
+                      endImageStroke();
+                    }}
+                    onDblClick={(event) => {
+                      event.cancelBubble = true;
+                      setSelectedObjectId(object.id);
+                      setDrawingImageId(object.id);
+                    }}
+                    onDragStart={(event) => {
+                      event.cancelBubble = true;
+                      setSelectedObjectId(object.id);
+                      syncImageStrokeLayerPosition(
+                        object.id,
+                        event.target.x(),
+                        event.target.y()
+                      );
+                    }}
+                    onDragMove={(event) => {
+                      event.cancelBubble = true;
+                      syncImageStrokeLayerPosition(
+                        object.id,
+                        event.target.x(),
+                        event.target.y()
+                      );
+                    }}
+                    onDragEnd={(event) => {
+                      event.cancelBubble = true;
+                      syncImageStrokeLayerPosition(
+                        object.id,
+                        event.target.x(),
+                        event.target.y()
+                      );
+                      updateObjectPosition(object.id, event.target.x(), event.target.y());
+                    }}
+                    onTransformStart={(event) => {
+                      event.cancelBubble = true;
+                      setSelectedObjectId(object.id);
+                      setTransformingImageId(object.id);
+                      event.target.draggable(false);
+                      syncImageStrokeLayerTransform(
+                        object.id,
+                        event.target.x(),
+                        event.target.y(),
+                        event.target.scaleX(),
+                        event.target.scaleY()
+                      );
+                    }}
+                    onTransform={(event) => {
+                      event.cancelBubble = true;
+                      syncImageStrokeLayerTransform(
+                        object.id,
+                        event.target.x(),
+                        event.target.y(),
+                        event.target.scaleX(),
+                        event.target.scaleY()
+                      );
+                    }}
+                    onTransformEnd={(event) => {
+                      event.cancelBubble = true;
+
+                      const node = event.target;
+                      const scaleX = node.scaleX();
+                      const scaleY = node.scaleY();
+                      const strokeWidthScale = (Math.abs(scaleX) + Math.abs(scaleY)) / 2;
+                      const nextWidth = Math.max(node.width() * node.scaleX(), MIN_IMAGE_SIZE);
+                      const nextHeight = Math.max(
+                        node.height() * node.scaleY(),
+                        MIN_IMAGE_SIZE
+                      );
+
+                      node.scaleX(1);
+                      node.scaleY(1);
+                      node.draggable(true);
+
+                      setObjects((currentObjects) =>
+                        currentObjects.map((currentObject) => {
+                          if (
+                            currentObject.id !== object.id ||
+                            currentObject.kind !== "image"
+                          ) {
+                            return currentObject;
+                          }
+
+                          return {
+                            ...currentObject,
+                            x: node.x(),
+                            y: node.y(),
+                            width: nextWidth,
+                            height: nextHeight,
+                            imageStrokes: (currentObject.imageStrokes ?? []).map((stroke) => ({
+                              ...stroke,
+                              points: stroke.points.map((point, index) =>
+                                index % 2 === 0 ? point * scaleX : point * scaleY
+                              ),
+                              width: (stroke.width ?? IMAGE_STROKE_WIDTH) * strokeWidthScale,
+                            })),
+                          };
+                        })
+                      );
+                      syncImageStrokeLayerTransform(object.id, node.x(), node.y(), 1, 1);
+                      setTransformingImageId(null);
+                    }}
+                  />
+
+                  <Group
+                    ref={(node) => {
+                      imageStrokeLayerRefs.current[object.id] = node;
+                    }}
+                    x={object.x}
+                    y={object.y}
+                    listening={false}
+                  >
+                    {(object.imageStrokes ?? []).map((stroke, strokeIndex) => (
+                      <Line
+                        key={`${object.id}-stroke-${strokeIndex}`}
+                        x={0}
+                        y={0}
+                        points={stroke.points}
+                        stroke={stroke.color}
+                        strokeWidth={stroke.width ?? IMAGE_STROKE_WIDTH}
+                        lineCap="round"
+                        lineJoin="round"
+                        listening={false}
+                      />
+                    ))}
+                  </Group>
+                </Group>
               );
             }
 
