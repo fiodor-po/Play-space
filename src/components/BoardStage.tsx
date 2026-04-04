@@ -20,6 +20,11 @@ import {
   getInitialImageDisplaySize,
 } from "../lib/boardImage";
 import {
+  removeBoardObjectById,
+  updateBoardObjectLabel,
+  updateBoardObjectPosition,
+} from "../lib/boardObjects";
+import {
   clearBoardStorage,
   loadBoardObjects,
   loadViewportState,
@@ -238,7 +243,7 @@ export default function BoardStage() {
       event.preventDefault();
 
       setObjects((currentObjects) =>
-        currentObjects.filter((object) => object.id !== selectedObjectId)
+        removeBoardObjectById(currentObjects, selectedObjectId)
       );
       setSelectedObjectId(null);
     };
@@ -258,17 +263,13 @@ export default function BoardStage() {
 
   const updateObjectPosition = (id: string, x: number, y: number) => {
     setObjects((currentObjects) =>
-      currentObjects.map((object) =>
-        object.id === id ? { ...object, x, y } : object
-      )
+      updateBoardObjectPosition(currentObjects, id, x, y)
     );
   };
 
   const updateObjectLabel = (id: string, label: string) => {
     setObjects((currentObjects) =>
-      currentObjects.map((object) =>
-        object.id === id ? { ...object, label } : object
-      )
+      updateBoardObjectLabel(currentObjects, id, label)
     );
   };
 
