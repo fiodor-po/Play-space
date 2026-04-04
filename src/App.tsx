@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import BoardStage from "./components/BoardStage";
 import {
   createLocalParticipantPresence,
+  createLocalParticipantPresenceMap,
   getRoomIdFromLocation,
   loadLocalParticipantSession,
   PARTICIPANT_COLOR_OPTIONS,
@@ -10,7 +11,7 @@ import {
 import type { FormEvent } from "react";
 import type {
   LocalParticipantSession,
-  ParticipantPresence,
+  ParticipantPresenceMap,
 } from "./lib/roomSession";
 
 export default function App() {
@@ -19,11 +20,11 @@ export default function App() {
     useState<LocalParticipantSession | null>(() =>
       loadLocalParticipantSession(roomId)
     );
-  const [localParticipantPresence, setLocalParticipantPresence] =
-    useState<ParticipantPresence | null>(() => {
+  const [participantPresences, setParticipantPresences] =
+    useState<ParticipantPresenceMap>(() => {
       const session = loadLocalParticipantSession(roomId);
 
-      return session ? createLocalParticipantPresence(session) : null;
+      return session ? createLocalParticipantPresenceMap(session) : {};
     });
   const [draftName, setDraftName] = useState("");
   const [draftColor, setDraftColor] = useState(PARTICIPANT_COLOR_OPTIONS[0]);
@@ -45,7 +46,7 @@ export default function App() {
 
     saveLocalParticipantSession(roomId, nextSession);
     setParticipantSession(nextSession);
-    setLocalParticipantPresence(createLocalParticipantPresence(nextSession));
+    setParticipantPresences(createLocalParticipantPresenceMap(nextSession));
   };
 
   const updateParticipantSession = (updater: (session: LocalParticipantSession) => LocalParticipantSession) => {
@@ -56,16 +57,25 @@ export default function App() {
 
       const nextSession = updater(currentSession);
       saveLocalParticipantSession(roomId, nextSession);
-      setLocalParticipantPresence((currentPresence) =>
-        currentPresence
-          ? {
+      setParticipantPresences((currentPresences) => {
+        const currentPresence = currentPresences[nextSession.id];
+
+        if (currentPresence) {
+          return {
+            ...currentPresences,
+            [nextSession.id]: {
               ...currentPresence,
-              participantId: nextSession.id,
               name: nextSession.name,
               color: nextSession.color,
-            }
-          : createLocalParticipantPresence(nextSession)
-      );
+            },
+          };
+        }
+
+        return {
+          ...currentPresences,
+          [nextSession.id]: createLocalParticipantPresence(nextSession),
+        };
+      });
       return nextSession;
     });
   };
@@ -177,10 +187,25 @@ export default function App() {
   return (
     <BoardStage
       participantSession={participantSession}
-      localParticipantPresence={localParticipantPresence}
+      participantPresences={participantPresences}
       roomId={roomId}
       onUpdateParticipantSession={updateParticipantSession}
-      onUpdateLocalPresence={setLocalParticipantPresence}
+      onUpdateLocalPresence={(updater) => {
+        setParticipantPresences((currentPresences) => {
+          const currentPresence = currentPresences[participantSession.id] ?? null;
+          const nextPresence = updater(currentPresence);
+
+          if (!nextPresence) {
+            const { [participantSession.id]: _removed, ...rest } = currentPresences;
+            return rest;
+          }
+
+          return {
+            ...currentPresences,
+            [participantSession.id]: nextPresence,
+          };
+        });
+      }}
     />
   );
 }

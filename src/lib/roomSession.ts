@@ -12,6 +12,8 @@ export type ParticipantPresence = {
   lastActiveAt: number;
 };
 
+export type ParticipantPresenceMap = Record<string, ParticipantPresence>;
+
 export const PARTICIPANT_COLOR_OPTIONS = [
   "#0f766e",
   "#2563eb",
@@ -79,6 +81,16 @@ export function createLocalParticipantPresence(
     color: session.color,
     cursor: null,
     lastActiveAt: Date.now(),
+  };
+}
+
+export function createLocalParticipantPresenceMap(
+  session: LocalParticipantSession
+): ParticipantPresenceMap {
+  const presence = createLocalParticipantPresence(session);
+
+  return {
+    [presence.participantId]: presence,
   };
 }
 
