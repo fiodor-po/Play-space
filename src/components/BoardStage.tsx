@@ -31,6 +31,7 @@ import {
   saveBoardObjects,
   saveViewportState,
 } from "../lib/storage";
+import type { LocalParticipantSession } from "../lib/roomSession";
 import type { BoardObject, BoardObjectKind } from "../types/board";
 
 const BOARD_WIDTH = 4000;
@@ -49,7 +50,6 @@ const MIN_IMAGE_SIZE = 80;
 const MAX_UPLOADED_IMAGE_SOURCE_DIMENSION = 1600;
 const MAX_INITIAL_IMAGE_DISPLAY_WIDTH = 360;
 const MAX_INITIAL_IMAGE_DISPLAY_HEIGHT = 240;
-const DEFAULT_CURRENT_USER_COLOR = "#0f766e";
 
 const objectLayerOrder: Record<BoardObjectKind, number> = {
   image: 0,
@@ -65,7 +65,15 @@ function getDefaultViewport(width: number, height: number) {
   };
 }
 
-export default function BoardStage() {
+type BoardStageProps = {
+  participantSession: LocalParticipantSession;
+  roomId: string;
+};
+
+export default function BoardStage({
+  participantSession,
+  roomId,
+}: BoardStageProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const imageInputRef = useRef<HTMLInputElement | null>(null);
@@ -75,7 +83,7 @@ export default function BoardStage() {
   });
 
   const [stagePosition, setStagePosition] = useState(() => {
-    const savedViewport = loadViewportState();
+    const savedViewport = loadViewportState(roomId);
     const defaultViewport = getDefaultViewport(
       window.innerWidth,
       window.innerHeight
@@ -94,7 +102,7 @@ export default function BoardStage() {
   });
 
   const [stageScale, setStageScale] = useState(() => {
-    const savedViewport = loadViewportState();
+    const savedViewport = loadViewportState(roomId);
     const defaultViewport = getDefaultViewport(
       window.innerWidth,
       window.innerHeight
@@ -113,7 +121,7 @@ export default function BoardStage() {
   });
 
   const [objects, setObjects] = useState<BoardObject[]>(() =>
-    loadBoardObjects(initialObjects)
+    loadBoardObjects(roomId, initialObjects)
   );
 
   const [selectedObjectId, setSelectedObjectId] = useState<string | null>(null);
@@ -124,7 +132,7 @@ export default function BoardStage() {
     null
   );
   const [drawingImageId, setDrawingImageId] = useState<string | null>(null);
-  const [currentUserColor] = useState(DEFAULT_CURRENT_USER_COLOR);
+  const currentUserColor = participantSession.color;
 
   const textCardRefs = useRef<Record<string, Konva.Group | null>>({});
   const imageRefs = useRef<Record<string, Konva.Image | null>>({});
@@ -148,6 +156,33 @@ export default function BoardStage() {
   );
 
   useEffect(() => {
+    const savedViewport = loadViewportState(roomId);
+    const defaultViewport = getDefaultViewport(
+      window.innerWidth,
+      window.innerHeight
+    );
+    const hasSavedViewport =
+      savedViewport.x !== 120 ||
+      savedViewport.y !== 80 ||
+      savedViewport.scale !== 1;
+
+    setObjects(loadBoardObjects(roomId, initialObjects));
+    setStagePosition(
+      hasSavedViewport
+        ? { x: savedViewport.x, y: savedViewport.y }
+        : { x: defaultViewport.x, y: defaultViewport.y }
+    );
+    setStageScale(hasSavedViewport ? savedViewport.scale : defaultViewport.scale);
+    setSelectedObjectId(null);
+    setEditingTextCardId(null);
+    setEditingDraft("");
+    setEditingOriginal("");
+    setDrawingImageId(null);
+    setTransformingImageId(null);
+    panStateRef.current = null;
+  }, [roomId]);
+
+  useEffect(() => {
     const handleResize = () => {
       setStageSize({
         width: window.innerWidth,
@@ -163,8 +198,8 @@ export default function BoardStage() {
   }, []);
 
   useEffect(() => {
-    saveBoardObjects(objects);
-  }, [objects]);
+    saveBoardObjects(roomId, objects);
+  }, [objects, roomId]);
 
   useEffect(() => {
     objects.forEach((object) => {
@@ -189,12 +224,12 @@ export default function BoardStage() {
   }, [loadedImages, objects]);
 
   useEffect(() => {
-    saveViewportState({
+    saveViewportState(roomId, {
       x: stagePosition.x,
       y: stagePosition.y,
       scale: stageScale,
     });
-  }, [stagePosition, stageScale]);
+  }, [roomId, stagePosition, stageScale]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -454,7 +489,7 @@ export default function BoardStage() {
     setStagePosition({ x: defaultViewport.x, y: defaultViewport.y });
     setStageScale(defaultViewport.scale);
     setSelectedObjectId(null);
-    clearBoardStorage();
+    clearBoardStorage(roomId);
   };
 
   const startDraggingTextCard = (id: string) => {
@@ -630,6 +665,65 @@ export default function BoardStage() {
         createImageFromFile(file, boardPosition);
       }}
     >
+      <div
+        style={{
+          position: "fixed",
+          top: 20,
+          left: 20,
+          zIndex: 10,
+          display: "grid",
+          gap: 8,
+          minWidth: 180,
+          padding: 12,
+          borderRadius: 14,
+          border: "1px solid rgba(148, 163, 184, 0.22)",
+          background: "rgba(15, 23, 42, 0.88)",
+          color: "#e2e8f0",
+          boxShadow: "0 18px 50px rgba(2, 6, 23, 0.35)",
+          backdropFilter: "blur(10px)",
+        }}
+      >
+        <div style={{ display: "grid", gap: 2 }}>
+          <div style={{ fontSize: 11, letterSpacing: "0.08em", color: "#94a3b8" }}>
+            ROOM
+          </div>
+          <div style={{ fontSize: 15, fontWeight: 700 }}>{roomId}</div>
+        </div>
+
+        <div style={{ display: "grid", gap: 2 }}>
+          <div style={{ fontSize: 11, letterSpacing: "0.08em", color: "#94a3b8" }}>
+            PARTICIPANT
+          </div>
+          <div style={{ fontSize: 15, fontWeight: 700 }}>
+            {participantSession.name}
+          </div>
+        </div>
+
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+          }}
+        >
+          <div style={{ fontSize: 11, letterSpacing: "0.08em", color: "#94a3b8" }}>
+            COLOR
+          </div>
+          <div
+            style={{
+              width: 16,
+              height: 16,
+              borderRadius: 999,
+              background: participantSession.color,
+              border: "2px solid rgba(255, 255, 255, 0.85)",
+              boxShadow: "0 0 0 1px rgba(15, 23, 42, 0.4)",
+              flexShrink: 0,
+            }}
+          />
+          <div style={{ fontSize: 13, color: "#cbd5e1" }}>{participantSession.color}</div>
+        </div>
+      </div>
+
       <div
         style={{
           position: "fixed",

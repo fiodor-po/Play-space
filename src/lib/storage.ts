@@ -3,8 +3,8 @@ import type { BoardObject, ViewportState } from "../types/board";
 export const BOARD_STORAGE_KEY = "play-space-alpha-board-v1";
 export const VIEWPORT_STORAGE_KEY = "play-space-alpha-viewport-v1";
 
-export function loadBoardObjects(fallback: BoardObject[]) {
-  const raw = localStorage.getItem(BOARD_STORAGE_KEY);
+export function loadBoardObjects(roomId: string, fallback: BoardObject[]) {
+  const raw = localStorage.getItem(getBoardStorageKey(roomId));
 
   if (!raw) {
     return fallback;
@@ -17,16 +17,16 @@ export function loadBoardObjects(fallback: BoardObject[]) {
   }
 }
 
-export function saveBoardObjects(objects: BoardObject[]) {
+export function saveBoardObjects(roomId: string, objects: BoardObject[]) {
   try {
-    localStorage.setItem(BOARD_STORAGE_KEY, JSON.stringify(objects));
+    localStorage.setItem(getBoardStorageKey(roomId), JSON.stringify(objects));
   } catch (error) {
     console.error("Failed to save board objects", error);
   }
 }
 
-export function loadViewportState(): ViewportState {
-  const raw = localStorage.getItem(VIEWPORT_STORAGE_KEY);
+export function loadViewportState(roomId: string): ViewportState {
+  const raw = localStorage.getItem(getViewportStorageKey(roomId));
 
   if (!raw) {
     return { x: 120, y: 80, scale: 1 };
@@ -45,11 +45,19 @@ export function loadViewportState(): ViewportState {
   }
 }
 
-export function saveViewportState(viewport: ViewportState) {
-  localStorage.setItem(VIEWPORT_STORAGE_KEY, JSON.stringify(viewport));
+export function saveViewportState(roomId: string, viewport: ViewportState) {
+  localStorage.setItem(getViewportStorageKey(roomId), JSON.stringify(viewport));
 }
 
-export function clearBoardStorage() {
-  localStorage.removeItem(BOARD_STORAGE_KEY);
-  localStorage.removeItem(VIEWPORT_STORAGE_KEY);
+export function clearBoardStorage(roomId: string) {
+  localStorage.removeItem(getBoardStorageKey(roomId));
+  localStorage.removeItem(getViewportStorageKey(roomId));
+}
+
+function getBoardStorageKey(roomId: string) {
+  return `${BOARD_STORAGE_KEY}:${roomId}`;
+}
+
+function getViewportStorageKey(roomId: string) {
+  return `${VIEWPORT_STORAGE_KEY}:${roomId}`;
 }
