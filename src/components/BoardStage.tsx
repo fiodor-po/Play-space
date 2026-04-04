@@ -108,12 +108,24 @@ export default function BoardStage() {
     );
   };
 
+  const getViewportCenterInBoardCoords = () => {
+    const centerScreenX = stageSize.width / 2;
+    const centerScreenY = stageSize.height / 2;
+
+    return {
+      x: (centerScreenX - stagePosition.x) / stageScale,
+      y: (centerScreenY - stagePosition.y) / stageScale,
+    };
+  };
+
   const createToken = () => {
+    const center = getViewportCenterInBoardCoords();
+
     const newToken: BoardObject = {
       id: `token-${crypto.randomUUID()}`,
       kind: "token",
-      x: 900,
-      y: 700,
+      x: center.x - 70,
+      y: center.y - 70,
       width: 140,
       height: 140,
       fill: "#7c3aed",
@@ -252,7 +264,7 @@ export default function BoardStage() {
           <Text
             x={120}
             y={150}
-            text="Create, select, move, delete"
+            text="Spawn objects in current viewport"
             fontSize={18}
             fill="#94a3b8"
           />
@@ -260,7 +272,7 @@ export default function BoardStage() {
           <Text
             x={120}
             y={210}
-            text="Add token, move it, select it, delete it, reload and verify persistence."
+            text="Pan or zoom somewhere else, then add a token and check that it appears in the visible center."
             fontSize={16}
             fill="#94a3b8"
           />
