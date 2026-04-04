@@ -4,6 +4,14 @@ export type LocalParticipantSession = {
   color: string;
 };
 
+export type ParticipantPresence = {
+  participantId: string;
+  name: string;
+  color: string;
+  cursor: { x: number; y: number } | null;
+  lastActiveAt: number;
+};
+
 export const PARTICIPANT_COLOR_OPTIONS = [
   "#0f766e",
   "#2563eb",
@@ -60,6 +68,18 @@ export function saveLocalParticipantSession(
   session: LocalParticipantSession
 ) {
   localStorage.setItem(getRoomSessionStorageKey(roomId), JSON.stringify(session));
+}
+
+export function createLocalParticipantPresence(
+  session: LocalParticipantSession
+): ParticipantPresence {
+  return {
+    participantId: session.id,
+    name: session.name,
+    color: session.color,
+    cursor: null,
+    lastActiveAt: Date.now(),
+  };
 }
 
 function getRoomSessionStorageKey(roomId: string) {

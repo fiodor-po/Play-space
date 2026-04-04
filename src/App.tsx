@@ -1,13 +1,17 @@
 import { useMemo, useState } from "react";
 import BoardStage from "./components/BoardStage";
 import {
+  createLocalParticipantPresence,
   getRoomIdFromLocation,
   loadLocalParticipantSession,
   PARTICIPANT_COLOR_OPTIONS,
   saveLocalParticipantSession,
 } from "./lib/roomSession";
 import type { FormEvent } from "react";
-import type { LocalParticipantSession } from "./lib/roomSession";
+import type {
+  LocalParticipantSession,
+  ParticipantPresence,
+} from "./lib/roomSession";
 
 export default function App() {
   const roomId = useMemo(() => getRoomIdFromLocation(window.location), []);
@@ -15,6 +19,12 @@ export default function App() {
     useState<LocalParticipantSession | null>(() =>
       loadLocalParticipantSession(roomId)
     );
+  const [, setLocalParticipantPresence] =
+    useState<ParticipantPresence | null>(() => {
+      const session = loadLocalParticipantSession(roomId);
+
+      return session ? createLocalParticipantPresence(session) : null;
+    });
   const [draftName, setDraftName] = useState("");
   const [draftColor, setDraftColor] = useState(PARTICIPANT_COLOR_OPTIONS[0]);
 
@@ -35,6 +45,29 @@ export default function App() {
 
     saveLocalParticipantSession(roomId, nextSession);
     setParticipantSession(nextSession);
+    setLocalParticipantPresence(createLocalParticipantPresence(nextSession));
+  };
+
+  const updateParticipantSession = (updater: (session: LocalParticipantSession) => LocalParticipantSession) => {
+    setParticipantSession((currentSession) => {
+      if (!currentSession) {
+        return currentSession;
+      }
+
+      const nextSession = updater(currentSession);
+      saveLocalParticipantSession(roomId, nextSession);
+      setLocalParticipantPresence((currentPresence) =>
+        currentPresence
+          ? {
+              ...currentPresence,
+              participantId: nextSession.id,
+              name: nextSession.name,
+              color: nextSession.color,
+            }
+          : createLocalParticipantPresence(nextSession)
+      );
+      return nextSession;
+    });
   };
 
   if (!participantSession) {
@@ -141,5 +174,12 @@ export default function App() {
     );
   }
 
-  return <BoardStage participantSession={participantSession} roomId={roomId} />;
+  return (
+    <BoardStage
+      participantSession={participantSession}
+      roomId={roomId}
+      onUpdateParticipantSession={updateParticipantSession}
+      onUpdateLocalPresence={setLocalParticipantPresence}
+    />
+  );
 }

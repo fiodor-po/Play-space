@@ -34,6 +34,7 @@ import {
 import {
   PARTICIPANT_COLOR_OPTIONS,
   type LocalParticipantSession,
+  type ParticipantPresence,
 } from "../lib/roomSession";
 import type { BoardObject, BoardObjectKind } from "../types/board";
 
@@ -76,12 +77,16 @@ type BoardStageProps = {
   onUpdateParticipantSession: (
     updater: (session: LocalParticipantSession) => LocalParticipantSession
   ) => void;
+  onUpdateLocalPresence: (
+    updater: (presence: ParticipantPresence | null) => ParticipantPresence | null
+  ) => void;
 };
 
 export default function BoardStage({
   participantSession,
   roomId,
   onUpdateParticipantSession,
+  onUpdateLocalPresence,
 }: BoardStageProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
@@ -688,6 +693,29 @@ export default function BoardStage({
     };
   }, [editingTextCard, stagePosition.x, stagePosition.y, stageScale]);
 
+  const updateLocalCursorPresence = (clientX: number, clientY: number) => {
+    const containerRect = containerRef.current?.getBoundingClientRect();
+
+    if (!containerRect) {
+      return;
+    }
+
+    const cursor = {
+      x: (clientX - containerRect.left - stagePosition.x) / stageScale,
+      y: (clientY - containerRect.top - stagePosition.y) / stageScale,
+    };
+
+    onUpdateLocalPresence((presence) =>
+      presence
+        ? {
+            ...presence,
+            cursor,
+            lastActiveAt: Date.now(),
+          }
+        : null
+    );
+  };
+
   return (
     <div
       ref={containerRef}
@@ -698,6 +726,40 @@ export default function BoardStage({
         margin: 0,
         overflow: "hidden",
         background: "#081226",
+      }}
+      onMouseMove={(event) => {
+        updateLocalCursorPresence(event.clientX, event.clientY);
+      }}
+      onMouseLeave={() => {
+        onUpdateLocalPresence((presence) =>
+          presence
+            ? {
+                ...presence,
+                cursor: null,
+                lastActiveAt: Date.now(),
+              }
+            : null
+        );
+      }}
+      onTouchMove={(event) => {
+        const touch = event.touches[0];
+
+        if (!touch) {
+          return;
+        }
+
+        updateLocalCursorPresence(touch.clientX, touch.clientY);
+      }}
+      onTouchEnd={() => {
+        onUpdateLocalPresence((presence) =>
+          presence
+            ? {
+                ...presence,
+                cursor: null,
+                lastActiveAt: Date.now(),
+              }
+            : null
+        );
       }}
       onDragOver={(event) => {
         event.preventDefault();
