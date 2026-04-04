@@ -299,7 +299,10 @@ export default function BoardStage() {
     setSelectedObjectId(newNote.id);
   };
 
-  const createImageFromFile = (file: File) => {
+  const createImageFromFile = (
+    file: File,
+    position?: { x: number; y: number }
+  ) => {
     const reader = new FileReader();
 
     reader.onload = () => {
@@ -312,7 +315,7 @@ export default function BoardStage() {
       const image = new window.Image();
 
       image.onload = () => {
-        const center = getViewportCenterInBoardCoords();
+        const spawnPosition = position ?? getViewportCenterInBoardCoords();
         const displayScale = Math.min(
           1,
           MAX_INITIAL_IMAGE_DISPLAY_WIDTH / image.naturalWidth,
@@ -355,8 +358,8 @@ export default function BoardStage() {
         const newImage: BoardObject = {
           id: `image-${crypto.randomUUID()}`,
           kind: "image",
-          x: center.x - width / 2,
-          y: center.y - height / 2,
+          x: spawnPosition.x - width / 2,
+          y: spawnPosition.y - height / 2,
           width,
           height,
           fill: "#64748b",
@@ -524,6 +527,34 @@ export default function BoardStage() {
         margin: 0,
         overflow: "hidden",
         background: "#081226",
+      }}
+      onDragOver={(event) => {
+        event.preventDefault();
+      }}
+      onDrop={(event) => {
+        event.preventDefault();
+
+        const file = Array.from(event.dataTransfer.files).find((candidate) =>
+          candidate.type.startsWith("image/")
+        );
+
+        if (!file) {
+          return;
+        }
+
+        const containerRect = containerRef.current?.getBoundingClientRect();
+
+        if (!containerRect) {
+          createImageFromFile(file);
+          return;
+        }
+
+        const boardPosition = {
+          x: (event.clientX - containerRect.left - stagePosition.x) / stageScale,
+          y: (event.clientY - containerRect.top - stagePosition.y) / stageScale,
+        };
+
+        createImageFromFile(file, boardPosition);
       }}
     >
       <div

@@ -18,7 +18,11 @@ export function loadBoardObjects(fallback: BoardObject[]) {
 }
 
 export function saveBoardObjects(objects: BoardObject[]) {
-  localStorage.setItem(BOARD_STORAGE_KEY, JSON.stringify(objects));
+  try {
+    localStorage.setItem(BOARD_STORAGE_KEY, JSON.stringify(objects));
+  } catch (error) {
+    console.error("Failed to save board objects", error);
+  }
 }
 
 export function loadViewportState(): ViewportState {
