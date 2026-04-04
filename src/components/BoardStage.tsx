@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Group, Layer, Rect, Stage, Text } from "react-konva";
+import { Group, Layer, Rect, Stage, Text, Transformer } from "react-konva";
 import type Konva from "konva";
 import { initialObjects } from "../data/initialBoard";
 import {
@@ -23,6 +23,7 @@ const TEXT_CARD_BODY_INSET_Y = 16;
 const TEXT_CARD_BODY_FONT_SIZE = 22;
 const TEXT_CARD_BODY_LINE_HEIGHT = 1.2;
 const TEXT_CARD_BODY_FONT_FAMILY = "Arial, sans-serif";
+const MIN_IMAGE_SIZE = 80;
 
 const objectLayerOrder: Record<BoardObjectKind, number> = {
   image: 0,
@@ -92,8 +93,21 @@ export default function BoardStage() {
   const [editingTextCardId, setEditingTextCardId] = useState<string | null>(null);
   const [editingDraft, setEditingDraft] = useState("");
   const [editingOriginal, setEditingOriginal] = useState("");
+  const [transformingImageId, setTransformingImageId] = useState<string | null>(
+    null
+  );
 
   const textCardRefs = useRef<Record<string, Konva.Group | null>>({});
+  const imageRefs = useRef<Record<string, Konva.Rect | null>>({});
+  const imageTransformerRef = useRef<Konva.Transformer | null>(null);
+  const boardBackgroundRef = useRef<Konva.Rect | null>(null);
+  const panStateRef = useRef<{
+    isPanning: boolean;
+    startPointerX: number;
+    startPointerY: number;
+    startStageX: number;
+    startStageY: number;
+  } | null>(null);
   const ignoreNextBlurRef = useRef(false);
 
   useEffect(() => {
@@ -182,6 +196,20 @@ export default function BoardStage() {
     setObjects((currentObjects) =>
       currentObjects.map((object) =>
         object.id === id ? { ...object, label } : object
+      )
+    );
+  };
+
+  const updateObjectBounds = (
+    id: string,
+    x: number,
+    y: number,
+    width: number,
+    height: number
+  ) => {
+    setObjects((currentObjects) =>
+      currentObjects.map((object) =>
+        object.id === id ? { ...object, x, y, width, height } : object
       )
     );
   };
@@ -302,6 +330,27 @@ export default function BoardStage() {
     textarea.focus();
     textarea.setSelectionRange(textarea.value.length, textarea.value.length);
   }, [editingTextCardId]);
+
+  useEffect(() => {
+    const transformer = imageTransformerRef.current;
+
+    if (!transformer) {
+      return;
+    }
+
+    const selectedImageNode =
+      selectedObjectId && !editingTextCardId
+        ? imageRefs.current[selectedObjectId] ?? null
+        : null;
+
+    if (selectedImageNode) {
+      transformer.nodes([selectedImageNode]);
+    } else {
+      transformer.nodes([]);
+    }
+
+    transformer.getLayer()?.batchDraw();
+  }, [editingTextCardId, objects, selectedObjectId]);
 
   const editingTextCard = editingTextCardId
     ? objects.find((object) => object.id === editingTextCardId && object.kind === "text-card") ?? null
@@ -424,19 +473,84 @@ export default function BoardStage() {
         y={stagePosition.y}
         scaleX={stageScale}
         scaleY={stageScale}
-        draggable
         onMouseDown={(event) => {
-          const clickedOnEmptyStage = event.target === event.target.getStage();
+          const stage = event.target.getStage();
+          const pointer = stage?.getPointerPosition();
+          const clickedOnEmptyStage =
+            event.target === stage || event.target === boardBackgroundRef.current;
 
           if (clickedOnEmptyStage) {
             setSelectedObjectId(null);
           }
+
+          if (!clickedOnEmptyStage || !pointer) {
+            return;
+          }
+
+          panStateRef.current = {
+            isPanning: true,
+            startPointerX: pointer.x,
+            startPointerY: pointer.y,
+            startStageX: stagePosition.x,
+            startStageY: stagePosition.y,
+          };
         }}
-        onDragEnd={(event) => {
+        onMouseMove={(event) => {
+          const pointer = event.target.getStage()?.getPointerPosition();
+          const panState = panStateRef.current;
+
+          if (!panState?.isPanning || !pointer) {
+            return;
+          }
+
           setStagePosition({
-            x: event.target.x(),
-            y: event.target.y(),
+            x: panState.startStageX + (pointer.x - panState.startPointerX),
+            y: panState.startStageY + (pointer.y - panState.startPointerY),
           });
+        }}
+        onMouseUp={() => {
+          panStateRef.current = null;
+        }}
+        onMouseLeave={() => {
+          panStateRef.current = null;
+        }}
+        onTouchStart={(event) => {
+          const stage = event.target.getStage();
+          const pointer = stage?.getPointerPosition();
+          const touchedEmptyStage =
+            event.target === stage || event.target === boardBackgroundRef.current;
+
+          if (touchedEmptyStage) {
+            setSelectedObjectId(null);
+          }
+
+          if (!touchedEmptyStage || !pointer) {
+            return;
+          }
+
+          panStateRef.current = {
+            isPanning: true,
+            startPointerX: pointer.x,
+            startPointerY: pointer.y,
+            startStageX: stagePosition.x,
+            startStageY: stagePosition.y,
+          };
+        }}
+        onTouchMove={(event) => {
+          const pointer = event.target.getStage()?.getPointerPosition();
+          const panState = panStateRef.current;
+
+          if (!panState?.isPanning || !pointer) {
+            return;
+          }
+
+          setStagePosition({
+            x: panState.startStageX + (pointer.x - panState.startPointerX),
+            y: panState.startStageY + (pointer.y - panState.startPointerY),
+          });
+        }}
+        onTouchEnd={() => {
+          panStateRef.current = null;
         }}
         onWheel={(event) => {
           event.evt.preventDefault();
@@ -468,6 +582,7 @@ export default function BoardStage() {
       >
         <Layer>
           <Rect
+            ref={boardBackgroundRef}
             x={0}
             y={0}
             width={BOARD_WIDTH}
@@ -505,7 +620,70 @@ export default function BoardStage() {
 
           {sortedObjects.map((object) => {
             const isSelected = object.id === selectedObjectId;
+            const isImage = object.kind === "image";
             const isTextCard = object.kind === "text-card";
+
+            if (isImage) {
+              return (
+                <Rect
+                  key={object.id}
+                  ref={(node) => {
+                    imageRefs.current[object.id] = node;
+                  }}
+                  x={object.x}
+                  y={object.y}
+                  width={object.width}
+                  height={object.height}
+                  fill={object.fill}
+                  shadowBlur={8}
+                  draggable={transformingImageId !== object.id}
+                  onMouseDown={(event) => {
+                    event.cancelBubble = true;
+                    setSelectedObjectId(object.id);
+                  }}
+                  onDragStart={(event) => {
+                    event.cancelBubble = true;
+                    setSelectedObjectId(object.id);
+                  }}
+                  onDragMove={(event) => {
+                    event.cancelBubble = true;
+                  }}
+                  onDragEnd={(event) => {
+                    event.cancelBubble = true;
+                    updateObjectPosition(object.id, event.target.x(), event.target.y());
+                  }}
+                  onTransformStart={(event) => {
+                    event.cancelBubble = true;
+                    setSelectedObjectId(object.id);
+                    setTransformingImageId(object.id);
+                    event.target.draggable(false);
+                  }}
+                  onTransformEnd={(event) => {
+                    event.cancelBubble = true;
+
+                    const node = event.target;
+                    const nextWidth = Math.max(node.width() * node.scaleX(), MIN_IMAGE_SIZE);
+                    const nextHeight = Math.max(
+                      node.height() * node.scaleY(),
+                      MIN_IMAGE_SIZE
+                    );
+
+                    node.scaleX(1);
+                    node.scaleY(1);
+                    node.draggable(true);
+
+                    updateObjectBounds(
+                      object.id,
+                      node.x(),
+                      node.y(),
+                      nextWidth,
+                      nextHeight
+                    );
+                    setTransformingImageId(null);
+                  }}
+                />
+              );
+            }
 
             if (isTextCard) {
               const isEditing = object.id === editingTextCardId;
@@ -668,6 +846,28 @@ export default function BoardStage() {
               </Group>
             );
           })}
+
+          <Transformer
+            ref={imageTransformerRef}
+            rotateEnabled={false}
+            flipEnabled={false}
+            enabledAnchors={[
+              "top-left",
+              "top-right",
+              "bottom-left",
+              "bottom-right",
+            ]}
+            boundBoxFunc={(oldBox, newBox) => {
+              if (
+                Math.abs(newBox.width) < MIN_IMAGE_SIZE ||
+                Math.abs(newBox.height) < MIN_IMAGE_SIZE
+              ) {
+                return oldBox;
+              }
+
+              return newBox;
+            }}
+          />
         </Layer>
       </Stage>
 
