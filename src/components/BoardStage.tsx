@@ -22,6 +22,14 @@ const objectLayerOrder: Record<BoardObjectKind, number> = {
   token: 2,
 };
 
+function getDefaultViewport(width: number, height: number) {
+  return {
+    x: width / 2 - BOARD_WIDTH / 2,
+    y: height / 2 - BOARD_HEIGHT / 2,
+    scale: 1,
+  };
+}
+
 export default function BoardStage() {
   const [stageSize, setStageSize] = useState({
     width: window.innerWidth,
@@ -29,13 +37,41 @@ export default function BoardStage() {
   });
 
   const [stagePosition, setStagePosition] = useState(() => {
-    const viewport = loadViewportState();
-    return { x: viewport.x, y: viewport.y };
+    const savedViewport = loadViewportState();
+    const defaultViewport = getDefaultViewport(
+      window.innerWidth,
+      window.innerHeight
+    );
+
+    const hasSavedViewport =
+      savedViewport.x !== 120 ||
+      savedViewport.y !== 80 ||
+      savedViewport.scale !== 1;
+
+    if (!hasSavedViewport) {
+      return { x: defaultViewport.x, y: defaultViewport.y };
+    }
+
+    return { x: savedViewport.x, y: savedViewport.y };
   });
 
   const [stageScale, setStageScale] = useState(() => {
-    const viewport = loadViewportState();
-    return viewport.scale;
+    const savedViewport = loadViewportState();
+    const defaultViewport = getDefaultViewport(
+      window.innerWidth,
+      window.innerHeight
+    );
+
+    const hasSavedViewport =
+      savedViewport.x !== 120 ||
+      savedViewport.y !== 80 ||
+      savedViewport.scale !== 1;
+
+    if (!hasSavedViewport) {
+      return defaultViewport.scale;
+    }
+
+    return savedViewport.scale;
   });
 
   const [objects, setObjects] = useState<BoardObject[]>(() =>
@@ -138,9 +174,14 @@ export default function BoardStage() {
   };
 
   const resetBoard = () => {
+    const defaultViewport = getDefaultViewport(
+      window.innerWidth,
+      window.innerHeight
+    );
+
     setObjects(initialObjects);
-    setStagePosition({ x: 120, y: 80 });
-    setStageScale(1);
+    setStagePosition({ x: defaultViewport.x, y: defaultViewport.y });
+    setStageScale(defaultViewport.scale);
     setSelectedObjectId(null);
     clearBoardStorage();
   };
@@ -264,7 +305,7 @@ export default function BoardStage() {
           <Text
             x={120}
             y={150}
-            text="Spawn objects in current viewport"
+            text="Centered board and viewport-based spawn"
             fontSize={18}
             fill="#94a3b8"
           />
@@ -272,7 +313,7 @@ export default function BoardStage() {
           <Text
             x={120}
             y={210}
-            text="Pan or zoom somewhere else, then add a token and check that it appears in the visible center."
+            text="Reset should center the board. New tokens should appear in the visible center."
             fontSize={16}
             fill="#94a3b8"
           />
@@ -324,8 +365,10 @@ export default function BoardStage() {
                 />
 
                 <Text
-                  x={30}
+                  x={0}
                   y={object.height / 2 - 12}
+                  width={object.width}
+                  align="center"
                   text={object.label}
                   fontSize={24}
                   fill={object.textColor ?? "#f8fafc"}
