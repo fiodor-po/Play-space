@@ -31,7 +31,10 @@ import {
   saveBoardObjects,
   saveViewportState,
 } from "../lib/storage";
-import type { LocalParticipantSession } from "../lib/roomSession";
+import {
+  PARTICIPANT_COLOR_OPTIONS,
+  type LocalParticipantSession,
+} from "../lib/roomSession";
 import type { BoardObject, BoardObjectKind } from "../types/board";
 
 const BOARD_WIDTH = 4000;
@@ -50,6 +53,8 @@ const MIN_IMAGE_SIZE = 80;
 const MAX_UPLOADED_IMAGE_SOURCE_DIMENSION = 1600;
 const MAX_INITIAL_IMAGE_DISPLAY_WIDTH = 360;
 const MAX_INITIAL_IMAGE_DISPLAY_HEIGHT = 240;
+const HTML_UI_FONT_FAMILY =
+  'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
 
 const objectLayerOrder: Record<BoardObjectKind, number> = {
   image: 0,
@@ -68,15 +73,20 @@ function getDefaultViewport(width: number, height: number) {
 type BoardStageProps = {
   participantSession: LocalParticipantSession;
   roomId: string;
+  onUpdateParticipantSession: (
+    updater: (session: LocalParticipantSession) => LocalParticipantSession
+  ) => void;
 };
 
 export default function BoardStage({
   participantSession,
   roomId,
+  onUpdateParticipantSession,
 }: BoardStageProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const imageInputRef = useRef<HTMLInputElement | null>(null);
+  const sessionPanelRef = useRef<HTMLDivElement | null>(null);
   const [stageSize, setStageSize] = useState({
     width: window.innerWidth,
     height: window.innerHeight,
@@ -132,6 +142,11 @@ export default function BoardStage({
     null
   );
   const [drawingImageId, setDrawingImageId] = useState<string | null>(null);
+  const [isEditingParticipantName, setIsEditingParticipantName] = useState(false);
+  const [participantNameDraft, setParticipantNameDraft] = useState(
+    participantSession.name
+  );
+  const [isColorPickerOpen, setIsColorPickerOpen] = useState(false);
   const currentUserColor = participantSession.color;
 
   const textCardRefs = useRef<Record<string, Konva.Group | null>>({});
@@ -181,6 +196,45 @@ export default function BoardStage({
     setTransformingImageId(null);
     panStateRef.current = null;
   }, [roomId]);
+
+  useEffect(() => {
+    setParticipantNameDraft(participantSession.name);
+  }, [participantSession.name]);
+
+  useEffect(() => {
+    if (!isEditingParticipantName) {
+      return;
+    }
+
+    const handlePointerDown = (event: MouseEvent) => {
+      if (sessionPanelRef.current?.contains(event.target as Node)) {
+        return;
+      }
+
+      const trimmedName = participantNameDraft.trim();
+
+      if (trimmedName && trimmedName !== participantSession.name) {
+        onUpdateParticipantSession((session) => ({
+          ...session,
+          name: trimmedName,
+        }));
+      }
+
+      setParticipantNameDraft(trimmedName || participantSession.name);
+      setIsEditingParticipantName(false);
+    };
+
+    window.addEventListener("mousedown", handlePointerDown);
+
+    return () => {
+      window.removeEventListener("mousedown", handlePointerDown);
+    };
+  }, [
+    isEditingParticipantName,
+    onUpdateParticipantSession,
+    participantNameDraft,
+    participantSession.name,
+  ]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -666,6 +720,7 @@ export default function BoardStage({
       }}
     >
       <div
+        ref={sessionPanelRef}
         style={{
           position: "fixed",
           top: 20,
@@ -681,22 +736,12 @@ export default function BoardStage({
           color: "#e2e8f0",
           boxShadow: "0 18px 50px rgba(2, 6, 23, 0.35)",
           backdropFilter: "blur(10px)",
+          fontFamily: HTML_UI_FONT_FAMILY,
+          pointerEvents: "none",
         }}
       >
-        <div style={{ display: "grid", gap: 2 }}>
-          <div style={{ fontSize: 11, letterSpacing: "0.08em", color: "#94a3b8" }}>
-            ROOM
-          </div>
+        <div style={{ display: "grid", gap: 2, pointerEvents: "none" }}>
           <div style={{ fontSize: 15, fontWeight: 700 }}>{roomId}</div>
-        </div>
-
-        <div style={{ display: "grid", gap: 2 }}>
-          <div style={{ fontSize: 11, letterSpacing: "0.08em", color: "#94a3b8" }}>
-            PARTICIPANT
-          </div>
-          <div style={{ fontSize: 15, fontWeight: 700 }}>
-            {participantSession.name}
-          </div>
         </div>
 
         <div
@@ -706,10 +751,12 @@ export default function BoardStage({
             gap: 10,
           }}
         >
-          <div style={{ fontSize: 11, letterSpacing: "0.08em", color: "#94a3b8" }}>
-            COLOR
-          </div>
-          <div
+          <button
+            type="button"
+            onClick={() => {
+              setIsColorPickerOpen((current) => !current);
+            }}
+            aria-label="Edit participant color"
             style={{
               width: 16,
               height: 16,
@@ -718,10 +765,117 @@ export default function BoardStage({
               border: "2px solid rgba(255, 255, 255, 0.85)",
               boxShadow: "0 0 0 1px rgba(15, 23, 42, 0.4)",
               flexShrink: 0,
+              padding: 0,
+              cursor: "pointer",
+              pointerEvents: "auto",
             }}
           />
-          <div style={{ fontSize: 13, color: "#cbd5e1" }}>{participantSession.color}</div>
+
+          {isEditingParticipantName ? (
+            <input
+              value={participantNameDraft}
+              onChange={(event) => {
+                setParticipantNameDraft(event.target.value);
+              }}
+              onKeyDown={(event) => {
+                if (event.key !== "Enter") {
+                  return;
+                }
+
+                event.preventDefault();
+                const trimmedName = participantNameDraft.trim();
+
+                if (trimmedName && trimmedName !== participantSession.name) {
+                  onUpdateParticipantSession((session) => ({
+                    ...session,
+                    name: trimmedName,
+                  }));
+                }
+
+                setParticipantNameDraft(trimmedName || participantSession.name);
+                setIsEditingParticipantName(false);
+              }}
+              autoFocus
+              style={{
+                minWidth: 0,
+                padding: 0,
+                border: "none",
+                outline: "none",
+                background: "transparent",
+                color: "#e2e8f0",
+                fontSize: 15,
+                fontWeight: 700,
+                fontFamily: HTML_UI_FONT_FAMILY,
+                pointerEvents: "auto",
+              }}
+            />
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                setParticipantNameDraft(participantSession.name);
+                setIsEditingParticipantName(true);
+              }}
+              style={{
+                padding: 0,
+                border: "none",
+                background: "transparent",
+                color: "#e2e8f0",
+                fontSize: 15,
+                fontWeight: 700,
+                fontFamily: HTML_UI_FONT_FAMILY,
+                cursor: "text",
+                pointerEvents: "auto",
+              }}
+            >
+              {participantSession.name}
+            </button>
+          )}
         </div>
+
+        {isColorPickerOpen && (
+          <div
+            style={{
+              display: "flex",
+              gap: 8,
+              flexWrap: "wrap",
+              pointerEvents: "none",
+            }}
+          >
+            {PARTICIPANT_COLOR_OPTIONS.map(
+              (color) => {
+                const isSelected = color === participantSession.color;
+
+                return (
+                  <button
+                    key={color}
+                    type="button"
+                    onClick={() => {
+                      onUpdateParticipantSession((session) => ({
+                        ...session,
+                        color,
+                      }));
+                      setIsColorPickerOpen(false);
+                    }}
+                    aria-label={`Select color ${color}`}
+                    style={{
+                      width: 20,
+                      height: 20,
+                      borderRadius: 999,
+                      border: isSelected
+                        ? "2px solid #f8fafc"
+                        : "1px solid rgba(255, 255, 255, 0.22)",
+                      background: color,
+                      padding: 0,
+                      cursor: "pointer",
+                      pointerEvents: "auto",
+                    }}
+                  />
+                );
+              }
+            )}
+          </div>
+        )}
       </div>
 
       <div
