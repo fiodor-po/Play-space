@@ -131,7 +131,14 @@ export default function BoardStage() {
         (target.tagName === "INPUT" ||
           target.tagName === "TEXTAREA" ||
           target.isContentEditable);
+      const isEscapeKey = event.key === "Escape";
       const isDeleteKey = event.key === "Backspace" || event.key === "Delete";
+
+      if (isEscapeKey && !editingTextCardId && selectedObjectId) {
+        event.preventDefault();
+        setSelectedObjectId(null);
+        return;
+      }
 
       if (
         !isDeleteKey ||
@@ -467,6 +474,9 @@ export default function BoardStage() {
             height={BOARD_HEIGHT}
             fill="#1e293b"
             cornerRadius={24}
+            onMouseDown={() => {
+              setSelectedObjectId(null);
+            }}
           />
 
           <Text
@@ -579,8 +589,7 @@ export default function BoardStage() {
                     width={object.width}
                     height={object.height - TEXT_CARD_HEADER_HEIGHT}
                     fill={object.fill}
-                    onMouseDown={(event) => {
-                      event.cancelBubble = true;
+                    onMouseDown={() => {
                       setSelectedObjectId(object.id);
                     }}
                     onDblClick={(event) => {
