@@ -35,6 +35,7 @@ const MIN_IMAGE_SIZE = 80;
 const MAX_UPLOADED_IMAGE_SOURCE_DIMENSION = 1600;
 const MAX_INITIAL_IMAGE_DISPLAY_WIDTH = 360;
 const MAX_INITIAL_IMAGE_DISPLAY_HEIGHT = 240;
+const DEFAULT_CURRENT_USER_COLOR = "#0f766e";
 
 const objectLayerOrder: Record<BoardObjectKind, number> = {
   image: 0,
@@ -108,6 +109,7 @@ export default function BoardStage() {
   const [transformingImageId, setTransformingImageId] = useState<string | null>(
     null
   );
+  const [currentUserColor] = useState(DEFAULT_CURRENT_USER_COLOR);
 
   const textCardRefs = useRef<Record<string, Konva.Group | null>>({});
   const imageRefs = useRef<Record<string, Konva.Image | null>>({});
@@ -271,8 +273,9 @@ export default function BoardStage() {
       y: center.y - 70,
       width: 140,
       height: 140,
-      fill: "#7c3aed",
+      fill: currentUserColor,
       label: "New Token",
+      authorColor: currentUserColor,
       textColor: "#f8fafc",
     };
 
@@ -292,6 +295,7 @@ export default function BoardStage() {
       height: 180,
       fill: "#f8fafc",
       label: "New note",
+      authorColor: currentUserColor,
       textColor: "#0f172a",
     };
 
@@ -364,6 +368,7 @@ export default function BoardStage() {
           height,
           fill: "#64748b",
           label: file.name,
+          authorColor: currentUserColor,
           src,
           textColor: "#0f172a",
         };
@@ -922,7 +927,7 @@ export default function BoardStage() {
                     y={9}
                     width={NOTE_HANDLE_SIZE}
                     height={NOTE_HANDLE_SIZE}
-                    fill="#94a3b8"
+                    fill={object.authorColor ?? "#94a3b8"}
                     cornerRadius={6}
                     onMouseDown={(event) => {
                       event.cancelBubble = true;

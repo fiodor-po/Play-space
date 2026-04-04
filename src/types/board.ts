@@ -9,6 +9,7 @@ export type BoardObject = {
   height: number;
   fill: string;
   label: string;
+  authorColor?: string;
   src?: string;
   textColor?: string;
 };
