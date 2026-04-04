@@ -73,6 +73,7 @@ function getDefaultViewport(width: number, height: number) {
 
 type BoardStageProps = {
   participantSession: LocalParticipantSession;
+  localParticipantPresence: ParticipantPresence | null;
   roomId: string;
   onUpdateParticipantSession: (
     updater: (session: LocalParticipantSession) => LocalParticipantSession
@@ -84,6 +85,7 @@ type BoardStageProps = {
 
 export default function BoardStage({
   participantSession,
+  localParticipantPresence,
   roomId,
   onUpdateParticipantSession,
   onUpdateLocalPresence,
@@ -716,6 +718,18 @@ export default function BoardStage({
     );
   };
 
+  const localCursorScreenPosition = useMemo(() => {
+    if (!localParticipantPresence?.cursor) {
+      return null;
+    }
+
+    return {
+      left: stagePosition.x + localParticipantPresence.cursor.x * stageScale,
+      top: stagePosition.y + localParticipantPresence.cursor.y * stageScale,
+      color: localParticipantPresence.color,
+    };
+  }, [localParticipantPresence, stagePosition.x, stagePosition.y, stageScale]);
+
   return (
     <div
       ref={containerRef}
@@ -790,6 +804,26 @@ export default function BoardStage({
         createImageFromFile(file, boardPosition);
       }}
     >
+      {localCursorScreenPosition && (
+        <div
+          style={{
+            position: "fixed",
+            left: localCursorScreenPosition.left,
+            top: localCursorScreenPosition.top,
+            width: 12,
+            height: 12,
+            marginLeft: -6,
+            marginTop: -6,
+            borderRadius: 999,
+            background: localCursorScreenPosition.color,
+            border: "2px solid rgba(255, 255, 255, 0.92)",
+            boxShadow: "0 0 0 1px rgba(15, 23, 42, 0.35)",
+            pointerEvents: "none",
+            zIndex: 12,
+          }}
+        />
+      )}
+
       <div
         ref={sessionPanelRef}
         style={{

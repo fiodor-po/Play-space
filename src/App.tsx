@@ -19,7 +19,7 @@ export default function App() {
     useState<LocalParticipantSession | null>(() =>
       loadLocalParticipantSession(roomId)
     );
-  const [, setLocalParticipantPresence] =
+  const [localParticipantPresence, setLocalParticipantPresence] =
     useState<ParticipantPresence | null>(() => {
       const session = loadLocalParticipantSession(roomId);
 
@@ -177,6 +177,7 @@ export default function App() {
   return (
     <BoardStage
       participantSession={participantSession}
+      localParticipantPresence={localParticipantPresence}
       roomId={roomId}
       onUpdateParticipantSession={updateParticipantSession}
       onUpdateLocalPresence={setLocalParticipantPresence}
