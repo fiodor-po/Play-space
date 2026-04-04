@@ -42,6 +42,8 @@ export default function BoardStage() {
     loadBoardObjects(initialObjects)
   );
 
+  const [selectedObjectId, setSelectedObjectId] = useState<string | null>(null);
+
   useEffect(() => {
     const handleResize = () => {
       setStageSize({
@@ -69,6 +71,29 @@ export default function BoardStage() {
     });
   }, [stagePosition, stageScale]);
 
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const isDeleteKey = event.key === "Backspace" || event.key === "Delete";
+
+      if (!isDeleteKey || !selectedObjectId) {
+        return;
+      }
+
+      event.preventDefault();
+
+      setObjects((currentObjects) =>
+        currentObjects.filter((object) => object.id !== selectedObjectId)
+      );
+      setSelectedObjectId(null);
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [selectedObjectId]);
+
   const sortedObjects = useMemo(() => {
     return [...objects].sort(
       (a, b) => objectLayerOrder[a.kind] - objectLayerOrder[b.kind]
@@ -83,10 +108,28 @@ export default function BoardStage() {
     );
   };
 
+  const createToken = () => {
+    const newToken: BoardObject = {
+      id: `token-${crypto.randomUUID()}`,
+      kind: "token",
+      x: 900,
+      y: 700,
+      width: 140,
+      height: 140,
+      fill: "#7c3aed",
+      label: "New Token",
+      textColor: "#f8fafc",
+    };
+
+    setObjects((currentObjects) => [...currentObjects, newToken]);
+    setSelectedObjectId(newToken.id);
+  };
+
   const resetBoard = () => {
     setObjects(initialObjects);
     setStagePosition({ x: 120, y: 80 });
     setStageScale(1);
+    setSelectedObjectId(null);
     clearBoardStorage();
   };
 
@@ -100,23 +143,44 @@ export default function BoardStage() {
         background: "#081226",
       }}
     >
-      <button
-        onClick={resetBoard}
+      <div
         style={{
           position: "fixed",
           top: 20,
           right: 20,
           zIndex: 10,
-          padding: "10px 14px",
-          borderRadius: 10,
-          border: "1px solid #334155",
-          background: "#0f172a",
-          color: "#e2e8f0",
-          cursor: "pointer",
+          display: "flex",
+          gap: 12,
         }}
       >
-        Reset board
-      </button>
+        <button
+          onClick={createToken}
+          style={{
+            padding: "10px 14px",
+            borderRadius: 10,
+            border: "1px solid #4c1d95",
+            background: "#6d28d9",
+            color: "#f5f3ff",
+            cursor: "pointer",
+          }}
+        >
+          Add token
+        </button>
+
+        <button
+          onClick={resetBoard}
+          style={{
+            padding: "10px 14px",
+            borderRadius: 10,
+            border: "1px solid #334155",
+            background: "#0f172a",
+            color: "#e2e8f0",
+            cursor: "pointer",
+          }}
+        >
+          Reset board
+        </button>
+      </div>
 
       <Stage
         width={stageSize.width}
@@ -126,6 +190,13 @@ export default function BoardStage() {
         scaleX={stageScale}
         scaleY={stageScale}
         draggable
+        onMouseDown={(event) => {
+          const clickedOnEmptyStage = event.target === event.target.getStage();
+
+          if (clickedOnEmptyStage) {
+            setSelectedObjectId(null);
+          }
+        }}
         onDragEnd={(event) => {
           setStagePosition({
             x: event.target.x(),
@@ -181,7 +252,7 @@ export default function BoardStage() {
           <Text
             x={120}
             y={150}
-            text="BoardStage extracted"
+            text="Create, select, move, delete"
             fontSize={18}
             fill="#94a3b8"
           />
@@ -189,44 +260,67 @@ export default function BoardStage() {
           <Text
             x={120}
             y={210}
-            text="Objects, pan, zoom and persistence now live in a separate component."
+            text="Add token, move it, select it, delete it, reload and verify persistence."
             fontSize={16}
             fill="#94a3b8"
           />
 
-          {sortedObjects.map((object) => (
-            <Group
-              key={object.id}
-              x={object.x}
-              y={object.y}
-              draggable
-              onDragStart={(event) => {
-                event.cancelBubble = true;
-              }}
-              onDragMove={(event) => {
-                event.cancelBubble = true;
-              }}
-              onDragEnd={(event) => {
-                event.cancelBubble = true;
-                updateObjectPosition(object.id, event.target.x(), event.target.y());
-              }}
-            >
-              <Rect
-                width={object.width}
-                height={object.height}
-                fill={object.fill}
-                cornerRadius={16}
-                shadowBlur={8}
-              />
-              <Text
-                x={30}
-                y={object.height / 2 - 12}
-                text={object.label}
-                fontSize={24}
-                fill={object.textColor ?? "#f8fafc"}
-              />
-            </Group>
-          ))}
+          {sortedObjects.map((object) => {
+            const isSelected = object.id === selectedObjectId;
+
+            return (
+              <Group
+                key={object.id}
+                x={object.x}
+                y={object.y}
+                draggable
+                onMouseDown={(event) => {
+                  event.cancelBubble = true;
+                  setSelectedObjectId(object.id);
+                }}
+                onDragStart={(event) => {
+                  event.cancelBubble = true;
+                  setSelectedObjectId(object.id);
+                }}
+                onDragMove={(event) => {
+                  event.cancelBubble = true;
+                }}
+                onDragEnd={(event) => {
+                  event.cancelBubble = true;
+                  updateObjectPosition(object.id, event.target.x(), event.target.y());
+                }}
+              >
+                {isSelected && (
+                  <Rect
+                    x={-4}
+                    y={-4}
+                    width={object.width + 8}
+                    height={object.height + 8}
+                    stroke="#60a5fa"
+                    strokeWidth={3}
+                    cornerRadius={20}
+                    listening={false}
+                  />
+                )}
+
+                <Rect
+                  width={object.width}
+                  height={object.height}
+                  fill={object.fill}
+                  cornerRadius={16}
+                  shadowBlur={8}
+                />
+
+                <Text
+                  x={30}
+                  y={object.height / 2 - 12}
+                  text={object.label}
+                  fontSize={24}
+                  fill={object.textColor ?? "#f8fafc"}
+                />
+              </Group>
+            );
+          })}
         </Layer>
       </Stage>
     </div>
