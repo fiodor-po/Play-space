@@ -178,6 +178,20 @@ export default function BoardStage({
     {}
   );
 
+  const applyBoardObjectsUpdate = (
+    updater: (currentObjects: BoardObject[]) => BoardObject[]
+  ) => {
+    setObjects(updater);
+  };
+
+  const replaceBoardObjects = (nextObjects: BoardObject[]) => {
+    setObjects(nextObjects);
+  };
+
+  const addBoardObject = (object: BoardObject) => {
+    applyBoardObjectsUpdate((currentObjects) => [...currentObjects, object]);
+  };
+
   useEffect(() => {
     const savedViewport = loadViewportState(roomId);
     const defaultViewport = getDefaultViewport(
@@ -189,7 +203,7 @@ export default function BoardStage({
       savedViewport.y !== 80 ||
       savedViewport.scale !== 1;
 
-    setObjects(loadBoardObjects(roomId, initialObjects));
+    replaceBoardObjects(loadBoardObjects(roomId, initialObjects));
     setStagePosition(
       hasSavedViewport
         ? { x: savedViewport.x, y: savedViewport.y }
@@ -325,7 +339,7 @@ export default function BoardStage({
       if (isBackspaceKey && drawingImageId) {
         event.preventDefault();
         endImageStroke();
-        setObjects((currentObjects) =>
+        applyBoardObjectsUpdate((currentObjects) =>
           clearImageStrokesInObjects(currentObjects, drawingImageId)
         );
         return;
@@ -348,7 +362,7 @@ export default function BoardStage({
 
       event.preventDefault();
 
-      setObjects((currentObjects) =>
+      applyBoardObjectsUpdate((currentObjects) =>
         removeBoardObjectById(currentObjects, selectedObjectId)
       );
       setSelectedObjectId(null);
@@ -368,13 +382,13 @@ export default function BoardStage({
   }, [objects]);
 
   const updateObjectPosition = (id: string, x: number, y: number) => {
-    setObjects((currentObjects) =>
+    applyBoardObjectsUpdate((currentObjects) =>
       updateBoardObjectPosition(currentObjects, id, x, y)
     );
   };
 
   const updateObjectLabel = (id: string, label: string) => {
-    setObjects((currentObjects) =>
+    applyBoardObjectsUpdate((currentObjects) =>
       updateBoardObjectLabel(currentObjects, id, label)
     );
   };
@@ -386,7 +400,7 @@ export default function BoardStage({
       return;
     }
 
-    setObjects((currentObjects) =>
+    applyBoardObjectsUpdate((currentObjects) =>
       appendImageStrokePointInObjects(
         currentObjects,
         imageId,
@@ -455,7 +469,7 @@ export default function BoardStage({
       textColor: "#f8fafc",
     };
 
-    setObjects((currentObjects) => [...currentObjects, newToken]);
+    addBoardObject(newToken);
     setSelectedObjectId(newToken.id);
   };
 
@@ -475,7 +489,7 @@ export default function BoardStage({
       textColor: "#0f172a",
     };
 
-    setObjects((currentObjects) => [...currentObjects, newNote]);
+    addBoardObject(newNote);
     setSelectedObjectId(newNote.id);
   };
 
@@ -540,7 +554,7 @@ export default function BoardStage({
           size: { width, height },
         });
 
-        setObjects((currentObjects) => [...currentObjects, newImage]);
+        addBoardObject(newImage);
         setSelectedObjectId(newImage.id);
       };
 
@@ -556,7 +570,7 @@ export default function BoardStage({
       window.innerHeight
     );
 
-    setObjects(initialObjects);
+    replaceBoardObjects(initialObjects);
     setStagePosition({ x: defaultViewport.x, y: defaultViewport.y });
     setStageScale(defaultViewport.scale);
     setSelectedObjectId(null);
@@ -1299,7 +1313,7 @@ export default function BoardStage({
                         return;
                       }
 
-                      setObjects((currentObjects) =>
+                      applyBoardObjectsUpdate((currentObjects) =>
                         currentObjects.map((currentObject) => {
                           if (
                             currentObject.id !== object.id ||
@@ -1416,7 +1430,7 @@ export default function BoardStage({
                       node.scaleY(1);
                       node.draggable(true);
 
-                      setObjects((currentObjects) =>
+                      applyBoardObjectsUpdate((currentObjects) =>
                         currentObjects.map((currentObject) => {
                           if (
                             currentObject.id !== object.id ||
