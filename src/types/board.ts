@@ -1,4 +1,4 @@
-export type BoardObjectKind = "image" | "card" | "token";
+export type BoardObjectKind = "image" | "text-card" | "token";
 
 export type BoardObject = {
   id: string;
