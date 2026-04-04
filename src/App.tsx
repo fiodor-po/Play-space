@@ -55,15 +55,16 @@ export default function App() {
         return currentSession;
       }
 
+      const participantId = currentSession.id;
       const nextSession = updater(currentSession);
       saveLocalParticipantSession(roomId, nextSession);
       setParticipantPresences((currentPresences) => {
-        const currentPresence = currentPresences[nextSession.id];
+        const currentPresence = currentPresences[participantId];
 
         if (currentPresence) {
           return {
             ...currentPresences,
-            [nextSession.id]: {
+            [participantId]: {
               ...currentPresence,
               name: nextSession.name,
               color: nextSession.color,
@@ -73,7 +74,10 @@ export default function App() {
 
         return {
           ...currentPresences,
-          [nextSession.id]: createLocalParticipantPresence(nextSession),
+          [participantId]: {
+            ...createLocalParticipantPresence(nextSession),
+            participantId,
+          },
         };
       });
       return nextSession;
