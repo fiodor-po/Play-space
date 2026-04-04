@@ -12,13 +12,21 @@ import {
 import type Konva from "konva";
 import { initialObjects } from "../data/initialBoard";
 import {
+  appendImageStrokePointInObjects,
+  clearImageStrokesInObjects,
+  createImageObject,
+  DEFAULT_IMAGE_STROKE_WIDTH,
+  getImageStorageScale,
+  getInitialImageDisplaySize,
+} from "../lib/boardImage";
+import {
   clearBoardStorage,
   loadBoardObjects,
   loadViewportState,
   saveBoardObjects,
   saveViewportState,
 } from "../lib/storage";
-import type { BoardObject, BoardObjectKind, ImageStroke } from "../types/board";
+import type { BoardObject, BoardObjectKind } from "../types/board";
 
 const BOARD_WIDTH = 4000;
 const BOARD_HEIGHT = 3000;
@@ -37,7 +45,6 @@ const MAX_UPLOADED_IMAGE_SOURCE_DIMENSION = 1600;
 const MAX_INITIAL_IMAGE_DISPLAY_WIDTH = 360;
 const MAX_INITIAL_IMAGE_DISPLAY_HEIGHT = 240;
 const DEFAULT_CURRENT_USER_COLOR = "#0f766e";
-const IMAGE_STROKE_WIDTH = 4;
 
 const objectLayerOrder: Record<BoardObjectKind, number> = {
   image: 0,
@@ -208,11 +215,7 @@ export default function BoardStage() {
         event.preventDefault();
         endImageStroke();
         setObjects((currentObjects) =>
-          currentObjects.map((object) =>
-            object.id === drawingImageId && object.kind === "image"
-              ? { ...object, imageStrokes: [] }
-              : object
-          )
+          clearImageStrokesInObjects(currentObjects, drawingImageId)
         );
         return;
       }
@@ -269,29 +272,6 @@ export default function BoardStage() {
     );
   };
 
-  const updateImageStroke = (
-    id: string,
-    strokeIndex: number,
-    updater: (stroke: ImageStroke) => ImageStroke
-  ) => {
-    setObjects((currentObjects) =>
-      currentObjects.map((object) => {
-        if (object.id !== id || object.kind !== "image") {
-          return object;
-        }
-
-        const imageStrokes = object.imageStrokes ?? [];
-
-        return {
-          ...object,
-          imageStrokes: imageStrokes.map((stroke, index) =>
-            index === strokeIndex ? updater(stroke) : stroke
-          ),
-        };
-      })
-    );
-  };
-
   const appendStrokePoint = (imageId: string, point: { x: number; y: number }) => {
     const activeStroke = activeImageStrokeRef.current;
 
@@ -299,10 +279,14 @@ export default function BoardStage() {
       return;
     }
 
-    updateImageStroke(imageId, activeStroke.strokeIndex, (stroke) => ({
-      ...stroke,
-      points: [...stroke.points, point.x, point.y],
-    }));
+    setObjects((currentObjects) =>
+      appendImageStrokePointInObjects(
+        currentObjects,
+        imageId,
+        activeStroke.strokeIndex,
+        point
+      )
+    );
   };
 
   const endImageStroke = () => {
@@ -405,23 +389,19 @@ export default function BoardStage() {
 
       image.onload = () => {
         const spawnPosition = position ?? getViewportCenterInBoardCoords();
-        const displayScale = Math.min(
-          1,
-          MAX_INITIAL_IMAGE_DISPLAY_WIDTH / image.naturalWidth,
-          MAX_INITIAL_IMAGE_DISPLAY_HEIGHT / image.naturalHeight
+        const { width, height } = getInitialImageDisplaySize(
+          image.naturalWidth,
+          image.naturalHeight,
+          {
+            maxWidth: MAX_INITIAL_IMAGE_DISPLAY_WIDTH,
+            maxHeight: MAX_INITIAL_IMAGE_DISPLAY_HEIGHT,
+            minSize: MIN_IMAGE_SIZE,
+          }
         );
-        const width = Math.max(
-          Math.round(image.naturalWidth * displayScale),
-          MIN_IMAGE_SIZE
-        );
-        const height = Math.max(
-          Math.round(image.naturalHeight * displayScale),
-          MIN_IMAGE_SIZE
-        );
-        const storageScale = Math.min(
-          1,
-          MAX_UPLOADED_IMAGE_SOURCE_DIMENSION / image.naturalWidth,
-          MAX_UPLOADED_IMAGE_SOURCE_DIMENSION / image.naturalHeight
+        const storageScale = getImageStorageScale(
+          image.naturalWidth,
+          image.naturalHeight,
+          MAX_UPLOADED_IMAGE_SOURCE_DIMENSION
         );
         let src = originalSrc;
 
@@ -444,19 +424,14 @@ export default function BoardStage() {
 
         setLoadedImages((current) => ({ ...current, [src]: image }));
 
-        const newImage: BoardObject = {
+        const newImage: BoardObject = createImageObject({
           id: `image-${crypto.randomUUID()}`,
-          kind: "image",
-          x: spawnPosition.x - width / 2,
-          y: spawnPosition.y - height / 2,
-          width,
-          height,
-          fill: "#64748b",
           label: file.name,
           authorColor: currentUserColor,
           src,
-          textColor: "#0f172a",
-        };
+          position: spawnPosition,
+          size: { width, height },
+        });
 
         setObjects((currentObjects) => [...currentObjects, newImage]);
         setSelectedObjectId(newImage.id);
@@ -954,7 +929,7 @@ export default function BoardStage() {
                               {
                                 color: currentUserColor,
                                 points: [point.x, point.y],
-                                width: IMAGE_STROKE_WIDTH,
+                                width: DEFAULT_IMAGE_STROKE_WIDTH,
                               },
                             ],
                           };
@@ -1068,7 +1043,9 @@ export default function BoardStage() {
                               points: stroke.points.map((point, index) =>
                                 index % 2 === 0 ? point * scaleX : point * scaleY
                               ),
-                              width: (stroke.width ?? IMAGE_STROKE_WIDTH) * strokeWidthScale,
+                              width:
+                                (stroke.width ?? DEFAULT_IMAGE_STROKE_WIDTH) *
+                                strokeWidthScale,
                             })),
                           };
                         })
@@ -1093,7 +1070,7 @@ export default function BoardStage() {
                         y={0}
                         points={stroke.points}
                         stroke={stroke.color}
-                        strokeWidth={stroke.width ?? IMAGE_STROKE_WIDTH}
+                        strokeWidth={stroke.width ?? DEFAULT_IMAGE_STROKE_WIDTH}
                         lineCap="round"
                         lineJoin="round"
                         listening={false}
