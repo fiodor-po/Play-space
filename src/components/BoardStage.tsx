@@ -726,9 +726,35 @@ export default function BoardStage({
         participantId: presence.participantId,
         left: stagePosition.x + presence.cursor!.x * stageScale,
         top: stagePosition.y + presence.cursor!.y * stageScale,
+        name: presence.name || "Participant",
         color: presence.color,
       }));
   }, [participantPresences, stagePosition.x, stagePosition.y, stageScale]);
+
+  const cursorOverlayStyle = {
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+    transform: "translate(-6px, -6px)",
+    pointerEvents: "none" as const,
+    zIndex: 12,
+  };
+
+  const cursorLabelStyle = {
+    maxWidth: 140,
+    overflow: "hidden" as const,
+    textOverflow: "ellipsis" as const,
+    whiteSpace: "nowrap" as const,
+    padding: "3px 8px",
+    borderRadius: 999,
+    background: "rgba(15, 23, 42, 0.92)",
+    color: "#f8fafc",
+    boxShadow: "0 8px 24px rgba(2, 6, 23, 0.28)",
+    fontFamily: HTML_UI_FONT_FAMILY,
+    fontSize: 12,
+    fontWeight: 600,
+    lineHeight: 1.2,
+  };
 
   return (
     <div
@@ -811,18 +837,30 @@ export default function BoardStage({
             position: "fixed",
             left: cursor.left,
             top: cursor.top,
-            width: 12,
-            height: 12,
-            marginLeft: -6,
-            marginTop: -6,
-            borderRadius: 999,
-            background: cursor.color,
-            border: "2px solid rgba(255, 255, 255, 0.92)",
-            boxShadow: "0 0 0 1px rgba(15, 23, 42, 0.35)",
-            pointerEvents: "none",
-            zIndex: 12,
+            ...cursorOverlayStyle,
           }}
-        />
+        >
+          <div
+            style={{
+              width: 12,
+              height: 12,
+              borderRadius: 999,
+              background: cursor.color,
+              border: "2px solid rgba(255, 255, 255, 0.92)",
+              boxShadow: "0 0 0 1px rgba(15, 23, 42, 0.35)",
+              flexShrink: 0,
+            }}
+          />
+          <div
+            style={{
+              ...cursorLabelStyle,
+              border: `1px solid ${cursor.color}`,
+            }}
+            title={cursor.name}
+          >
+            {cursor.name}
+          </div>
+        </div>
       ))}
 
       <div
