@@ -7,13 +7,18 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
+    "presence-server": "HOST=0.0.0.0 PORT=1234 y-websocket-server",
     "preview": "vite preview"
   },
   "dependencies": {
+    "@y/websocket-server": "^0.1.5",
     "konva": "^10.2.3",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
-    "react-konva": "^19.2.3"
+    "react-konva": "^19.2.3",
+    "ws": "^8.20.0",
+    "y-websocket": "^3.0.0",
+    "yjs": "^13.6.30"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",
