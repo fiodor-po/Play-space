@@ -209,6 +209,7 @@ export default function BoardStage({
     imageId: string;
     strokeIndex: number;
   } | null>(null);
+  const transformingImageSnapshotRef = useRef<Record<string, BoardObject>>({});
   const [loadedImages, setLoadedImages] = useState<Record<string, HTMLImageElement>>(
     {}
   );
@@ -384,6 +385,32 @@ export default function BoardStage({
         }),
       { syncSharedImageIds: [id] }
     );
+  };
+
+  const publishImageTransformPreview = (node: Konva.Image, snapshot: BoardObject) => {
+    if (snapshot.kind !== "image") {
+      return;
+    }
+
+    const scaleX = node.scaleX();
+    const scaleY = node.scaleY();
+    const strokeWidthScale = (Math.abs(scaleX) + Math.abs(scaleY)) / 2;
+
+    saveRoomImageObject(roomId, {
+      ...snapshot,
+      x: node.x(),
+      y: node.y(),
+      width: Math.max(snapshot.width * scaleX, MIN_IMAGE_SIZE),
+      height: Math.max(snapshot.height * scaleY, MIN_IMAGE_SIZE),
+      imageStrokes: (snapshot.imageStrokes ?? []).map((stroke) => ({
+        ...stroke,
+        points: stroke.points.map((point, index) =>
+          index % 2 === 0 ? point * scaleX : point * scaleY
+        ),
+        width:
+          (stroke.width ?? DEFAULT_IMAGE_STROKE_WIDTH) * strokeWidthScale,
+      })),
+    });
   };
 
   useEffect(() => {
@@ -1635,6 +1662,7 @@ export default function BoardStage({
                       event.cancelBubble = true;
                       setSelectedObjectId(object.id);
                       setTransformingImageId(object.id);
+                      transformingImageSnapshotRef.current[object.id] = object;
                       event.target.draggable(false);
                       syncImageStrokeLayerTransform(
                         object.id,
@@ -1653,6 +1681,16 @@ export default function BoardStage({
                         event.target.scaleX(),
                         event.target.scaleY()
                       );
+
+                      const snapshot =
+                        transformingImageSnapshotRef.current[object.id];
+
+                      if (snapshot) {
+                        publishImageTransformPreview(
+                          event.target as Konva.Image,
+                          snapshot
+                        );
+                      }
                     }}
                     onTransformEnd={(event) => {
                       event.cancelBubble = true;
@@ -1683,6 +1721,7 @@ export default function BoardStage({
                         strokeWidthScale
                       );
                       syncImageStrokeLayerTransform(object.id, node.x(), node.y(), 1, 1);
+                      delete transformingImageSnapshotRef.current[object.id];
                       setTransformingImageId(null);
                     }}
                   />
