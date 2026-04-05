@@ -43,6 +43,7 @@ import {
   subscribeToRoomTextCardObjects,
   subscribeToRoomTokenObjects,
 } from "../lib/storage";
+import { createClientId } from "../lib/id";
 import {
   PARTICIPANT_COLOR_OPTIONS,
   type LocalParticipantSession,
@@ -748,7 +749,7 @@ export default function BoardStage({
     const center = getViewportCenterInBoardCoords();
 
     const newToken: BoardObject = {
-      id: `token-${crypto.randomUUID()}`,
+      id: `token-${createClientId()}`,
       kind: "token",
       x: center.x - 70,
       y: center.y - 70,
@@ -768,7 +769,7 @@ export default function BoardStage({
     const center = getViewportCenterInBoardCoords();
 
     const newNote: BoardObject = {
-      id: `note-${crypto.randomUUID()}`,
+      id: `note-${createClientId()}`,
       kind: "text-card",
       x: center.x - 130,
       y: center.y - 90,
@@ -837,7 +838,7 @@ export default function BoardStage({
         setLoadedImages((current) => ({ ...current, [src]: image }));
 
         const newImage: BoardObject = createImageObject({
-          id: `image-${crypto.randomUUID()}`,
+          id: `image-${createClientId()}`,
           label: file.name,
           authorColor: currentUserColor,
           src,

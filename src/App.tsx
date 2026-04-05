@@ -1,24 +1,21 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import BoardStage from "./components/BoardStage";
 import {
-  createLocalParticipantPresenceMap,
+  createLocalParticipantPresence,
   getRoomIdFromLocation,
   loadLocalParticipantSession,
-  loadRoomParticipantPresences,
   PARTICIPANT_COLOR_OPTIONS,
-  removeRoomParticipantPresence,
   saveLocalParticipantSession,
-  saveRoomParticipantPresence,
-  syncParticipantPresenceWithSession,
-  subscribeToRoomParticipantPresences,
-  updateParticipantPresenceFromSession,
 } from "./lib/roomSession";
-import { useEffect } from "react";
+import { createClientId } from "./lib/id";
+import { createRoomPresenceConnection } from "./lib/roomPresenceRealtime";
 import type { FormEvent } from "react";
 import type {
   LocalParticipantSession,
+  ParticipantPresence,
   ParticipantPresenceMap,
 } from "./lib/roomSession";
+import type { RoomPresenceConnection } from "./lib/roomPresenceRealtime";
 
 export default function App() {
   const roomId = useMemo(() => getRoomIdFromLocation(window.location), []);
@@ -27,19 +24,15 @@ export default function App() {
       loadLocalParticipantSession(roomId)
     );
   const [participantPresences, setParticipantPresences] =
-    useState<ParticipantPresenceMap>(() => {
+    useState<ParticipantPresenceMap>({});
+  const [localParticipantPresence, setLocalParticipantPresence] =
+    useState<ParticipantPresence | null>(() => {
       const session = loadLocalParticipantSession(roomId);
-      const sharedPresences = loadRoomParticipantPresences(roomId);
-
-      return session
-        ? {
-            ...sharedPresences,
-            ...createLocalParticipantPresenceMap(session),
-          }
-        : sharedPresences;
+      return session ? createLocalParticipantPresence(session) : null;
     });
   const [draftName, setDraftName] = useState("");
   const [draftColor, setDraftColor] = useState(PARTICIPANT_COLOR_OPTIONS[0]);
+  const roomPresenceConnectionRef = useRef<RoomPresenceConnection | null>(null);
 
   const joinRoom = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -51,14 +44,14 @@ export default function App() {
     }
 
     const nextSession: LocalParticipantSession = {
-      id: crypto.randomUUID(),
+      id: createClientId(),
       name: trimmedName,
       color: draftColor,
     };
 
     saveLocalParticipantSession(roomId, nextSession);
     setParticipantSession(nextSession);
-    setParticipantPresences(createLocalParticipantPresenceMap(nextSession));
+    setLocalParticipantPresence(createLocalParticipantPresence(nextSession));
   };
 
   const updateParticipantSession = (updater: (session: LocalParticipantSession) => LocalParticipantSession) => {
@@ -70,81 +63,61 @@ export default function App() {
       const participantId = currentSession.id;
       const nextSession = updater(currentSession);
       saveLocalParticipantSession(roomId, nextSession);
-      setParticipantPresences((currentPresences) => {
-        return syncParticipantPresenceWithSession(
-          currentPresences,
-          participantId,
-          nextSession
-        );
-      });
+      setLocalParticipantPresence((currentPresence) =>
+        currentPresence
+          ? {
+              ...currentPresence,
+              participantId,
+              name: nextSession.name,
+              color: nextSession.color,
+            }
+          : {
+              ...createLocalParticipantPresence(nextSession),
+              participantId,
+            }
+      );
       return nextSession;
     });
   };
 
   useEffect(() => {
-    if (!participantSession) {
+    if (!participantSession?.id) {
+      roomPresenceConnectionRef.current?.destroy();
+      roomPresenceConnectionRef.current = null;
+      setParticipantPresences({});
       return;
     }
 
-    setParticipantPresences((currentPresences) =>
-      syncParticipantPresenceWithSession(
-        {
-          ...loadRoomParticipantPresences(roomId),
-          ...currentPresences,
-        },
-        participantSession.id,
-        participantSession
-      )
-    );
-
-    const unsubscribe = subscribeToRoomParticipantPresences(roomId, (sharedPresences) => {
-      setParticipantPresences((currentPresences) => {
-        const localPresence = currentPresences[participantSession.id];
-
-        return localPresence
-          ? {
-              ...sharedPresences,
-              [participantSession.id]: localPresence,
-            }
-          : sharedPresences;
-      });
+    const connection = createRoomPresenceConnection({
+      onPresencesChange: setParticipantPresences,
+      roomId,
     });
+    roomPresenceConnectionRef.current = connection;
 
     return () => {
-      unsubscribe();
+      if (roomPresenceConnectionRef.current === connection) {
+        roomPresenceConnectionRef.current = null;
+      }
+
+      connection.destroy();
     };
-  }, [participantSession, roomId]);
+  }, [participantSession?.id, roomId]);
 
   useEffect(() => {
     if (!participantSession) {
       return;
     }
 
-    const localPresence = participantPresences[participantSession.id];
+    const connection = roomPresenceConnectionRef.current;
 
-    if (!localPresence) {
-      removeRoomParticipantPresence(roomId, participantSession.id);
+    if (!connection) {
       return;
     }
 
-    saveRoomParticipantPresence(roomId, localPresence);
-  }, [participantPresences, participantSession, roomId]);
-
-  useEffect(() => {
-    if (!participantSession) {
-      return;
-    }
-
-    const handlePageHide = () => {
-      removeRoomParticipantPresence(roomId, participantSession.id);
-    };
-
-    window.addEventListener("pagehide", handlePageHide);
-
-    return () => {
-      window.removeEventListener("pagehide", handlePageHide);
-    };
-  }, [participantSession, roomId]);
+    connection.setLocalPresence(
+      localParticipantPresence ?? createLocalParticipantPresence(participantSession)
+    );
+  }, [localParticipantPresence, participantSession]);
 
   if (!participantSession) {
     return (
@@ -257,11 +230,9 @@ export default function App() {
       roomId={roomId}
       onUpdateParticipantSession={updateParticipantSession}
       onUpdateLocalPresence={(updater) => {
-        setParticipantPresences((currentPresences) =>
-          updateParticipantPresenceFromSession(
-            currentPresences,
-            participantSession,
-            (presence) => updater(presence)
+        setLocalParticipantPresence((currentPresence) =>
+          updater(
+            currentPresence ?? createLocalParticipantPresence(participantSession)
           )
         );
       }}
