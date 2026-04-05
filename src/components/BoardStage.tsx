@@ -89,6 +89,7 @@ type BoardStageProps = {
   participantSession: LocalParticipantSession;
   participantPresences: ParticipantPresenceMap;
   roomId: string;
+  onChangeRoom: (roomId: string) => void;
   onUpdateParticipantSession: (
     updater: (session: LocalParticipantSession) => LocalParticipantSession
   ) => void;
@@ -101,6 +102,7 @@ export default function BoardStage({
   participantSession,
   participantPresences,
   roomId,
+  onChangeRoom,
   onUpdateParticipantSession,
   onUpdateLocalPresence,
 }: BoardStageProps) {
@@ -1194,8 +1196,45 @@ export default function BoardStage({
           pointerEvents: "none",
         }}
       >
-        <div style={{ display: "grid", gap: 2, pointerEvents: "none" }}>
-          <div style={{ fontSize: 15, fontWeight: 700 }}>{roomId}</div>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+          }}
+        >
+          <div
+            style={{
+              fontSize: 15,
+              fontWeight: 700,
+              pointerEvents: "none",
+            }}
+          >
+            {roomId}
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              const nextRoomId = window.prompt("Room ID", roomId)?.trim();
+
+              if (nextRoomId) {
+                onChangeRoom(nextRoomId);
+              }
+            }}
+            style={{
+              padding: 0,
+              border: "none",
+              background: "transparent",
+              color: "#94a3b8",
+              fontSize: 12,
+              fontWeight: 600,
+              fontFamily: HTML_UI_FONT_FAMILY,
+              cursor: "pointer",
+              pointerEvents: "auto",
+            }}
+          >
+            Change
+          </button>
         </div>
 
         <div

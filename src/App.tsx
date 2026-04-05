@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import BoardStage from "./components/BoardStage";
 import {
   createLocalParticipantPresence,
@@ -18,7 +18,7 @@ import type {
 import type { RoomPresenceConnection } from "./lib/roomPresenceRealtime";
 
 export default function App() {
-  const roomId = useMemo(() => getRoomIdFromLocation(window.location), []);
+  const [roomId, setRoomId] = useState(() => getRoomIdFromLocation(window.location));
   const [participantSession, setParticipantSession] =
     useState<LocalParticipantSession | null>(() =>
       loadLocalParticipantSession(roomId)
@@ -33,6 +33,28 @@ export default function App() {
   const [draftName, setDraftName] = useState("");
   const [draftColor, setDraftColor] = useState(PARTICIPANT_COLOR_OPTIONS[0]);
   const roomPresenceConnectionRef = useRef<RoomPresenceConnection | null>(null);
+
+  useEffect(() => {
+    const handlePopState = () => {
+      setRoomId(getRoomIdFromLocation(window.location));
+    };
+
+    window.addEventListener("popstate", handlePopState);
+
+    return () => {
+      window.removeEventListener("popstate", handlePopState);
+    };
+  }, []);
+
+  useEffect(() => {
+    const nextSession = loadLocalParticipantSession(roomId);
+
+    setParticipantSession(nextSession);
+    setLocalParticipantPresence(
+      nextSession ? createLocalParticipantPresence(nextSession) : null
+    );
+    setParticipantPresences({});
+  }, [roomId]);
 
   const joinRoom = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -78,6 +100,19 @@ export default function App() {
       );
       return nextSession;
     });
+  };
+
+  const changeRoom = (nextRoomId: string) => {
+    const trimmedRoomId = nextRoomId.trim();
+
+    if (!trimmedRoomId || trimmedRoomId === roomId) {
+      return;
+    }
+
+    const nextUrl = new URL(window.location.href);
+    nextUrl.searchParams.set("room", trimmedRoomId);
+    window.history.pushState({}, "", nextUrl);
+    setRoomId(trimmedRoomId);
   };
 
   useEffect(() => {
@@ -228,6 +263,7 @@ export default function App() {
       participantSession={participantSession}
       participantPresences={participantPresences}
       roomId={roomId}
+      onChangeRoom={changeRoom}
       onUpdateParticipantSession={updateParticipantSession}
       onUpdateLocalPresence={(updater) => {
         setLocalParticipantPresence((currentPresence) =>
