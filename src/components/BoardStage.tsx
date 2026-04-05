@@ -1704,6 +1704,12 @@ export default function BoardStage({
                 }}
                 onDragMove={(event) => {
                   event.cancelBubble = true;
+
+                  if (object.kind !== "token") {
+                    return;
+                  }
+
+                  updateObjectPosition(object.id, event.target.x(), event.target.y());
                 }}
                 onDragEnd={(event) => {
                   event.cancelBubble = true;
