@@ -203,11 +203,15 @@ export default function BoardStage({
     null
   );
   const [drawingImageId, setDrawingImageId] = useState<string | null>(null);
+  const [draggingImageId, setDraggingImageId] = useState<string | null>(null);
   const [isEditingParticipantName, setIsEditingParticipantName] = useState(false);
   const [participantNameDraft, setParticipantNameDraft] = useState(
     participantSession.name
   );
   const [isColorPickerOpen, setIsColorPickerOpen] = useState(false);
+  const [remoteImagePreviewPositions, setRemoteImagePreviewPositions] = useState<
+    Record<string, { x: number; y: number }>
+  >({});
   const currentUserColor = participantSession.color;
 
   const textCardRefs = useRef<Record<string, Konva.Group | null>>({});
@@ -567,6 +571,7 @@ export default function BoardStage({
           ),
         ]);
       },
+      onImagePreviewPositionsChange: setRemoteImagePreviewPositions,
     });
     roomImageConnectionRef.current = connection;
 
@@ -1674,9 +1679,28 @@ export default function BoardStage({
             if (isImage) {
               const loadedImage = object.src ? loadedImages[object.src] : undefined;
               const isDrawing = drawingImageId === object.id;
+              const previewPosition = remoteImagePreviewPositions[object.id];
+              const isRemoteDragPreviewActive =
+                draggingImageId !== object.id &&
+                !!previewPosition &&
+                (previewPosition.x !== object.x || previewPosition.y !== object.y);
 
               return (
                 <Group key={object.id}>
+                  {isRemoteDragPreviewActive && (
+                    <Rect
+                      x={previewPosition.x}
+                      y={previewPosition.y}
+                      width={object.width}
+                      height={object.height}
+                      stroke={object.authorColor ?? "#94a3b8"}
+                      strokeWidth={3}
+                      dash={[10, 8]}
+                      opacity={0.85}
+                      listening={false}
+                    />
+                  )}
+
                   <KonvaImage
                     ref={(node) => {
                       imageRefs.current[object.id] = node;
@@ -1687,6 +1711,7 @@ export default function BoardStage({
                     width={object.width}
                     height={object.height}
                     fill={loadedImage ? undefined : object.fill}
+                    opacity={isRemoteDragPreviewActive ? 0.28 : 1}
                     shadowBlur={8}
                     draggable={!isDrawing && transformingImageId !== object.id}
                     onMouseDown={(event) => {
@@ -1729,6 +1754,7 @@ export default function BoardStage({
                     onDragStart={(event) => {
                       event.cancelBubble = true;
                       setSelectedObjectId(object.id);
+                      setDraggingImageId(object.id);
                       syncImageStrokeLayerPosition(
                         object.id,
                         event.target.x(),
@@ -1750,6 +1776,7 @@ export default function BoardStage({
                     }}
                     onDragEnd={(event) => {
                       event.cancelBubble = true;
+                      setDraggingImageId(null);
                       syncImageStrokeLayerPosition(
                         object.id,
                         event.target.x(),
