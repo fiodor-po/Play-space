@@ -42,6 +42,7 @@ import {
 } from "../lib/roomTokensRealtime";
 import {
   createRoomImageConnection,
+  type ImageDrawingLock,
   type RoomImageConnection,
 } from "../lib/roomImagesRealtime";
 import {
@@ -80,6 +81,87 @@ const objectLayerOrder: Record<BoardObjectKind, number> = {
   "text-card": 1,
   token: 2,
 };
+
+type SmallFloatingActionButtonProps = {
+  x: number;
+  y: number;
+  label: string;
+  tone?: "default" | "danger" | "primary";
+  onClick: () => void;
+};
+
+function SmallFloatingActionButton({
+  x,
+  y,
+  label,
+  tone = "default",
+  onClick,
+}: SmallFloatingActionButtonProps) {
+  const width = Math.max(44, label.length * 7 + 18);
+  const height = 28;
+  const toneStyles =
+    tone === "primary"
+      ? {
+          fill: "#2563eb",
+          stroke: "rgba(96, 165, 250, 0.6)",
+          textColor: "#f8fafc",
+        }
+      : tone === "danger"
+        ? {
+            fill: "#450a0a",
+            stroke: "rgba(248, 113, 113, 0.5)",
+            textColor: "#fecaca",
+          }
+        : {
+            fill: "#0f172a",
+            stroke: "rgba(148, 163, 184, 0.35)",
+            textColor: "#f8fafc",
+          };
+
+  return (
+    <Group
+      x={x}
+      y={y}
+      onMouseDown={(event) => {
+        event.cancelBubble = true;
+      }}
+      onTouchStart={(event) => {
+        event.cancelBubble = true;
+      }}
+      onClick={(event) => {
+        event.cancelBubble = true;
+        onClick();
+      }}
+      onTap={(event) => {
+        event.cancelBubble = true;
+        onClick();
+      }}
+    >
+      <Rect
+        width={width}
+        height={height}
+        cornerRadius={999}
+        fill={toneStyles.fill}
+        stroke={toneStyles.stroke}
+        strokeWidth={1}
+        shadowBlur={8}
+        shadowColor="rgba(2, 6, 23, 0.3)"
+      />
+      <Text
+        x={0}
+        y={7}
+        width={width}
+        align="center"
+        text={label}
+        fontSize={12}
+        fontStyle="bold"
+        fontFamily={HTML_UI_FONT_FAMILY}
+        fill={toneStyles.textColor}
+        listening={false}
+      />
+    </Group>
+  );
+}
 
 function getDefaultViewport(width: number, height: number) {
   return {
@@ -152,6 +234,7 @@ export default function BoardStage({
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const imageInputRef = useRef<HTMLInputElement | null>(null);
   const sessionPanelRef = useRef<HTMLDivElement | null>(null);
+  const stageWrapperRef = useRef<HTMLDivElement | null>(null);
   const [stageSize, setStageSize] = useState({
     width: window.innerWidth,
     height: window.innerHeight,
@@ -216,6 +299,11 @@ export default function BoardStage({
   const [remoteImagePreviewPositions, setRemoteImagePreviewPositions] = useState<
     Record<string, { x: number; y: number; width?: number; height?: number }>
   >({});
+  const [remoteImageDrawingLocks, setRemoteImageDrawingLocks] = useState<
+    Record<string, ImageDrawingLock>
+  >({});
+  const [liveSelectedImageActionPosition, setLiveSelectedImageActionPosition] =
+    useState<{ imageId: string; x: number; y: number } | null>(null);
   const currentUserColor = participantSession.color;
 
   const textCardRefs = useRef<Record<string, Konva.Group | null>>({});
@@ -352,6 +440,41 @@ export default function BoardStage({
     );
   };
 
+  const releaseImageDrawingLock = () => {
+    roomImageConnectionRef.current?.setActiveDrawingImage(null);
+  };
+
+  const getImageDrawingLock = (imageId: string) => {
+    return remoteImageDrawingLocks[imageId] ?? null;
+  };
+
+  const isImageLockedByAnotherParticipant = (imageId: string) => {
+    const lock = getImageDrawingLock(imageId);
+
+    return !!lock && lock.participantId !== participantSession.id;
+  };
+
+  const startImageDrawingMode = (imageId: string) => {
+    if (isImageLockedByAnotherParticipant(imageId)) {
+      return;
+    }
+
+    setSelectedObjectId(imageId);
+    setDrawingImageId(imageId);
+    roomImageConnectionRef.current?.setActiveDrawingImage({
+      imageId,
+      participantId: participantSession.id,
+      participantName: participantSession.name,
+      participantColor: participantSession.color,
+    });
+  };
+
+  const finishImageDrawingMode = () => {
+    endImageStroke();
+    releaseImageDrawingLock();
+    setDrawingImageId(null);
+  };
+
   const startImageStroke = (
     id: string,
     point: { x: number; y: number },
@@ -459,6 +582,8 @@ export default function BoardStage({
     setEditingOriginal("");
     setDrawingImageId(null);
     setTransformingImageId(null);
+    setRemoteImageDrawingLocks({});
+    setLiveSelectedImageActionPosition(null);
     panStateRef.current = null;
   }, [roomId]);
 
@@ -568,6 +693,7 @@ export default function BoardStage({
         ]);
       },
       onImagePreviewPositionsChange: setRemoteImagePreviewPositions,
+      onImageDrawingLocksChange: setRemoteImageDrawingLocks,
     });
     roomImageConnectionRef.current = connection;
 
@@ -650,21 +776,12 @@ export default function BoardStage({
           target.tagName === "TEXTAREA" ||
           target.isContentEditable);
       const isEnterKey = event.key === "Enter";
-      const isBackspaceKey = event.key === "Backspace";
       const isEscapeKey = event.key === "Escape";
       const isDeleteKey = event.key === "Backspace" || event.key === "Delete";
 
-      if (isEnterKey && drawingImageId) {
+      if ((isEnterKey || isEscapeKey) && drawingImageId) {
         event.preventDefault();
-        endImageStroke();
-        setDrawingImageId(null);
-        return;
-      }
-
-      if (isBackspaceKey && drawingImageId) {
-        event.preventDefault();
-        endImageStroke();
-        clearImageDrawing(drawingImageId);
+        finishImageDrawingMode();
         return;
       }
 
@@ -804,6 +921,33 @@ export default function BoardStage({
     strokeLayer.position({ x, y });
     strokeLayer.scale({ x: scaleX, y: scaleY });
     strokeLayer.getLayer()?.batchDraw();
+  };
+
+  const getImageActionPositionFromBounds = (bounds: {
+    x: number;
+    y: number;
+    width: number;
+  }) => {
+    return {
+      x: bounds.x + bounds.width - 72,
+      y: bounds.y - 36,
+    };
+  };
+
+  const updateLiveSelectedImageActionPosition = (
+    imageId: string,
+    node: Konva.Image
+  ) => {
+    const bounds = node.getClientRect({
+      skipShadow: true,
+      skipStroke: true,
+      relativeTo: node.getLayer() ?? undefined,
+    });
+
+    setLiveSelectedImageActionPosition({
+      imageId,
+      ...getImageActionPositionFromBounds(bounds),
+    });
   };
 
   const getViewportCenterInBoardCoords = () => {
@@ -1008,7 +1152,10 @@ export default function BoardStage({
     }
 
     const selectedImageNode =
-      selectedObjectId && !editingTextCardId && drawingImageId !== selectedObjectId
+      selectedObjectId &&
+      !editingTextCardId &&
+      drawingImageId !== selectedObjectId &&
+      !isImageLockedByAnotherParticipant(selectedObjectId)
         ? imageRefs.current[selectedObjectId] ?? null
         : null;
 
@@ -1019,18 +1166,121 @@ export default function BoardStage({
     }
 
     transformer.getLayer()?.batchDraw();
-  }, [drawingImageId, editingTextCardId, objects, selectedObjectId]);
+  }, [
+    drawingImageId,
+    editingTextCardId,
+    objects,
+    remoteImageDrawingLocks,
+    selectedObjectId,
+  ]);
 
   useEffect(() => {
     if (drawingImageId && drawingImageId !== selectedObjectId) {
-      setDrawingImageId(null);
       activeImageStrokeRef.current = null;
+      finishImageDrawingMode();
     }
   }, [drawingImageId, selectedObjectId]);
+
+  useEffect(() => {
+    if (!drawingImageId) {
+      return;
+    }
+
+    const lock = getImageDrawingLock(drawingImageId);
+
+    if (!lock || lock.participantId === participantSession.id) {
+      return;
+    }
+
+    finishImageDrawingMode();
+  }, [drawingImageId, participantSession.id, remoteImageDrawingLocks]);
+
+  useEffect(() => {
+    if (!drawingImageId) {
+      return;
+    }
+
+    const handlePointerDown = (event: MouseEvent | TouchEvent) => {
+      const target = event.target as Node | null;
+
+      if (!target) {
+        return;
+      }
+
+      if (stageWrapperRef.current?.contains(target)) {
+        return;
+      }
+
+      finishImageDrawingMode();
+    };
+
+    window.addEventListener("mousedown", handlePointerDown);
+    window.addEventListener("touchstart", handlePointerDown);
+
+    return () => {
+      window.removeEventListener("mousedown", handlePointerDown);
+      window.removeEventListener("touchstart", handlePointerDown);
+    };
+  }, [drawingImageId]);
+
+  useEffect(() => {
+    return () => {
+      releaseImageDrawingLock();
+    };
+  }, []);
 
   const editingTextCard = editingTextCardId
     ? objects.find((object) => object.id === editingTextCardId && object.kind === "text-card") ?? null
     : null;
+  const selectedImageObject =
+    selectedObjectId && !editingTextCardId
+      ? objects.find(
+          (object) => object.id === selectedObjectId && object.kind === "image"
+        ) ?? null
+      : null;
+  const selectedImageLock = selectedImageObject
+    ? getImageDrawingLock(selectedImageObject.id)
+    : null;
+  const isSelectedImageLockedByAnotherParticipant =
+    !!selectedImageLock &&
+    selectedImageLock.participantId !== participantSession.id;
+  const selectedImageBaseActionPosition = useMemo(() => {
+    if (!selectedImageObject) {
+      return null;
+    }
+
+    return getImageActionPositionFromBounds({
+      x: selectedImageObject.x,
+      y: selectedImageObject.y,
+      width: selectedImageObject.width,
+    });
+  }, [selectedImageObject]);
+  const selectedImageActionPosition =
+    selectedImageObject &&
+    liveSelectedImageActionPosition?.imageId === selectedImageObject.id
+      ? {
+          x: liveSelectedImageActionPosition.x,
+          y: liveSelectedImageActionPosition.y,
+        }
+      : selectedImageBaseActionPosition;
+
+  useEffect(() => {
+    if (!selectedImageObject) {
+      setLiveSelectedImageActionPosition(null);
+      return;
+    }
+
+    if (
+      draggingImageId === selectedImageObject.id ||
+      transformingImageId === selectedImageObject.id
+    ) {
+      return;
+    }
+
+    setLiveSelectedImageActionPosition((current) =>
+      current?.imageId === selectedImageObject.id ? null : current
+    );
+  }, [draggingImageId, selectedImageObject, transformingImageId]);
 
   const editingTextareaStyle = useMemo(() => {
     if (!editingTextCard) {
@@ -1102,7 +1352,10 @@ export default function BoardStage({
 
   const participantCursorScreenPositions = useMemo(() => {
     return Object.values(participantPresences)
-      .filter((presence) => presence.cursor)
+      .filter(
+        (presence) =>
+          presence.cursor && presence.participantId !== participantSession.id
+      )
       .map((presence) => ({
         participantId: presence.participantId,
         left: stagePosition.x + presence.cursor!.x * stageScale,
@@ -1110,7 +1363,13 @@ export default function BoardStage({
         name: presence.name || "Participant",
         color: presence.color,
       }));
-  }, [participantPresences, stagePosition.x, stagePosition.y, stageScale]);
+  }, [
+    participantPresences,
+    participantSession.id,
+    stagePosition.x,
+    stagePosition.y,
+    stageScale,
+  ]);
 
   const cursorOverlayStyle = {
     display: "flex",
@@ -1525,20 +1784,24 @@ export default function BoardStage({
         }}
       />
 
-      <Stage
-        width={stageSize.width}
-        height={stageSize.height}
-        x={stagePosition.x}
-        y={stagePosition.y}
-        scaleX={stageScale}
-        scaleY={stageScale}
-        onMouseDown={(event) => {
+      <div ref={stageWrapperRef}>
+        <Stage
+          width={stageSize.width}
+          height={stageSize.height}
+          x={stagePosition.x}
+          y={stagePosition.y}
+          scaleX={stageScale}
+          scaleY={stageScale}
+          onMouseDown={(event) => {
           const stage = event.target.getStage();
           const pointer = stage?.getPointerPosition();
           const clickedOnEmptyStage =
             event.target === stage || event.target === boardBackgroundRef.current;
 
           if (clickedOnEmptyStage) {
+            if (drawingImageId) {
+              finishImageDrawingMode();
+            }
             setSelectedObjectId(null);
           }
 
@@ -1553,8 +1816,8 @@ export default function BoardStage({
             startStageX: stagePosition.x,
             startStageY: stagePosition.y,
           };
-        }}
-        onMouseMove={(event) => {
+          }}
+          onMouseMove={(event) => {
           const pointer = event.target.getStage()?.getPointerPosition();
           const panState = panStateRef.current;
 
@@ -1582,6 +1845,9 @@ export default function BoardStage({
             event.target === stage || event.target === boardBackgroundRef.current;
 
           if (touchedEmptyStage) {
+            if (drawingImageId) {
+              finishImageDrawingMode();
+            }
             setSelectedObjectId(null);
           }
 
@@ -1652,6 +1918,9 @@ export default function BoardStage({
             fill="#1e293b"
             cornerRadius={24}
             onMouseDown={() => {
+              if (drawingImageId) {
+                finishImageDrawingMode();
+              }
               setSelectedObjectId(null);
             }}
           />
@@ -1688,9 +1957,14 @@ export default function BoardStage({
             if (isImage) {
               const loadedImage = object.src ? loadedImages[object.src] : undefined;
               const isDrawing = drawingImageId === object.id;
+              const imageDrawingLock = getImageDrawingLock(object.id);
+              const isLockedByAnotherParticipant =
+                !!imageDrawingLock &&
+                imageDrawingLock.participantId !== participantSession.id;
               const previewPosition = remoteImagePreviewPositions[object.id];
               const isRemoteDragPreviewActive =
                 draggingImageId !== object.id &&
+                !isLockedByAnotherParticipant &&
                 transformingImageId !== object.id &&
                 !!previewPosition &&
                 (previewPosition.x !== object.x ||
@@ -1726,9 +2000,22 @@ export default function BoardStage({
                     fill={loadedImage ? undefined : object.fill}
                     opacity={isRemoteDragPreviewActive ? 0.28 : 1}
                     shadowBlur={8}
-                    draggable={!isDrawing && transformingImageId !== object.id}
+                    draggable={
+                      !isDrawing &&
+                      transformingImageId !== object.id &&
+                      !isLockedByAnotherParticipant
+                    }
                     onMouseDown={(event) => {
                       event.cancelBubble = true;
+
+                      if (drawingImageId && drawingImageId !== object.id) {
+                        finishImageDrawingMode();
+                      }
+
+                      if (isLockedByAnotherParticipant) {
+                        return;
+                      }
+
                       setSelectedObjectId(object.id);
 
                       if (!isDrawing) {
@@ -1744,7 +2031,7 @@ export default function BoardStage({
                       startImageStroke(object.id, point, currentUserColor);
                     }}
                     onMouseMove={(event) => {
-                      if (!isDrawing) {
+                      if (!isDrawing || isLockedByAnotherParticipant) {
                         return;
                       }
 
@@ -1759,15 +2046,24 @@ export default function BoardStage({
                     onMouseUp={() => {
                       endImageStroke();
                     }}
-                    onDblClick={(event) => {
-                      event.cancelBubble = true;
-                      setSelectedObjectId(object.id);
-                      setDrawingImageId(object.id);
-                    }}
                     onDragStart={(event) => {
                       event.cancelBubble = true;
+
+                      if (isLockedByAnotherParticipant) {
+                        event.target.stopDrag();
+                        return;
+                      }
+
+                      if (drawingImageId && drawingImageId !== object.id) {
+                        finishImageDrawingMode();
+                      }
+
                       setSelectedObjectId(object.id);
                       setDraggingImageId(object.id);
+                      updateLiveSelectedImageActionPosition(
+                        object.id,
+                        event.target as Konva.Image
+                      );
                       syncImageStrokeLayerPosition(
                         object.id,
                         event.target.x(),
@@ -1776,6 +2072,10 @@ export default function BoardStage({
                     }}
                     onDragMove={(event) => {
                       event.cancelBubble = true;
+                      updateLiveSelectedImageActionPosition(
+                        object.id,
+                        event.target as Konva.Image
+                      );
                       syncImageStrokeLayerPosition(
                         object.id,
                         event.target.x(),
@@ -1789,6 +2089,10 @@ export default function BoardStage({
                     }}
                     onDragEnd={(event) => {
                       event.cancelBubble = true;
+                      updateLiveSelectedImageActionPosition(
+                        object.id,
+                        event.target as Konva.Image
+                      );
                       setDraggingImageId(null);
                       syncImageStrokeLayerPosition(
                         object.id,
@@ -1799,10 +2103,23 @@ export default function BoardStage({
                     }}
                     onTransformStart={(event) => {
                       event.cancelBubble = true;
+
+                      if (isLockedByAnotherParticipant) {
+                        return;
+                      }
+
+                      if (drawingImageId && drawingImageId !== object.id) {
+                        finishImageDrawingMode();
+                      }
+
                       setSelectedObjectId(object.id);
                       setTransformingImageId(object.id);
                       transformingImageSnapshotRef.current[object.id] = object;
                       event.target.draggable(false);
+                      updateLiveSelectedImageActionPosition(
+                        object.id,
+                        event.target as Konva.Image
+                      );
                       syncImageStrokeLayerTransform(
                         object.id,
                         event.target.x(),
@@ -1813,6 +2130,10 @@ export default function BoardStage({
                     }}
                     onTransform={(event) => {
                       event.cancelBubble = true;
+                      updateLiveSelectedImageActionPosition(
+                        object.id,
+                        event.target as Konva.Image
+                      );
                       syncImageStrokeLayerTransform(
                         object.id,
                         event.target.x(),
@@ -1835,6 +2156,10 @@ export default function BoardStage({
                       event.cancelBubble = true;
 
                       const node = event.target;
+                      updateLiveSelectedImageActionPosition(
+                        object.id,
+                        node as Konva.Image
+                      );
                       const scaleX = node.scaleX();
                       const scaleY = node.scaleY();
                       const strokeWidthScale = (Math.abs(scaleX) + Math.abs(scaleY)) / 2;
@@ -2060,6 +2385,45 @@ export default function BoardStage({
             );
           })}
 
+          {selectedImageObject &&
+            selectedImageActionPosition &&
+            !isSelectedImageLockedByAnotherParticipant && (
+              <Group
+                x={selectedImageActionPosition.x}
+                y={selectedImageActionPosition.y}
+              >
+                <SmallFloatingActionButton
+                  x={0}
+                  y={0}
+                  label={drawingImageId === selectedImageObject.id ? "Save" : "Draw"}
+                  tone={
+                    drawingImageId === selectedImageObject.id ? "primary" : "default"
+                  }
+                  onClick={() => {
+                    if (drawingImageId === selectedImageObject.id) {
+                      finishImageDrawingMode();
+                      return;
+                    }
+
+                    startImageDrawingMode(selectedImageObject.id);
+                  }}
+                />
+
+                {drawingImageId !== selectedImageObject.id &&
+                  (selectedImageObject.imageStrokes?.length ?? 0) > 0 && (
+                    <SmallFloatingActionButton
+                      x={52}
+                      y={0}
+                      label="Clear"
+                      tone="danger"
+                      onClick={() => {
+                        clearImageDrawing(selectedImageObject.id);
+                      }}
+                    />
+                  )}
+              </Group>
+            )}
+
           <Transformer
             ref={imageTransformerRef}
             rotateEnabled={false}
@@ -2083,6 +2447,7 @@ export default function BoardStage({
           />
         </Layer>
       </Stage>
+      </div>
 
       {editingTextCard && editingTextareaStyle && (
         <textarea
