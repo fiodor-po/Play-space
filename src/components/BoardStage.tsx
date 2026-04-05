@@ -28,9 +28,12 @@ import {
 import {
   clearBoardStorage,
   loadBoardObjects,
+  loadRoomTokenObjects,
   loadViewportState,
   saveBoardObjects,
+  saveRoomTokenObjects,
   saveViewportState,
+  subscribeToRoomTokenObjects,
 } from "../lib/storage";
 import {
   PARTICIPANT_COLOR_OPTIONS,
@@ -92,6 +95,16 @@ export default function BoardStage({
   onUpdateParticipantSession,
   onUpdateLocalPresence,
 }: BoardStageProps) {
+  const getRoomScopedObjects = (nextRoomId: string) => {
+    const localObjects = loadBoardObjects(nextRoomId, initialObjects);
+    const sharedTokens = loadRoomTokenObjects(nextRoomId, localObjects);
+
+    return [
+      ...localObjects.filter((object) => object.kind !== "token"),
+      ...sharedTokens,
+    ];
+  };
+
   const containerRef = useRef<HTMLDivElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const imageInputRef = useRef<HTMLInputElement | null>(null);
@@ -140,7 +153,7 @@ export default function BoardStage({
   });
 
   const [objects, setObjects] = useState<BoardObject[]>(() =>
-    loadBoardObjects(roomId, initialObjects)
+    getRoomScopedObjects(roomId)
   );
 
   const [selectedObjectId, setSelectedObjectId] = useState<string | null>(null);
@@ -180,17 +193,39 @@ export default function BoardStage({
   );
 
   const applyBoardObjectsUpdate = (
-    updater: (currentObjects: BoardObject[]) => BoardObject[]
+    updater: (currentObjects: BoardObject[]) => BoardObject[],
+    options?: {
+      syncSharedTokens?: boolean;
+    }
   ) => {
-    setObjects(updater);
+    setObjects((currentObjects) => {
+      const nextObjects = updater(currentObjects);
+
+      if (options?.syncSharedTokens) {
+        saveRoomTokenObjects(roomId, nextObjects);
+      }
+
+      return nextObjects;
+    });
   };
 
-  const replaceBoardObjects = (nextObjects: BoardObject[]) => {
+  const replaceBoardObjects = (
+    nextObjects: BoardObject[],
+    options?: {
+      syncSharedTokens?: boolean;
+    }
+  ) => {
     setObjects(nextObjects);
+
+    if (options?.syncSharedTokens) {
+      saveRoomTokenObjects(roomId, nextObjects);
+    }
   };
 
   const addBoardObject = (object: BoardObject) => {
-    applyBoardObjectsUpdate((currentObjects) => [...currentObjects, object]);
+    applyBoardObjectsUpdate((currentObjects) => [...currentObjects, object], {
+      syncSharedTokens: object.kind === "token",
+    });
   };
 
   const updateBoardObject = (
@@ -203,8 +238,13 @@ export default function BoardStage({
   };
 
   const removeBoardObject = (id: string) => {
-    applyBoardObjectsUpdate((currentObjects) =>
-      removeBoardObjectById(currentObjects, id)
+    applyBoardObjectsUpdate(
+      (currentObjects) => removeBoardObjectById(currentObjects, id),
+      {
+        syncSharedTokens: objects.some(
+          (object) => object.id === id && object.kind === "token"
+        ),
+      }
     );
   };
 
@@ -285,7 +325,7 @@ export default function BoardStage({
       savedViewport.y !== 80 ||
       savedViewport.scale !== 1;
 
-    replaceBoardObjects(loadBoardObjects(roomId, initialObjects));
+    replaceBoardObjects(getRoomScopedObjects(roomId));
     setStagePosition(
       hasSavedViewport
         ? { x: savedViewport.x, y: savedViewport.y }
@@ -367,6 +407,19 @@ export default function BoardStage({
   useEffect(() => {
     saveBoardObjects(roomId, objects);
   }, [objects, roomId]);
+
+  useEffect(() => {
+    const unsubscribe = subscribeToRoomTokenObjects(roomId, (sharedTokens) => {
+      setObjects((currentObjects) => [
+        ...currentObjects.filter((object) => object.kind !== "token"),
+        ...sharedTokens,
+      ]);
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [roomId]);
 
   useEffect(() => {
     objects.forEach((object) => {
@@ -460,8 +513,13 @@ export default function BoardStage({
   }, [objects]);
 
   const updateObjectPosition = (id: string, x: number, y: number) => {
-    applyBoardObjectsUpdate((currentObjects) =>
-      updateBoardObjectPosition(currentObjects, id, x, y)
+    applyBoardObjectsUpdate(
+      (currentObjects) => updateBoardObjectPosition(currentObjects, id, x, y),
+      {
+        syncSharedTokens: objects.some(
+          (object) => object.id === id && object.kind === "token"
+        ),
+      }
     );
   };
 
@@ -648,7 +706,7 @@ export default function BoardStage({
       window.innerHeight
     );
 
-    replaceBoardObjects(initialObjects);
+    replaceBoardObjects(initialObjects, { syncSharedTokens: true });
     setStagePosition({ x: defaultViewport.x, y: defaultViewport.y });
     setStageScale(defaultViewport.scale);
     setSelectedObjectId(null);
