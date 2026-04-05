@@ -120,6 +120,10 @@ export default function BoardStage({
           localObject.id === sharedImage.id && localObject.kind === "image"
       );
 
+      if (localImage && transformingImageSnapshotRef.current[sharedImage.id]) {
+        return localImage;
+      }
+
       if (!localImage?.imageStrokes?.length) {
         return sharedImage;
       }
