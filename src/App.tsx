@@ -4,11 +4,16 @@ import {
   createLocalParticipantPresenceMap,
   getRoomIdFromLocation,
   loadLocalParticipantSession,
+  loadRoomParticipantPresences,
   PARTICIPANT_COLOR_OPTIONS,
+  removeRoomParticipantPresence,
   saveLocalParticipantSession,
+  saveRoomParticipantPresence,
   syncParticipantPresenceWithSession,
-  updateParticipantPresenceMap,
+  subscribeToRoomParticipantPresences,
+  updateParticipantPresenceFromSession,
 } from "./lib/roomSession";
+import { useEffect } from "react";
 import type { FormEvent } from "react";
 import type {
   LocalParticipantSession,
@@ -24,8 +29,14 @@ export default function App() {
   const [participantPresences, setParticipantPresences] =
     useState<ParticipantPresenceMap>(() => {
       const session = loadLocalParticipantSession(roomId);
+      const sharedPresences = loadRoomParticipantPresences(roomId);
 
-      return session ? createLocalParticipantPresenceMap(session) : {};
+      return session
+        ? {
+            ...sharedPresences,
+            ...createLocalParticipantPresenceMap(session),
+          }
+        : sharedPresences;
     });
   const [draftName, setDraftName] = useState("");
   const [draftColor, setDraftColor] = useState(PARTICIPANT_COLOR_OPTIONS[0]);
@@ -69,6 +80,71 @@ export default function App() {
       return nextSession;
     });
   };
+
+  useEffect(() => {
+    if (!participantSession) {
+      return;
+    }
+
+    setParticipantPresences((currentPresences) =>
+      syncParticipantPresenceWithSession(
+        {
+          ...loadRoomParticipantPresences(roomId),
+          ...currentPresences,
+        },
+        participantSession.id,
+        participantSession
+      )
+    );
+
+    const unsubscribe = subscribeToRoomParticipantPresences(roomId, (sharedPresences) => {
+      setParticipantPresences((currentPresences) => {
+        const localPresence = currentPresences[participantSession.id];
+
+        return localPresence
+          ? {
+              ...sharedPresences,
+              [participantSession.id]: localPresence,
+            }
+          : sharedPresences;
+      });
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [participantSession, roomId]);
+
+  useEffect(() => {
+    if (!participantSession) {
+      return;
+    }
+
+    const localPresence = participantPresences[participantSession.id];
+
+    if (!localPresence) {
+      removeRoomParticipantPresence(roomId, participantSession.id);
+      return;
+    }
+
+    saveRoomParticipantPresence(roomId, localPresence);
+  }, [participantPresences, participantSession, roomId]);
+
+  useEffect(() => {
+    if (!participantSession) {
+      return;
+    }
+
+    const handlePageHide = () => {
+      removeRoomParticipantPresence(roomId, participantSession.id);
+    };
+
+    window.addEventListener("pagehide", handlePageHide);
+
+    return () => {
+      window.removeEventListener("pagehide", handlePageHide);
+    };
+  }, [participantSession, roomId]);
 
   if (!participantSession) {
     return (
@@ -182,10 +258,10 @@ export default function App() {
       onUpdateParticipantSession={updateParticipantSession}
       onUpdateLocalPresence={(updater) => {
         setParticipantPresences((currentPresences) =>
-          updateParticipantPresenceMap(
+          updateParticipantPresenceFromSession(
             currentPresences,
-            participantSession.id,
-            updater
+            participantSession,
+            (presence) => updater(presence)
           )
         );
       }}

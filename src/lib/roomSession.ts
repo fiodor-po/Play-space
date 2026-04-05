@@ -24,6 +24,8 @@ export const PARTICIPANT_COLOR_OPTIONS = [
 ];
 
 const ROOM_SESSION_STORAGE_PREFIX = "play-space-alpha-room-session-v1";
+const ROOM_PRESENCE_STORAGE_PREFIX = "play-space-alpha-room-presence-v1";
+const PARTICIPANT_PRESENCE_STALE_MS = 30000;
 
 export function getRoomIdFromLocation(location: Location) {
   const searchRoomId = new URLSearchParams(location.search).get("room")?.trim();
@@ -42,7 +44,7 @@ export function getRoomIdFromLocation(location: Location) {
 }
 
 export function loadLocalParticipantSession(roomId: string) {
-  const raw = localStorage.getItem(getRoomSessionStorageKey(roomId));
+  const raw = sessionStorage.getItem(getRoomSessionStorageKey(roomId));
 
   if (!raw) {
     return null;
@@ -69,7 +71,10 @@ export function saveLocalParticipantSession(
   roomId: string,
   session: LocalParticipantSession
 ) {
-  localStorage.setItem(getRoomSessionStorageKey(roomId), JSON.stringify(session));
+  sessionStorage.setItem(
+    getRoomSessionStorageKey(roomId),
+    JSON.stringify(session)
+  );
 }
 
 export function createLocalParticipantPresence(
@@ -132,6 +137,96 @@ export function syncParticipantPresenceWithSession(
   );
 }
 
+export function updateParticipantPresenceFromSession(
+  presences: ParticipantPresenceMap,
+  session: LocalParticipantSession,
+  updater: (presence: ParticipantPresence) => ParticipantPresence | null
+): ParticipantPresenceMap {
+  const participantId = session.id;
+
+  return updateParticipantPresenceMap(presences, participantId, (presence) =>
+    updater(
+      presence ?? {
+        ...createLocalParticipantPresence(session),
+        participantId,
+      }
+    )
+  );
+}
+
+export function loadRoomParticipantPresences(roomId: string) {
+  const raw = localStorage.getItem(getRoomPresenceStorageKey(roomId));
+
+  if (!raw) {
+    return {} satisfies ParticipantPresenceMap;
+  }
+
+  try {
+    return pruneStaleParticipantPresences(
+      JSON.parse(raw) as ParticipantPresenceMap
+    );
+  } catch {
+    return {} satisfies ParticipantPresenceMap;
+  }
+}
+
+export function saveRoomParticipantPresence(
+  roomId: string,
+  presence: ParticipantPresence
+) {
+  const currentPresences = loadRoomParticipantPresences(roomId);
+
+  localStorage.setItem(
+    getRoomPresenceStorageKey(roomId),
+    JSON.stringify({
+      ...currentPresences,
+      [presence.participantId]: presence,
+    })
+  );
+}
+
+export function removeRoomParticipantPresence(roomId: string, participantId: string) {
+  const currentPresences = loadRoomParticipantPresences(roomId);
+  const { [participantId]: _removed, ...rest } = currentPresences;
+
+  localStorage.setItem(getRoomPresenceStorageKey(roomId), JSON.stringify(rest));
+}
+
+export function subscribeToRoomParticipantPresences(
+  roomId: string,
+  onChange: (presences: ParticipantPresenceMap) => void
+) {
+  const storageKey = getRoomPresenceStorageKey(roomId);
+
+  const handleStorage = (event: StorageEvent) => {
+    if (event.key !== storageKey) {
+      return;
+    }
+
+    onChange(loadRoomParticipantPresences(roomId));
+  };
+
+  window.addEventListener("storage", handleStorage);
+
+  return () => {
+    window.removeEventListener("storage", handleStorage);
+  };
+}
+
+function pruneStaleParticipantPresences(presences: ParticipantPresenceMap) {
+  const now = Date.now();
+
+  return Object.fromEntries(
+    Object.entries(presences).filter(([, presence]) => {
+      return now - presence.lastActiveAt <= PARTICIPANT_PRESENCE_STALE_MS;
+    })
+  ) as ParticipantPresenceMap;
+}
+
 function getRoomSessionStorageKey(roomId: string) {
   return `${ROOM_SESSION_STORAGE_PREFIX}:${roomId}`;
+}
+
+function getRoomPresenceStorageKey(roomId: string) {
+  return `${ROOM_PRESENCE_STORAGE_PREFIX}:${roomId}`;
 }
