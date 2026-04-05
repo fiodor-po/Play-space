@@ -33,9 +33,7 @@ import {
   loadRoomTokenObjects,
   loadViewportState,
   saveBoardObjects,
-  saveRoomTextCardObjects,
   saveViewportState,
-  subscribeToRoomTextCardObjects,
 } from "../lib/storage";
 import { createClientId } from "../lib/id";
 import {
@@ -46,6 +44,10 @@ import {
   createRoomImageConnection,
   type RoomImageConnection,
 } from "../lib/roomImagesRealtime";
+import {
+  createRoomTextCardConnection,
+  type RoomTextCardConnection,
+} from "../lib/roomTextCardsRealtime";
 import {
   PARTICIPANT_COLOR_OPTIONS,
   type LocalParticipantSession,
@@ -131,7 +133,6 @@ export default function BoardStage({
 
   const getRoomScopedObjects = (nextRoomId: string) => {
     const localObjects = loadBoardObjects(nextRoomId, initialObjects);
-    const sharedTextCards = loadRoomTextCardObjects(nextRoomId, localObjects);
 
     return [
       ...localObjects.filter(
@@ -140,7 +141,6 @@ export default function BoardStage({
           object.kind !== "image" &&
           object.kind !== "text-card"
       ),
-      ...sharedTextCards,
     ];
   };
 
@@ -234,6 +234,7 @@ export default function BoardStage({
   const transformingImageSnapshotRef = useRef<Record<string, BoardObject>>({});
   const roomTokenConnectionRef = useRef<RoomTokenConnection | null>(null);
   const roomImageConnectionRef = useRef<RoomImageConnection | null>(null);
+  const roomTextCardConnectionRef = useRef<RoomTextCardConnection | null>(null);
   const [loadedImages, setLoadedImages] = useState<Record<string, HTMLImageElement>>(
     {}
   );
@@ -274,7 +275,7 @@ export default function BoardStage({
       }
 
       if (options?.syncSharedTextCards) {
-        saveRoomTextCardObjects(roomId, nextObjects);
+        roomTextCardConnectionRef.current?.replaceTextCards(nextObjects);
       }
 
       return nextObjects;
@@ -300,7 +301,7 @@ export default function BoardStage({
     }
 
     if (options?.syncSharedTextCards) {
-      saveRoomTextCardObjects(roomId, nextObjects);
+      roomTextCardConnectionRef.current?.replaceTextCards(nextObjects);
     }
   };
 
@@ -590,15 +591,28 @@ export default function BoardStage({
   }, [roomId]);
 
   useEffect(() => {
-    const unsubscribe = subscribeToRoomTextCardObjects(roomId, (sharedTextCards) => {
-      setObjects((currentObjects) => [
-        ...currentObjects.filter((object) => object.kind !== "text-card"),
-        ...sharedTextCards,
-      ]);
+    const connection = createRoomTextCardConnection({
+      roomId,
+      onTextCardsChange: (sharedTextCards) => {
+        setObjects((currentObjects) => [
+          ...currentObjects.filter((object) => object.kind !== "text-card"),
+          ...sharedTextCards,
+        ]);
+      },
     });
+    roomTextCardConnectionRef.current = connection;
+
+    const legacyTextCards = loadRoomTextCardObjects(roomId);
+    if (legacyTextCards.length > 0) {
+      connection.seedTextCards(legacyTextCards);
+    }
 
     return () => {
-      unsubscribe();
+      if (roomTextCardConnectionRef.current === connection) {
+        roomTextCardConnectionRef.current = null;
+      }
+
+      connection.destroy();
     };
   }, [roomId]);
 
