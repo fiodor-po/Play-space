@@ -1556,6 +1556,7 @@ export default function BoardStage({
                         event.target.x(),
                         event.target.y()
                       );
+                      updateObjectPosition(object.id, event.target.x(), event.target.y());
                     }}
                     onDragEnd={(event) => {
                       event.cancelBubble = true;
