@@ -7,6 +7,10 @@ export type RoomImageConnection = {
   replaceImages: (images: BoardObject[]) => void;
   upsertImages: (images: BoardObject[]) => void;
   updateImagePosition: (imageId: string, x: number, y: number) => void;
+  updateImagePreviewBounds: (
+    imageId: string,
+    bounds: { x: number; y: number; width: number; height: number }
+  ) => void;
   removeImages: (imageIds: string[]) => void;
   seedImages: (images: BoardObject[]) => void;
 };
@@ -14,6 +18,12 @@ export type RoomImageConnection = {
 export function createRoomImageConnection(params: {
   roomId: string;
   onImagesChange: (images: BoardObject[]) => void;
+  onImagePreviewPositionsChange?: (
+    previewPositions: Record<
+      string,
+      { x: number; y: number; width?: number; height?: number }
+    >
+  ) => void;
   serverUrl?: string;
 }): RoomImageConnection {
   const doc = new Y.Doc();
@@ -33,10 +43,19 @@ export function createRoomImageConnection(params: {
   let pendingFrameId: number | null = null;
   const queuedUpserts = new Map<string, BoardObject>();
   const queuedRemovals = new Set<string>();
-  const queuedPositionUpdates = new Map<string, { x: number; y: number }>();
+  const queuedPositionUpdates = new Map<
+    string,
+    { x: number; y: number; width?: number; height?: number }
+  >();
 
   const publishImages = () => {
-    params.onImagesChange(getImagesFromMaps(imageMap, imagePositionMap));
+    params.onImagesChange(getImagesFromMap(imageMap));
+  };
+
+  const publishImagePreviewPositions = () => {
+    params.onImagePreviewPositionsChange?.(
+      getImagePreviewPositionsFromMap(imagePositionMap)
+    );
   };
 
   const flushQueuedUpdates = () => {
@@ -49,6 +68,7 @@ export function createRoomImageConnection(params: {
 
     queuedUpserts.forEach((image, imageId) => {
       imageMap.set(imageId, JSON.stringify(toSharedImage(image)));
+      imagePositionMap.delete(imageId);
     });
     queuedUpserts.clear();
 
@@ -92,10 +112,11 @@ export function createRoomImageConnection(params: {
   };
 
   imageMap.observe(publishImages);
-  imagePositionMap.observe(publishImages);
+  imagePositionMap.observe(publishImagePreviewPositions);
   provider.on("status", handleStatus);
   provider.on("sync", handleSync);
   publishImages();
+  publishImagePreviewPositions();
 
   return {
     destroy: () => {
@@ -105,7 +126,7 @@ export function createRoomImageConnection(params: {
       }
 
       imageMap.unobserve(publishImages);
-      imagePositionMap.unobserve(publishImages);
+      imagePositionMap.unobserve(publishImagePreviewPositions);
       provider.off("status", handleStatus);
       provider.off("sync", handleSync);
       provider.destroy();
@@ -145,6 +166,11 @@ export function createRoomImageConnection(params: {
       queuedPositionUpdates.set(imageId, { x, y });
       scheduleFlush();
     },
+    updateImagePreviewBounds: (imageId, bounds) => {
+      queuedRemovals.delete(imageId);
+      queuedPositionUpdates.set(imageId, bounds);
+      scheduleFlush();
+    },
     removeImages: (imageIds) => {
       imageIds.forEach((imageId) => {
         queuedUpserts.delete(imageId);
@@ -176,10 +202,7 @@ export function createRoomImageConnection(params: {
   };
 }
 
-function getImagesFromMaps(
-  imageMap: Y.Map<string>,
-  imagePositionMap: Y.Map<string>
-) {
+function getImagesFromMap(imageMap: Y.Map<string>) {
   const images: BoardObject[] = [];
 
   imageMap.forEach((value) => {
@@ -187,24 +210,7 @@ function getImagesFromMaps(
       const image = JSON.parse(value) as BoardObject;
 
       if (image.kind === "image") {
-        const position = imagePositionMap.get(image.id);
-
-        if (!position) {
-          images.push(image);
-          return;
-        }
-
-        try {
-          const parsedPosition = JSON.parse(position) as { x?: number; y?: number };
-
-          images.push({
-            ...image,
-            x: parsedPosition.x ?? image.x,
-            y: parsedPosition.y ?? image.y,
-          });
-        } catch {
-          images.push(image);
-        }
+        images.push(image);
       }
     } catch {
       return;
@@ -212,6 +218,35 @@ function getImagesFromMaps(
   });
 
   return images;
+}
+
+function getImagePreviewPositionsFromMap(imagePositionMap: Y.Map<string>) {
+  const previewPositions: Record<
+    string,
+    { x: number; y: number; width?: number; height?: number }
+  > = {};
+
+  imagePositionMap.forEach((value, imageId) => {
+    try {
+      const position = JSON.parse(value) as {
+        x?: number;
+        y?: number;
+        width?: number;
+        height?: number;
+      };
+
+      previewPositions[imageId] = {
+        x: position.x ?? 0,
+        y: position.y ?? 0,
+        width: position.width,
+        height: position.height,
+      };
+    } catch {
+      return;
+    }
+  });
+
+  return previewPositions;
 }
 
 function toSharedImage(image: BoardObject): BoardObject {

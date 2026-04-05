@@ -214,7 +214,7 @@ export default function BoardStage({
   );
   const [isColorPickerOpen, setIsColorPickerOpen] = useState(false);
   const [remoteImagePreviewPositions, setRemoteImagePreviewPositions] = useState<
-    Record<string, { x: number; y: number }>
+    Record<string, { x: number; y: number; width?: number; height?: number }>
   >({});
   const currentUserColor = participantSession.color;
 
@@ -421,27 +421,18 @@ export default function BoardStage({
       return;
     }
 
-    const scaleX = node.scaleX();
-    const scaleY = node.scaleY();
-    const strokeWidthScale = (Math.abs(scaleX) + Math.abs(scaleY)) / 2;
+    const bounds = node.getClientRect({
+      skipShadow: true,
+      skipStroke: true,
+      relativeTo: node.getLayer() ?? undefined,
+    });
 
-    roomImageConnectionRef.current?.upsertImages([
-      {
-        ...snapshot,
-        x: node.x(),
-        y: node.y(),
-        width: Math.max(snapshot.width * scaleX, MIN_IMAGE_SIZE),
-        height: Math.max(snapshot.height * scaleY, MIN_IMAGE_SIZE),
-        imageStrokes: (snapshot.imageStrokes ?? []).map((stroke) => ({
-          ...stroke,
-          points: stroke.points.map((point, index) =>
-            index % 2 === 0 ? point * scaleX : point * scaleY
-          ),
-          width:
-            (stroke.width ?? DEFAULT_IMAGE_STROKE_WIDTH) * strokeWidthScale,
-        })),
-      },
-    ]);
+    roomImageConnectionRef.current?.updateImagePreviewBounds(snapshot.id, {
+      x: bounds.x,
+      y: bounds.y,
+      width: bounds.width,
+      height: bounds.height,
+    });
   };
 
   useEffect(() => {
@@ -1700,8 +1691,12 @@ export default function BoardStage({
               const previewPosition = remoteImagePreviewPositions[object.id];
               const isRemoteDragPreviewActive =
                 draggingImageId !== object.id &&
+                transformingImageId !== object.id &&
                 !!previewPosition &&
-                (previewPosition.x !== object.x || previewPosition.y !== object.y);
+                (previewPosition.x !== object.x ||
+                  previewPosition.y !== object.y ||
+                  previewPosition.width !== undefined ||
+                  previewPosition.height !== undefined);
 
               return (
                 <Group key={object.id}>
@@ -1709,8 +1704,8 @@ export default function BoardStage({
                     <Rect
                       x={previewPosition.x}
                       y={previewPosition.y}
-                      width={object.width}
-                      height={object.height}
+                      width={previewPosition.width ?? object.width}
+                      height={previewPosition.height ?? object.height}
                       stroke={object.authorColor ?? "#94a3b8"}
                       strokeWidth={3}
                       dash={[10, 8]}
