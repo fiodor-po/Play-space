@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "presence-server": "HOST=0.0.0.0 PORT=1234 y-websocket-server",
+    "presence-server": "HOST=0.0.0.0 PORT=1234 node ./scripts/yjs-dev-server.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

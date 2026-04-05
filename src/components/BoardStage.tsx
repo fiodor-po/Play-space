@@ -37,13 +37,15 @@ import {
   saveRoomImageObjects,
   removeRoomImageObject,
   saveRoomTextCardObjects,
-  saveRoomTokenObjects,
   saveViewportState,
   subscribeToRoomImageObjects,
   subscribeToRoomTextCardObjects,
-  subscribeToRoomTokenObjects,
 } from "../lib/storage";
 import { createClientId } from "../lib/id";
+import {
+  createRoomTokenConnection,
+  type RoomTokenConnection,
+} from "../lib/roomTokensRealtime";
 import {
   PARTICIPANT_COLOR_OPTIONS,
   type LocalParticipantSession,
@@ -112,7 +114,6 @@ export default function BoardStage({
 
   const getRoomScopedObjects = (nextRoomId: string) => {
     const localObjects = loadBoardObjects(nextRoomId, initialObjects);
-    const sharedTokens = loadRoomTokenObjects(nextRoomId, localObjects);
     const sharedImages = loadRoomImageObjects(nextRoomId, localObjects);
     const sharedTextCards = loadRoomTextCardObjects(nextRoomId, localObjects);
 
@@ -125,7 +126,6 @@ export default function BoardStage({
       ),
       ...mergeSharedImages(sharedImages),
       ...sharedTextCards,
-      ...sharedTokens,
     ];
   };
 
@@ -213,6 +213,7 @@ export default function BoardStage({
     strokeIndex: number;
   } | null>(null);
   const transformingImageSnapshotRef = useRef<Record<string, BoardObject>>({});
+  const roomTokenConnectionRef = useRef<RoomTokenConnection | null>(null);
   const [loadedImages, setLoadedImages] = useState<Record<string, HTMLImageElement>>(
     {}
   );
@@ -231,7 +232,7 @@ export default function BoardStage({
       const nextObjects = updater(currentObjects);
 
       if (options?.syncSharedTokens) {
-        saveRoomTokenObjects(roomId, nextObjects);
+        roomTokenConnectionRef.current?.replaceTokens(nextObjects);
       }
 
       if (options?.syncSharedImages) {
@@ -271,7 +272,7 @@ export default function BoardStage({
     setObjects(nextObjects);
 
     if (options?.syncSharedTokens) {
-      saveRoomTokenObjects(roomId, nextObjects);
+      roomTokenConnectionRef.current?.replaceTokens(nextObjects);
     }
 
     if (options?.syncSharedImages) {
@@ -511,15 +512,28 @@ export default function BoardStage({
   }, [objects, roomId]);
 
   useEffect(() => {
-    const unsubscribe = subscribeToRoomTokenObjects(roomId, (sharedTokens) => {
-      setObjects((currentObjects) => [
-        ...currentObjects.filter((object) => object.kind !== "token"),
-        ...sharedTokens,
-      ]);
+    const connection = createRoomTokenConnection({
+      roomId,
+      onTokensChange: (sharedTokens) => {
+        setObjects((currentObjects) => [
+          ...currentObjects.filter((object) => object.kind !== "token"),
+          ...sharedTokens,
+        ]);
+      },
     });
+    roomTokenConnectionRef.current = connection;
+
+    const legacyTokens = loadRoomTokenObjects(roomId);
+    if (legacyTokens.length > 0) {
+      connection.seedTokens(legacyTokens);
+    }
 
     return () => {
-      unsubscribe();
+      if (roomTokenConnectionRef.current === connection) {
+        roomTokenConnectionRef.current = null;
+      }
+
+      connection.destroy();
     };
   }, [roomId]);
 
