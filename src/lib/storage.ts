@@ -3,6 +3,7 @@ import type { BoardObject, ViewportState } from "../types/board";
 export const BOARD_STORAGE_KEY = "play-space-alpha-board-v1";
 export const VIEWPORT_STORAGE_KEY = "play-space-alpha-viewport-v1";
 export const ROOM_TOKEN_STORAGE_KEY = "play-space-alpha-room-tokens-v1";
+export const ROOM_IMAGE_STORAGE_KEY = "play-space-alpha-room-images-v1";
 
 export function loadBoardObjects(roomId: string, fallback: BoardObject[]) {
   const raw = localStorage.getItem(getBoardStorageKey(roomId));
@@ -54,6 +55,7 @@ export function clearBoardStorage(roomId: string) {
   localStorage.removeItem(getBoardStorageKey(roomId));
   localStorage.removeItem(getViewportStorageKey(roomId));
   localStorage.removeItem(getRoomTokenStorageKey(roomId));
+  localStorage.removeItem(getRoomImageStorageKey(roomId));
 }
 
 export function loadRoomTokenObjects(
@@ -103,6 +105,60 @@ export function subscribeToRoomTokenObjects(
   };
 }
 
+export function loadRoomImageObjects(
+  roomId: string,
+  fallback: BoardObject[] = []
+) {
+  const raw = localStorage.getItem(getRoomImageStorageKey(roomId));
+
+  if (!raw) {
+    return fallback.filter((object) => object.kind === "image");
+  }
+
+  try {
+    return (JSON.parse(raw) as BoardObject[]).filter(
+      (object) => object.kind === "image"
+    );
+  } catch {
+    return fallback.filter((object) => object.kind === "image");
+  }
+}
+
+export function saveRoomImageObjects(roomId: string, objects: BoardObject[]) {
+  localStorage.setItem(
+    getRoomImageStorageKey(roomId),
+    JSON.stringify(
+      objects
+        .filter((object) => object.kind === "image")
+        .map((object) => {
+          const { imageStrokes: _imageStrokes, ...sharedImage } = object;
+          return sharedImage;
+        })
+    )
+  );
+}
+
+export function subscribeToRoomImageObjects(
+  roomId: string,
+  onChange: (objects: BoardObject[]) => void
+) {
+  const storageKey = getRoomImageStorageKey(roomId);
+
+  const handleStorage = (event: StorageEvent) => {
+    if (event.key !== storageKey) {
+      return;
+    }
+
+    onChange(loadRoomImageObjects(roomId));
+  };
+
+  window.addEventListener("storage", handleStorage);
+
+  return () => {
+    window.removeEventListener("storage", handleStorage);
+  };
+}
+
 function getBoardStorageKey(roomId: string) {
   return `${BOARD_STORAGE_KEY}:${roomId}`;
 }
@@ -113,4 +169,8 @@ function getViewportStorageKey(roomId: string) {
 
 function getRoomTokenStorageKey(roomId: string) {
   return `${ROOM_TOKEN_STORAGE_KEY}:${roomId}`;
+}
+
+function getRoomImageStorageKey(roomId: string) {
+  return `${ROOM_IMAGE_STORAGE_KEY}:${roomId}`;
 }

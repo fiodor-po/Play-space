@@ -28,11 +28,14 @@ import {
 import {
   clearBoardStorage,
   loadBoardObjects,
+  loadRoomImageObjects,
   loadRoomTokenObjects,
   loadViewportState,
   saveBoardObjects,
+  saveRoomImageObjects,
   saveRoomTokenObjects,
   saveViewportState,
+  subscribeToRoomImageObjects,
   subscribeToRoomTokenObjects,
 } from "../lib/storage";
 import {
@@ -95,12 +98,40 @@ export default function BoardStage({
   onUpdateParticipantSession,
   onUpdateLocalPresence,
 }: BoardStageProps) {
+  const mergeSharedImages = (
+    baseObjects: BoardObject[],
+    sharedImages: BoardObject[]
+  ) => {
+    const localImagesById = Object.fromEntries(
+      baseObjects
+        .filter((object) => object.kind === "image")
+        .map((object) => [object.id, object])
+    );
+
+    return sharedImages.map((sharedImage) => {
+      const localImage = localImagesById[sharedImage.id];
+
+      if (!localImage || localImage.kind !== "image") {
+        return sharedImage;
+      }
+
+      return {
+        ...sharedImage,
+        imageStrokes: localImage.imageStrokes,
+      };
+    });
+  };
+
   const getRoomScopedObjects = (nextRoomId: string) => {
     const localObjects = loadBoardObjects(nextRoomId, initialObjects);
     const sharedTokens = loadRoomTokenObjects(nextRoomId, localObjects);
+    const sharedImages = loadRoomImageObjects(nextRoomId, localObjects);
 
     return [
-      ...localObjects.filter((object) => object.kind !== "token"),
+      ...localObjects.filter(
+        (object) => object.kind !== "token" && object.kind !== "image"
+      ),
+      ...mergeSharedImages(localObjects, sharedImages),
       ...sharedTokens,
     ];
   };
@@ -196,6 +227,7 @@ export default function BoardStage({
     updater: (currentObjects: BoardObject[]) => BoardObject[],
     options?: {
       syncSharedTokens?: boolean;
+      syncSharedImages?: boolean;
     }
   ) => {
     setObjects((currentObjects) => {
@@ -203,6 +235,10 @@ export default function BoardStage({
 
       if (options?.syncSharedTokens) {
         saveRoomTokenObjects(roomId, nextObjects);
+      }
+
+      if (options?.syncSharedImages) {
+        saveRoomImageObjects(roomId, nextObjects);
       }
 
       return nextObjects;
@@ -213,6 +249,7 @@ export default function BoardStage({
     nextObjects: BoardObject[],
     options?: {
       syncSharedTokens?: boolean;
+      syncSharedImages?: boolean;
     }
   ) => {
     setObjects(nextObjects);
@@ -220,11 +257,16 @@ export default function BoardStage({
     if (options?.syncSharedTokens) {
       saveRoomTokenObjects(roomId, nextObjects);
     }
+
+    if (options?.syncSharedImages) {
+      saveRoomImageObjects(roomId, nextObjects);
+    }
   };
 
   const addBoardObject = (object: BoardObject) => {
     applyBoardObjectsUpdate((currentObjects) => [...currentObjects, object], {
       syncSharedTokens: object.kind === "token",
+      syncSharedImages: object.kind === "image",
     });
   };
 
@@ -243,6 +285,9 @@ export default function BoardStage({
       {
         syncSharedTokens: objects.some(
           (object) => object.id === id && object.kind === "token"
+        ),
+        syncSharedImages: objects.some(
+          (object) => object.id === id && object.kind === "image"
         ),
       }
     );
@@ -291,27 +336,31 @@ export default function BoardStage({
     scale: { x: number; y: number },
     strokeWidthScale: number
   ) => {
-    updateBoardObject(id, (object) => {
-      if (object.kind !== "image") {
-        return object;
-      }
+    applyBoardObjectsUpdate(
+      (currentObjects) =>
+        updateBoardObjectById(currentObjects, id, (object) => {
+          if (object.kind !== "image") {
+            return object;
+          }
 
-      return {
-        ...object,
-        x: nextBounds.x,
-        y: nextBounds.y,
-        width: nextBounds.width,
-        height: nextBounds.height,
-        imageStrokes: (object.imageStrokes ?? []).map((stroke) => ({
-          ...stroke,
-          points: stroke.points.map((point, index) =>
-            index % 2 === 0 ? point * scale.x : point * scale.y
-          ),
-          width:
-            (stroke.width ?? DEFAULT_IMAGE_STROKE_WIDTH) * strokeWidthScale,
-        })),
-      };
-    });
+          return {
+            ...object,
+            x: nextBounds.x,
+            y: nextBounds.y,
+            width: nextBounds.width,
+            height: nextBounds.height,
+            imageStrokes: (object.imageStrokes ?? []).map((stroke) => ({
+              ...stroke,
+              points: stroke.points.map((point, index) =>
+                index % 2 === 0 ? point * scale.x : point * scale.y
+              ),
+              width:
+                (stroke.width ?? DEFAULT_IMAGE_STROKE_WIDTH) * strokeWidthScale,
+            })),
+          };
+        }),
+      { syncSharedImages: true }
+    );
   };
 
   useEffect(() => {
@@ -422,6 +471,19 @@ export default function BoardStage({
   }, [roomId]);
 
   useEffect(() => {
+    const unsubscribe = subscribeToRoomImageObjects(roomId, (sharedImages) => {
+      setObjects((currentObjects) => [
+        ...currentObjects.filter((object) => object.kind !== "image"),
+        ...mergeSharedImages(currentObjects, sharedImages),
+      ]);
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [roomId]);
+
+  useEffect(() => {
     objects.forEach((object) => {
       if (object.kind !== "image" || !object.src || loadedImages[object.src]) {
         return;
@@ -518,6 +580,9 @@ export default function BoardStage({
       {
         syncSharedTokens: objects.some(
           (object) => object.id === id && object.kind === "token"
+        ),
+        syncSharedImages: objects.some(
+          (object) => object.id === id && object.kind === "image"
         ),
       }
     );
@@ -706,7 +771,10 @@ export default function BoardStage({
       window.innerHeight
     );
 
-    replaceBoardObjects(initialObjects, { syncSharedTokens: true });
+    replaceBoardObjects(initialObjects, {
+      syncSharedTokens: true,
+      syncSharedImages: true,
+    });
     setStagePosition({ x: defaultViewport.x, y: defaultViewport.y });
     setStageScale(defaultViewport.scale);
     setSelectedObjectId(null);
