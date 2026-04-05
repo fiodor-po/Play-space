@@ -29,13 +29,16 @@ import {
   clearBoardStorage,
   loadBoardObjects,
   loadRoomImageObjects,
+  loadRoomTextCardObjects,
   loadRoomTokenObjects,
   loadViewportState,
   saveBoardObjects,
   saveRoomImageObjects,
+  saveRoomTextCardObjects,
   saveRoomTokenObjects,
   saveViewportState,
   subscribeToRoomImageObjects,
+  subscribeToRoomTextCardObjects,
   subscribeToRoomTokenObjects,
 } from "../lib/storage";
 import {
@@ -126,12 +129,17 @@ export default function BoardStage({
     const localObjects = loadBoardObjects(nextRoomId, initialObjects);
     const sharedTokens = loadRoomTokenObjects(nextRoomId, localObjects);
     const sharedImages = loadRoomImageObjects(nextRoomId, localObjects);
+    const sharedTextCards = loadRoomTextCardObjects(nextRoomId, localObjects);
 
     return [
       ...localObjects.filter(
-        (object) => object.kind !== "token" && object.kind !== "image"
+        (object) =>
+          object.kind !== "token" &&
+          object.kind !== "image" &&
+          object.kind !== "text-card"
       ),
       ...mergeSharedImages(localObjects, sharedImages),
+      ...sharedTextCards,
       ...sharedTokens,
     ];
   };
@@ -228,6 +236,7 @@ export default function BoardStage({
     options?: {
       syncSharedTokens?: boolean;
       syncSharedImages?: boolean;
+      syncSharedTextCards?: boolean;
     }
   ) => {
     setObjects((currentObjects) => {
@@ -241,6 +250,10 @@ export default function BoardStage({
         saveRoomImageObjects(roomId, nextObjects);
       }
 
+      if (options?.syncSharedTextCards) {
+        saveRoomTextCardObjects(roomId, nextObjects);
+      }
+
       return nextObjects;
     });
   };
@@ -250,6 +263,7 @@ export default function BoardStage({
     options?: {
       syncSharedTokens?: boolean;
       syncSharedImages?: boolean;
+      syncSharedTextCards?: boolean;
     }
   ) => {
     setObjects(nextObjects);
@@ -261,12 +275,17 @@ export default function BoardStage({
     if (options?.syncSharedImages) {
       saveRoomImageObjects(roomId, nextObjects);
     }
+
+    if (options?.syncSharedTextCards) {
+      saveRoomTextCardObjects(roomId, nextObjects);
+    }
   };
 
   const addBoardObject = (object: BoardObject) => {
     applyBoardObjectsUpdate((currentObjects) => [...currentObjects, object], {
       syncSharedTokens: object.kind === "token",
       syncSharedImages: object.kind === "image",
+      syncSharedTextCards: object.kind === "text-card",
     });
   };
 
@@ -288,6 +307,9 @@ export default function BoardStage({
         ),
         syncSharedImages: objects.some(
           (object) => object.id === id && object.kind === "image"
+        ),
+        syncSharedTextCards: objects.some(
+          (object) => object.id === id && object.kind === "text-card"
         ),
       }
     );
@@ -484,6 +506,19 @@ export default function BoardStage({
   }, [roomId]);
 
   useEffect(() => {
+    const unsubscribe = subscribeToRoomTextCardObjects(roomId, (sharedTextCards) => {
+      setObjects((currentObjects) => [
+        ...currentObjects.filter((object) => object.kind !== "text-card"),
+        ...sharedTextCards,
+      ]);
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [roomId]);
+
+  useEffect(() => {
     objects.forEach((object) => {
       if (object.kind !== "image" || !object.src || loadedImages[object.src]) {
         return;
@@ -584,13 +619,21 @@ export default function BoardStage({
         syncSharedImages: objects.some(
           (object) => object.id === id && object.kind === "image"
         ),
+        syncSharedTextCards: objects.some(
+          (object) => object.id === id && object.kind === "text-card"
+        ),
       }
     );
   };
 
   const updateObjectLabel = (id: string, label: string) => {
-    applyBoardObjectsUpdate((currentObjects) =>
-      updateBoardObjectLabel(currentObjects, id, label)
+    applyBoardObjectsUpdate(
+      (currentObjects) => updateBoardObjectLabel(currentObjects, id, label),
+      {
+        syncSharedTextCards: objects.some(
+          (object) => object.id === id && object.kind === "text-card"
+        ),
+      }
     );
   };
 
@@ -774,6 +817,7 @@ export default function BoardStage({
     replaceBoardObjects(initialObjects, {
       syncSharedTokens: true,
       syncSharedImages: true,
+      syncSharedTextCards: true,
     });
     setStagePosition({ x: defaultViewport.x, y: defaultViewport.y });
     setStageScale(defaultViewport.scale);
@@ -1671,6 +1715,7 @@ export default function BoardStage({
                   }}
                   onDragMove={(event) => {
                     event.cancelBubble = true;
+                    updateObjectPosition(object.id, event.target.x(), event.target.y());
                   }}
                   onDragEnd={(event) => {
                     event.cancelBubble = true;

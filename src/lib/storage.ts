@@ -4,6 +4,7 @@ export const BOARD_STORAGE_KEY = "play-space-alpha-board-v1";
 export const VIEWPORT_STORAGE_KEY = "play-space-alpha-viewport-v1";
 export const ROOM_TOKEN_STORAGE_KEY = "play-space-alpha-room-tokens-v1";
 export const ROOM_IMAGE_STORAGE_KEY = "play-space-alpha-room-images-v1";
+export const ROOM_TEXT_CARD_STORAGE_KEY = "play-space-alpha-room-text-cards-v1";
 
 export function loadBoardObjects(roomId: string, fallback: BoardObject[]) {
   const raw = localStorage.getItem(getBoardStorageKey(roomId));
@@ -56,6 +57,7 @@ export function clearBoardStorage(roomId: string) {
   localStorage.removeItem(getViewportStorageKey(roomId));
   localStorage.removeItem(getRoomTokenStorageKey(roomId));
   localStorage.removeItem(getRoomImageStorageKey(roomId));
+  localStorage.removeItem(getRoomTextCardStorageKey(roomId));
 }
 
 export function loadRoomTokenObjects(
@@ -159,6 +161,53 @@ export function subscribeToRoomImageObjects(
   };
 }
 
+export function loadRoomTextCardObjects(
+  roomId: string,
+  fallback: BoardObject[] = []
+) {
+  const raw = localStorage.getItem(getRoomTextCardStorageKey(roomId));
+
+  if (!raw) {
+    return fallback.filter((object) => object.kind === "text-card");
+  }
+
+  try {
+    return (JSON.parse(raw) as BoardObject[]).filter(
+      (object) => object.kind === "text-card"
+    );
+  } catch {
+    return fallback.filter((object) => object.kind === "text-card");
+  }
+}
+
+export function saveRoomTextCardObjects(roomId: string, objects: BoardObject[]) {
+  localStorage.setItem(
+    getRoomTextCardStorageKey(roomId),
+    JSON.stringify(objects.filter((object) => object.kind === "text-card"))
+  );
+}
+
+export function subscribeToRoomTextCardObjects(
+  roomId: string,
+  onChange: (objects: BoardObject[]) => void
+) {
+  const storageKey = getRoomTextCardStorageKey(roomId);
+
+  const handleStorage = (event: StorageEvent) => {
+    if (event.key !== storageKey) {
+      return;
+    }
+
+    onChange(loadRoomTextCardObjects(roomId));
+  };
+
+  window.addEventListener("storage", handleStorage);
+
+  return () => {
+    window.removeEventListener("storage", handleStorage);
+  };
+}
+
 function getBoardStorageKey(roomId: string) {
   return `${BOARD_STORAGE_KEY}:${roomId}`;
 }
@@ -173,4 +222,8 @@ function getRoomTokenStorageKey(roomId: string) {
 
 function getRoomImageStorageKey(roomId: string) {
   return `${ROOM_IMAGE_STORAGE_KEY}:${roomId}`;
+}
+
+function getRoomTextCardStorageKey(roomId: string) {
+  return `${ROOM_TEXT_CARD_STORAGE_KEY}:${roomId}`;
 }
