@@ -707,6 +707,13 @@ export default function BoardStage({
     );
   };
 
+  const previewImagePosition = (id: string, x: number, y: number) => {
+    applyBoardObjectsUpdate((currentObjects) =>
+      updateBoardObjectPosition(currentObjects, id, x, y)
+    );
+    roomImageConnectionRef.current?.updateImagePosition(id, x, y);
+  };
+
   const updateObjectLabel = (id: string, label: string) => {
     applyBoardObjectsUpdate(
       (currentObjects) => updateBoardObjectLabel(currentObjects, id, label),
@@ -1735,7 +1742,11 @@ export default function BoardStage({
                         event.target.x(),
                         event.target.y()
                       );
-                      updateObjectPosition(object.id, event.target.x(), event.target.y());
+                      previewImagePosition(
+                        object.id,
+                        event.target.x(),
+                        event.target.y()
+                      );
                     }}
                     onDragEnd={(event) => {
                       event.cancelBubble = true;
