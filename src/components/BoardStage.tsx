@@ -33,12 +33,8 @@ import {
   loadRoomTokenObjects,
   loadViewportState,
   saveBoardObjects,
-  saveRoomImageObject,
-  saveRoomImageObjects,
-  removeRoomImageObject,
   saveRoomTextCardObjects,
   saveViewportState,
-  subscribeToRoomImageObjects,
   subscribeToRoomTextCardObjects,
 } from "../lib/storage";
 import { createClientId } from "../lib/id";
@@ -46,6 +42,10 @@ import {
   createRoomTokenConnection,
   type RoomTokenConnection,
 } from "../lib/roomTokensRealtime";
+import {
+  createRoomImageConnection,
+  type RoomImageConnection,
+} from "../lib/roomImagesRealtime";
 import {
   PARTICIPANT_COLOR_OPTIONS,
   type LocalParticipantSession,
@@ -108,13 +108,29 @@ export default function BoardStage({
   onUpdateParticipantSession,
   onUpdateLocalPresence,
 }: BoardStageProps) {
-  const mergeSharedImages = (sharedImages: BoardObject[]) => {
-    return sharedImages;
+  const mergeSharedImages = (
+    sharedImages: BoardObject[],
+    localImages: BoardObject[]
+  ) => {
+    return sharedImages.map((sharedImage) => {
+      const localImage = localImages.find(
+        (localObject) =>
+          localObject.id === sharedImage.id && localObject.kind === "image"
+      );
+
+      if (!localImage?.imageStrokes?.length) {
+        return sharedImage;
+      }
+
+      return {
+        ...sharedImage,
+        imageStrokes: localImage.imageStrokes,
+      };
+    });
   };
 
   const getRoomScopedObjects = (nextRoomId: string) => {
     const localObjects = loadBoardObjects(nextRoomId, initialObjects);
-    const sharedImages = loadRoomImageObjects(nextRoomId, localObjects);
     const sharedTextCards = loadRoomTextCardObjects(nextRoomId, localObjects);
 
     return [
@@ -124,7 +140,6 @@ export default function BoardStage({
           object.kind !== "image" &&
           object.kind !== "text-card"
       ),
-      ...mergeSharedImages(sharedImages),
       ...sharedTextCards,
     ];
   };
@@ -214,6 +229,7 @@ export default function BoardStage({
   } | null>(null);
   const transformingImageSnapshotRef = useRef<Record<string, BoardObject>>({});
   const roomTokenConnectionRef = useRef<RoomTokenConnection | null>(null);
+  const roomImageConnectionRef = useRef<RoomImageConnection | null>(null);
   const [loadedImages, setLoadedImages] = useState<Record<string, HTMLImageElement>>(
     {}
   );
@@ -236,22 +252,22 @@ export default function BoardStage({
       }
 
       if (options?.syncSharedImages) {
-        saveRoomImageObjects(roomId, nextObjects);
+        roomImageConnectionRef.current?.replaceImages(nextObjects);
       }
 
-      options?.syncSharedImageIds?.forEach((imageId) => {
-        const image = nextObjects.find(
-          (object) => object.id === imageId && object.kind === "image"
+      if (options?.syncSharedImageIds) {
+        roomImageConnectionRef.current?.upsertImages(
+          nextObjects.filter(
+            (object) =>
+              object.kind === "image" &&
+              options.syncSharedImageIds?.includes(object.id)
+          )
         );
+      }
 
-        if (image) {
-          saveRoomImageObject(roomId, image);
-        }
-      });
-
-      options?.removeSharedImageIds?.forEach((imageId) => {
-        removeRoomImageObject(roomId, imageId);
-      });
+      if (options?.removeSharedImageIds) {
+        roomImageConnectionRef.current?.removeImages(options.removeSharedImageIds);
+      }
 
       if (options?.syncSharedTextCards) {
         saveRoomTextCardObjects(roomId, nextObjects);
@@ -276,7 +292,7 @@ export default function BoardStage({
     }
 
     if (options?.syncSharedImages) {
-      saveRoomImageObjects(roomId, nextObjects);
+      roomImageConnectionRef.current?.replaceImages(nextObjects);
     }
 
     if (options?.syncSharedTextCards) {
@@ -400,21 +416,23 @@ export default function BoardStage({
     const scaleY = node.scaleY();
     const strokeWidthScale = (Math.abs(scaleX) + Math.abs(scaleY)) / 2;
 
-    saveRoomImageObject(roomId, {
-      ...snapshot,
-      x: node.x(),
-      y: node.y(),
-      width: Math.max(snapshot.width * scaleX, MIN_IMAGE_SIZE),
-      height: Math.max(snapshot.height * scaleY, MIN_IMAGE_SIZE),
-      imageStrokes: (snapshot.imageStrokes ?? []).map((stroke) => ({
-        ...stroke,
-        points: stroke.points.map((point, index) =>
-          index % 2 === 0 ? point * scaleX : point * scaleY
-        ),
-        width:
-          (stroke.width ?? DEFAULT_IMAGE_STROKE_WIDTH) * strokeWidthScale,
-      })),
-    });
+    roomImageConnectionRef.current?.upsertImages([
+      {
+        ...snapshot,
+        x: node.x(),
+        y: node.y(),
+        width: Math.max(snapshot.width * scaleX, MIN_IMAGE_SIZE),
+        height: Math.max(snapshot.height * scaleY, MIN_IMAGE_SIZE),
+        imageStrokes: (snapshot.imageStrokes ?? []).map((stroke) => ({
+          ...stroke,
+          points: stroke.points.map((point, index) =>
+            index % 2 === 0 ? point * scaleX : point * scaleY
+          ),
+          width:
+            (stroke.width ?? DEFAULT_IMAGE_STROKE_WIDTH) * strokeWidthScale,
+        })),
+      },
+    ]);
   };
 
   useEffect(() => {
@@ -538,15 +556,31 @@ export default function BoardStage({
   }, [roomId]);
 
   useEffect(() => {
-    const unsubscribe = subscribeToRoomImageObjects(roomId, (sharedImages) => {
-      setObjects((currentObjects) => [
-        ...currentObjects.filter((object) => object.kind !== "image"),
-        ...mergeSharedImages(sharedImages),
-      ]);
+    const connection = createRoomImageConnection({
+      roomId,
+      onImagesChange: (sharedImages) => {
+        setObjects((currentObjects) => [
+          ...currentObjects.filter((object) => object.kind !== "image"),
+          ...mergeSharedImages(
+            sharedImages,
+            currentObjects.filter((object) => object.kind === "image")
+          ),
+        ]);
+      },
     });
+    roomImageConnectionRef.current = connection;
+
+    const legacyImages = loadRoomImageObjects(roomId);
+    if (legacyImages.length > 0) {
+      connection.seedImages(legacyImages);
+    }
 
     return () => {
-      unsubscribe();
+      if (roomImageConnectionRef.current === connection) {
+        roomImageConnectionRef.current = null;
+      }
+
+      connection.destroy();
     };
   }, [roomId]);
 
@@ -712,7 +746,7 @@ export default function BoardStage({
         );
 
         if (image) {
-          saveRoomImageObject(roomId, image);
+          roomImageConnectionRef.current?.upsertImages([image]);
         }
 
         return currentObjects;
