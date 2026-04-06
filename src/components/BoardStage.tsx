@@ -72,6 +72,7 @@ import {
   loadRoomTokenObjects,
   loadViewportState,
   saveBoardObjects,
+  saveRoomSnapshot,
   saveViewportState,
 } from "../lib/storage";
 import { createClientId } from "../lib/id";
@@ -622,7 +623,16 @@ export default function BoardStage({
 
   useEffect(() => {
     saveBoardObjects(roomId, objects);
-  }, [objects, roomId]);
+
+    // Local room snapshots are a fallback cache of last known committed shared content.
+    // Skip writes while image state is mid-interaction so we don't persist transient
+    // preview/drawing-in-progress state as if it were committed room content.
+    if (drawingImageId || draggingImageId || transformingImageId) {
+      return;
+    }
+
+    saveRoomSnapshot(roomId, objects);
+  }, [drawingImageId, draggingImageId, objects, roomId, transformingImageId]);
 
   useEffect(() => {
     const connection = createRoomTokenConnection({

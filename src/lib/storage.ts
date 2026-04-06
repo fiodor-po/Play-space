@@ -5,6 +5,15 @@ export const VIEWPORT_STORAGE_KEY = "play-space-alpha-viewport-v1";
 export const ROOM_TOKEN_STORAGE_KEY = "play-space-alpha-room-tokens-v1";
 export const ROOM_IMAGE_STORAGE_KEY = "play-space-alpha-room-images-v1";
 export const ROOM_TEXT_CARD_STORAGE_KEY = "play-space-alpha-room-text-cards-v1";
+export const ROOM_SNAPSHOT_STORAGE_KEY = "play-space-alpha-room-snapshot-v1";
+
+export type RoomSnapshot = {
+  roomId: string;
+  savedAt: number;
+  tokens: BoardObject[];
+  images: BoardObject[];
+  textCards: BoardObject[];
+};
 
 export function loadBoardObjects(roomId: string, fallback: BoardObject[]) {
   const raw = localStorage.getItem(getBoardStorageKey(roomId));
@@ -52,12 +61,32 @@ export function saveViewportState(roomId: string, viewport: ViewportState) {
   localStorage.setItem(getViewportStorageKey(roomId), JSON.stringify(viewport));
 }
 
+export function saveRoomSnapshot(roomId: string, objects: BoardObject[]) {
+  const snapshot: RoomSnapshot = {
+    roomId,
+    savedAt: Date.now(),
+    tokens: objects.filter((object) => object.kind === "token"),
+    images: objects.filter((object) => object.kind === "image"),
+    textCards: objects.filter((object) => object.kind === "text-card"),
+  };
+
+  try {
+    localStorage.setItem(
+      getRoomSnapshotStorageKey(roomId),
+      JSON.stringify(snapshot)
+    );
+  } catch (error) {
+    console.error("Failed to save room snapshot", error);
+  }
+}
+
 export function clearBoardStorage(roomId: string) {
   localStorage.removeItem(getBoardStorageKey(roomId));
   localStorage.removeItem(getViewportStorageKey(roomId));
   localStorage.removeItem(getRoomTokenStorageKey(roomId));
   localStorage.removeItem(getRoomImageStorageKey(roomId));
   localStorage.removeItem(getRoomTextCardStorageKey(roomId));
+  localStorage.removeItem(getRoomSnapshotStorageKey(roomId));
 }
 
 export function loadRoomTokenObjects(
@@ -242,4 +271,8 @@ function getRoomImageStorageKey(roomId: string) {
 
 function getRoomTextCardStorageKey(roomId: string) {
   return `${ROOM_TEXT_CARD_STORAGE_KEY}:${roomId}`;
+}
+
+function getRoomSnapshotStorageKey(roomId: string) {
+  return `${ROOM_SNAPSHOT_STORAGE_KEY}:${roomId}`;
 }
