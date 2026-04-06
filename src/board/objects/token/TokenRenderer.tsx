@@ -5,6 +5,8 @@ import type { BoardObject } from "../../../types/board";
 type TokenRendererProps = {
   object: BoardObject;
   isSelected: boolean;
+  selectionColor: string;
+  fillColor: string;
   onSelect: (event: KonvaEventObject<MouseEvent>) => void;
   onDragStart: (event: KonvaEventObject<DragEvent>) => void;
   onDragMove: (event: KonvaEventObject<DragEvent>) => void;
@@ -14,6 +16,8 @@ type TokenRendererProps = {
 export function TokenRenderer({
   object,
   isSelected,
+  selectionColor,
+  fillColor,
   onSelect,
   onDragStart,
   onDragMove,
@@ -35,7 +39,7 @@ export function TokenRenderer({
           y={-4}
           width={object.width + 8}
           height={object.height + 8}
-          stroke="#60a5fa"
+          stroke={selectionColor}
           strokeWidth={3}
           listening={false}
         />
@@ -44,7 +48,7 @@ export function TokenRenderer({
       <Rect
         width={object.width}
         height={object.height}
-        fill={object.fill}
+        fill={fillColor}
         shadowBlur={8}
       />
 

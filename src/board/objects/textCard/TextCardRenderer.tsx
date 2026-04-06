@@ -17,6 +17,7 @@ type TextCardRendererProps = {
   isSelected: boolean;
   isEditing: boolean;
   selectionColor: string;
+  accentColor: string;
   remoteEditingIndicator?: {
     participantName: string;
     participantColor: string;
@@ -36,6 +37,7 @@ export function TextCardRenderer({
   isSelected,
   isEditing,
   selectionColor,
+  accentColor,
   remoteEditingIndicator,
   onGroupRef,
   onSelect,
@@ -131,7 +133,7 @@ export function TextCardRenderer({
         y={9}
         width={NOTE_HANDLE_SIZE}
         height={NOTE_HANDLE_SIZE}
-        fill={object.authorColor ?? "#94a3b8"}
+        fill={accentColor}
         cornerRadius={6}
         onMouseDown={onHandleMouseDown}
       />

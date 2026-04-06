@@ -340,6 +340,25 @@ export default function BoardStage({
     string | null
   >(null);
   const currentUserColor = participantSession.color;
+  const getLiveCreatorColor = (object: BoardObject) => {
+    if (!object.creatorId) {
+      return null;
+    }
+
+    if (object.creatorId === participantSession.id) {
+      return participantSession.color;
+    }
+
+    return participantPresences[object.creatorId]?.color ?? null;
+  };
+
+  const getTokenFillColor = (object: BoardObject) => {
+    return getLiveCreatorColor(object) ?? object.authorColor ?? object.fill;
+  };
+
+  const getTextCardAccentColor = (object: BoardObject) => {
+    return getLiveCreatorColor(object) ?? object.authorColor ?? "#94a3b8";
+  };
 
   const textCardRefs = useRef<Record<string, Konva.Group | null>>({});
   const imageRefs = useRef<Record<string, Konva.Image | null>>({});
@@ -1207,6 +1226,7 @@ export default function BoardStage({
     const newToken = createTokenObject({
       id: `token-${createClientId()}`,
       color: currentUserColor,
+      creatorId: participantSession.id,
       position: center,
     });
 
@@ -1225,6 +1245,7 @@ export default function BoardStage({
     const newNote = createTextCardObject({
       id: `note-${createClientId()}`,
       color: currentUserColor,
+      creatorId: participantSession.id,
       position: center,
     });
 
@@ -2218,6 +2239,7 @@ export default function BoardStage({
                   isSelected={isSelected}
                   isEditing={isEditing}
                   selectionColor={currentUserColor}
+                  accentColor={getTextCardAccentColor(object)}
                   remoteEditingIndicator={remoteEditingIndicator}
                   onGroupRef={(node) => {
                     textCardRefs.current[object.id] = node;
@@ -2260,6 +2282,7 @@ export default function BoardStage({
                 object={object}
                 isSelected={isSelected}
                 selectionColor={currentUserColor}
+                fillColor={getTokenFillColor(object)}
                 onSelect={(event) => {
                   event.cancelBubble = true;
                   setSelectedObjectId(object.id);

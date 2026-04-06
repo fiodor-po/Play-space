@@ -9,6 +9,7 @@ export type ImageStroke = {
 export type BoardObject = {
   id: string;
   kind: BoardObjectKind;
+  creatorId?: string;
   x: number;
   y: number;
   width: number;
