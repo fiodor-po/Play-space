@@ -260,6 +260,7 @@ export default function App() {
 
   return (
     <BoardStage
+      key={roomId}
       participantSession={participantSession}
       participantPresences={participantPresences}
       roomId={roomId}

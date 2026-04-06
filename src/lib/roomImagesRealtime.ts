@@ -2,6 +2,13 @@ import * as Y from "yjs";
 import { WebsocketProvider } from "y-websocket";
 import type { BoardObject } from "../types/board";
 
+export type ImageDrawingLock = {
+  imageId: string;
+  participantId: string;
+  participantName: string;
+  participantColor: string;
+};
+
 export type RoomImageConnection = {
   destroy: () => void;
   replaceImages: (images: BoardObject[]) => void;
@@ -11,6 +18,7 @@ export type RoomImageConnection = {
     imageId: string,
     bounds: { x: number; y: number; width: number; height: number }
   ) => void;
+  setActiveDrawingImage: (lock: ImageDrawingLock | null) => void;
   removeImages: (imageIds: string[]) => void;
   seedImages: (images: BoardObject[]) => void;
 };
@@ -23,6 +31,9 @@ export function createRoomImageConnection(params: {
       string,
       { x: number; y: number; width?: number; height?: number }
     >
+  ) => void;
+  onImageDrawingLocksChange?: (
+    drawingLocks: Record<string, ImageDrawingLock>
   ) => void;
   serverUrl?: string;
 }): RoomImageConnection {
@@ -55,6 +66,12 @@ export function createRoomImageConnection(params: {
   const publishImagePreviewPositions = () => {
     params.onImagePreviewPositionsChange?.(
       getImagePreviewPositionsFromMap(imagePositionMap)
+    );
+  };
+
+  const publishImageDrawingLocks = () => {
+    params.onImageDrawingLocksChange?.(
+      getImageDrawingLocksFromAwareness(provider.awareness.getStates())
     );
   };
 
@@ -115,11 +132,15 @@ export function createRoomImageConnection(params: {
   imagePositionMap.observe(publishImagePreviewPositions);
   provider.on("status", handleStatus);
   provider.on("sync", handleSync);
+  provider.awareness.on("change", publishImageDrawingLocks);
   publishImages();
   publishImagePreviewPositions();
+  publishImageDrawingLocks();
 
   return {
     destroy: () => {
+      provider.awareness.setLocalStateField("imageDrawing", null);
+
       if (pendingFrameId !== null) {
         window.cancelAnimationFrame(pendingFrameId);
         flushQueuedUpdates();
@@ -129,6 +150,7 @@ export function createRoomImageConnection(params: {
       imagePositionMap.unobserve(publishImagePreviewPositions);
       provider.off("status", handleStatus);
       provider.off("sync", handleSync);
+      provider.awareness.off("change", publishImageDrawingLocks);
       provider.destroy();
       doc.destroy();
     },
@@ -170,6 +192,9 @@ export function createRoomImageConnection(params: {
       queuedRemovals.delete(imageId);
       queuedPositionUpdates.set(imageId, bounds);
       scheduleFlush();
+    },
+    setActiveDrawingImage: (lock) => {
+      provider.awareness.setLocalStateField("imageDrawing", lock);
     },
     removeImages: (imageIds) => {
       imageIds.forEach((imageId) => {
@@ -249,9 +274,42 @@ function getImagePreviewPositionsFromMap(imagePositionMap: Y.Map<string>) {
   return previewPositions;
 }
 
+function getImageDrawingLocksFromAwareness(
+  awarenessStates: Map<number, Record<string, unknown>>
+) {
+  const drawingLocks: Record<string, ImageDrawingLock> = {};
+
+  awarenessStates.forEach((state) => {
+    const imageDrawing = state.imageDrawing;
+
+    if (!imageDrawing || typeof imageDrawing !== "object") {
+      return;
+    }
+
+    const lock = imageDrawing as Partial<ImageDrawingLock>;
+
+    if (
+      !lock.imageId ||
+      !lock.participantId ||
+      !lock.participantName ||
+      !lock.participantColor
+    ) {
+      return;
+    }
+
+    drawingLocks[lock.imageId] = {
+      imageId: lock.imageId,
+      participantId: lock.participantId,
+      participantName: lock.participantName,
+      participantColor: lock.participantColor,
+    };
+  });
+
+  return drawingLocks;
+}
+
 function toSharedImage(image: BoardObject): BoardObject {
-  const { imageStrokes, ...sharedImage } = image;
-  return sharedImage;
+  return image;
 }
 
 function getDefaultRealtimeWsUrl() {

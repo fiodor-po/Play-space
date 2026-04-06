@@ -129,13 +129,29 @@ export function loadRoomImageObjects(
 export function saveRoomImageObjects(roomId: string, objects: BoardObject[]) {
   localStorage.setItem(
     getRoomImageStorageKey(roomId),
+    JSON.stringify(objects.filter((object) => object.kind === "image"))
+  );
+}
+
+export function saveRoomImageObject(roomId: string, image: BoardObject) {
+  const currentImages = loadRoomImageObjects(roomId);
+
+  localStorage.setItem(
+    getRoomImageStorageKey(roomId),
+    JSON.stringify([
+      ...currentImages.filter((currentImage) => currentImage.id !== image.id),
+      image,
+    ])
+  );
+}
+
+export function removeRoomImageObject(roomId: string, imageId: string) {
+  const currentImages = loadRoomImageObjects(roomId);
+
+  localStorage.setItem(
+    getRoomImageStorageKey(roomId),
     JSON.stringify(
-      objects
-        .filter((object) => object.kind === "image")
-        .map((object) => {
-          const { imageStrokes: _imageStrokes, ...sharedImage } = object;
-          return sharedImage;
-        })
+      currentImages.filter((currentImage) => currentImage.id !== imageId)
     )
   );
 }

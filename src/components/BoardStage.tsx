@@ -10,6 +10,45 @@ import {
   Transformer,
 } from "react-konva";
 import type Konva from "konva";
+import { BoardToolbar } from "../board/components/BoardToolbar";
+import { CursorOverlay } from "../board/components/CursorOverlay";
+import { ParticipantSessionPanel } from "../board/components/ParticipantSessionPanel";
+import { createTextCardObject } from "../board/objects/textCard/createTextCardObject";
+import { TextCardRenderer } from "../board/objects/textCard/TextCardRenderer";
+import { createTokenObject } from "../board/objects/token/createTokenObject";
+import { TokenRenderer } from "../board/objects/token/TokenRenderer";
+import {
+  getAddBoardObjectSyncOptions,
+  getRemoveBoardObjectSyncOptions,
+  getUpdateBoardObjectSyncOptions,
+  syncBoardObjects,
+  type BoardObjectSyncOptions,
+} from "../board/sync/boardObjectSync";
+import {
+  BOARD_HEIGHT,
+  BOARD_WIDTH,
+  HTML_UI_FONT_FAMILY,
+  MAX_INITIAL_IMAGE_DISPLAY_HEIGHT,
+  MAX_INITIAL_IMAGE_DISPLAY_WIDTH,
+  MAX_SCALE,
+  MAX_UPLOADED_IMAGE_SOURCE_DIMENSION,
+  MIN_IMAGE_SIZE,
+  MIN_SCALE,
+  objectLayerOrder,
+  SCALE_BY,
+  TEXT_CARD_BODY_FONT_FAMILY,
+  TEXT_CARD_BODY_FONT_SIZE,
+  TEXT_CARD_BODY_INSET_X,
+  TEXT_CARD_BODY_INSET_Y,
+  TEXT_CARD_BODY_LINE_HEIGHT,
+  TEXT_CARD_HEADER_HEIGHT,
+} from "../board/constants";
+import {
+  getBoardPointFromScreen,
+  getDefaultViewport,
+  getViewportCenterInBoardCoords,
+  getZoomedViewport,
+} from "../board/viewport";
 import { initialObjects } from "../data/initialBoard";
 import {
   appendImageStrokePointInObjects,
@@ -55,32 +94,7 @@ import {
   type ParticipantPresence,
   type ParticipantPresenceMap,
 } from "../lib/roomSession";
-import type { BoardObject, BoardObjectKind } from "../types/board";
-
-const BOARD_WIDTH = 4000;
-const BOARD_HEIGHT = 3000;
-const MIN_SCALE = 0.4;
-const MAX_SCALE = 2.5;
-const SCALE_BY = 1.05;
-const TEXT_CARD_HEADER_HEIGHT = 36;
-const NOTE_HANDLE_SIZE = 18;
-const TEXT_CARD_BODY_INSET_X = 16;
-const TEXT_CARD_BODY_INSET_Y = 16;
-const TEXT_CARD_BODY_FONT_SIZE = 22;
-const TEXT_CARD_BODY_LINE_HEIGHT = 1.2;
-const TEXT_CARD_BODY_FONT_FAMILY = "Arial, sans-serif";
-const MIN_IMAGE_SIZE = 80;
-const MAX_UPLOADED_IMAGE_SOURCE_DIMENSION = 1600;
-const MAX_INITIAL_IMAGE_DISPLAY_WIDTH = 360;
-const MAX_INITIAL_IMAGE_DISPLAY_HEIGHT = 240;
-const HTML_UI_FONT_FAMILY =
-  'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
-
-const objectLayerOrder: Record<BoardObjectKind, number> = {
-  image: 0,
-  "text-card": 1,
-  token: 2,
-};
+import type { BoardObject } from "../types/board";
 
 type SmallFloatingActionButtonProps = {
   x: number;
@@ -163,14 +177,6 @@ function SmallFloatingActionButton({
   );
 }
 
-function getDefaultViewport(width: number, height: number) {
-  return {
-    x: width / 2 - BOARD_WIDTH / 2,
-    y: height / 2 - BOARD_HEIGHT / 2,
-    scale: 1,
-  };
-}
-
 type BoardStageProps = {
   participantSession: LocalParticipantSession;
   participantPresences: ParticipantPresenceMap;
@@ -206,7 +212,11 @@ export default function BoardStage({
         return localImage;
       }
 
-      if (!localImage?.imageStrokes?.length) {
+      const hasLocalInProgressDrawing =
+        drawingImageId === sharedImage.id ||
+        activeImageStrokeRef.current?.imageId === sharedImage.id;
+
+      if (!hasLocalInProgressDrawing || !localImage?.imageStrokes?.length) {
         return sharedImage;
       }
 
@@ -333,42 +343,20 @@ export default function BoardStage({
 
   const applyBoardObjectsUpdate = (
     updater: (currentObjects: BoardObject[]) => BoardObject[],
-    options?: {
-      syncSharedTokens?: boolean;
-      syncSharedImages?: boolean;
-      syncSharedImageIds?: string[];
-      removeSharedImageIds?: string[];
-      syncSharedTextCards?: boolean;
-    }
+    options?: BoardObjectSyncOptions
   ) => {
     setObjects((currentObjects) => {
       const nextObjects = updater(currentObjects);
 
-      if (options?.syncSharedTokens) {
-        roomTokenConnectionRef.current?.replaceTokens(nextObjects);
-      }
-
-      if (options?.syncSharedImages) {
-        roomImageConnectionRef.current?.replaceImages(nextObjects);
-      }
-
-      if (options?.syncSharedImageIds) {
-        roomImageConnectionRef.current?.upsertImages(
-          nextObjects.filter(
-            (object) =>
-              object.kind === "image" &&
-              options.syncSharedImageIds?.includes(object.id)
-          )
-        );
-      }
-
-      if (options?.removeSharedImageIds) {
-        roomImageConnectionRef.current?.removeImages(options.removeSharedImageIds);
-      }
-
-      if (options?.syncSharedTextCards) {
-        roomTextCardConnectionRef.current?.replaceTextCards(nextObjects);
-      }
+      syncBoardObjects(
+        {
+          roomTokenConnection: roomTokenConnectionRef.current,
+          roomImageConnection: roomImageConnectionRef.current,
+          roomTextCardConnection: roomTextCardConnectionRef.current,
+        },
+        nextObjects,
+        options
+      );
 
       return nextObjects;
     });
@@ -376,33 +364,26 @@ export default function BoardStage({
 
   const replaceBoardObjects = (
     nextObjects: BoardObject[],
-    options?: {
-      syncSharedTokens?: boolean;
-      syncSharedImages?: boolean;
-      syncSharedTextCards?: boolean;
-    }
+    options?: BoardObjectSyncOptions
   ) => {
     setObjects(nextObjects);
 
-    if (options?.syncSharedTokens) {
-      roomTokenConnectionRef.current?.replaceTokens(nextObjects);
-    }
-
-    if (options?.syncSharedImages) {
-      roomImageConnectionRef.current?.replaceImages(nextObjects);
-    }
-
-    if (options?.syncSharedTextCards) {
-      roomTextCardConnectionRef.current?.replaceTextCards(nextObjects);
-    }
+    syncBoardObjects(
+      {
+        roomTokenConnection: roomTokenConnectionRef.current,
+        roomImageConnection: roomImageConnectionRef.current,
+        roomTextCardConnection: roomTextCardConnectionRef.current,
+      },
+      nextObjects,
+      options
+    );
   };
 
   const addBoardObject = (object: BoardObject) => {
-    applyBoardObjectsUpdate((currentObjects) => [...currentObjects, object], {
-      syncSharedTokens: object.kind === "token",
-      syncSharedImageIds: object.kind === "image" ? [object.id] : undefined,
-      syncSharedTextCards: object.kind === "text-card",
-    });
+    applyBoardObjectsUpdate(
+      (currentObjects) => [...currentObjects, object],
+      getAddBoardObjectSyncOptions(object)
+    );
   };
 
   const updateBoardObject = (
@@ -417,19 +398,7 @@ export default function BoardStage({
   const removeBoardObject = (id: string) => {
     applyBoardObjectsUpdate(
       (currentObjects) => removeBoardObjectById(currentObjects, id),
-      {
-        syncSharedTokens: objects.some(
-          (object) => object.id === id && object.kind === "token"
-        ),
-        removeSharedImageIds: objects.some(
-          (object) => object.id === id && object.kind === "image"
-        )
-          ? [id]
-          : undefined,
-        syncSharedTextCards: objects.some(
-          (object) => object.id === id && object.kind === "text-card"
-        ),
-      }
+      getRemoveBoardObjectSyncOptions(objects, id)
     );
   };
 
@@ -582,6 +551,7 @@ export default function BoardStage({
     setEditingOriginal("");
     setDrawingImageId(null);
     setTransformingImageId(null);
+    setRemoteImagePreviewPositions({});
     setRemoteImageDrawingLocks({});
     setLiveSelectedImageActionPosition(null);
     panStateRef.current = null;
@@ -822,19 +792,7 @@ export default function BoardStage({
   const updateObjectPosition = (id: string, x: number, y: number) => {
     applyBoardObjectsUpdate(
       (currentObjects) => updateBoardObjectPosition(currentObjects, id, x, y),
-      {
-        syncSharedTokens: objects.some(
-          (object) => object.id === id && object.kind === "token"
-        ),
-        syncSharedImageIds: objects.some(
-          (object) => object.id === id && object.kind === "image"
-        )
-          ? [id]
-          : undefined,
-        syncSharedTextCards: objects.some(
-          (object) => object.id === id && object.kind === "text-card"
-        ),
-      }
+      getUpdateBoardObjectSyncOptions(objects, id)
     );
   };
 
@@ -848,11 +806,7 @@ export default function BoardStage({
   const updateObjectLabel = (id: string, label: string) => {
     applyBoardObjectsUpdate(
       (currentObjects) => updateBoardObjectLabel(currentObjects, id, label),
-      {
-        syncSharedTextCards: objects.some(
-          (object) => object.id === id && object.kind === "text-card"
-        ),
-      }
+      getUpdateBoardObjectSyncOptions(objects, id)
     );
   };
 
@@ -950,51 +904,37 @@ export default function BoardStage({
     });
   };
 
-  const getViewportCenterInBoardCoords = () => {
-    const centerScreenX = stageSize.width / 2;
-    const centerScreenY = stageSize.height / 2;
-
-    return {
-      x: (centerScreenX - stagePosition.x) / stageScale,
-      y: (centerScreenY - stagePosition.y) / stageScale,
-    };
-  };
-
   const createToken = () => {
-    const center = getViewportCenterInBoardCoords();
-
-    const newToken: BoardObject = {
+    const center = getViewportCenterInBoardCoords({
+      stageWidth: stageSize.width,
+      stageHeight: stageSize.height,
+      stageX: stagePosition.x,
+      stageY: stagePosition.y,
+      stageScale,
+    });
+    const newToken = createTokenObject({
       id: `token-${createClientId()}`,
-      kind: "token",
-      x: center.x - 70,
-      y: center.y - 70,
-      width: 140,
-      height: 140,
-      fill: currentUserColor,
-      label: "New Token",
-      authorColor: currentUserColor,
-      textColor: "#f8fafc",
-    };
+      color: currentUserColor,
+      position: center,
+    });
 
     addBoardObject(newToken);
     setSelectedObjectId(newToken.id);
   };
 
   const createNote = () => {
-    const center = getViewportCenterInBoardCoords();
-
-    const newNote: BoardObject = {
+    const center = getViewportCenterInBoardCoords({
+      stageWidth: stageSize.width,
+      stageHeight: stageSize.height,
+      stageX: stagePosition.x,
+      stageY: stagePosition.y,
+      stageScale,
+    });
+    const newNote = createTextCardObject({
       id: `note-${createClientId()}`,
-      kind: "text-card",
-      x: center.x - 130,
-      y: center.y - 90,
-      width: 260,
-      height: 180,
-      fill: "#f8fafc",
-      label: "New note",
-      authorColor: currentUserColor,
-      textColor: "#0f172a",
-    };
+      color: currentUserColor,
+      position: center,
+    });
 
     addBoardObject(newNote);
     setSelectedObjectId(newNote.id);
@@ -1016,7 +956,15 @@ export default function BoardStage({
       const image = new window.Image();
 
       image.onload = () => {
-        const spawnPosition = position ?? getViewportCenterInBoardCoords();
+        const spawnPosition =
+          position ??
+          getViewportCenterInBoardCoords({
+            stageWidth: stageSize.width,
+            stageHeight: stageSize.height,
+            stageX: stagePosition.x,
+            stageY: stagePosition.y,
+            stageScale,
+          });
         const { width, height } = getInitialImageDisplaySize(
           image.naturalWidth,
           image.naturalHeight,
@@ -1334,10 +1282,15 @@ export default function BoardStage({
       return;
     }
 
-    const cursor = {
-      x: (clientX - containerRect.left - stagePosition.x) / stageScale,
-      y: (clientY - containerRect.top - stagePosition.y) / stageScale,
-    };
+    const cursor = getBoardPointFromScreen({
+      clientX,
+      clientY,
+      containerLeft: containerRect.left,
+      containerTop: containerRect.top,
+      stageX: stagePosition.x,
+      stageY: stagePosition.y,
+      stageScale,
+    });
 
     onUpdateLocalPresence((presence) =>
       presence
@@ -1370,31 +1323,6 @@ export default function BoardStage({
     stagePosition.y,
     stageScale,
   ]);
-
-  const cursorOverlayStyle = {
-    display: "flex",
-    alignItems: "center",
-    gap: 8,
-    transform: "translate(-6px, -6px)",
-    pointerEvents: "none" as const,
-    zIndex: 12,
-  };
-
-  const cursorLabelStyle = {
-    maxWidth: 140,
-    overflow: "hidden" as const,
-    textOverflow: "ellipsis" as const,
-    whiteSpace: "nowrap" as const,
-    padding: "3px 8px",
-    borderRadius: 999,
-    background: "rgba(15, 23, 42, 0.92)",
-    color: "#f8fafc",
-    boxShadow: "0 8px 24px rgba(2, 6, 23, 0.28)",
-    fontFamily: HTML_UI_FONT_FAMILY,
-    fontSize: 12,
-    fontWeight: 600,
-    lineHeight: 1.2,
-  };
 
   return (
     <div
@@ -1462,311 +1390,75 @@ export default function BoardStage({
           return;
         }
 
-        const boardPosition = {
-          x: (event.clientX - containerRect.left - stagePosition.x) / stageScale,
-          y: (event.clientY - containerRect.top - stagePosition.y) / stageScale,
-        };
+        const boardPosition = getBoardPointFromScreen({
+          clientX: event.clientX,
+          clientY: event.clientY,
+          containerLeft: containerRect.left,
+          containerTop: containerRect.top,
+          stageX: stagePosition.x,
+          stageY: stagePosition.y,
+          stageScale,
+        });
 
         createImageFromFile(file, boardPosition);
       }}
     >
-      {participantCursorScreenPositions.map((cursor) => (
-        <div
-          key={cursor.participantId}
-          style={{
-            position: "fixed",
-            left: cursor.left,
-            top: cursor.top,
-            ...cursorOverlayStyle,
-          }}
-        >
-          <div
-            style={{
-              width: 12,
-              height: 12,
-              borderRadius: 999,
-              background: cursor.color,
-              border: "2px solid rgba(255, 255, 255, 0.92)",
-              boxShadow: "0 0 0 1px rgba(15, 23, 42, 0.35)",
-              flexShrink: 0,
-            }}
-          />
-          <div
-            style={{
-              ...cursorLabelStyle,
-              border: `1px solid ${cursor.color}`,
-            }}
-            title={cursor.name}
-          >
-            {cursor.name}
-          </div>
-        </div>
-      ))}
+      <CursorOverlay cursors={participantCursorScreenPositions} />
 
-      <div
+      <ParticipantSessionPanel
         ref={sessionPanelRef}
-        style={{
-          position: "fixed",
-          top: 20,
-          left: 20,
-          zIndex: 10,
-          display: "grid",
-          gap: 8,
-          minWidth: 180,
-          padding: 12,
-          borderRadius: 14,
-          border: "1px solid rgba(148, 163, 184, 0.22)",
-          background: "rgba(15, 23, 42, 0.88)",
-          color: "#e2e8f0",
-          boxShadow: "0 18px 50px rgba(2, 6, 23, 0.35)",
-          backdropFilter: "blur(10px)",
-          fontFamily: HTML_UI_FONT_FAMILY,
-          pointerEvents: "none",
+        roomId={roomId}
+        participantName={participantSession.name}
+        participantColor={participantSession.color}
+        participantNameDraft={participantNameDraft}
+        isEditingParticipantName={isEditingParticipantName}
+        isColorPickerOpen={isColorPickerOpen}
+        participantColorOptions={PARTICIPANT_COLOR_OPTIONS}
+        onRequestRoomChange={() => {
+          const nextRoomId = window.prompt("Room ID", roomId)?.trim();
+
+          if (nextRoomId) {
+            onChangeRoom(nextRoomId);
+          }
         }}
-      >
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-          }}
-        >
-          <div
-            style={{
-              fontSize: 15,
-              fontWeight: 700,
-              pointerEvents: "none",
-            }}
-          >
-            {roomId}
-          </div>
-          <button
-            type="button"
-            onClick={() => {
-              const nextRoomId = window.prompt("Room ID", roomId)?.trim();
-
-              if (nextRoomId) {
-                onChangeRoom(nextRoomId);
-              }
-            }}
-            style={{
-              padding: 0,
-              border: "none",
-              background: "transparent",
-              color: "#94a3b8",
-              fontSize: 12,
-              fontWeight: 600,
-              fontFamily: HTML_UI_FONT_FAMILY,
-              cursor: "pointer",
-              pointerEvents: "auto",
-            }}
-          >
-            Change
-          </button>
-        </div>
-
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 10,
-          }}
-        >
-          <button
-            type="button"
-            onClick={() => {
-              setIsColorPickerOpen((current) => !current);
-            }}
-            aria-label="Edit participant color"
-            style={{
-              width: 16,
-              height: 16,
-              borderRadius: 999,
-              background: participantSession.color,
-              border: "2px solid rgba(255, 255, 255, 0.85)",
-              boxShadow: "0 0 0 1px rgba(15, 23, 42, 0.4)",
-              flexShrink: 0,
-              padding: 0,
-              cursor: "pointer",
-              pointerEvents: "auto",
-            }}
-          />
-
-          {isEditingParticipantName ? (
-            <input
-              value={participantNameDraft}
-              onChange={(event) => {
-                setParticipantNameDraft(event.target.value);
-              }}
-              onKeyDown={(event) => {
-                if (event.key !== "Enter") {
-                  return;
-                }
-
-                event.preventDefault();
-                const trimmedName = participantNameDraft.trim();
-
-                if (trimmedName && trimmedName !== participantSession.name) {
-                  onUpdateParticipantSession((session) => ({
-                    ...session,
-                    name: trimmedName,
-                  }));
-                }
-
-                setParticipantNameDraft(trimmedName || participantSession.name);
-                setIsEditingParticipantName(false);
-              }}
-              autoFocus
-              style={{
-                minWidth: 0,
-                padding: 0,
-                border: "none",
-                outline: "none",
-                background: "transparent",
-                color: "#e2e8f0",
-                fontSize: 15,
-                fontWeight: 700,
-                fontFamily: HTML_UI_FONT_FAMILY,
-                pointerEvents: "auto",
-              }}
-            />
-          ) : (
-            <button
-              type="button"
-              onClick={() => {
-                setParticipantNameDraft(participantSession.name);
-                setIsEditingParticipantName(true);
-              }}
-              style={{
-                padding: 0,
-                border: "none",
-                background: "transparent",
-                color: "#e2e8f0",
-                fontSize: 15,
-                fontWeight: 700,
-                fontFamily: HTML_UI_FONT_FAMILY,
-                cursor: "text",
-                pointerEvents: "auto",
-              }}
-            >
-              {participantSession.name}
-            </button>
-          )}
-        </div>
-
-        {isColorPickerOpen && (
-          <div
-            style={{
-              display: "flex",
-              gap: 8,
-              flexWrap: "wrap",
-              pointerEvents: "none",
-            }}
-          >
-            {PARTICIPANT_COLOR_OPTIONS.map(
-              (color) => {
-                const isSelected = color === participantSession.color;
-
-                return (
-                  <button
-                    key={color}
-                    type="button"
-                    onClick={() => {
-                      onUpdateParticipantSession((session) => ({
-                        ...session,
-                        color,
-                      }));
-                      setIsColorPickerOpen(false);
-                    }}
-                    aria-label={`Select color ${color}`}
-                    style={{
-                      width: 20,
-                      height: 20,
-                      borderRadius: 999,
-                      border: isSelected
-                        ? "2px solid #f8fafc"
-                        : "1px solid rgba(255, 255, 255, 0.22)",
-                      background: color,
-                      padding: 0,
-                      cursor: "pointer",
-                      pointerEvents: "auto",
-                    }}
-                  />
-                );
-              }
-            )}
-          </div>
-        )}
-      </div>
-
-      <div
-        style={{
-          position: "fixed",
-          top: 20,
-          right: 20,
-          zIndex: 10,
-          display: "flex",
-          gap: 12,
+        onToggleColorPicker={() => {
+          setIsColorPickerOpen((current) => !current);
         }}
-      >
-        <button
-          onClick={createToken}
-          style={{
-            padding: "10px 14px",
-            borderRadius: 10,
-            border: "1px solid #4c1d95",
-            background: "#6d28d9",
-            color: "#f5f3ff",
-            cursor: "pointer",
-          }}
-        >
-          Add token
-        </button>
+        onParticipantNameDraftChange={setParticipantNameDraft}
+        onParticipantNameSubmit={() => {
+          const trimmedName = participantNameDraft.trim();
 
-        <button
-          onClick={() => {
-            imageInputRef.current?.click();
-          }}
-          style={{
-            padding: "10px 14px",
-            borderRadius: 10,
-            border: "1px solid #0f766e",
-            background: "#0f766e",
-            color: "#ecfeff",
-            cursor: "pointer",
-          }}
-        >
-          Add image
-        </button>
+          if (trimmedName && trimmedName !== participantSession.name) {
+            onUpdateParticipantSession((session) => ({
+              ...session,
+              name: trimmedName,
+            }));
+          }
 
-        <button
-          onClick={createNote}
-          style={{
-            padding: "10px 14px",
-            borderRadius: 10,
-            border: "1px solid #cbd5e1",
-            background: "#f8fafc",
-            color: "#0f172a",
-            cursor: "pointer",
-          }}
-        >
-          Add note
-        </button>
+          setParticipantNameDraft(trimmedName || participantSession.name);
+          setIsEditingParticipantName(false);
+        }}
+        onStartEditingParticipantName={() => {
+          setParticipantNameDraft(participantSession.name);
+          setIsEditingParticipantName(true);
+        }}
+        onSelectParticipantColor={(color) => {
+          onUpdateParticipantSession((session) => ({
+            ...session,
+            color,
+          }));
+          setIsColorPickerOpen(false);
+        }}
+      />
 
-        <button
-          onClick={resetBoard}
-          style={{
-            padding: "10px 14px",
-            borderRadius: 10,
-            border: "1px solid #334155",
-            background: "#0f172a",
-            color: "#e2e8f0",
-            cursor: "pointer",
-          }}
-        >
-          Reset board
-        </button>
-      </div>
+      <BoardToolbar
+        onAddToken={createToken}
+        onAddImage={() => {
+          imageInputRef.current?.click();
+        }}
+        onAddNote={createNote}
+        onResetBoard={resetBoard}
+      />
 
       <input
         ref={imageInputRef}
@@ -1888,21 +1580,20 @@ export default function BoardStage({
 
           if (!pointer) return;
 
-          const mousePointTo = {
-            x: (pointer.x - stagePosition.x) / oldScale,
-            y: (pointer.y - stagePosition.y) / oldScale,
-          };
-
           const direction = event.evt.deltaY > 0 ? -1 : 1;
           let newScale =
             direction > 0 ? oldScale * SCALE_BY : oldScale / SCALE_BY;
 
           newScale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, newScale));
 
-          const newPosition = {
-            x: pointer.x - mousePointTo.x * newScale,
-            y: pointer.y - mousePointTo.y * newScale,
-          };
+          const newPosition = getZoomedViewport({
+            pointerX: pointer.x,
+            pointerY: pointer.y,
+            stageX: stagePosition.x,
+            stageY: stagePosition.y,
+            oldScale,
+            newScale,
+          });
 
           setStageScale(newScale);
           setStagePosition(newPosition);
@@ -2220,15 +1911,15 @@ export default function BoardStage({
               const isEditing = object.id === editingTextCardId;
 
               return (
-                <Group
+                <TextCardRenderer
                   key={object.id}
-                  ref={(node) => {
+                  object={object}
+                  isSelected={isSelected}
+                  isEditing={isEditing}
+                  onGroupRef={(node) => {
                     textCardRefs.current[object.id] = node;
                   }}
-                  x={object.x}
-                  y={object.y}
-                  draggable={!isEditing}
-                  onMouseDown={(event) => {
+                  onSelect={(event) => {
                     event.cancelBubble = true;
                     setSelectedObjectId(object.id);
                   }}
@@ -2244,94 +1935,28 @@ export default function BoardStage({
                     event.cancelBubble = true;
                     updateObjectPosition(object.id, event.target.x(), event.target.y());
                   }}
-                >
-                  {isSelected && (
-                    <Rect
-                      x={-4}
-                      y={-4}
-                      width={object.width + 8}
-                      height={object.height + 8}
-                      stroke="#60a5fa"
-                      strokeWidth={3}
-                      listening={false}
-                    />
-                  )}
-
-                  <Rect
-                    width={object.width}
-                    height={object.height}
-                    fill={object.fill}
-                    shadowBlur={8}
-                  />
-
-                  <Rect
-                    width={object.width}
-                    height={TEXT_CARD_HEADER_HEIGHT}
-                    fill="#e2e8f0"
-                  />
-
-                  <Rect
-                    x={10}
-                    y={9}
-                    width={NOTE_HANDLE_SIZE}
-                    height={NOTE_HANDLE_SIZE}
-                    fill={object.authorColor ?? "#94a3b8"}
-                    cornerRadius={6}
-                    onMouseDown={(event) => {
-                      event.cancelBubble = true;
-                      setSelectedObjectId(object.id);
-                      startDraggingTextCard(object.id);
-                    }}
-                  />
-
-                  <Text
-                    x={40}
-                    y={10}
-                    text="Note"
-                    fontSize={14}
-                    fontStyle="bold"
-                    fill="#334155"
-                    listening={false}
-                  />
-
-                  <Rect
-                    y={TEXT_CARD_HEADER_HEIGHT}
-                    width={object.width}
-                    height={object.height - TEXT_CARD_HEADER_HEIGHT}
-                    fill={object.fill}
-                    onMouseDown={() => {
-                      setSelectedObjectId(object.id);
-                    }}
-                    onDblClick={(event) => {
-                      event.cancelBubble = true;
-                      startEditingTextCard(object);
-                    }}
-                  />
-
-                  {!isEditing && (
-                    <Text
-                      x={TEXT_CARD_BODY_INSET_X}
-                      y={TEXT_CARD_HEADER_HEIGHT + TEXT_CARD_BODY_INSET_Y}
-                      width={object.width - TEXT_CARD_BODY_INSET_X * 2}
-                      text={object.label}
-                      fontSize={TEXT_CARD_BODY_FONT_SIZE}
-                      lineHeight={TEXT_CARD_BODY_LINE_HEIGHT}
-                      fontFamily={TEXT_CARD_BODY_FONT_FAMILY}
-                      fill={object.textColor ?? "#0f172a"}
-                      listening={false}
-                    />
-                  )}
-                </Group>
+                  onHandleMouseDown={(event) => {
+                    event.cancelBubble = true;
+                    setSelectedObjectId(object.id);
+                    startDraggingTextCard(object.id);
+                  }}
+                  onBodyMouseDown={() => {
+                    setSelectedObjectId(object.id);
+                  }}
+                  onBodyDoubleClick={(event) => {
+                    event.cancelBubble = true;
+                    startEditingTextCard(object);
+                  }}
+                />
               );
             }
 
             return (
-              <Group
+              <TokenRenderer
                 key={object.id}
-                x={object.x}
-                y={object.y}
-                draggable
-                onMouseDown={(event) => {
+                object={object}
+                isSelected={isSelected}
+                onSelect={(event) => {
                   event.cancelBubble = true;
                   setSelectedObjectId(object.id);
                 }}
@@ -2352,36 +1977,7 @@ export default function BoardStage({
                   event.cancelBubble = true;
                   updateObjectPosition(object.id, event.target.x(), event.target.y());
                 }}
-              >
-                {isSelected && (
-                  <Rect
-                    x={-4}
-                    y={-4}
-                    width={object.width + 8}
-                    height={object.height + 8}
-                    stroke="#60a5fa"
-                    strokeWidth={3}
-                    listening={false}
-                  />
-                )}
-
-                <Rect
-                  width={object.width}
-                  height={object.height}
-                  fill={object.fill}
-                  shadowBlur={8}
-                />
-
-                <Text
-                  x={0}
-                  y={object.height / 2 - 12}
-                  width={object.width}
-                  align="center"
-                  text={object.label}
-                  fontSize={24}
-                  fill={object.textColor ?? "#f8fafc"}
-                />
-              </Group>
+              />
             );
           })}
 
