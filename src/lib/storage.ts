@@ -71,12 +71,81 @@ export function saveRoomSnapshot(roomId: string, objects: BoardObject[]) {
   };
 
   try {
+    console.info("[room-recovery][local-snapshot][save]", {
+      roomId,
+      tokenCount: snapshot.tokens.length,
+      imageCount: snapshot.images.length,
+      textCardCount: snapshot.textCards.length,
+    });
     localStorage.setItem(
       getRoomSnapshotStorageKey(roomId),
       JSON.stringify(snapshot)
     );
   } catch (error) {
     console.error("Failed to save room snapshot", error);
+  }
+}
+
+export function loadRoomSnapshot(roomId: string): RoomSnapshot | null {
+  const raw = localStorage.getItem(getRoomSnapshotStorageKey(roomId));
+
+  if (!raw) {
+    console.info("[room-recovery][local-snapshot][load]", {
+      roomId,
+      exists: false,
+      tokenCount: 0,
+      imageCount: 0,
+      textCardCount: 0,
+    });
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(raw) as Partial<RoomSnapshot>;
+
+    if (parsed.roomId !== roomId) {
+      console.info("[room-recovery][local-snapshot][load]", {
+        roomId,
+        exists: true,
+        usable: false,
+        reason: "room-id-mismatch",
+      });
+      return null;
+    }
+
+    const snapshot = {
+      roomId,
+      savedAt:
+        typeof parsed.savedAt === "number" ? parsed.savedAt : Date.now(),
+      tokens: Array.isArray(parsed.tokens)
+        ? parsed.tokens.filter((object) => object?.kind === "token")
+        : [],
+      images: Array.isArray(parsed.images)
+        ? parsed.images.filter((object) => object?.kind === "image")
+        : [],
+      textCards: Array.isArray(parsed.textCards)
+        ? parsed.textCards.filter((object) => object?.kind === "text-card")
+        : [],
+    };
+
+    console.info("[room-recovery][local-snapshot][load]", {
+      roomId,
+      exists: true,
+      usable: true,
+      tokenCount: snapshot.tokens.length,
+      imageCount: snapshot.images.length,
+      textCardCount: snapshot.textCards.length,
+    });
+
+    return snapshot;
+  } catch {
+    console.info("[room-recovery][local-snapshot][load]", {
+      roomId,
+      exists: true,
+      usable: false,
+      reason: "parse-error",
+    });
+    return null;
   }
 }
 

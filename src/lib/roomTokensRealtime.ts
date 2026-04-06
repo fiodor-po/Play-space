@@ -11,6 +11,7 @@ export type RoomTokenConnection = {
 export function createRoomTokenConnection(params: {
   roomId: string;
   onTokensChange: (tokens: BoardObject[]) => void;
+  onInitialSyncComplete?: () => void;
   serverUrl?: string;
 }): RoomTokenConnection {
   const doc = new Y.Doc();
@@ -25,6 +26,7 @@ export function createRoomTokenConnection(params: {
   );
   const tokenMap = doc.getMap<string>("tokens");
   let hasInitialSync = false;
+  let hasReportedInitialSync = false;
   let pendingSeedTokens: BoardObject[] | null = null;
 
   const publishTokens = () => {
@@ -53,6 +55,11 @@ export function createRoomTokenConnection(params: {
 
     pendingSeedTokens = null;
     publishTokens();
+
+    if (!hasReportedInitialSync) {
+      hasReportedInitialSync = true;
+      params.onInitialSyncComplete?.();
+    }
   };
 
   tokenMap.observe(publishTokens);
@@ -99,7 +106,7 @@ export function createRoomTokenConnection(params: {
       }
 
       nextSeedTokens.forEach((token) => {
-          tokenMap.set(token.id, JSON.stringify(token));
+        tokenMap.set(token.id, JSON.stringify(token));
       });
     },
   };

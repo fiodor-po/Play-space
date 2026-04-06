@@ -26,6 +26,7 @@ export type RoomImageConnection = {
 export function createRoomImageConnection(params: {
   roomId: string;
   onImagesChange: (images: BoardObject[]) => void;
+  onInitialSyncComplete?: () => void;
   onImagePreviewPositionsChange?: (
     previewPositions: Record<
       string,
@@ -50,6 +51,7 @@ export function createRoomImageConnection(params: {
   const imageMap = doc.getMap<string>("images");
   const imagePositionMap = doc.getMap<string>("image-positions");
   let hasInitialSync = false;
+  let hasReportedInitialSync = false;
   let pendingSeedImages: BoardObject[] | null = null;
   let pendingFrameId: number | null = null;
   const queuedUpserts = new Map<string, BoardObject>();
@@ -126,6 +128,11 @@ export function createRoomImageConnection(params: {
 
     pendingSeedImages = null;
     publishImages();
+
+    if (!hasReportedInitialSync) {
+      hasReportedInitialSync = true;
+      params.onInitialSyncComplete?.();
+    }
   };
 
   imageMap.observe(publishImages);

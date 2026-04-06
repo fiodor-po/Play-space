@@ -13,6 +13,7 @@ export type RoomTextCardConnection = {
 export function createRoomTextCardConnection(params: {
   roomId: string;
   onTextCardsChange: (textCards: BoardObject[]) => void;
+  onInitialSyncComplete?: () => void;
   serverUrl?: string;
 }): RoomTextCardConnection {
   const doc = new Y.Doc();
@@ -27,6 +28,7 @@ export function createRoomTextCardConnection(params: {
   );
   const textCardMap = doc.getMap<string>("text-cards");
   let hasInitialSync = false;
+  let hasReportedInitialSync = false;
   let pendingSeedTextCards: BoardObject[] | null = null;
 
   const publishTextCards = () => {
@@ -56,6 +58,11 @@ export function createRoomTextCardConnection(params: {
 
     pendingSeedTextCards = null;
     publishTextCards();
+
+    if (!hasReportedInitialSync) {
+      hasReportedInitialSync = true;
+      params.onInitialSyncComplete?.();
+    }
   };
 
   textCardMap.observe(publishTextCards);

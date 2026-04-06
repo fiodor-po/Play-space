@@ -59,6 +59,10 @@ import {
   getInitialImageDisplaySize,
 } from "../lib/boardImage";
 import {
+  loadDurableRoomSnapshot,
+  saveDurableRoomSnapshot,
+} from "../lib/durableRoomSnapshot";
+import {
   updateBoardObjectById,
   removeBoardObjectById,
   updateBoardObjectLabel,
@@ -67,9 +71,7 @@ import {
 import {
   clearBoardStorage,
   loadBoardObjects,
-  loadRoomImageObjects,
-  loadRoomTextCardObjects,
-  loadRoomTokenObjects,
+  loadRoomSnapshot,
   loadViewportState,
   saveBoardObjects,
   saveRoomSnapshot,
@@ -199,6 +201,15 @@ export default function BoardStage({
   onUpdateParticipantSession,
   onUpdateLocalPresence,
 }: BoardStageProps) {
+  const getSharedObjectCounts = (nextObjects: BoardObject[]) => {
+    return {
+      tokenCount: nextObjects.filter((object) => object.kind === "token").length,
+      imageCount: nextObjects.filter((object) => object.kind === "image").length,
+      textCardCount: nextObjects.filter((object) => object.kind === "text-card")
+        .length,
+    };
+  };
+
   const mergeSharedImages = (
     sharedImages: BoardObject[],
     localImages: BoardObject[]
@@ -315,6 +326,15 @@ export default function BoardStage({
   >({});
   const [liveSelectedImageActionPosition, setLiveSelectedImageActionPosition] =
     useState<{ imageId: string; x: number; y: number } | null>(null);
+  const [tokenInitialSyncRoomId, setTokenInitialSyncRoomId] = useState<
+    string | null
+  >(null);
+  const [imageInitialSyncRoomId, setImageInitialSyncRoomId] = useState<
+    string | null
+  >(null);
+  const [textCardInitialSyncRoomId, setTextCardInitialSyncRoomId] = useState<
+    string | null
+  >(null);
   const currentUserColor = participantSession.color;
 
   const textCardRefs = useRef<Record<string, Konva.Group | null>>({});
@@ -338,8 +358,30 @@ export default function BoardStage({
   const roomTokenConnectionRef = useRef<RoomTokenConnection | null>(null);
   const roomImageConnectionRef = useRef<RoomImageConnection | null>(null);
   const roomTextCardConnectionRef = useRef<RoomTextCardConnection | null>(null);
+  const roomBootstrapEntryIdRef = useRef(0);
+  const snapshotRecoveryAttemptedRoomRef = useRef<number | null>(null);
+  const [resolvedSnapshotBootstrapRoomId, setResolvedSnapshotBootstrapRoomId] =
+    useState<string | null>(null);
+  const durableSnapshotRevisionRef = useRef<number | null>(null);
+  const pendingDurableSnapshotSaveKeyRef = useRef<string | null>(null);
+  const lastSavedDurableSnapshotKeyRef = useRef<string | null>(null);
   const [loadedImages, setLoadedImages] = useState<Record<string, HTMLImageElement>>(
     {}
+  );
+
+  const hasSharedRoomContentLoaded =
+    tokenInitialSyncRoomId === roomId &&
+    imageInitialSyncRoomId === roomId &&
+    textCardInitialSyncRoomId === roomId;
+  const sharedRoomObjects = useMemo(
+    () =>
+      objects.filter(
+        (object) =>
+          object.kind === "token" ||
+          object.kind === "image" ||
+          object.kind === "text-card"
+      ),
+    [objects]
   );
 
   const applyBoardObjectsUpdate = (
@@ -552,9 +594,19 @@ export default function BoardStage({
     setEditingOriginal("");
     setDrawingImageId(null);
     setTransformingImageId(null);
+    setDraggingImageId(null);
     setRemoteImagePreviewPositions({});
     setRemoteImageDrawingLocks({});
     setLiveSelectedImageActionPosition(null);
+    roomBootstrapEntryIdRef.current += 1;
+    setTokenInitialSyncRoomId(null);
+    setImageInitialSyncRoomId(null);
+    setTextCardInitialSyncRoomId(null);
+    snapshotRecoveryAttemptedRoomRef.current = null;
+    setResolvedSnapshotBootstrapRoomId(null);
+    durableSnapshotRevisionRef.current = null;
+    pendingDurableSnapshotSaveKeyRef.current = null;
+    lastSavedDurableSnapshotKeyRef.current = null;
     panStateRef.current = null;
   }, [roomId]);
 
@@ -623,16 +675,319 @@ export default function BoardStage({
 
   useEffect(() => {
     saveBoardObjects(roomId, objects);
+    const counts = getSharedObjectCounts(objects);
+    const imageTransientBlocked =
+      !!drawingImageId || !!draggingImageId || !!transformingImageId;
+
+    // Local room snapshots are a fallback cache of last known committed shared content.
+    // Do not rewrite the current room snapshot until all shared room slices have
+    // finished their initial load for this room, otherwise room bootstrap/reset can
+    // overwrite a good snapshot with stale previous-room objects or with the stripped
+    // shared-empty shell that exists before live shared state resolves.
+    if (!hasSharedRoomContentLoaded) {
+      console.info("[room-recovery][board-stage][save-skip]", {
+        roomId,
+        reason: "shared-room-not-loaded",
+        hasSharedRoomContentLoaded,
+        resolvedSnapshotBootstrapForRoom:
+          resolvedSnapshotBootstrapRoomId === roomId,
+        imageTransientBlocked,
+        durableBaseRevision: durableSnapshotRevisionRef.current,
+        ...counts,
+      });
+      return;
+    }
+
+    // Wait until this room's bootstrap/recovery decision has completed. Otherwise the
+    // first "loaded and empty" render can still overwrite a good snapshot with empty
+    // content before the recovery effect gets a chance to inspect it.
+    if (resolvedSnapshotBootstrapRoomId !== roomId) {
+      console.info("[room-recovery][board-stage][save-skip]", {
+        roomId,
+        reason: "bootstrap-not-resolved",
+        hasSharedRoomContentLoaded,
+        resolvedSnapshotBootstrapForRoom:
+          resolvedSnapshotBootstrapRoomId === roomId,
+        resolvedSnapshotBootstrapRoomId,
+        imageTransientBlocked,
+        durableBaseRevision: durableSnapshotRevisionRef.current,
+        ...counts,
+      });
+      return;
+    }
 
     // Local room snapshots are a fallback cache of last known committed shared content.
     // Skip writes while image state is mid-interaction so we don't persist transient
     // preview/drawing-in-progress state as if it were committed room content.
     if (drawingImageId || draggingImageId || transformingImageId) {
+      console.info("[room-recovery][board-stage][save-skip]", {
+        roomId,
+        reason: "image-transient-guard",
+        hasSharedRoomContentLoaded,
+        resolvedSnapshotBootstrapForRoom:
+          resolvedSnapshotBootstrapRoomId === roomId,
+        drawingImageId,
+        draggingImageId,
+        transformingImageId,
+        durableBaseRevision: durableSnapshotRevisionRef.current,
+        ...counts,
+      });
       return;
     }
 
+    console.info("[room-recovery][board-stage][save]", {
+      roomId,
+      hasSharedRoomContentLoaded,
+      resolvedSnapshotBootstrapForRoom:
+        resolvedSnapshotBootstrapRoomId === roomId,
+      localSnapshotSave: true,
+      durableSnapshotSave: true,
+      durableBaseRevision: durableSnapshotRevisionRef.current,
+      ...counts,
+    });
     saveRoomSnapshot(roomId, objects);
-  }, [drawingImageId, draggingImageId, objects, roomId, transformingImageId]);
+
+    const durableSnapshotKey = JSON.stringify({
+      roomId,
+      tokens: objects.filter((object) => object.kind === "token"),
+      images: objects.filter((object) => object.kind === "image"),
+      textCards: objects.filter((object) => object.kind === "text-card"),
+    });
+
+    if (
+      pendingDurableSnapshotSaveKeyRef.current === durableSnapshotKey ||
+      lastSavedDurableSnapshotKeyRef.current === durableSnapshotKey
+    ) {
+      console.info("[room-recovery][board-stage][durable-save-skip]", {
+        roomId,
+        reason:
+          pendingDurableSnapshotSaveKeyRef.current === durableSnapshotKey
+            ? "pending-same-payload"
+            : "already-saved-same-payload",
+        durableBaseRevision: durableSnapshotRevisionRef.current,
+        ...counts,
+      });
+      return;
+    }
+
+    pendingDurableSnapshotSaveKeyRef.current = durableSnapshotKey;
+    let isCancelled = false;
+
+    const persistDurableSnapshot = async () => {
+      let result = await saveDurableRoomSnapshot(
+        roomId,
+        objects,
+        durableSnapshotRevisionRef.current
+      );
+
+      if (isCancelled) {
+        return;
+      }
+
+      if (result.status === "conflict") {
+        durableSnapshotRevisionRef.current = result.currentRevision;
+
+        result = await saveDurableRoomSnapshot(
+          roomId,
+          objects,
+          result.currentRevision
+        );
+
+        if (isCancelled) {
+          return;
+        }
+      }
+
+      if (result.status === "saved") {
+        durableSnapshotRevisionRef.current = result.snapshot.revision;
+        lastSavedDurableSnapshotKeyRef.current = durableSnapshotKey;
+      }
+    };
+
+    void persistDurableSnapshot().finally(() => {
+      if (pendingDurableSnapshotSaveKeyRef.current === durableSnapshotKey) {
+        pendingDurableSnapshotSaveKeyRef.current = null;
+      }
+    });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [
+    drawingImageId,
+    draggingImageId,
+    hasSharedRoomContentLoaded,
+    objects,
+    resolvedSnapshotBootstrapRoomId,
+    roomId,
+    transformingImageId,
+  ]);
+
+  useEffect(() => {
+    console.info("[room-recovery][board-stage][bootstrap-check]", {
+      roomId,
+      tokenInitialSyncRoomId,
+      imageInitialSyncRoomId,
+      textCardInitialSyncRoomId,
+      hasSharedRoomContentLoaded,
+      sharedRoomObjectsLength: sharedRoomObjects.length,
+      resolvedSnapshotBootstrapRoomId,
+      roomBootstrapEntryId: roomBootstrapEntryIdRef.current,
+      snapshotRecoveryAttemptedEntryId: snapshotRecoveryAttemptedRoomRef.current,
+    });
+
+    if (!hasSharedRoomContentLoaded) {
+      return;
+    }
+
+    if (
+      snapshotRecoveryAttemptedRoomRef.current === roomBootstrapEntryIdRef.current
+    ) {
+      console.info("[room-recovery][board-stage][bootstrap-terminal]", {
+        roomId,
+        branch: "already-attempted",
+        roomBootstrapEntryId: roomBootstrapEntryIdRef.current,
+      });
+      return;
+    }
+
+    if (sharedRoomObjects.length > 0) {
+      let isCancelled = false;
+
+      void loadDurableRoomSnapshot(roomId).then((snapshot) => {
+        if (isCancelled) {
+          return;
+        }
+
+        durableSnapshotRevisionRef.current = snapshot?.revision ?? null;
+        console.info("[room-recovery][board-stage][bootstrap-live-wins]", {
+          roomId,
+          branch: "live-wins",
+          durableRevision: snapshot?.revision ?? null,
+        });
+      });
+
+      snapshotRecoveryAttemptedRoomRef.current = roomBootstrapEntryIdRef.current;
+      setResolvedSnapshotBootstrapRoomId(roomId);
+      return () => {
+        isCancelled = true;
+      };
+    }
+
+    let isCancelled = false;
+
+    const resolveRoomBootstrap = async () => {
+      const localSnapshot = loadRoomSnapshot(roomId);
+      const localSnapshotObjectCount = localSnapshot
+        ? localSnapshot.tokens.length +
+          localSnapshot.images.length +
+          localSnapshot.textCards.length
+        : 0;
+
+      let durableSnapshot = null;
+
+      try {
+        console.info("[room-recovery][board-stage][bootstrap-durable-attempt]", {
+          roomId,
+        });
+        durableSnapshot = await loadDurableRoomSnapshot(roomId);
+      } catch (error) {
+        console.error("Failed to resolve durable room snapshot during bootstrap", error);
+      }
+
+      if (isCancelled) {
+        return;
+      }
+
+      durableSnapshotRevisionRef.current = durableSnapshot?.revision ?? null;
+
+      const durableSnapshotObjectCount = durableSnapshot
+        ? durableSnapshot.tokens.length +
+          durableSnapshot.images.length +
+          durableSnapshot.textCards.length
+        : 0;
+
+      console.info("[room-recovery][board-stage][bootstrap-snapshot-choices]", {
+        roomId,
+        durableUsable: !!durableSnapshot && durableSnapshotObjectCount > 0,
+        durableRevision: durableSnapshot?.revision ?? null,
+        durableTokenCount: durableSnapshot?.tokens.length ?? 0,
+        durableImageCount: durableSnapshot?.images.length ?? 0,
+        durableTextCardCount: durableSnapshot?.textCards.length ?? 0,
+        localUsable: !!localSnapshot && localSnapshotObjectCount > 0,
+        localTokenCount: localSnapshot?.tokens.length ?? 0,
+        localImageCount: localSnapshot?.images.length ?? 0,
+        localTextCardCount: localSnapshot?.textCards.length ?? 0,
+      });
+
+      if (durableSnapshot && durableSnapshotObjectCount > 0) {
+        console.info("[room-recovery][board-stage][bootstrap-terminal]", {
+          roomId,
+          branch: "durable-recovery",
+          source: "durable",
+          tokenCount: durableSnapshot.tokens.length,
+          imageCount: durableSnapshot.images.length,
+          textCardCount: durableSnapshot.textCards.length,
+        });
+        replaceBoardObjects(
+          [
+            ...getRoomScopedObjects(roomId),
+            ...durableSnapshot.tokens,
+            ...durableSnapshot.images,
+            ...durableSnapshot.textCards,
+          ],
+          {
+            syncSharedTokens: true,
+            syncSharedImages: true,
+            syncSharedTextCards: true,
+          }
+        );
+        snapshotRecoveryAttemptedRoomRef.current = roomBootstrapEntryIdRef.current;
+        setResolvedSnapshotBootstrapRoomId(roomId);
+        return;
+      }
+
+      if (!localSnapshot || localSnapshotObjectCount === 0) {
+        console.info("[room-recovery][board-stage][bootstrap-terminal]", {
+          roomId,
+          branch: "empty-room",
+        });
+        snapshotRecoveryAttemptedRoomRef.current = roomBootstrapEntryIdRef.current;
+        setResolvedSnapshotBootstrapRoomId(roomId);
+        return;
+      }
+
+      console.info("[room-recovery][board-stage][bootstrap-terminal]", {
+        roomId,
+        branch: "local-recovery",
+        source: "local",
+        tokenCount: localSnapshot.tokens.length,
+        imageCount: localSnapshot.images.length,
+        textCardCount: localSnapshot.textCards.length,
+      });
+      replaceBoardObjects(
+        [
+          ...getRoomScopedObjects(roomId),
+          ...localSnapshot.tokens,
+          ...localSnapshot.images,
+          ...localSnapshot.textCards,
+        ],
+        {
+          syncSharedTokens: true,
+          syncSharedImages: true,
+          syncSharedTextCards: true,
+        }
+      );
+      snapshotRecoveryAttemptedRoomRef.current = roomBootstrapEntryIdRef.current;
+      setResolvedSnapshotBootstrapRoomId(roomId);
+    };
+
+    void resolveRoomBootstrap();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [hasSharedRoomContentLoaded, roomId, sharedRoomObjects.length]);
 
   useEffect(() => {
     const connection = createRoomTokenConnection({
@@ -643,13 +998,11 @@ export default function BoardStage({
           ...sharedTokens,
         ]);
       },
+      onInitialSyncComplete: () => {
+        setTokenInitialSyncRoomId(roomId);
+      },
     });
     roomTokenConnectionRef.current = connection;
-
-    const legacyTokens = loadRoomTokenObjects(roomId);
-    if (legacyTokens.length > 0) {
-      connection.seedTokens(legacyTokens);
-    }
 
     return () => {
       if (roomTokenConnectionRef.current === connection) {
@@ -672,15 +1025,13 @@ export default function BoardStage({
           ),
         ]);
       },
+      onInitialSyncComplete: () => {
+        setImageInitialSyncRoomId(roomId);
+      },
       onImagePreviewPositionsChange: setRemoteImagePreviewPositions,
       onImageDrawingLocksChange: setRemoteImageDrawingLocks,
     });
     roomImageConnectionRef.current = connection;
-
-    const legacyImages = loadRoomImageObjects(roomId);
-    if (legacyImages.length > 0) {
-      connection.seedImages(legacyImages);
-    }
 
     return () => {
       if (roomImageConnectionRef.current === connection) {
@@ -700,13 +1051,11 @@ export default function BoardStage({
           ...sharedTextCards,
         ]);
       },
+      onInitialSyncComplete: () => {
+        setTextCardInitialSyncRoomId(roomId);
+      },
     });
     roomTextCardConnectionRef.current = connection;
-
-    const legacyTextCards = loadRoomTextCardObjects(roomId);
-    if (legacyTextCards.length > 0) {
-      connection.seedTextCards(legacyTextCards);
-    }
 
     return () => {
       if (roomTextCardConnectionRef.current === connection) {
