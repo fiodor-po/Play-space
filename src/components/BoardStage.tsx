@@ -201,15 +201,6 @@ export default function BoardStage({
   onUpdateParticipantSession,
   onUpdateLocalPresence,
 }: BoardStageProps) {
-  const getSharedObjectCounts = (nextObjects: BoardObject[]) => {
-    return {
-      tokenCount: nextObjects.filter((object) => object.kind === "token").length,
-      imageCount: nextObjects.filter((object) => object.kind === "image").length,
-      textCardCount: nextObjects.filter((object) => object.kind === "text-card")
-        .length,
-    };
-  };
-
   const mergeSharedImages = (
     sharedImages: BoardObject[],
     localImages: BoardObject[]
@@ -675,9 +666,6 @@ export default function BoardStage({
 
   useEffect(() => {
     saveBoardObjects(roomId, objects);
-    const counts = getSharedObjectCounts(objects);
-    const imageTransientBlocked =
-      !!drawingImageId || !!draggingImageId || !!transformingImageId;
 
     // Local room snapshots are a fallback cache of last known committed shared content.
     // Do not rewrite the current room snapshot until all shared room slices have
@@ -685,16 +673,6 @@ export default function BoardStage({
     // overwrite a good snapshot with stale previous-room objects or with the stripped
     // shared-empty shell that exists before live shared state resolves.
     if (!hasSharedRoomContentLoaded) {
-      console.info("[room-recovery][board-stage][save-skip]", {
-        roomId,
-        reason: "shared-room-not-loaded",
-        hasSharedRoomContentLoaded,
-        resolvedSnapshotBootstrapForRoom:
-          resolvedSnapshotBootstrapRoomId === roomId,
-        imageTransientBlocked,
-        durableBaseRevision: durableSnapshotRevisionRef.current,
-        ...counts,
-      });
       return;
     }
 
@@ -702,17 +680,6 @@ export default function BoardStage({
     // first "loaded and empty" render can still overwrite a good snapshot with empty
     // content before the recovery effect gets a chance to inspect it.
     if (resolvedSnapshotBootstrapRoomId !== roomId) {
-      console.info("[room-recovery][board-stage][save-skip]", {
-        roomId,
-        reason: "bootstrap-not-resolved",
-        hasSharedRoomContentLoaded,
-        resolvedSnapshotBootstrapForRoom:
-          resolvedSnapshotBootstrapRoomId === roomId,
-        resolvedSnapshotBootstrapRoomId,
-        imageTransientBlocked,
-        durableBaseRevision: durableSnapshotRevisionRef.current,
-        ...counts,
-      });
       return;
     }
 
@@ -720,31 +687,9 @@ export default function BoardStage({
     // Skip writes while image state is mid-interaction so we don't persist transient
     // preview/drawing-in-progress state as if it were committed room content.
     if (drawingImageId || draggingImageId || transformingImageId) {
-      console.info("[room-recovery][board-stage][save-skip]", {
-        roomId,
-        reason: "image-transient-guard",
-        hasSharedRoomContentLoaded,
-        resolvedSnapshotBootstrapForRoom:
-          resolvedSnapshotBootstrapRoomId === roomId,
-        drawingImageId,
-        draggingImageId,
-        transformingImageId,
-        durableBaseRevision: durableSnapshotRevisionRef.current,
-        ...counts,
-      });
       return;
     }
 
-    console.info("[room-recovery][board-stage][save]", {
-      roomId,
-      hasSharedRoomContentLoaded,
-      resolvedSnapshotBootstrapForRoom:
-        resolvedSnapshotBootstrapRoomId === roomId,
-      localSnapshotSave: true,
-      durableSnapshotSave: true,
-      durableBaseRevision: durableSnapshotRevisionRef.current,
-      ...counts,
-    });
     saveRoomSnapshot(roomId, objects);
 
     const durableSnapshotKey = JSON.stringify({
@@ -758,15 +703,6 @@ export default function BoardStage({
       pendingDurableSnapshotSaveKeyRef.current === durableSnapshotKey ||
       lastSavedDurableSnapshotKeyRef.current === durableSnapshotKey
     ) {
-      console.info("[room-recovery][board-stage][durable-save-skip]", {
-        roomId,
-        reason:
-          pendingDurableSnapshotSaveKeyRef.current === durableSnapshotKey
-            ? "pending-same-payload"
-            : "already-saved-same-payload",
-        durableBaseRevision: durableSnapshotRevisionRef.current,
-        ...counts,
-      });
       return;
     }
 
@@ -824,18 +760,6 @@ export default function BoardStage({
   ]);
 
   useEffect(() => {
-    console.info("[room-recovery][board-stage][bootstrap-check]", {
-      roomId,
-      tokenInitialSyncRoomId,
-      imageInitialSyncRoomId,
-      textCardInitialSyncRoomId,
-      hasSharedRoomContentLoaded,
-      sharedRoomObjectsLength: sharedRoomObjects.length,
-      resolvedSnapshotBootstrapRoomId,
-      roomBootstrapEntryId: roomBootstrapEntryIdRef.current,
-      snapshotRecoveryAttemptedEntryId: snapshotRecoveryAttemptedRoomRef.current,
-    });
-
     if (!hasSharedRoomContentLoaded) {
       return;
     }
@@ -843,11 +767,6 @@ export default function BoardStage({
     if (
       snapshotRecoveryAttemptedRoomRef.current === roomBootstrapEntryIdRef.current
     ) {
-      console.info("[room-recovery][board-stage][bootstrap-terminal]", {
-        roomId,
-        branch: "already-attempted",
-        roomBootstrapEntryId: roomBootstrapEntryIdRef.current,
-      });
       return;
     }
 
@@ -860,7 +779,7 @@ export default function BoardStage({
         }
 
         durableSnapshotRevisionRef.current = snapshot?.revision ?? null;
-        console.info("[room-recovery][board-stage][bootstrap-live-wins]", {
+        console.info("[room-recovery][board-stage][bootstrap-terminal]", {
           roomId,
           branch: "live-wins",
           durableRevision: snapshot?.revision ?? null,
@@ -887,9 +806,6 @@ export default function BoardStage({
       let durableSnapshot = null;
 
       try {
-        console.info("[room-recovery][board-stage][bootstrap-durable-attempt]", {
-          roomId,
-        });
         durableSnapshot = await loadDurableRoomSnapshot(roomId);
       } catch (error) {
         console.error("Failed to resolve durable room snapshot during bootstrap", error);
@@ -906,19 +822,6 @@ export default function BoardStage({
           durableSnapshot.images.length +
           durableSnapshot.textCards.length
         : 0;
-
-      console.info("[room-recovery][board-stage][bootstrap-snapshot-choices]", {
-        roomId,
-        durableUsable: !!durableSnapshot && durableSnapshotObjectCount > 0,
-        durableRevision: durableSnapshot?.revision ?? null,
-        durableTokenCount: durableSnapshot?.tokens.length ?? 0,
-        durableImageCount: durableSnapshot?.images.length ?? 0,
-        durableTextCardCount: durableSnapshot?.textCards.length ?? 0,
-        localUsable: !!localSnapshot && localSnapshotObjectCount > 0,
-        localTokenCount: localSnapshot?.tokens.length ?? 0,
-        localImageCount: localSnapshot?.images.length ?? 0,
-        localTextCardCount: localSnapshot?.textCards.length ?? 0,
-      });
 
       if (durableSnapshot && durableSnapshotObjectCount > 0) {
         console.info("[room-recovery][board-stage][bootstrap-terminal]", {

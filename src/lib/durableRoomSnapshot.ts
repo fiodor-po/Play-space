@@ -34,18 +34,7 @@ export async function loadDurableRoomSnapshot(
       signal: controller.signal,
     });
 
-    console.info("[room-recovery][durable-snapshot][load:response]", {
-      roomId,
-      status: response.status,
-      ok: response.ok,
-    });
-
     if (response.status === 404) {
-      console.info("[room-recovery][durable-snapshot][load]", {
-        roomId,
-        exists: false,
-        usable: false,
-      });
       return null;
     }
 
@@ -58,24 +47,17 @@ export async function loadDurableRoomSnapshot(
     };
     const snapshot = normalizeDurableRoomSnapshot(roomId, parsed.snapshot ?? null);
 
-    console.info("[room-recovery][durable-snapshot][load]", {
-      roomId,
-      exists: !!snapshot,
-      usable: !!snapshot,
-      revision: snapshot?.revision ?? null,
-      tokenCount: snapshot?.tokens.length ?? 0,
-      imageCount: snapshot?.images.length ?? 0,
-      textCardCount: snapshot?.textCards.length ?? 0,
-    });
+    if (!snapshot) {
+      console.warn("[room-recovery][durable-snapshot][load-invalid]", {
+        roomId,
+      });
+    }
 
     return snapshot;
   } catch (error) {
-    console.error("Failed to load durable room snapshot", error);
-    console.info("[room-recovery][durable-snapshot][load]", {
+    console.warn("[room-recovery][durable-snapshot][load-failed]", {
       roomId,
-      exists: false,
-      usable: false,
-      reason: "request-failed",
+      reason: error instanceof DOMException ? error.name : "request-failed",
     });
     return null;
   } finally {
@@ -96,13 +78,6 @@ export async function saveDurableRoomSnapshot(
   };
 
   try {
-    console.info("[room-recovery][durable-snapshot][save:request]", {
-      roomId,
-      baseRevision,
-      tokenCount: payload.tokens.length,
-      imageCount: payload.images.length,
-      textCardCount: payload.textCards.length,
-    });
     const response = await fetch(getDurableRoomSnapshotUrl(roomId), {
       method: "PUT",
       headers: {
@@ -116,10 +91,9 @@ export async function saveDurableRoomSnapshot(
         currentRevision?: number | null;
       };
 
-      console.info("[room-recovery][durable-snapshot][save:conflict]", {
+      console.warn("[room-recovery][durable-snapshot][save-conflict]", {
         roomId,
         baseRevision,
-        status: response.status,
         currentRevision:
           typeof parsed.currentRevision === "number"
             ? parsed.currentRevision
@@ -145,34 +119,19 @@ export async function saveDurableRoomSnapshot(
     const snapshot = normalizeDurableRoomSnapshot(roomId, parsed.snapshot ?? null);
 
     if (!snapshot) {
-      console.info("[room-recovery][durable-snapshot][save:response]", {
+      console.warn("[room-recovery][durable-snapshot][save-invalid]", {
         roomId,
         baseRevision,
-        status: response.status,
-        usable: false,
       });
       return { status: "unavailable" };
     }
 
-    console.info("[room-recovery][durable-snapshot][save:response]", {
-      roomId,
-      baseRevision,
-      status: response.status,
-      usable: true,
-      revision: snapshot.revision,
-      tokenCount: snapshot.tokens.length,
-      imageCount: snapshot.images.length,
-      textCardCount: snapshot.textCards.length,
-    });
-
     return { status: "saved", snapshot };
   } catch (error) {
-    console.error("Failed to save durable room snapshot", error);
-    console.info("[room-recovery][durable-snapshot][save:response]", {
+    console.warn("[room-recovery][durable-snapshot][save-failed]", {
       roomId,
       baseRevision,
-      usable: false,
-      reason: "request-failed",
+      reason: error instanceof DOMException ? error.name : "request-failed",
     });
     return { status: "unavailable" };
   }
