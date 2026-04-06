@@ -114,8 +114,12 @@ export function loadRoomSnapshot(roomId: string): RoomSnapshot | null {
 }
 
 export function clearBoardStorage(roomId: string) {
-  localStorage.removeItem(getBoardStorageKey(roomId));
+  clearBoardContentStorage(roomId);
   localStorage.removeItem(getViewportStorageKey(roomId));
+}
+
+export function clearBoardContentStorage(roomId: string) {
+  localStorage.removeItem(getBoardStorageKey(roomId));
   localStorage.removeItem(getRoomTokenStorageKey(roomId));
   localStorage.removeItem(getRoomImageStorageKey(roomId));
   localStorage.removeItem(getRoomTextCardStorageKey(roomId));

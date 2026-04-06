@@ -45,11 +45,11 @@ import {
 } from "../board/constants";
 import {
   getBoardPointFromScreen,
-  getDefaultViewport,
+  getInitialRoomViewport,
   getViewportCenterInBoardCoords,
   getZoomedViewport,
 } from "../board/viewport";
-import { initialObjects } from "../data/initialBoard";
+import { EMPTY_BOARD_STATE } from "../data/emptyBoard";
 import {
   appendImageStrokePointInObjects,
   clearImageStrokesInObjects,
@@ -69,7 +69,7 @@ import {
   updateBoardObjectPosition,
 } from "../lib/boardObjects";
 import {
-  clearBoardStorage,
+  clearBoardContentStorage,
   loadBoardObjects,
   loadRoomSnapshot,
   loadViewportState,
@@ -232,7 +232,7 @@ export default function BoardStage({
   };
 
   const getRoomScopedObjects = (nextRoomId: string) => {
-    const localObjects = loadBoardObjects(nextRoomId, initialObjects);
+    const localObjects = loadBoardObjects(nextRoomId, EMPTY_BOARD_STATE);
 
     return [
       ...localObjects.filter(
@@ -256,7 +256,7 @@ export default function BoardStage({
 
   const [stagePosition, setStagePosition] = useState(() => {
     const savedViewport = loadViewportState(roomId);
-    const defaultViewport = getDefaultViewport(
+    const initialRoomViewport = getInitialRoomViewport(
       window.innerWidth,
       window.innerHeight
     );
@@ -267,7 +267,7 @@ export default function BoardStage({
       savedViewport.scale !== 1;
 
     if (!hasSavedViewport) {
-      return { x: defaultViewport.x, y: defaultViewport.y };
+      return { x: initialRoomViewport.x, y: initialRoomViewport.y };
     }
 
     return { x: savedViewport.x, y: savedViewport.y };
@@ -275,7 +275,7 @@ export default function BoardStage({
 
   const [stageScale, setStageScale] = useState(() => {
     const savedViewport = loadViewportState(roomId);
-    const defaultViewport = getDefaultViewport(
+    const initialRoomViewport = getInitialRoomViewport(
       window.innerWidth,
       window.innerHeight
     );
@@ -286,7 +286,7 @@ export default function BoardStage({
       savedViewport.scale !== 1;
 
     if (!hasSavedViewport) {
-      return defaultViewport.scale;
+      return initialRoomViewport.scale;
     }
 
     return savedViewport.scale;
@@ -358,6 +358,20 @@ export default function BoardStage({
 
   const getTextCardAccentColor = (object: BoardObject) => {
     return getLiveCreatorColor(object) ?? object.authorColor ?? "#94a3b8";
+  };
+  const getLiveStrokeColor = (stroke: {
+    color: string;
+    creatorId?: string;
+  }) => {
+    if (!stroke.creatorId) {
+      return stroke.color;
+    }
+
+    if (stroke.creatorId === participantSession.id) {
+      return participantSession.color;
+    }
+
+    return participantPresences[stroke.creatorId]?.color ?? stroke.color;
   };
 
   const textCardRefs = useRef<Record<string, Konva.Group | null>>({});
@@ -533,6 +547,7 @@ export default function BoardStage({
           ...imageStrokes,
           {
             color,
+            creatorId: participantSession.id,
             points: [point.x, point.y],
             width: DEFAULT_IMAGE_STROKE_WIDTH,
           },
@@ -596,7 +611,7 @@ export default function BoardStage({
 
   useEffect(() => {
     const savedViewport = loadViewportState(roomId);
-    const defaultViewport = getDefaultViewport(
+    const initialRoomViewport = getInitialRoomViewport(
       window.innerWidth,
       window.innerHeight
     );
@@ -609,9 +624,11 @@ export default function BoardStage({
     setStagePosition(
       hasSavedViewport
         ? { x: savedViewport.x, y: savedViewport.y }
-        : { x: defaultViewport.x, y: defaultViewport.y }
+        : { x: initialRoomViewport.x, y: initialRoomViewport.y }
     );
-    setStageScale(hasSavedViewport ? savedViewport.scale : defaultViewport.scale);
+    setStageScale(
+      hasSavedViewport ? savedViewport.scale : initialRoomViewport.scale
+    );
     setSelectedObjectId(null);
     setEditingTextCardId(null);
     setEditingDraft("");
@@ -1333,20 +1350,13 @@ export default function BoardStage({
   };
 
   const resetBoard = () => {
-    const defaultViewport = getDefaultViewport(
-      window.innerWidth,
-      window.innerHeight
-    );
-
-    replaceBoardObjects(initialObjects, {
+    replaceBoardObjects(EMPTY_BOARD_STATE, {
       syncSharedTokens: true,
       syncSharedImages: true,
       syncSharedTextCards: true,
     });
-    setStagePosition({ x: defaultViewport.x, y: defaultViewport.y });
-    setStageScale(defaultViewport.scale);
     setSelectedObjectId(null);
-    clearBoardStorage(roomId);
+    clearBoardContentStorage(roomId);
   };
 
   const startDraggingTextCard = (id: string) => {
@@ -2208,7 +2218,7 @@ export default function BoardStage({
                         x={0}
                         y={0}
                         points={stroke.points}
-                        stroke={stroke.color}
+                        stroke={getLiveStrokeColor(stroke)}
                         strokeWidth={stroke.width ?? DEFAULT_IMAGE_STROKE_WIDTH}
                         lineCap="round"
                         lineJoin="round"

@@ -1,12 +1,14 @@
 import { BOARD_HEIGHT, BOARD_WIDTH, DEFAULT_STAGE_SCALE } from "./constants";
 
-export function getDefaultViewport(width: number, height: number) {
+export function getInitialRoomViewport(width: number, height: number) {
   return {
     x: width / 2 - BOARD_WIDTH / 2,
     y: height / 2 - BOARD_HEIGHT / 2,
     scale: DEFAULT_STAGE_SCALE,
   };
 }
+
+export const getDefaultViewport = getInitialRoomViewport;
 
 export function getBoardPointFromScreen(params: {
   clientX: number;

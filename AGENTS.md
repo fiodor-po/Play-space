@@ -91,3 +91,26 @@ After any implementation phase:
 - run npm run build
 - explain what behavior might have regressed
 - list manual QA steps for the touched flow
+
+## Color model semantic source of truth
+
+Canonical color semantics for `play-space-alpha` are defined in:
+
+- `docs/color-model-design.md`
+
+Treat that document as the source of truth for:
+- participant color meaning
+- creator-linked object color semantics
+- actor-colored live interaction semantics
+- neutral object color behavior
+- drawing color direction
+
+Do not change color semantics in code unless the semantic change is first explicitly reflected in `docs/color-model-design.md`.
+
+If a requested color-related change is ambiguous, broad, or semantically risky:
+1. do read-only analysis first
+2. explain the gap between current implementation and the design doc
+3. recommend the smallest safe phased implementation path
+
+Prefer phased implementation over broad rewrites.
+Do not collapse product-semantic decisions and large code surgery into one uncontrolled pass.

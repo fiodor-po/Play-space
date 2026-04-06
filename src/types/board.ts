@@ -2,6 +2,7 @@ export type BoardObjectKind = "image" | "text-card" | "token";
 
 export type ImageStroke = {
   color: string;
+  creatorId?: string;
   points: number[];
   width?: number;
 };
