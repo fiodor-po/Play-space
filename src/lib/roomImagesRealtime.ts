@@ -13,10 +13,21 @@ export type RoomImageConnection = {
   destroy: () => void;
   replaceImages: (images: BoardObject[]) => void;
   upsertImages: (images: BoardObject[]) => void;
-  updateImagePosition: (imageId: string, x: number, y: number) => void;
+  updateImagePosition: (
+    imageId: string,
+    x: number,
+    y: number,
+    participantColor?: string
+  ) => void;
   updateImagePreviewBounds: (
     imageId: string,
-    bounds: { x: number; y: number; width: number; height: number }
+    bounds: {
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+      participantColor?: string;
+    }
   ) => void;
   setActiveDrawingImage: (lock: ImageDrawingLock | null) => void;
   removeImages: (imageIds: string[]) => void;
@@ -30,7 +41,13 @@ export function createRoomImageConnection(params: {
   onImagePreviewPositionsChange?: (
     previewPositions: Record<
       string,
-      { x: number; y: number; width?: number; height?: number }
+      {
+        x: number;
+        y: number;
+        width?: number;
+        height?: number;
+        participantColor?: string;
+      }
     >
   ) => void;
   onImageDrawingLocksChange?: (
@@ -58,7 +75,13 @@ export function createRoomImageConnection(params: {
   const queuedRemovals = new Set<string>();
   const queuedPositionUpdates = new Map<
     string,
-    { x: number; y: number; width?: number; height?: number }
+    {
+      x: number;
+      y: number;
+      width?: number;
+      height?: number;
+      participantColor?: string;
+    }
   >();
 
   const publishImages = () => {
@@ -190,9 +213,9 @@ export function createRoomImageConnection(params: {
         });
       scheduleFlush();
     },
-    updateImagePosition: (imageId, x, y) => {
+    updateImagePosition: (imageId, x, y, participantColor) => {
       queuedRemovals.delete(imageId);
-      queuedPositionUpdates.set(imageId, { x, y });
+      queuedPositionUpdates.set(imageId, { x, y, participantColor });
       scheduleFlush();
     },
     updateImagePreviewBounds: (imageId, bounds) => {
@@ -255,7 +278,13 @@ function getImagesFromMap(imageMap: Y.Map<string>) {
 function getImagePreviewPositionsFromMap(imagePositionMap: Y.Map<string>) {
   const previewPositions: Record<
     string,
-    { x: number; y: number; width?: number; height?: number }
+    {
+      x: number;
+      y: number;
+      width?: number;
+      height?: number;
+      participantColor?: string;
+    }
   > = {};
 
   imagePositionMap.forEach((value, imageId) => {
@@ -265,6 +294,7 @@ function getImagePreviewPositionsFromMap(imagePositionMap: Y.Map<string>) {
         y?: number;
         width?: number;
         height?: number;
+        participantColor?: string;
       };
 
       previewPositions[imageId] = {
@@ -272,6 +302,10 @@ function getImagePreviewPositionsFromMap(imagePositionMap: Y.Map<string>) {
         y: position.y ?? 0,
         width: position.width,
         height: position.height,
+        participantColor:
+          typeof position.participantColor === "string"
+            ? position.participantColor
+            : undefined,
       };
     } catch {
       return;
