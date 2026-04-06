@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import BoardStage from "./components/BoardStage";
+import { LiveKitMediaDock } from "./media/LiveKitMediaDock";
 import {
   createLocalParticipantPresence,
   getRoomIdFromLocation,
@@ -259,20 +260,23 @@ export default function App() {
   }
 
   return (
-    <BoardStage
-      key={roomId}
-      participantSession={participantSession}
-      participantPresences={participantPresences}
-      roomId={roomId}
-      onChangeRoom={changeRoom}
-      onUpdateParticipantSession={updateParticipantSession}
-      onUpdateLocalPresence={(updater) => {
-        setLocalParticipantPresence((currentPresence) =>
-          updater(
-            currentPresence ?? createLocalParticipantPresence(participantSession)
-          )
-        );
-      }}
-    />
+    <>
+      <BoardStage
+        key={roomId}
+        participantSession={participantSession}
+        participantPresences={participantPresences}
+        roomId={roomId}
+        onChangeRoom={changeRoom}
+        onUpdateParticipantSession={updateParticipantSession}
+        onUpdateLocalPresence={(updater) => {
+          setLocalParticipantPresence((currentPresence) =>
+            updater(
+              currentPresence ?? createLocalParticipantPresence(participantSession)
+            )
+          );
+        }}
+      />
+      <LiveKitMediaDock roomId={roomId} participantSession={participantSession} />
+    </>
   );
 }

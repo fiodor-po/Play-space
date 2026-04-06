@@ -1,12 +1,18 @@
 import http from "node:http";
 import fs from "node:fs/promises";
+import fsSync from "node:fs";
 import path from "node:path";
 import { WebSocketServer } from "ws";
 import * as Y from "yjs";
+import { AccessToken } from "livekit-server-sdk";
 import * as syncProtocol from "y-protocols/sync";
 import * as awarenessProtocol from "y-protocols/awareness";
 import * as encoding from "lib0/encoding";
 import * as decoding from "lib0/decoding";
+
+loadDotEnvFile(
+  process.env.PLAY_SPACE_ENV_FILE || path.join(process.cwd(), ".env.localdev")
+);
 
 const host = process.env.HOST || "0.0.0.0";
 const port = Number(process.env.PORT || "1234");
@@ -17,6 +23,8 @@ const docs = new Map();
 const durableSnapshotStorePath =
   process.env.ROOM_SNAPSHOT_STORE_FILE ||
   path.join(process.cwd(), "data", "room-snapshots.json");
+const liveKitApiKey = process.env.LIVEKIT_API_KEY || "";
+const liveKitApiSecret = process.env.LIVEKIT_API_SECRET || "";
 
 class WSSharedDoc extends Y.Doc {
   constructor(name) {
@@ -146,6 +154,42 @@ server.listen(port, host, () => {
   console.info(`running at '${host}' on port ${port}`);
 });
 
+function loadDotEnvFile(filePath) {
+  if (!fsSync.existsSync(filePath)) {
+    return;
+  }
+
+  try {
+    const fileContents = fsSync.readFileSync(filePath, "utf8");
+
+    fileContents.split(/\r?\n/).forEach((line) => {
+      const trimmedLine = line.trim();
+
+      if (!trimmedLine || trimmedLine.startsWith("#")) {
+        return;
+      }
+
+      const separatorIndex = trimmedLine.indexOf("=");
+
+      if (separatorIndex <= 0) {
+        return;
+      }
+
+      const key = trimmedLine.slice(0, separatorIndex).trim();
+
+      if (!key || process.env[key] !== undefined) {
+        return;
+      }
+
+      const rawValue = trimmedLine.slice(separatorIndex + 1).trim();
+      const value = rawValue.replace(/^['"]|['"]$/g, "");
+      process.env[key] = value;
+    });
+  } catch (error) {
+    console.warn("Failed to load .env file", error);
+  }
+}
+
 async function handleHttpRequest(req, res) {
   setCorsHeaders(res);
 
@@ -162,10 +206,59 @@ async function handleHttpRequest(req, res) {
   const snapshotRouteMatch = requestUrl.pathname.match(
     /^\/api\/room-snapshots\/([^/]+)$/
   );
+  const liveKitTokenRouteMatch =
+    requestUrl.pathname === "/api/livekit/token";
 
-  if (!snapshotRouteMatch) {
+  if (!snapshotRouteMatch && !liveKitTokenRouteMatch) {
     res.writeHead(404, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ error: "Not found" }));
+    return;
+  }
+
+  if (liveKitTokenRouteMatch) {
+    if (req.method !== "POST") {
+      res.writeHead(405, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Method not allowed" }));
+      return;
+    }
+
+    if (!liveKitApiKey || !liveKitApiSecret) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "LiveKit credentials are not configured" }));
+      return;
+    }
+
+    const body = await readJsonBody(req);
+
+    if (!body || typeof body !== "object") {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Invalid JSON body" }));
+      return;
+    }
+
+    const roomId =
+      typeof body.roomId === "string" ? body.roomId.trim() : "";
+    const participantId =
+      typeof body.participantId === "string" ? body.participantId.trim() : "";
+    const participantName =
+      typeof body.participantName === "string"
+        ? body.participantName.trim()
+        : "";
+
+    if (!roomId || !participantId || !participantName) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "roomId, participantId, and participantName are required" }));
+      return;
+    }
+
+    const token = await createLiveKitToken({
+      roomId,
+      participantId,
+      participantName,
+    });
+
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ token }));
     return;
   }
 
@@ -333,8 +426,28 @@ function normalizeRoomObjects(objects, kind) {
 
 function setCorsHeaders(res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET,PUT,OPTIONS");
+  res.setHeader("Access-Control-Allow-Methods", "GET,PUT,POST,OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+}
+
+async function createLiveKitToken({
+  roomId,
+  participantId,
+  participantName,
+}) {
+  const accessToken = new AccessToken(liveKitApiKey, liveKitApiSecret, {
+    identity: participantId,
+    name: participantName,
+  });
+
+  accessToken.addGrant({
+    roomJoin: true,
+    room: roomId,
+    canPublish: true,
+    canSubscribe: true,
+  });
+
+  return accessToken.toJwt();
 }
 
 function readJsonBody(req) {

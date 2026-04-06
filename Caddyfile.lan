@@ -1,0 +1,14 @@
+https://{$LAN_HOST}:3443 {
+  tls internal
+  reverse_proxy 127.0.0.1:5173
+}
+
+https://{$LAN_HOST}:3444 {
+  tls internal
+  reverse_proxy 127.0.0.1:1234
+}
+
+https://{$LAN_HOST}:3445 {
+  tls internal
+  reverse_proxy 127.0.0.1:7880
+}

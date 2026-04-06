@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT_DIR"
+
+ENV_FILE="${PLAY_SPACE_ENV_FILE:-.env.landev}"
+export PLAY_SPACE_ENV_FILE="$ENV_FILE"
+
+if [[ -f "$ENV_FILE" ]]; then
+  set -a
+  # shellcheck disable=SC1090
+  source "$ENV_FILE"
+  set +a
+fi
+
+LAN_HOST="${LAN_HOST:-}"
+
+if [[ -z "$LAN_HOST" ]]; then
+  echo "[lan-proxy] missing LAN_HOST in $ENV_FILE"
+  exit 1
+fi
+
+echo "[lan-proxy] starting Caddy for https://${LAN_HOST}:3443"
+
+exec caddy run --config ./Caddyfile.lan

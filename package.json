@@ -6,13 +6,21 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "dev:local": "bash ./scripts/dev-local.sh",
+    "dev:lan": "bash ./scripts/dev-lan.sh",
     "lint": "eslint .",
+    "lan-proxy": "bash ./scripts/run-lan-proxy.sh",
+    "livekit-server": "livekit-server --dev --bind 0.0.0.0",
+    "livekit-server:docker": "docker compose -f docker-compose.livekit.yml up",
+    "livekit-server:docker:down": "docker compose -f docker-compose.livekit.yml down",
     "presence-server": "HOST=0.0.0.0 PORT=1234 node ./scripts/yjs-dev-server.mjs",
     "preview": "vite preview"
   },
   "dependencies": {
     "@y/websocket-server": "^0.1.5",
     "konva": "^10.2.3",
+    "livekit-client": "^2.18.1",
+    "livekit-server-sdk": "^2.15.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "react-konva": "^19.2.3",
