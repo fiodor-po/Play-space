@@ -2,10 +2,18 @@ import * as Y from "yjs";
 import { WebsocketProvider } from "y-websocket";
 import type { BoardObject } from "../types/board";
 
+export type TextCardEditingPresence = {
+  textCardId: string;
+  participantId: string;
+  participantName: string;
+  participantColor: string;
+};
+
 export type RoomTextCardConnection = {
   destroy: () => void;
   replaceTextCards: (textCards: BoardObject[]) => void;
   upsertTextCards: (textCards: BoardObject[]) => void;
+  setActiveEditingTextCard: (editingPresence: TextCardEditingPresence | null) => void;
   removeTextCards: (textCardIds: string[]) => void;
   seedTextCards: (textCards: BoardObject[]) => void;
 };
@@ -14,6 +22,9 @@ export function createRoomTextCardConnection(params: {
   roomId: string;
   onTextCardsChange: (textCards: BoardObject[]) => void;
   onInitialSyncComplete?: () => void;
+  onTextCardEditingStatesChange?: (
+    editingStates: Record<string, TextCardEditingPresence>
+  ) => void;
   serverUrl?: string;
 }): RoomTextCardConnection {
   const doc = new Y.Doc();
@@ -33,6 +44,12 @@ export function createRoomTextCardConnection(params: {
 
   const publishTextCards = () => {
     params.onTextCardsChange(getTextCardsFromMap(textCardMap));
+  };
+
+  const publishTextCardEditingStates = () => {
+    params.onTextCardEditingStatesChange?.(
+      getTextCardEditingStatesFromAwareness(provider.awareness.getStates())
+    );
   };
 
   const handleStatus = (event: {
@@ -68,13 +85,17 @@ export function createRoomTextCardConnection(params: {
   textCardMap.observe(publishTextCards);
   provider.on("status", handleStatus);
   provider.on("sync", handleSync);
+  provider.awareness.on("change", publishTextCardEditingStates);
   publishTextCards();
+  publishTextCardEditingStates();
 
   return {
     destroy: () => {
+      provider.awareness.setLocalStateField("textCardEditing", null);
       textCardMap.unobserve(publishTextCards);
       provider.off("status", handleStatus);
       provider.off("sync", handleSync);
+      provider.awareness.off("change", publishTextCardEditingStates);
       provider.destroy();
       doc.destroy();
     },
@@ -100,6 +121,10 @@ export function createRoomTextCardConnection(params: {
         .forEach((textCard) => {
           textCardMap.set(textCard.id, JSON.stringify(textCard));
         });
+    },
+    setActiveEditingTextCard: (editingPresence) => {
+      provider.awareness.setLocalStateField("textCardEditing", editingPresence);
+      publishTextCardEditingStates();
     },
     removeTextCards: (textCardIds) => {
       textCardIds.forEach((textCardId) => {
@@ -147,6 +172,35 @@ function getTextCardsFromMap(textCardMap: Y.Map<string>) {
   });
 
   return textCards;
+}
+
+function getTextCardEditingStatesFromAwareness(
+  states: Map<
+    number,
+    {
+      textCardEditing?: TextCardEditingPresence | null;
+    }
+  >
+) {
+  const editingStates: Record<string, TextCardEditingPresence> = {};
+
+  states.forEach((state) => {
+    const editingState = state.textCardEditing;
+
+    if (
+      !editingState ||
+      !editingState.textCardId ||
+      !editingState.participantId ||
+      !editingState.participantName ||
+      !editingState.participantColor
+    ) {
+      return;
+    }
+
+    editingStates[editingState.textCardId] = editingState;
+  });
+
+  return editingStates;
 }
 
 function getDefaultRealtimeWsUrl() {

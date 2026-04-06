@@ -16,6 +16,11 @@ type TextCardRendererProps = {
   object: BoardObject;
   isSelected: boolean;
   isEditing: boolean;
+  selectionColor: string;
+  remoteEditingIndicator?: {
+    participantName: string;
+    participantColor: string;
+  } | null;
   onGroupRef: (node: Konva.Group | null) => void;
   onSelect: (event: KonvaEventObject<MouseEvent>) => void;
   onDragStart: (event: KonvaEventObject<DragEvent>) => void;
@@ -30,6 +35,8 @@ export function TextCardRenderer({
   object,
   isSelected,
   isEditing,
+  selectionColor,
+  remoteEditingIndicator,
   onGroupRef,
   onSelect,
   onDragStart,
@@ -39,6 +46,13 @@ export function TextCardRenderer({
   onBodyMouseDown,
   onBodyDoubleClick,
 }: TextCardRendererProps) {
+  const remoteEditingLabel = remoteEditingIndicator
+    ? `${remoteEditingIndicator.participantName} editing`
+    : null;
+  const remoteEditingLabelWidth = remoteEditingLabel
+    ? Math.max(88, remoteEditingLabel.length * 6.5 + 18)
+    : 0;
+
   return (
     <Group
       ref={onGroupRef}
@@ -56,10 +70,47 @@ export function TextCardRenderer({
           y={-4}
           width={object.width + 8}
           height={object.height + 8}
-          stroke="#60a5fa"
+          stroke={selectionColor}
           strokeWidth={3}
           listening={false}
         />
+      )}
+
+      {remoteEditingIndicator && (
+        <>
+          <Rect
+            x={-6}
+            y={-6}
+            width={object.width + 12}
+            height={object.height + 12}
+            stroke={remoteEditingIndicator.participantColor}
+            strokeWidth={2}
+            dash={[10, 6]}
+            listening={false}
+          />
+          <Rect
+            x={Math.max(0, object.width - remoteEditingLabelWidth)}
+            y={-30}
+            width={remoteEditingLabelWidth}
+            height={22}
+            fill="#0f172a"
+            stroke={remoteEditingIndicator.participantColor}
+            strokeWidth={1.5}
+            cornerRadius={999}
+            listening={false}
+          />
+          <Text
+            x={Math.max(0, object.width - remoteEditingLabelWidth)}
+            y={-24}
+            width={remoteEditingLabelWidth}
+            align="center"
+            text={remoteEditingLabel ?? ""}
+            fontSize={11}
+            fontStyle="bold"
+            fill="#f8fafc"
+            listening={false}
+          />
+        </>
       )}
 
       <Rect

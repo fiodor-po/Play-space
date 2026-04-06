@@ -89,6 +89,7 @@ import {
 } from "../lib/roomImagesRealtime";
 import {
   createRoomTextCardConnection,
+  type TextCardEditingPresence,
   type RoomTextCardConnection,
 } from "../lib/roomTextCardsRealtime";
 import {
@@ -310,10 +311,22 @@ export default function BoardStage({
   );
   const [isColorPickerOpen, setIsColorPickerOpen] = useState(false);
   const [remoteImagePreviewPositions, setRemoteImagePreviewPositions] = useState<
-    Record<string, { x: number; y: number; width?: number; height?: number }>
+    Record<
+      string,
+      {
+        x: number;
+        y: number;
+        width?: number;
+        height?: number;
+        participantColor?: string;
+      }
+    >
   >({});
   const [remoteImageDrawingLocks, setRemoteImageDrawingLocks] = useState<
     Record<string, ImageDrawingLock>
+  >({});
+  const [remoteTextCardEditingStates, setRemoteTextCardEditingStates] = useState<
+    Record<string, TextCardEditingPresence>
   >({});
   const [liveSelectedImageActionPosition, setLiveSelectedImageActionPosition] =
     useState<{ imageId: string; x: number; y: number } | null>(null);
@@ -558,6 +571,7 @@ export default function BoardStage({
       y: bounds.y,
       width: bounds.width,
       height: bounds.height,
+      participantColor: participantSession.color,
     });
   };
 
@@ -588,6 +602,7 @@ export default function BoardStage({
     setDraggingImageId(null);
     setRemoteImagePreviewPositions({});
     setRemoteImageDrawingLocks({});
+    setRemoteTextCardEditingStates({});
     setLiveSelectedImageActionPosition(null);
     roomBootstrapEntryIdRef.current += 1;
     setTokenInitialSyncRoomId(null);
@@ -948,6 +963,7 @@ export default function BoardStage({
       onInitialSyncComplete: () => {
         setTextCardInitialSyncRoomId(roomId);
       },
+      onTextCardEditingStatesChange: setRemoteTextCardEditingStates,
     });
     roomTextCardConnectionRef.current = connection;
 
@@ -959,6 +975,24 @@ export default function BoardStage({
       connection.destroy();
     };
   }, [roomId]);
+
+  useEffect(() => {
+    roomTextCardConnectionRef.current?.setActiveEditingTextCard(
+      editingTextCardId
+        ? {
+            textCardId: editingTextCardId,
+            participantId: participantSession.id,
+            participantName: participantSession.name,
+            participantColor: participantSession.color,
+          }
+        : null
+    );
+  }, [
+    editingTextCardId,
+    participantSession.color,
+    participantSession.id,
+    participantSession.name,
+  ]);
 
   useEffect(() => {
     objects.forEach((object) => {
@@ -1053,7 +1087,12 @@ export default function BoardStage({
     applyBoardObjectsUpdate((currentObjects) =>
       updateBoardObjectPosition(currentObjects, id, x, y)
     );
-    roomImageConnectionRef.current?.updateImagePosition(id, x, y);
+    roomImageConnectionRef.current?.updateImagePosition(
+      id,
+      x,
+      y,
+      participantSession.color
+    );
   };
 
   const updateObjectLabel = (id: string, label: string) => {
@@ -1924,7 +1963,7 @@ export default function BoardStage({
                       y={previewPosition.y}
                       width={previewPosition.width ?? object.width}
                       height={previewPosition.height ?? object.height}
-                      stroke={object.authorColor ?? "#94a3b8"}
+                      stroke={previewPosition.participantColor ?? "#94a3b8"}
                       strokeWidth={3}
                       dash={[10, 8]}
                       opacity={0.85}
@@ -2162,6 +2201,15 @@ export default function BoardStage({
 
             if (isTextCard) {
               const isEditing = object.id === editingTextCardId;
+              const remoteEditingState = remoteTextCardEditingStates[object.id];
+              const remoteEditingIndicator =
+                remoteEditingState &&
+                remoteEditingState.participantId !== participantSession.id
+                  ? {
+                      participantName: remoteEditingState.participantName,
+                      participantColor: remoteEditingState.participantColor,
+                    }
+                  : null;
 
               return (
                 <TextCardRenderer
@@ -2169,6 +2217,8 @@ export default function BoardStage({
                   object={object}
                   isSelected={isSelected}
                   isEditing={isEditing}
+                  selectionColor={currentUserColor}
+                  remoteEditingIndicator={remoteEditingIndicator}
                   onGroupRef={(node) => {
                     textCardRefs.current[object.id] = node;
                   }}
@@ -2209,6 +2259,7 @@ export default function BoardStage({
                 key={object.id}
                 object={object}
                 isSelected={isSelected}
+                selectionColor={currentUserColor}
                 onSelect={(event) => {
                   event.cancelBubble = true;
                   setSelectedObjectId(object.id);
@@ -2277,6 +2328,11 @@ export default function BoardStage({
             ref={imageTransformerRef}
             rotateEnabled={false}
             flipEnabled={false}
+            borderStroke={currentUserColor}
+            borderStrokeWidth={3}
+            anchorStroke={currentUserColor}
+            anchorFill="#f8fafc"
+            anchorCornerRadius={999}
             enabledAnchors={[
               "top-left",
               "top-right",
