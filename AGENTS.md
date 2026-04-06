@@ -114,3 +114,18 @@ If a requested color-related change is ambiguous, broad, or semantically risky:
 
 Prefer phased implementation over broad rewrites.
 Do not collapse product-semantic decisions and large code surgery into one uncontrolled pass.
+
+## Dice spike source of truth
+
+Canonical design/spec for the first dice chapter is defined in:
+
+- `docs/dice-spike-design.md`
+
+Treat that document as the source of truth for:
+- dice spike scope boundaries
+- shared/public roll semantics
+- overlay placement semantics
+- transient realtime event model
+- actor color semantics for dice presentation
+
+Do not broaden dice implementation beyond that doc without updating the design first.

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import BoardStage from "./components/BoardStage";
+import { DiceSpikeOverlay } from "./dice/DiceSpikeOverlay";
 import { LiveKitMediaDock } from "./media/LiveKitMediaDock";
 import {
   createLocalParticipantPresence,
@@ -276,6 +277,7 @@ export default function App() {
           );
         }}
       />
+      <DiceSpikeOverlay roomId={roomId} participantSession={participantSession} />
       <LiveKitMediaDock roomId={roomId} participantSession={participantSession} />
     </>
   );
