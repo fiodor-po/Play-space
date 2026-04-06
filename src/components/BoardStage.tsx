@@ -710,7 +710,7 @@ export default function BoardStage({
     let isCancelled = false;
 
     const persistDurableSnapshot = async () => {
-      let result = await saveDurableRoomSnapshot(
+      const result = await saveDurableRoomSnapshot(
         roomId,
         objects,
         durableSnapshotRevisionRef.current
@@ -722,16 +722,7 @@ export default function BoardStage({
 
       if (result.status === "conflict") {
         durableSnapshotRevisionRef.current = result.currentRevision;
-
-        result = await saveDurableRoomSnapshot(
-          roomId,
-          objects,
-          result.currentRevision
-        );
-
-        if (isCancelled) {
-          return;
-        }
+        return;
       }
 
       if (result.status === "saved") {
