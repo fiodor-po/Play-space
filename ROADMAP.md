@@ -2,259 +2,210 @@
 
 ## 1. Зачем нужен этот документ
 
-Этот документ — главный управляющий план разработки проекта.
+Этот документ — главный живой план проекта.
 
-Он отвечает на 4 вопроса:
+Он отвечает на четыре вопроса:
+
 - где проект находится сейчас;
 - что делаем следующим;
 - что сознательно откладываем;
-- какие решения уже приняты и не нужно каждый раз обсуждать заново.
+- какие решения уже приняты и не нужно каждый раз переобсуждать.
 
-Это **не** документ для детального исполнения одного большого рефактора.
-Для этого остаются `PLANS.md` и отдельные ExecPlan-документы.
+Это не подробный implementation plan одного рефактора.
+Для крупных многошаговых задач используются `PLANS.md` и отдельные ExecPlan-документы.
 
 ## 2. Как этот документ соотносится с другими
 
-- `AGENTS.md` — правила для Codex/агентов и рабочие ограничения по репозиторию.
-- `PLANS.md` — шаблон для больших execution plan / refactor plan.
-- `docs/refactor-audit.md` — архитектурный аудит текущего состояния.
-- `docs/refactor-plan.md` — поэтапный план архитектурной реорганизации.
-- `ROADMAP.md` — единый живой документ про этапы разработки, приоритеты, backlog, открытые вопросы и принятые решения.
+- `AGENTS.md` — общие рабочие правила для Codex / агентов.
+- `PLANS.md` — шаблон и требования к ExecPlan.
+- `play-space-project-foundation.md` — стабильная продуктовая и архитектурная рамка.
+- `play-space-alpha_current-context.md` — handoff и текущий рабочий контекст между чатами.
+- `play-space-alpha_case-study-log.md` — накопительный журнал решений, багов, milestones и workflow lessons.
+- `docs/refactor-audit.md` и `docs/refactor-plan.md` — historical architecture baseline.
+- `ROADMAP.md` — живая карта этапов, приоритетов, backlog и open questions.
 
 ## 3. Текущий снимок состояния
 
-### Что уже реально работает
+### Что уже собрано достаточно убедительно
+
 - shared room presence / cursors;
 - room switching;
 - shared tokens;
 - shared images;
 - shared text-cards;
 - explicit image draw mode с `Draw / Save / Clear`;
-- awareness-based per-image lock во время drawing mode.
-- safe Phase 1A / 1B extraction вокруг `BoardStage` уже materially сделаны:
-  - board constants / viewport helpers;
-  - leaf UI components;
-  - token/text-card footholds.
+- awareness-based per-image lock во время drawing mode;
+- durable room snapshot layer как best-effort room recovery base;
+- canonical zero state и separation of board content vs viewport semantics;
+- coherent participant/color semantics;
+- narrow LiveKit integration как technical validation;
+- authoritative shared 3D dice как accepted alpha-core layer;
+- repeatable local dev workflows (`dev:local`, `dev:lan`);
+- foundation / current-context / case-study documentation workflow.
 
-### Что ещё не доведено до отдельного законченного слоя
-- image drawing как полноценная shared drawing model;
-- durable persistence комнаты;
-- единая participant/color system;
-- полноценный stabilization pass после серии realtime-миграций;
-- постепенное уменьшение ответственности `BoardStage.tsx`.
+### Что остаётся незавершённым или intentionally rough
+
+- media dock UX остаётся spike-level;
+- dice tray / residual dice polish остаются слегка rough;
+- hosted alpha environment ещё не собран;
+- production-hardening отсутствует и не нужен прямо сейчас;
+- `BoardStage` всё ещё остаётся тяжёлым integration surface;
+- durable room memory остаётся best-effort, а не final collaborative durable platform.
 
 ### Что важно держать в голове
+
 - проект остаётся **board-first shared play space**, а не heavy VTT;
 - не делать broad rewrite `BoardStage.tsx`;
 - не ломать manual empty-space panning;
 - image interaction — чувствительная зона;
-- migration и реорганизацию делать slice-by-slice.
+- не подменять реальные product/deployment цели бесконечной локальной polish-спиралью.
 
-## 4. Главные продуктовые и архитектурные ориентиры
+## 4. Текущий активный этап
 
-1. Доска — главный объект продукта.
-2. Все участники могут менять всё.
-3. Совместность — часть ядра, а не надстройка.
-4. UI должен оставаться лёгким и drag-and-drop-first.
-5. Архитектура должна расходиться на:
-   - app/ui shell;
-   - board domain;
-   - board objects by type;
-   - interactions/tools;
-   - sync/presence/persistence.
-
-## 5. Этапы разработки
-
-## Phase 1 — Stabilization + safe architecture hygiene
+## Phase A — Alpha readiness and first hosted deployment prep
 
 **Статус:** active
 
 ### Цель
-Стабилизировать уже работающий shared board alpha и сделать самые безопасные архитектурные выносы без изменения поведения.
+Подтвердить, что текущий alpha core достаточно здоров для первого hosted alpha, убрать только реальные pre-deploy blockers и выйти на первый hosted environment.
 
-### Входит
-- regression pass по room switching / reconnect / refresh;
-- проверка edge cases для presence и shared objects;
-- safe Phase 1A / 1B extraction вокруг `BoardStage`;
-- документирование проблемных interaction flows;
-- фиксация expected behavior для пустой комнаты и повторного входа.
+### Основная последовательность
+1. read-only technical audit текущего alpha core;
+2. narrow stabilization pass по найденным техническим рискам;
+3. first hosted alpha deployment;
+4. playable-session validation в hosted environment;
+5. более длинный UI/UX polish cycle уже после этого.
 
-### Не входит
-- broad rewrite board architecture;
-- большой type-model rewrite;
-- room persistence implementation;
-- live collaborative text typing;
-- heavy drawing rework.
+### Почему это теперь главный фокус
+Capability checklist уже в основном собран.
+Следующая наибольшая ценность — не новый большой spike и не бесконечный локальный polish, а реальный hosted alpha signal.
 
-### Критерий завершения
-- текущие shared slices стабильны;
-- `BoardStage` стал немного более coordinator-like без регрессий;
-- чувствительные interaction flows описаны и проверяются по чеклисту.
+## 5. Что входит в текущий этап
 
-## Phase 2 — Define canonical room state
+- read-only audit архитектуры и code health перед hosted alpha;
+- проверка deployment-readiness и local-dev-only assumptions;
+- узкая стабилизация только реальных pre-deploy risks;
+- планирование cheapest practical hosted-alpha topology;
+- smoke-validation после первого hosted deploy;
+- сбор product signal из реальной hosted-сессии.
 
-**Статус:** planned
+## 6. Что сознательно не является главным фокусом сейчас
 
-### Цель
-Зафиксировать, что именно считается памятью комнаты, а что не считается.
+- broad architecture cleanup ради красоты;
+- новый большой capability spike;
+- большой media/dice polish chapter;
+- music / ambient audio implementation;
+- heavy production infrastructure;
+- scenes / permissions / history system.
 
-### Нужно определить
-- что входит в persisted room state;
-- что живёт только в awareness;
-- что остаётся локальным client state;
-- когда применяется initial seed;
-- что происходит, если из комнаты вышли все участники;
-- какая модель канонического room document нужна проекту.
+## 7. Активный фокус
 
-### Ожидаемый результат
-Появляется короткая спецификация room memory model.
-Без неё не делать полноценную persistence-реализацию.
+На текущий момент основной рабочий порядок такой:
 
-## Phase 3 — Shared drawing result sync
+1. провести pre-deploy technical audit;
+2. собрать короткий список narrow stabilization tasks;
+3. зафиксировать first hosted alpha deployment plan;
+4. задеплоить cheapest practical hosted alpha;
+5. только потом идти в длинный polish/coherence цикл.
 
-**Статус:** planned
+## 8. Backlog
 
-### Цель
-Довести image drawing до осмысленной shared-модели без попытки сразу делать сложное live collaborative drawing.
+## P0 — сейчас
 
-### Базовый приоритет
-Сначала нужна надёжная модель **final result sync / committed result sync**, а не идеальный live co-editing.
+- [ ] провести read-only technical audit текущего alpha core
+- [ ] выделить 3–5 реальных pre-deploy technical risks
+- [ ] сделать narrow stabilization pass по blockers
+- [ ] собрать first hosted alpha deployment plan
+- [ ] определить hosted smoke checklist
+- [ ] задеплоить first hosted alpha environment
 
-### Входит
-- определить shape drawing data в составе image/board state;
-- решить, что синхронизируется во время drawing mode, а что только на commit;
-- сохранить совместимость с current draw UX (`Draw / Save / Clear`).
+## P1 — сразу после первого hosted alpha
 
-## Phase 4 — Durable room memory
+- [ ] playable-session validation в hosted environment
+- [ ] зафиксировать реальные rough edges после hosted use
+- [ ] media dock simplification / stabilization pass
+- [ ] dice tray / dice UX cleanup pass
+- [ ] board shell coherence pass
 
-**Статус:** planned / deferred
+## P2 — последующие улучшения
 
-### Цель
-Добавить настоящую память комнаты, которая переживает уход всех участников.
-
-### Входит
-- выбор canonical persisted room source of truth;
-- стратегия storage/backend для room state;
-- восстановление комнаты после rejoin;
-- правило первого создания комнаты vs повторного открытия существующей комнаты.
-
-### Важно
-До этого этапа допустимо, что проект работает как live shared room без полноценной долговременной памяти.
-
-## Phase 5 — Participant / color system unification
-
-**Статус:** planned
-
-### Цель
-Сделать единый понятный слой participant identity и color ownership.
-
-### Нужно довести
-- participant model;
-- color ownership;
-- traces / previews / selection / object creation;
-- связи между participant color и визуальными следами действий.
-
-## Phase 6 — Usable v1 polish
-
-**Статус:** later
-
-### Цель
-Превратить alpha в версию, на которой уже реально хочется проводить сессию.
-
-### Темы
-- UX polish;
-- cleaner selection behavior;
-- clearer object actions;
-- stronger multiplayer stability;
-- аккуратная room lifecycle model;
-- подготовка к dice/video integration spikes.
-
-## 6. Активный фокус
-
-На текущий момент основной фокус такой:
-
-1. стабилизация уже migrated realtime slices;
-2. фиксация expected behavior для room switching / refresh / rejoin / empty room;
-3. фиксация room memory model;
-4. только после этого — drawing sync и следующий architecture slice;
-5. durable room persistence остаётся отдельным отложенным слоем.
-
-## 7. Backlog
-
-## P0 — текущие важные задачи
-- [x] закончить safe Phase 1A extraction вокруг `BoardStage`
-- [x] закончить safe Phase 1B extraction для token/text-card footholds
-- [ ] сделать stabilization checklist и реально прогонять её после заметных изменений
-- [ ] зафиксировать expected behavior для empty room / rejoin / refresh
-- [ ] определить: пустая доска после ухода всех участников — это временно допустимое поведение или баг по product contract
-
-## P1 — ближайшие архитектурные / платформенные задачи
-- [x] описать canonical room state
-- [ ] описать разделение: shared state / awareness / local UI state / local interaction state
-- [ ] выбрать подход к durable persistence комнаты
-- [x] определить target model для shared drawing result sync
-- [ ] сузить ответственность `applyBoardObjectsUpdate` через будущий sync adapter layer
-
-## P2 — следующие улучшения
-- [ ] unified participant/color system
-- [ ] более явная selection system
-- [ ] улучшение room/session UX
-- [ ] image interaction cleanup после стабилизации
-- [ ] type model tightening по объектам
+- [ ] постепенное уменьшение ответственности `BoardStage`
+- [ ] targeted architecture hygiene slices
+- [ ] stronger room lifecycle clarity
+- [ ] better observability / support ergonomics
+- [ ] hosted deploy hardening only if product validation justifies it
 
 ## Parked / later
-- [ ] 3D dice integration spike
-- [ ] video integration path
+
+- [ ] shared music / ambient audio chapter
 - [ ] scenes / scene management
-- [ ] permissions / roles, только если shared model окажется слишком хаотичной
+- [ ] permissions / roles
 - [ ] history / undo across sessions
+- [ ] broad type-model redesign
+- [ ] deeper board sync adapter work, если оно не становится blocker до hosted alpha
 
-## 8. Open questions
+## 9. Open questions
 
-- Должна ли новая комната создаваться пустой или seeded by default?
-- Должна ли empty room сохранять последнее состояние автоматически?
-- Должно ли drawing жить как часть image object или как отдельный board object layer?
-- Нужен ли потом live collaborative drawing или хватит committed shared drawing?
-- Где должна проходить граница между board sync и local persistence?
+- Какие реальные technical risks вскроет pre-deploy audit?
+- Достаточно ли current architecture здорова для hosted alpha после small stabilization pass?
+- Какой самый дешёвый practical hosted split лучше первым:
+  - frontend on Vercel
+  - Node realtime/API on VPS
+  - separate LiveKit service if video remains enabled
+- Входит ли video в первый hosted alpha by default, или его лучше оставить toggled / optional?
+- Какие rough edges проявятся только после hosted playable-session checks?
+- Когда именно hosted-alpha feedback оправдает более глубокий polish или infrastructure hardening?
 
-## 9. Decision log
+## 10. Decision log
 
 ## 2026-04-05
 
 ### Решено
-- broad refactor `BoardStage` не делаем;
+- broad rewrite `BoardStage` не делаем;
 - архитектурную реорганизацию ведём маленькими фазами;
 - image interaction считается чувствительной зоной;
-- room persistence можно отложить как отдельный платформенный слой;
-- текущая live shared room модель допустима для alpha даже без полноценной durable room memory;
-- `ROADMAP.md` становится местом, куда складываются такие решения, backlog и этапы.
-
-### Нужно вернуться позже
-- точная room memory model;
-- room persistence contract;
-- shared drawing sync model;
-- unified participant/color system.
+- phased work safer than reformist cleanup.
 
 ## 2026-04-06
 
 ### Решено
-- safe Phase 1A / 1B extraction больше не считаются главным ближайшим незавершённым направлением;
-- следующий практический фокус смещается на stabilization checklist и room behavior spec;
-- durable room persistence остаётся deferred;
-- room memory model должна быть определена до persistence implementation.
-- оформлена рабочая `docs/room-memory-model.md` как planning boundary для current alpha, без запуска persistence implementation.
-- оформлен `docs/shared-drawing-result-sync.md` с приоритетом committed result sync поверх live collaborative drawing.
+- durable room snapshot persistence стал реальным best-effort layer для room recovery;
+- local snapshot больше не считается достаточным source of truth;
+- color semantics вынесены в canonical design doc;
+- zero state отделён от viewport semantics;
+- narrow LiveKit-first spike признан технически жизнеспособным;
+- local dev workflows переведены на explicit `dev:local` / `dev:lan`.
 
-## 10. Правила обновления документа
+## 2026-04-07
+
+### Решено
+- authoritative shared 3D dice стали accepted alpha-core layer;
+- minimal capability checklist для alpha в основном собран;
+- следующий правильный порядок больше не `polish first`, а:
+  - technical audit
+  - stabilization
+  - first hosted alpha
+  - hosted validation
+  - slower polish afterwards
+- first hosted alpha должен мыслиться как split environment:
+  - frontend отдельно
+  - long-running Node realtime/API отдельно
+  - separate LiveKit service if video remains enabled
+- old refactor docs остаются полезным historical baseline, но больше не задают главный active direction проекта.
+
+## 11. Правила обновления документа
 
 Обновляй этот документ, когда:
-- появился новый крупный вывод по архитектуре;
-- принято решение что-то отложить или, наоборот, поднять в приоритет;
-- закрыт этап или заметная задача;
-- изменился product contract для комнаты, drawing, presence или board objects.
+
+- появился новый крупный вывод по архитектуре, deployment или product direction;
+- принято решение что-то отложить или поднять в приоритет;
+- закрыт заметный этап;
+- изменился порядок следующих шагов;
+- hosted-alpha findings изменили backlog.
 
 Принцип обновления:
+
 - не превращать документ в длинный дневник;
 - хранить здесь только живые этапы, backlog, open questions и решения;
-- большие технические планы держать отдельно в `PLANS.md` / ExecPlan;
-- после закрытия крупного этапа переносить краткий итог в `Decision log`.
+- большие планы держать отдельно в `PLANS.md` / ExecPlan;
+- historical detail хранить в case-study log, а не здесь.

@@ -2,33 +2,36 @@
 
 Этот документ фиксирует рабочую memory model для текущего alpha.
 
-Это **не** durable persistence design и не реализация backend/storage.
+Это не final persistence platform design.
 Это короткая спецификация того, как сейчас нужно думать о состоянии комнаты и о границах между разными типами state.
 
 ## 1. Зачем нужен этот документ
 
 Нужно явно разделить:
 
-- что считается room state;
-- что считается только live shared state;
+- что считается room content;
+- что считается live shared state;
+- что считается durable recovery layer;
 - что считается awareness-only state;
 - что остаётся локальным UI state;
 - что остаётся локальным interaction state.
 
-Без этого не нужно начинать durable persistence implementation.
-
 ## 2. Текущий статус модели
 
-Для текущего alpha canonical durable room memory **ещё не существует**.
+Для текущего alpha canonical durable room memory уже **частично существует** как best-effort room snapshot layer.
+
+Но важно:
+
+- это ещё не final collaborative durable platform;
+- это не merge-aware room document;
+- это не причина переусложнять persistence architecture раньше времени.
 
 Текущая рабочая модель такая:
 
 - у комнаты есть **live shared state**;
-- у клиента есть **локальный per-room state**;
-- есть **awareness-only signals** для collaboration;
-- durable persistence остаётся deferred.
-
-Это сознательно временная модель, но она достаточна для текущей stabilization phase.
+- у комнаты есть **durable room snapshot layer** для recovery;
+- у клиента есть **локальный per-room fallback state**;
+- есть **awareness-only signals** для ephemeral collaboration.
 
 ## 3. State categories
 
@@ -40,15 +43,42 @@
 
 - shared tokens;
 - shared images;
-- shared text-cards.
+- shared text-cards;
+- committed drawing result как часть image state.
 
 Практический смысл:
 
 - если два клиента одновременно находятся в одной комнате, они должны видеть один и тот же committed room content;
-- именно этот слой сейчас ближе всего к source of truth для live room session;
-- это ещё не означает durable memory после исчезновения всех участников.
+- для живой активной комнаты именно этот слой ближе всего к primary source of truth.
 
-## B. Awareness-only state
+## B. Durable room snapshot state
+
+Это best-effort room-level recovery layer, который переживает исчезновение live room state.
+
+Сейчас по смыслу сюда относится snapshot комнаты с:
+
+- `roomId`
+- `revision`
+- `savedAt`
+- committed tokens / images / textCards
+
+Правило:
+
+- durable snapshot используется для recovery;
+- он не отменяет приоритет live shared room state;
+- это alpha recovery base, а не final collaborative storage platform.
+
+## C. Local fallback room state
+
+Это локальный per-room fallback слой клиента.
+
+Он может быть полезен для resilience, но:
+
+- он не считается главным room source of truth;
+- он не должен побеждать более новый durable room snapshot;
+- он не должен диктовать shared room truth после исчезновения live state.
+
+## D. Awareness-only state
 
 Это collaboration signals, которые существуют только как ephemeral layer и не должны трактоваться как память комнаты.
 
@@ -56,9 +86,8 @@
 
 - participant presence;
 - cursors;
-- active image drawing lock.
-
-Также сюда по смыслу относятся любые краткоживущие collaboration hints, которые нужны только пока участники активны.
+- active image drawing lock;
+- другие короткоживущие coordination hints.
 
 Правило:
 
@@ -66,31 +95,33 @@
 - awareness не считается room memory;
 - исчезновение awareness state после disconnect — нормальное поведение.
 
-## C. Shared transient sync state
+## E. Shared transient sync state
 
-Это состояние, которое может синхронизироваться между клиентами, но не должно считаться канонической долговременной памятью комнаты.
+Это состояние, которое синхронизируется между клиентами, но не считается долговременной памятью комнаты.
 
 Сейчас сюда относятся:
 
-- remote image drag / transform preview bounds.
+- remote image drag / transform preview bounds;
+- transient dice roll events;
+- другие краткоживущие room-level overlays/signals.
 
 Правило:
 
 - такие данные могут жить рядом с realtime transport;
-- но их нельзя считать частью долговременного room content;
-- при room switch они должны очищаться как transient state.
+- но не считаются durable room content;
+- при room switch или TTL expiry должны очищаться как transient state.
 
-## D. Local UI state
+## F. Local UI state
 
 Это клиентское состояние, которое не является room content.
 
 Сейчас сюда относятся:
 
 - viewport текущей комнаты;
+- panel open/edit states;
 - draft values в UI;
-- selection-related overlays;
 - textarea positioning;
-- локальные panel open/edit states;
+- selection-related overlays;
 - cached loaded images в клиенте.
 
 Правило:
@@ -98,7 +129,7 @@
 - local UI state может сохраняться локально per-room, если это не меняет product contract комнаты;
 - local UI state не должен трактоваться как shared room memory.
 
-## E. Local interaction state
+## G. Local interaction state
 
 Это локальное состояние текущего действия пользователя.
 
@@ -115,72 +146,66 @@
 
 - это состояние нужно для interaction flow;
 - оно не считается room memory;
-- оно должно сбрасываться при room switch и других boundary transitions, где это уместно.
+- оно должно сбрасываться на appropriate boundaries, например при room switch.
 
-## F. Seed / bootstrap state
+## H. Seed / bootstrap state
 
-`initialBoard` считается bootstrap/fallback data, а не канонической room memory model.
+`initialBoard` не является канонической room memory model.
 
 Правило:
 
-- новая shared room по текущему contract считается empty by default;
+- новая shared room считается empty by default;
 - initial seed не должен автоматически определять содержимое новой комнаты;
-- seeded content допустим как отдельное явное действие или внутренний fallback-механизм, но не как основное правило room creation.
+- starter content может существовать только как отдельный UX mechanism, не как hidden memory contract.
 
-## 4. Что сейчас ближе всего к source of truth
+## 4. Source-of-truth interpretation
 
 Для текущего alpha source of truth нужно понимать так:
 
-- для **живой активной комнаты** source of truth — current live shared room state;
-- для **awareness signals** source of truth — текущий ephemeral awareness layer;
-- для **локального UX** source of truth — local per-room client state;
-- для **долговременной памяти комнаты** source of truth пока не определён.
+- для **живой активной комнаты** primary source of truth = current live shared room state;
+- для **recovery after live state disappearance** next source = durable room snapshot;
+- local snapshot = fallback-only layer;
+- awareness = ephemeral collaboration layer;
+- local UI / interaction state = client-local only.
 
-Это важное ограничение:
+## 5. Bootstrap / recovery priority
 
-- current live room source of truth не равен durable room memory;
-- durable room memory сначала нужно отдельно спроектировать.
+Практический bootstrap order:
 
-## 5. Room lifecycle rules в текущей модели
+1. live shared room state
+2. durable room snapshot
+3. local personal room snapshot
+4. empty room / zero state
 
-## New room
+Эта priority chain важнее старого упрощённого тезиса "durable memory ещё не существует".
 
+## 6. Room lifecycle rules в текущей модели
+
+### New room
 - новая комната по product contract считается empty by default;
 - shared objects не должны автоматически seed’иться только потому, что комната новая.
 
-## Refresh
-
+### Refresh
 - refresh в той же комнате должен:
-  - сохранять participant session в том же браузере для этой комнаты;
-  - восстанавливать локальный viewport этой комнаты;
+  - сохранять participant session для этой комнаты;
+  - восстанавливать local viewport;
   - переподключать клиента к current live room state.
 
-## Rejoin
+### Rejoin
+- если live room state ещё существует, rejoin должен вернуть пользователя в него;
+- если live room state уже исчез, система может восстановиться через durable snapshot;
+- local fallback остаётся последним слоем защиты, а не главным контрактом.
 
-- если live room state ещё существует, rejoin должен вернуть пользователя в текущее live state комнаты;
-- если live room state уже исчез, durable recovery пока не гарантируется.
-
-## After all participants leave
-
-- это пока не durable persistence contract;
-- текущее alpha-поведение допустимо как live-room model без гарантированной долговременной памяти.
-
-## 6. Что не нужно делать на основе этой модели
-
-Эта спецификация **не означает**, что уже пора:
-
-- реализовывать durable persistence;
-- фиксировать backend choice;
-- вводить canonical persisted room document в код;
-- redesign’ить drawing model;
-- делать broad refactor ради “правильной архитектуры”.
+### After all participants leave
+- это больше не purely undefined territory;
+- best-effort recovery path уже существует;
+- но final long-term room-memory guarantees всё ещё сознательно не обещаются как fully solved product contract.
 
 ## 7. Что из этого следует для следующих шагов
 
-Сначала:
+Сейчас полезная последовательность такая:
 
 1. использовать эту модель как planning boundary;
-2. отдельно определить target для shared drawing result sync;
-3. только потом проектировать durable room persistence.
-
-Иначе есть риск преждевременно закрепить временный alpha behavior как постоянный persistence contract.
+2. проверить её технически через pre-deploy audit;
+3. не overbuild persistence layer до реального hosted-alpha signal;
+4. держать broad architecture cleanup отдельно от room-memory correctness.

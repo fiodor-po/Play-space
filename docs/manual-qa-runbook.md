@@ -1,22 +1,32 @@
 # Manual QA Runbook
 
-Этот runbook нужен для ручной проверки текущей stabilization phase.
-Он основан на:
+Этот runbook нужен для ручной проверки текущего alpha core и для pre-deploy / post-change smoke testing.
+
+Он опирается на:
 
 - `ROADMAP.md`
 - `docs/stabilization-checklist.md`
 - `docs/room-behavior-spec.md`
+- `docs/dev-workflows.md`
 
-Рекомендуемый базовый сетап:
+## Recommended baseline setup
 
-- Клиент A: обычное окно браузера
-- Клиент B: второе окно / инкогнито / другой браузер
-- Комната `alpha-qa-1` для основных shared checks
-- Комната `alpha-qa-2` для room-switching checks
+Минимальный useful setup:
 
-## Single-client checks
+- клиент A: обычное окно браузера
+- клиент B: второе окно / инкогнито / другой браузер
+- комната `alpha-qa-1` для основных shared checks
+- комната `alpha-qa-2` для room-switching checks
 
-### 1. Empty-space panning
+Когда видео важно проверить честно, лучше использовать:
+- localhost two-tab path для fast smoke
+- LAN HTTPS path для multi-device media smoke
+
+---
+
+## 1. Single-client board checks
+
+### 1.1. Empty-space panning
 
 - Setup:
   - открыть комнату `alpha-qa-1`;
@@ -29,12 +39,8 @@
   - двигается viewport, а не объект;
   - selection не ломает panning;
   - panning остаётся ручным и предсказуемым.
-- Regression:
-  - пустое пространство перестало панить;
-  - начинает случайно таскаться объект;
-  - panning меняет семантику после unrelated change.
 
-### 2. Wheel zoom
+### 1.2. Wheel zoom
 
 - Setup:
   - открыть комнату `alpha-qa-1`.
@@ -45,15 +51,9 @@
   - zoom anchored around pointer;
   - после zoom доска остаётся usable;
   - selection, overlays и panning не ломаются.
-- Regression:
-  - zoom прыгает или уводит доску неожиданно;
-  - после zoom ломается управление;
-  - pointer anchoring визуально пропадает.
 
-### 3. Token local interactions
+### 1.3. Token local interactions
 
-- Setup:
-  - открыть комнату `alpha-qa-1`.
 - Exact actions:
   - нажать `Add token`;
   - выбрать token;
@@ -62,54 +62,52 @@
 - Expected result:
   - token создаётся, двигается и удаляется без ошибок;
   - selection рамка ведёт себя стабильно.
-- Regression:
-  - token не создаётся;
-  - drag работает нестабильно;
-  - delete не работает при валидном selection.
 
-### 4. Text-card local interactions
+### 1.4. Text-card local interactions
 
-- Setup:
-  - открыть комнату `alpha-qa-1`.
 - Exact actions:
   - нажать `Add note`;
-  - перетащить note за маленький handle в header;
+  - перетащить note за handle в header;
   - кликнуть по body;
   - double-click по body;
   - изменить текст и сохранить.
 - Expected result:
-  - drag-handle в header остаётся основным способом drag;
+  - header handle остаётся основным способом drag;
   - body double-click открывает editing;
   - edit сохраняется без побочных эффектов.
-- Regression:
-  - handle больше не тянет card;
-  - body double-click не открывает editing;
-  - editing ломает selection или drag.
 
-## Two-client / two-tab checks
+### 1.5. Image interactions
 
-### 5. Presence / cursors
+- Exact actions:
+  - добавить image;
+  - переместить её;
+  - изменить размер;
+  - выбрать её;
+  - при необходимости проверить draw mode отдельно.
+- Expected result:
+  - drag/resize ведут себя стабильно;
+  - image interaction не ломает unrelated board control.
+
+---
+
+## 2. Two-client shared board checks
+
+### 2.1. Presence / cursors
 
 - Setup:
   - открыть `alpha-qa-1` в клиентах A и B;
   - войти под разными именами/цветами.
 - Exact actions:
-  - подвигать курсором в клиенте A;
-  - подвигать курсором в клиенте B;
-  - закрыть клиент B.
+  - подвигать курсором в A;
+  - подвигать курсором в B;
+  - закрыть B.
 - Expected result:
-  - каждый клиент видит только удалённый курсор и label второго клиента;
+  - каждый клиент видит удалённый курсор и label второго клиента;
   - локальный курсор не дублируется как remote;
-  - после закрытия клиента B его presence исчезает.
-- Regression:
-  - курсоры не синхронизируются;
-  - локальный курсор виден как remote;
-  - presence зависает после ухода клиента.
+  - после закрытия B его presence исчезает.
 
-### 6. Shared tokens
+### 2.2. Shared tokens
 
-- Setup:
-  - открыть `alpha-qa-1` в клиентах A и B.
 - Exact actions:
   - в клиенте A создать token;
   - переместить его;
@@ -117,77 +115,57 @@
   - смотреть клиент B.
 - Expected result:
   - create / move / delete отражаются в клиенте B.
-- Regression:
-  - token changes не доходят до второго клиента;
-  - между клиентами расходится состояние token.
 
-### 7. Shared text-cards
+### 2.3. Shared text-cards
 
-- Setup:
-  - открыть `alpha-qa-1` в клиентах A и B.
 - Exact actions:
-  - в клиенте A создать note;
+  - в A создать note;
   - перетащить её;
   - отредактировать текст;
-  - смотреть клиент B.
+  - смотреть B.
 - Expected result:
-  - create / move / edit отражаются в клиенте B;
-  - header-handle drag остаётся рабочим и в shared flow.
-- Regression:
-  - move/edit не синхронизируются;
-  - text-card drag-handle ведёт себя иначе после синка.
+  - create / move / edit отражаются в B;
+  - header drag-handle остаётся рабочим.
 
-### 8. Shared images
+### 2.4. Shared images
 
-- Setup:
-  - открыть `alpha-qa-1` в клиентах A и B.
 - Exact actions:
-  - в клиенте A добавить image;
+  - в A добавить image;
   - переместить image;
   - изменить размер image;
-  - смотреть клиент B.
+  - смотреть B.
 - Expected result:
-  - committed image state приходит в клиент B;
-  - drag/resize не ломают image.
-- Regression:
-  - image changes не синхронизируются;
-  - resize ломает image state;
-  - image interaction начинает влиять на unrelated flows.
+  - committed image state приходит в B;
+  - drag/resize не ломают image state.
 
-## Room-switching checks
+---
 
-### 9. Switch room and back
+## 3. Room lifecycle and recovery checks
+
+### 3.1. Switch room and back
 
 - Setup:
   - открыть `alpha-qa-1`, создать там несколько объектов;
   - подготовить `alpha-qa-2` как отдельную комнату.
 - Exact actions:
-  - в клиенте A переключиться в `alpha-qa-2`;
+  - в A переключиться в `alpha-qa-2`;
   - затем вернуться в `alpha-qa-1`.
 - Expected result:
   - URL и room id меняются сразу;
-  - в новой комнате не протекают presence и shared objects из предыдущей;
+  - presence и shared objects не протекают между комнатами;
   - при возврате показывается live state исходной комнаты.
-- Regression:
-  - объекты или presence “текут” между комнатами;
-  - selection / transient state остаются привязанными к прошлой комнате.
 
-### 10. Remote preview should not leak across rooms
+### 3.2. Remote preview should not leak across rooms
 
 - Setup:
-  - открыть `alpha-qa-1` в клиентах A и B;
-  - в клиенте B начать drag или transform image так, чтобы в A был виден remote preview.
+  - открыть `alpha-qa-1` в A и B;
+  - в B начать drag или transform image так, чтобы в A был виден remote preview.
 - Exact actions:
-  - пока preview активен, в клиенте A переключиться в `alpha-qa-2`.
+  - пока preview активен, в A переключиться в `alpha-qa-2`.
 - Expected result:
-  - в новой комнате не остаётся старый remote image preview overlay;
-  - новая комната не показывает transient image preview из прошлой комнаты.
-- Regression:
-  - после room switch виден ghost preview/image bounds из предыдущей комнаты.
+  - в новой комнате не остаётся ghost preview из предыдущей комнаты.
 
-## Refresh / rejoin checks
-
-### 11. Refresh in active room
+### 3.3. Refresh in active room
 
 - Setup:
   - открыть `alpha-qa-1`;
@@ -198,35 +176,39 @@
 - Expected result:
   - participant session для этой комнаты сохраняется в том же браузере;
   - viewport восстанавливается;
-  - клиент снова подключается к current live room state;
-  - refresh сам по себе не ломает shared behavior.
-- Regression:
-  - после refresh теряется participant session в той же комнате;
-  - viewport не восстанавливается;
-  - live room state ведёт себя явно хуже без причины.
+  - клиент снова подключается к current live room state.
 
-### 12. Rejoin while room is still live
+### 3.4. Rejoin while room is still live
 
 - Setup:
-  - открыть `alpha-qa-1` в клиентах A и B;
-  - оставить B в комнате, чтобы live state точно существовал.
+  - открыть `alpha-qa-1` в A и B;
+  - оставить B в комнате.
 - Exact actions:
-  - в клиенте A закрыть вкладку или выйти из комнаты;
+  - в A закрыть вкладку или выйти;
   - снова открыть `alpha-qa-1` в том же браузере.
 - Expected result:
-  - A должен снова увидеть текущее live state комнаты;
-  - participant session может переиспользоваться для этой комнаты.
-- Regression:
-  - rejoin в живую комнату не показывает текущее live state;
-  - participant session ведёт себя явно неконсистентно в той же комнате.
+  - A снова видит текущее live state комнаты.
 
-## Image draw-mode checks
-
-### 13. Draw / Save / Clear in one client
+### 3.5. Durable snapshot smoke
 
 - Setup:
-  - открыть `alpha-qa-1`;
-  - добавить image, если её ещё нет.
+  - в `alpha-qa-1` создать несколько объектов;
+  - убедиться, что room state уже был сохранён обычным рабочим циклом.
+- Exact actions:
+  - убрать live room state scenario настолько, насколько это возможно в текущем dev flow;
+  - снова зайти в комнату.
+- Expected result:
+  - если live room уже отсутствует, alpha пытается восстановиться через durable room snapshot;
+  - это best-effort alpha behavior, а не final persistence guarantee.
+- Note:
+  - если этот сценарий ведёт себя странно, это уже не "известная нормальность по контракту", а повод перепроверить current durable path.
+
+---
+
+## 4. Image draw-mode checks
+
+### 4.1. Draw / Save / Clear in one client
+
 - Exact actions:
   - выбрать image;
   - нажать `Draw`;
@@ -235,32 +217,104 @@
   - затем `Clear`.
 - Expected result:
   - draw mode включается только явно;
-  - stroke виден на image;
   - `Save` коммитит результат;
   - `Clear` очищает strokes только у этой image.
-- Regression:
-  - drawing запускается неявно;
-  - `Save` не коммитит результат;
-  - `Clear` ломает image или затрагивает другие объекты.
 
-### 14. Awareness lock between two clients
+### 4.2. Awareness lock between two clients
 
 - Setup:
-  - открыть одну и ту же image в `alpha-qa-1` у клиентов A и B.
+  - открыть одну и ту же image у A и B.
 - Exact actions:
-  - в клиенте A нажать `Draw`;
-  - попробовать начать drawing в клиенте B на той же image;
+  - в A нажать `Draw`;
+  - попробовать начать drawing в B на той же image;
   - затем завершить drawing в A и проверить B ещё раз.
 - Expected result:
-  - B не должен получать параллельный draw control над той же image, пока lock активен;
-  - после завершения drawing mode в A lock снимается;
-  - lock остаётся awareness-механизмом, а не persistence-механизмом.
-- Regression:
-  - оба клиента одновременно рисуют на одной image в draw mode;
-  - lock не снимается после завершения;
-  - draw UX перестаёт совпадать с `Draw / Save / Clear`.
+  - B не получает параллельный draw control над той же image, пока lock активен;
+  - после завершения drawing mode в A lock снимается.
 
-## Highest-risk flows to test after any BoardStage-related change
+---
+
+## 5. Dice smoke checks
+
+### 5.1. Local dice tray
+
+- Exact actions:
+  - проверить, что tray доступен;
+  - сделать броски `d4 / d6 / d8 / d10 / d12 / d20 / d100`.
+- Expected result:
+  - броски запускаются без визуального развала overlay;
+  - результат выглядит осмысленно;
+  - tray остаётся usable и не ломает board interaction.
+
+### 5.2. Shared public roll
+
+- Setup:
+  - открыть комнату в A и B.
+- Exact actions:
+  - в A бросить несколько dice;
+  - проверить B.
+- Expected result:
+  - оба клиента видят один и тот же public roll moment;
+  - финальный visible result совпадает;
+  - цвет dice совпадает с color rolling participant.
+
+### 5.3. Sequential actor-color check
+
+- Setup:
+  - A и B под разными цветами.
+- Exact actions:
+  - сначала роллит A;
+  - затем роллит B.
+- Expected result:
+  - actor color корректно меняется от ролля к роллю;
+  - нет viewer-local color substitution.
+
+---
+
+## 6. Media dock smoke checks
+
+### 6.1. Localhost media join
+
+- Recommended setup:
+  - `npm run dev:local`
+- Exact actions:
+  - открыть room;
+  - зайти в media dock;
+  - включить/выключить mic/cam;
+  - выйти.
+- Expected result:
+  - join / leave работают;
+  - intentional leave не выглядит как error;
+  - stale banners не остаются после successful recovery.
+
+### 6.2. Two-tab basic media smoke
+
+- Setup:
+  - localhost two-tab or two-browser.
+- Exact actions:
+  - зайти в room в двух клиентах;
+  - проверить local/remote tile appearance;
+  - toggles mic/cam.
+- Expected result:
+  - базовый local/remote AV path работает;
+  - media dock не ломает board shell.
+
+### 6.3. LAN secure-origin smoke
+
+- Recommended setup:
+  - `npm run dev:lan`
+- Exact actions:
+  - открыть app с другого устройства;
+  - проверить secure context и media availability.
+- Expected result:
+  - URL открывается по HTTPS;
+  - `window.isSecureContext === true`;
+  - `navigator.mediaDevices` доступен;
+  - basic join works if trust is correctly configured.
+
+---
+
+## 7. Highest-risk flows after any BoardStage-related change
 
 - empty-space panning
 - wheel zoom around pointer
@@ -272,10 +326,18 @@
 - text-card drag-handle in header
 - text-card body double-click editing
 
-## Known acceptable alpha limitations
+## 8. Highest-risk flows before hosted alpha
 
-- durable room persistence пока не гарантируется;
-- после полного ухода всех участников состояние комнаты может не считаться durable contract;
-- canonical room memory model ещё не определена;
-- coexistence локального storage fallback и current live shared model пока допустим;
-- refresh и rejoin проверяются только в рамках current alpha contract, а не как финальная persistence-гарантия.
+- room entry / rejoin / refresh semantics
+- durable snapshot smoke
+- dice public roll consistency
+- media join/leave/toggle state handling
+- env/runtime assumptions in `dev:local` and `dev:lan`
+
+## 9. Known current alpha limitations
+
+- durable room memory остаётся best-effort, а не final collaborative durable platform;
+- media dock UX остаётся spike-level;
+- local CA trust ergonomics для LAN media testing остаются rough;
+- dice layer usable, но всё ещё имеет residual polish debt;
+- hosted alpha environment ещё не собран, поэтому некоторые проблемы могут проявиться только после deploy.

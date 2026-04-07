@@ -1,32 +1,43 @@
 # LiveKit Local Dev
 
-This repo does not start a LiveKit server automatically.
+Этот документ больше не является главным startup guide.
+Канонический repo-level startup path описан в `docs/dev-workflows.md`.
 
-For local development on macOS, the recommended path is **native LiveKit**, not Docker.
+Этот файл нужен для:
 
-Reason:
-- the current Dockerized LiveKit path is prone to local ICE/UDP connectivity failures on macOS
-- signaling can succeed while media still fails
-- for this spike, native local LiveKit is the narrowest reliable dev setup
+- объяснения, почему native LiveKit является preferred local-dev path;
+- ручного deep debugging;
+- понимания underlying token/network assumptions.
 
-For the current video spike, local self-hosted LiveKit is expected to match:
+## 1. Current recommended local path
 
-- `VITE_LIVEKIT_URL=ws://localhost:7880`
-- `LIVEKIT_API_KEY=devkey`
-- `LIVEKIT_API_SECRET=secret`
+Для обычной разработки используй:
 
-Mode-specific dev env files:
+```bash
+npm run dev:local
+```
 
-- localhost dev: `.env.localdev`
-- LAN HTTPS dev: `.env.landev`
+Или для multi-device secure-origin checks:
 
-Root `.env` is not required for the standard dev workflows.
+```bash
+npm run dev:lan
+```
 
-## Start locally
+Обе wrapper-команды поднимают LiveKit как часть общего dev workflow.
 
-1. Install `livekit-server` locally if it is not already available.
+## 2. Why native LiveKit is preferred
 
-2. Start LiveKit natively:
+Для local development на macOS preferred path остаётся **native LiveKit**, а не Docker.
+
+Причины:
+
+- Dockerized LiveKit path склонен к confusing ICE/UDP failures на macOS;
+- signaling может работать, а media — нет;
+- для текущего проекта native local path остаётся самым узким и надёжным dev default.
+
+## 3. Manual LiveKit start
+
+Если нужно запустить LiveKit отдельно вручную:
 
 ```bash
 npm run livekit-server
@@ -38,37 +49,75 @@ This runs:
 livekit-server --dev --bind 0.0.0.0
 ```
 
-3. Start the existing app backend:
+## 4. Manual component startup
 
-```bash
-npm run presence-server
-```
-
-4. Start the frontend:
+Frontend:
 
 ```bash
 npm run dev
 ```
 
-## Docker fallback
+Backend / Yjs / token endpoint:
 
-Docker is kept only as a fallback/experimental local path:
+```bash
+npm run presence-server
+```
+
+LiveKit:
+
+```bash
+npm run livekit-server
+```
+
+LAN proxy:
+
+```bash
+npm run lan-proxy
+```
+
+Use this mode only for debugging underlying components.
+
+## 5. Docker fallback
+
+Docker kept only as fallback / experiment:
 
 ```bash
 npm run livekit-server:docker
 ```
 
-Stop Docker fallback:
+Stop:
 
 ```bash
 npm run livekit-server:docker:down
 ```
 
-The Docker path may still fail for local browser-to-browser media on macOS even when signaling works.
+Do not treat Docker as the default success path for local media validation.
 
-## Verify LiveKit is up
+## 6. Expected dev values
 
-For the native path, verify the server is listening on:
+Current narrow local-dev expectation:
+
+```env
+VITE_LIVEKIT_URL=ws://localhost:7880
+LIVEKIT_API_KEY=devkey
+LIVEKIT_API_SECRET=secret
+```
+
+LAN mode uses `.env.landev` values instead.
+
+## 7. Token routing in dev
+
+Frontend token fetch does not go to Vite by default.
+
+Current logic is expected to resolve token requests against the existing backend / Yjs host path.
+
+Practical dev expectation:
+
+- token requests go to the backend on port `1234`, directly or through the LAN proxy host mapping.
+
+## 8. Verify LiveKit is up
+
+For native path, verify the server is listening on:
 
 - `localhost:7880` for signaling
 - `localhost:7881` for TCP RTC fallback
@@ -81,104 +130,35 @@ lsof -i :7880
 lsof -i :7881
 ```
 
-## Token routing in dev
+## 9. LAN HTTPS note
 
-Frontend token fetch does **not** go to the Vite dev server by default.
-
-Current logic in `src/lib/livekit.ts`:
-
-- if `VITE_Y_WEBSOCKET_URL` is set, token requests go to that host with `ws -> http`
-- otherwise token requests go to `http://<hostname>:1234`
-
-So in local dev, token requests are expected to hit the existing backend on port `1234`.
-
-## LAN HTTPS testing
-
-For testing from another device on the local network, plain HTTP is not enough for
-browser media APIs. Use the repo-local Caddy reverse proxy and open the app over
-HTTPS.
-
-### LAN `.env.landev` values
+For other devices on the LAN, plain HTTP is not enough for browser media APIs.
 
 Use:
 
-```env
-LAN_HOST=192.168.1.113
-VITE_Y_WEBSOCKET_URL=wss://192.168.1.113:3444
-VITE_LIVEKIT_URL=wss://192.168.1.113:3445
-LIVEKIT_API_KEY=devkey
-LIVEKIT_API_SECRET=secret
-```
-
-`LAN_HOST` is the single obvious config point for the LAN proxy URL.
-When your LAN IP changes, update `.env.landev`.
-
-### Startup sequence
-
-1. Start Vite:
-
 ```bash
-npm run dev
+npm run dev:lan
 ```
 
-2. Start the existing backend:
-
-```bash
-npm run presence-server
-```
-
-3. Start LiveKit:
-
-```bash
-npm run livekit-server
-```
-
-4. Start the LAN HTTPS proxy:
-
-```bash
-npm run lan-proxy
-```
-
-### URL to open from another device
-
-Open:
+Then open:
 
 ```text
 https://<LAN_HOST>:3443
 ```
 
-The proxy routes:
+If the device/browser does not trust the local Caddy CA, media APIs may stay unavailable.
 
-- `https://<LAN_HOST>:3443` -> Vite on `5173`
-- `https://<LAN_HOST>:3444` / `wss://<LAN_HOST>:3444` -> presence-server on `1234`
-- `https://<LAN_HOST>:3445` / `wss://<LAN_HOST>:3445` -> LiveKit on `7880`
-
-### Certificate trust caveat
-
-`tls internal` means Caddy issues a local development certificate.
-The test device must trust Caddy's local CA, otherwise the browser will still treat
-the origin as unsafe or show certificate errors.
-
-For device/browser trust troubleshooting, see:
+See:
 
 - `docs/lan-https-trust.md`
 
-### Verification checklist
+## 10. Practical interpretation
 
-From the other device, open DevTools on:
+If localhost works but LAN media fails, assume this order first:
 
-```text
-https://<LAN_HOST>:3443
-```
+1. secure-origin / certificate trust issue
+2. local network / proxy issue
+3. LiveKit transport issue
+4. app logic issue
 
-Then verify:
-
-```js
-window.isSecureContext === true
-```
-
-and:
-
-```js
-!!navigator.mediaDevices === true
-```
+Do not jump straight to product-level conclusions before checking trust and runtime plumbing.

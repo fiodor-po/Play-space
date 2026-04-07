@@ -1,131 +1,321 @@
 # play-space-alpha — agent guide
 
-## Product frame
-- This repo is a board-first shared play space for game / roleplay sessions.
-- It is not a heavy VTT.
-- The board is the primary interaction surface.
-- UX should stay drag-and-drop first and multiplayer-first.
+## Project identity
 
-## Current stack
-- React
-- TypeScript
-- Vite
-- Konva / react-konva
-- Yjs / y-websocket for current realtime slices
+This repo is `play-space-alpha`.
 
-## Refactor objective
-Reorganize the codebase toward clearer architectural boundaries without destabilizing current working behavior.
+Product frame:
 
-The target direction is:
-- separate board domain from app UI
-- separate board objects by type
-- separate interaction / tool logic from object renderers
-- separate room/session, sync, presence, persistence
-- preserve incremental migration strategy
+- lightweight board-first multiplayer play space;
+- not a heavy VTT;
+- drag-and-drop-first;
+- simple session entry;
+- multiplayer readability matters more than feature breadth.
 
-## Hard constraints
-- Do not broad-refactor BoardStage.tsx in one pass.
-- Do not break manual empty-space panning.
-- Do not regress image drag / resize / draw-mode behavior.
-- Do not mix architecture reorg with unrelated product-scope changes.
-- Do not turn this repo into a heavy-VTT architecture.
-- Prefer extraction and relocation over rewrites.
+Core principle:
 
-## Current reality to preserve
-- room switching works
-- presence / cursors work
-- tokens are shared
-- images are shared
-- text-cards are shared
-- current image interaction is sensitive and easy to regress
+- prefer practical product progress over architecture theatre;
+- prefer narrow, safe, high-signal changes over broad rewrites;
+- prefer read-only analysis before implementation when semantics, architecture, or deployment shape are unclear.
 
-## Roadmap usage
-- Before planning or implementing non-trivial work, read:
-  - `ROADMAP.md`
-  - `AGENTS.md`
-  - `PLANS.md`
-  - and any directly relevant architecture/context docs
-- Treat `ROADMAP.md` as the live source of truth for:
-  - current phase
-  - active focus
-  - backlog priorities
-  - open questions
-  - decision log
-- Do not use `ROADMAP.md` as a detailed execution plan.
-- For major refactors or multi-step changes, still create/use an ExecPlan via `PLANS.md`.
-- If a task closes a major backlog item, changes phase priority, or resolves an open question, update `ROADMAP.md` in the same change set when appropriate.
-- Keep project summary and context pack documents as reference/context docs, not as the main live backlog.
+## Current project stage
 
-## Rules for architecture work
-When asked to reorganize the project:
-1. Start with read-only analysis.
-2. Map current module responsibilities and hotspots.
-3. Classify state as one of:
-   - persisted/shared room state
-   - shared realtime state
-   - local transient UI state
-   - local interaction state
-   - awareness-only ephemeral state
-4. Identify where these concerns are mixed in the same files.
-5. Produce a phased migration plan before editing production code.
-6. Implement only one safe phase at a time.
+The project is no longer just an early board foundation.
 
-## Required outputs for architecture tasks
-- docs/refactor-audit.md
-- docs/refactor-plan.md
+Current alpha-core reality:
 
-Each must include:
-- current architecture map
-- coupling hotspots
-- proposed target boundaries
-- proposed folder tree
-- migration phases
-- validation steps
-- no-go zones
+- shared board objects, presence, and room switching work;
+- durable room snapshot recovery exists as a best-effort room-level layer;
+- participant/color semantics reached a coherent checkpoint;
+- canonical zero-state and board-content-vs-viewport separation are established;
+- narrow LiveKit integration is technically validated;
+- authoritative shared 3D dice are accepted as part of alpha core;
+- the project is now close enough to feature-complete for first hosted alpha work.
 
-## ExecPlan rule
-For any significant refactor, create an ExecPlan that follows PLANS.md before changing production code.
+Current preferred sequence:
 
-## Validation
-After any implementation phase:
-- run npm run build
-- explain what behavior might have regressed
-- list manual QA steps for the touched flow
+1. read-only technical audit of the current alpha core;
+2. narrow stabilization for real pre-deploy risks;
+3. first hosted alpha deployment;
+4. real-session validation;
+5. slower UI/UX polish afterwards.
 
-## Color model semantic source of truth
+## Canonical docs to read first
 
-Canonical color semantics for `play-space-alpha` are defined in:
+Before non-trivial work, read:
+
+- `ROADMAP.md`
+- `AGENTS.md`
+- `PLANS.md`
+- `play-space-project-foundation.md`
+- `play-space-alpha_current-context.md`
+
+Then read only the directly relevant focused docs, for example:
 
 - `docs/color-model-design.md`
-
-Treat that document as the source of truth for:
-- participant color meaning
-- creator-linked object color semantics
-- actor-colored live interaction semantics
-- neutral object color behavior
-- drawing color direction
-
-Do not change color semantics in code unless the semantic change is first explicitly reflected in `docs/color-model-design.md`.
-
-If a requested color-related change is ambiguous, broad, or semantically risky:
-1. do read-only analysis first
-2. explain the gap between current implementation and the design doc
-3. recommend the smallest safe phased implementation path
-
-Prefer phased implementation over broad rewrites.
-Do not collapse product-semantic decisions and large code surgery into one uncontrolled pass.
-
-## Dice spike source of truth
-
-Canonical design/spec for the first dice chapter is defined in:
-
+- `docs/room-behavior-spec.md`
+- `docs/room-memory-model.md`
+- `docs/dev-workflows.md`
+- `docs/manual-qa-runbook.md`
 - `docs/dice-spike-design.md`
+- `docs/hosted-alpha-deployment-plan.md`
 
-Treat that document as the source of truth for:
-- dice spike scope boundaries
-- shared/public roll semantics
-- overlay placement semantics
-- transient realtime event model
-- actor color semantics for dice presentation
+Historical baseline docs:
 
-Do not broaden dice implementation beyond that doc without updating the design first.
+- `docs/refactor-audit.md`
+- `docs/refactor-plan.md`
+
+Treat those as historical architecture baseline, not as unquestioned current truth.
+
+## Product guardrails
+
+Do not evolve this project into:
+
+- a heavy VTT;
+- a rules engine;
+- a permissions-heavy admin system;
+- a feature-bloated media platform.
+
+Default preference order:
+
+1. preserve board-first session feel;
+2. preserve simplicity;
+3. preserve multiplayer readability;
+4. preserve implementation safety;
+5. only then pursue polish or extra capability.
+
+When several options are possible, prefer:
+
+- the narrowest change that improves the real playable-session product;
+- the path that keeps AI-assisted iteration manageable;
+- the path that does not create hidden infrastructure complexity.
+
+## Architecture guardrails
+
+Important current realities:
+
+- `BoardStage` remains a sensitive integration surface;
+- empty-space pan/zoom behavior is fragile and must not change casually;
+- image drag/resize/draw/preview flows are fragile;
+- room switch/reset/bootstrap/recovery paths are sensitive;
+- realtime, persistence, video, and dice integrations must not be casually rewritten together.
+
+Default rules:
+
+- do not broad-rewrite `BoardStage`;
+- do not combine refactor + feature work in one pass;
+- do not change event ordering unless explicitly required;
+- do not redesign transport contracts unless the task explicitly calls for it.
+
+If architecture is unclear:
+
+1. inspect current behavior;
+2. describe the actual mechanism;
+3. identify risks and mixed concerns;
+4. propose a narrow target model;
+5. only then implement.
+
+## No-go zones
+
+Unless a task explicitly requires it, do not:
+
+- broad-rewrite `src/components/BoardStage.tsx`;
+- change empty-space panning semantics;
+- change current image drag / resize / draw / preview behavior;
+- change room bootstrap / recovery semantics casually;
+- combine product-scope changes with large architecture cleanup;
+- introduce heavy-VTT scene/entity architecture.
+
+## Working model: strategist and executor
+
+This project may be developed using two complementary AI chats.
+
+### A. Strategist chat
+
+Purpose:
+
+- product thinking;
+- architecture framing;
+- task decomposition;
+- read-only analysis;
+- risk assessment;
+- prompt writing for implementation;
+- review of Codex output;
+- deciding whether docs/current-context/case-study should be updated.
+
+The strategist chat should usually:
+
+- not perform broad code edits directly;
+- separate semantics questions from implementation questions;
+- produce clean implementation briefs for the executor chat;
+- keep scope small and explicit.
+
+### B. Executor chat
+
+Purpose:
+
+- make narrow code changes;
+- run builds/tests;
+- inspect files;
+- perform targeted debugging;
+- return concise implementation reports.
+
+The executor chat should:
+
+- follow the task brief closely;
+- avoid opportunistic rewrites;
+- avoid mixing unrelated cleanup into one pass;
+- report changed files, validation steps, risks, and any deviations.
+
+## When to use analysis-first vs implementation-first
+
+Use analysis-first when the task involves:
+
+- interaction model changes;
+- product semantics;
+- architecture uncertainty;
+- persistence / recovery logic;
+- source-of-truth questions;
+- deployment topology;
+- integration-path decisions;
+- refactor decisions;
+- ambiguous bug root cause.
+
+Implementation-first is acceptable when:
+
+- the desired behavior is already clear;
+- the scope is narrow;
+- the risk surface is known;
+- the change does not require redefining semantics.
+
+## Standard task brief for the executor chat
+
+Every non-trivial implementation task should preferably include:
+
+### Task
+What to change.
+
+### Goal
+What product/technical outcome is required.
+
+### Constraints
+What must not change.
+
+### Relevant context
+Why this task exists now.
+
+### Files to inspect first
+Specific files/modules to read before editing.
+
+### Deliverables
+What the executor must return.
+
+### Validation
+Build/test/manual QA requirements.
+
+### Stop conditions
+When to stop instead of pushing through.
+
+## Standard executor output
+
+The executor chat should return:
+
+### Summary
+Short statement of what was done.
+
+### Files changed
+List of modified files.
+
+### What changed
+Concrete behavior/code changes.
+
+### Validation
+Build/test/manual checks run.
+
+### Risks / notes
+Anything fragile, incomplete, or worth follow-up.
+
+### Suggested next step
+A narrow next step, only if obvious.
+
+## Architecture-specific rule
+
+When asked for architecture audit or refactor planning:
+
+- start read-only;
+- classify state as:
+  - persisted/shared room state
+  - shared realtime state
+  - local transient UI state
+  - local interaction state
+  - awareness-only ephemeral state
+- identify where these concerns are mixed;
+- produce a phased plan before touching production code;
+- implement only one safe phase at a time.
+
+For major refactors or multi-step reorganizations, use an ExecPlan that follows `PLANS.md`.
+
+## Deployment-readiness mindset
+
+Before hosted-alpha work:
+
+- prefer explicit runtime boundaries;
+- identify local-dev-only assumptions;
+- keep frontend / realtime-backend / integrations conceptually separate;
+- do not overbuild production infrastructure;
+- optimize for first hosted alpha, not final platform maturity.
+
+The default hosted-alpha shape to reason about is:
+
+- frontend separately hosted;
+- long-running Node service for realtime/API separately hosted;
+- LiveKit separate if video remains enabled.
+
+## Validation default
+
+After any meaningful implementation pass:
+
+- run `npm run build`;
+- explain what behavior might have regressed;
+- list manual QA steps for the touched flow;
+- if the change touches board/runtime behavior, use `docs/manual-qa-runbook.md` and `docs/stabilization-checklist.md` as the baseline.
+
+## Canonical semantic / planning sources
+
+### Color
+`docs/color-model-design.md`
+
+### Room lifecycle and memory
+- `docs/room-behavior-spec.md`
+- `docs/room-memory-model.md`
+
+### Dev/runtime workflows
+- `docs/dev-workflows.md`
+- `docs/livekit-local-dev.md`
+- `docs/lan-https-trust.md`
+
+### Dice layer
+`docs/dice-spike-design.md`
+
+### Hosted alpha deployment
+`docs/hosted-alpha-deployment-plan.md`
+
+Do not silently change semantic behavior or deployment assumptions in code unless the relevant design/planning doc is also aligned or explicitly superseded.
+
+## Documentation discipline
+
+After any meaningful step, decide whether to update:
+
+- `ROADMAP.md`
+- `play-space-alpha_current-context.md`
+- `play-space-alpha_case-study-log.md`
+
+Rules:
+
+- `play-space-project-foundation.md` changes rarely;
+- `ROADMAP.md` is the live development plan and priority map;
+- `play-space-alpha_current-context.md` is short and operational;
+- `play-space-alpha_case-study-log.md` stores decisions, milestones, bugs, and workflow lessons;
+- do not lose major reasoning between chats.
+
+If a step changes priorities, closes a roadmap item, changes the intended sequence of work, or changes product/deployment direction, update `ROADMAP.md` in the same change set when appropriate.

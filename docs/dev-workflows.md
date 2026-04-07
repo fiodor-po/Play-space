@@ -1,12 +1,34 @@
 # Dev Workflows
 
-## Localhost dev
+Этот документ — канонический entry point для локального запуска проекта.
 
-Mode-specific env file:
+Используй его как основной source of truth для dev-startup.
+`docs/livekit-local-dev.md` остаётся дополнительным deep-dive note про underlying LiveKit setup и troubleshooting.
 
-- `.env.localdev`
+## 1. Required local tools
 
-Root `.env` is not required for this workflow.
+### Always required
+- Node.js LTS
+- npm
+
+### Required for built-in video workflows
+- `livekit-server`
+
+### Required for LAN HTTPS mode
+- `caddy`
+
+## 2. Environment files
+
+Используются mode-specific env files:
+
+- localhost mode: `.env.localdev`
+- LAN HTTPS mode: `.env.landev`
+
+Root `.env` не нужен для стандартных repo-local workflows.
+
+## 3. Main workflows
+
+## A. Localhost dev
 
 Run:
 
@@ -26,13 +48,13 @@ App URL:
 http://localhost:5173
 ```
 
-## LAN HTTPS dev
+Use this mode when:
 
-Mode-specific env file:
+- you are working alone on the same machine;
+- you want the fastest normal local loop;
+- you do not need secure-origin testing on another device.
 
-- `.env.landev`
-
-Root `.env` is not required for this workflow.
+## B. LAN HTTPS dev
 
 Run:
 
@@ -53,30 +75,97 @@ App URL:
 https://<LAN_HOST>:3443
 ```
 
-This mode expects LAN HTTPS values in `.env.landev` and a trusted local Caddy
-CA on the test device.
+Use this mode when:
 
-Troubleshooting:
+- you want multi-device media testing;
+- you need `navigator.mediaDevices` on another device;
+- you want a more realistic local LAN smoke path.
+
+This mode expects valid values in `.env.landev` and trusted local Caddy CA on the test device.
+
+See:
 
 - `docs/lan-https-trust.md`
 
-## Shutdown
+## 4. Manual component mode
 
-Both commands keep running until interrupted.
+For debugging or if wrapper scripts are not enough, components can still be started separately.
+
+Frontend only:
+
+```bash
+npm run dev
+```
+
+Yjs / API backend:
+
+```bash
+npm run presence-server
+```
+
+LiveKit:
+
+```bash
+npm run livekit-server
+```
+
+LAN proxy:
+
+```bash
+npm run lan-proxy
+```
+
+Этот режим нужен для deep debugging, а не как основной happy-path workflow.
+
+## 5. Docker fallback for LiveKit
+
+Experimental fallback only:
+
+```bash
+npm run livekit-server:docker
+```
+
+Stop:
+
+```bash
+npm run livekit-server:docker:down
+```
+
+Docker path не считается preferred local-dev default, особенно на macOS.
+
+## 6. Shutdown
+
+Both wrapper workflows keep running until interrupted.
 
 To stop everything:
 
-- press `Ctrl+C` in the terminal where the dev workflow is running
+- press `Ctrl+C` in the terminal where the workflow is running
 
-The wrapper script traps shutdown and sends stop signals to all child services.
+The wrapper scripts should stop child services too.
 
-## Caveats
+## 7. Caveats
 
-- `npm run dev:local` requires `livekit-server` to be installed locally
+- `npm run dev:local` requires local `livekit-server`
 - `npm run dev:lan` requires both `livekit-server` and `caddy`
 - localhost mode reads from `.env.localdev`
 - LAN mode reads from `.env.landev`
-- when your LAN IP changes, update only `.env.landev`:
+- when your LAN IP changes, update `.env.landev`:
   - `LAN_HOST`
   - `VITE_Y_WEBSOCKET_URL`
   - `VITE_LIVEKIT_URL`
+
+## 8. Recommended sanity checks
+
+After startup, confirm:
+
+- app opens
+- board loads
+- presence works in second tab if relevant
+- if testing video, media join works
+- if testing LAN mode, browser is in secure context and `navigator.mediaDevices` exists
+
+## 9. Related docs
+
+- `docs/livekit-local-dev.md`
+- `docs/lan-https-trust.md`
+- `docs/manual-qa-runbook.md`

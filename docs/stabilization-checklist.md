@@ -1,126 +1,55 @@
 # Stabilization Checklist
 
-Этот документ нужен как короткий regression checklist для текущего shared alpha.
+Этот документ — короткий regression / pre-deploy checklist для текущего alpha core.
 
-## Room switching
+Используй его как fast-pass.
+Если нужен подробный сценарий, открывай `docs/manual-qa-runbook.md`.
 
-- Проверка:
-  - перейти из одной комнаты в другую;
-  - вернуться обратно;
-  - проверить это в двух клиентах.
-- Expected behavior:
-  - URL и room id в UI меняются сразу;
-  - presence предыдущей комнаты не протекает в новую;
-  - shared objects показываются только для активной комнаты;
-  - локальные interaction state не должны оставаться привязанными к прошлой комнате.
+## Build
 
-## Refresh
+- [ ] `npm run build`
 
-- Проверка:
-  - сделать refresh в уже открытой комнате.
-- Expected behavior:
-  - в том же браузере сохраняется локальная participant session для этой комнаты;
-  - клиент заново подключается к current live room state;
-  - viewport восстанавливается из локального состояния комнаты;
-  - refresh не должен сам по себе ломать shared objects или presence.
+## Core board control
 
-## Rejoin
+- [ ] empty-space panning still works
+- [ ] wheel zoom stays anchored around pointer
+- [ ] selection / editing overlays still behave normally
 
-- Проверка:
-  - выйти из комнаты и зайти снова тем же браузером;
-  - повторить с другим клиентом, если возможно.
-- Expected behavior:
-  - rejoin в активную live room должен снова показывать текущее live room state;
-  - participant session в том же браузере может переиспользоваться для этой комнаты;
-  - durable memory после полного ухода всех участников пока не считается гарантированной.
+## Shared board state
 
-## Presence / cursors
+- [ ] shared tokens: create / move / delete
+- [ ] shared text-cards: create / move / edit
+- [ ] shared images: add / move / resize
+- [ ] image draw mode: `Draw / Save / Clear`
 
-- Проверка:
-  - открыть два клиента;
-  - подвигать курсоры;
-  - подождать и проверить cleanup после ухода клиента.
-- Expected behavior:
-  - удалённые курсоры и имена появляются только у других участников;
-  - локальный курсор не дублируется как remote;
-  - после ухода участника его presence исчезает.
+## Collaboration signals
 
-## Shared tokens
+- [ ] presence / cursors still sync correctly
+- [ ] awareness lock still prevents parallel drawing on the same image
+- [ ] remote preview does not leak across room switch
 
-- Проверка:
-  - создать token;
-  - подвигать его;
-  - удалить его;
-  - проверить второй клиент.
-- Expected behavior:
-  - token creation / move / delete видны всем участникам комнаты;
-  - room switching не переносит token в другую комнату.
+## Room lifecycle
 
-## Shared images
+- [ ] switch room and back
+- [ ] refresh in active room
+- [ ] rejoin while room is still live
+- [ ] durable snapshot smoke still behaves plausibly
 
-- Проверка:
-  - добавить image;
-  - переместить image;
-  - изменить размер image;
-  - проверить второй клиент.
-- Expected behavior:
-  - committed image state синхронизируется между участниками;
-  - resize и drag не ломают существующие image strokes;
-  - image interaction не должна влиять на empty-space panning вне объекта.
+## Dice
 
-## Shared text-cards
+- [ ] local dice tray still works
+- [ ] shared public roll still reaches second client
+- [ ] final visible result remains consistent across clients
+- [ ] actor color remains correct for remote rolls
 
-- Проверка:
-  - создать text-card;
-  - перетащить её;
-  - отредактировать текст;
-  - проверить второй клиент.
-- Expected behavior:
-  - create / move / edit видны всем участникам комнаты;
-  - drag-handle в header продолжает работать как основной способ drag;
-  - body double-click продолжает открывать editing.
+## Media dock
 
-## Image Draw / Save / Clear
+- [ ] local media join/leave path still works if video is enabled
+- [ ] mic/cam toggles recover cleanly
+- [ ] intentional leave does not look like disconnect error
 
-- Проверка:
-  - выбрать image;
-  - войти в `Draw`;
-  - нарисовать stroke;
-  - нажать `Save`;
-  - затем `Clear`.
-- Expected behavior:
-  - draw mode включается только явно;
-  - stroke появляется на выбранной image;
-  - `Save` коммитит результат;
-  - `Clear` удаляет strokes у текущей image без побочных эффектов для других объектов.
+## Pre-deploy watch items
 
-## Awareness lock
-
-- Проверка:
-  - открыть одну и ту же image в двух клиентах;
-  - включить draw mode в одном клиенте.
-- Expected behavior:
-  - второй клиент не должен получать параллельный draw control над той же image;
-  - lock должен сниматься после завершения drawing mode или ухода клиента;
-  - lock не должен превращаться в persistence-механизм.
-
-## Empty-space panning
-
-- Проверка:
-  - drag по пустому месту доски;
-  - повторить после selection / deselection;
-  - повторить после image interaction.
-- Expected behavior:
-  - empty-space panning работает вручную и без регрессий;
-  - drag по пустому пространству не должен случайно таскать объект;
-  - это чувствительный no-go flow: любое отклонение считать регрессией.
-
-## Wheel zoom
-
-- Проверка:
-  - zoom in / out колесом мыши;
-  - повторить в разных областях доски.
-- Expected behavior:
-  - zoom остаётся anchored around pointer;
-  - zoom не должен ломать selection, panning или overlay editing;
-  - после zoom board остаётся usable без скачков и потери control.
+- [ ] no obvious local-dev-only assumption was introduced
+- [ ] logs/errors remain understandable enough for hosted debugging
+- [ ] no change silently widened scope into architecture rewrite
