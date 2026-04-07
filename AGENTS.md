@@ -167,6 +167,51 @@ The executor chat should:
 - avoid mixing unrelated cleanup into one pass;
 - report changed files, validation steps, risks, and any deviations.
 
+## Strategist / executor handoff format
+
+### Strategist -> Executor handoff
+
+When the strategist thread sends work to the executor thread, use this structure:
+
+- Task
+- Goal
+- Constraints
+- Relevant context
+- Files to inspect first
+- Deliverables
+- Validation
+- Stop conditions
+
+Rules:
+
+- prefer narrow implementation-ready briefs;
+- do not send broad or ambiguous execution prompts;
+- keep scope explicit;
+- state what must not change.
+
+### Executor -> Strategist report
+
+When the executor thread finishes a pass, return this structure:
+
+- Summary
+- Files changed
+- What changed
+- Validation
+- Risks / notes
+- Suggested next step
+
+Rules:
+
+- keep the report concise and factual;
+- do not hide scope expansion;
+- do not hide skipped validation;
+- clearly distinguish completed work from follow-up work.
+
+Canonical templates:
+
+- `docs/task-brief-template.md`
+- `docs/executor-report-template.md`
+
 ## When to use analysis-first vs implementation-first
 
 Use analysis-first when the task involves:
