@@ -23,9 +23,6 @@ const docs = new Map();
 const durableSnapshotStorePath =
   process.env.ROOM_SNAPSHOT_STORE_FILE ||
   path.join(process.cwd(), "data", "room-snapshots.json");
-const liveKitApiKey = process.env.LIVEKIT_API_KEY || "";
-const liveKitApiSecret = process.env.LIVEKIT_API_SECRET || "";
-const liveKitTokenRouteEnabled = Boolean(liveKitApiKey && liveKitApiSecret);
 
 class WSSharedDoc extends Y.Doc {
   constructor(name) {
@@ -152,18 +149,25 @@ wss.on("connection", (conn, req) => {
 });
 
 server.listen(port, host, () => {
+  const liveKitConfig = getLiveKitConfig();
+
   console.info("[runtime-config][presence-server]", {
     host,
     port,
     envFile:
       process.env.PLAY_SPACE_ENV_FILE || path.join(process.cwd(), ".env.localdev"),
     durableSnapshotStorePath,
-    liveKitTokenRouteEnabled,
+    liveKitTokenRouteEnabled: liveKitConfig.enabled,
+    liveKitStatus: liveKitConfig.enabled ? "enabled" : "disabled",
+    liveKitCredentials: {
+      apiKeyPresent: liveKitConfig.apiKeyPresent,
+      apiSecretPresent: liveKitConfig.apiSecretPresent,
+    },
   });
 
-  if (!liveKitTokenRouteEnabled) {
+  if (!liveKitConfig.enabled) {
     console.warn("[runtime-config][presence-server][livekit-disabled]", {
-      reason: "LIVEKIT_API_KEY or LIVEKIT_API_SECRET is missing",
+      reason: getLiveKitDisabledReason(liveKitConfig),
     });
   }
 
@@ -233,6 +237,8 @@ async function handleHttpRequest(req, res) {
   }
 
   if (healthRouteMatch) {
+    const liveKitConfig = getLiveKitConfig();
+
     if (req.method !== "GET") {
       res.writeHead(405, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: "Method not allowed" }));
@@ -248,7 +254,12 @@ async function handleHttpRequest(req, res) {
         port,
         features: {
           roomSnapshots: true,
-          liveKitTokenRoute: liveKitTokenRouteEnabled,
+          liveKitTokenRoute: liveKitConfig.enabled,
+        },
+        liveKitStatus: liveKitConfig.enabled ? "enabled" : "disabled",
+        liveKitCredentials: {
+          apiKeyPresent: liveKitConfig.apiKeyPresent,
+          apiSecretPresent: liveKitConfig.apiSecretPresent,
         },
         durableSnapshotStorePath,
       })
@@ -257,15 +268,26 @@ async function handleHttpRequest(req, res) {
   }
 
   if (liveKitTokenRouteMatch) {
+    const liveKitConfig = getLiveKitConfig();
+
     if (req.method !== "POST") {
       res.writeHead(405, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: "Method not allowed" }));
       return;
     }
 
-    if (!liveKitTokenRouteEnabled) {
+    if (!liveKitConfig.enabled) {
       res.writeHead(500, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: "LiveKit credentials are not configured" }));
+      res.end(
+        JSON.stringify({
+          error: getLiveKitDisabledReason(liveKitConfig),
+          code: "LIVEKIT_DISABLED",
+          liveKitCredentials: {
+            apiKeyPresent: liveKitConfig.apiKeyPresent,
+            apiSecretPresent: liveKitConfig.apiSecretPresent,
+          },
+        })
+      );
       return;
     }
 
@@ -288,7 +310,12 @@ async function handleHttpRequest(req, res) {
 
     if (!roomId || !participantId || !participantName) {
       res.writeHead(400, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: "roomId, participantId, and participantName are required" }));
+      res.end(
+        JSON.stringify({
+          error: "roomId, participantId, and participantName are required",
+          code: "INVALID_LIVEKIT_TOKEN_REQUEST",
+        })
+      );
       return;
     }
 
@@ -476,7 +503,9 @@ async function createLiveKitToken({
   participantId,
   participantName,
 }) {
-  const accessToken = new AccessToken(liveKitApiKey, liveKitApiSecret, {
+  const liveKitConfig = getLiveKitConfig();
+
+  const accessToken = new AccessToken(liveKitConfig.apiKey, liveKitConfig.apiSecret, {
     identity: participantId,
     name: participantName,
   });
@@ -489,6 +518,45 @@ async function createLiveKitToken({
   });
 
   return accessToken.toJwt();
+}
+
+function getLiveKitConfig() {
+  const liveKitApiKey = readEnvString("LIVEKIT_API_KEY");
+  const liveKitApiSecret = readEnvString("LIVEKIT_API_SECRET");
+
+  return {
+    apiKey: liveKitApiKey,
+    apiSecret: liveKitApiSecret,
+    apiKeyPresent: liveKitApiKey.length > 0,
+    apiSecretPresent: liveKitApiSecret.length > 0,
+    enabled: liveKitApiKey.length > 0 && liveKitApiSecret.length > 0,
+  };
+}
+
+function getLiveKitDisabledReason(liveKitConfig) {
+  if (!liveKitConfig.apiKeyPresent && !liveKitConfig.apiSecretPresent) {
+    return "LiveKit credentials are not configured";
+  }
+
+  if (!liveKitConfig.apiKeyPresent) {
+    return "LIVEKIT_API_KEY is not configured";
+  }
+
+  if (!liveKitConfig.apiSecretPresent) {
+    return "LIVEKIT_API_SECRET is not configured";
+  }
+
+  return "LiveKit credentials are not configured";
+}
+
+function readEnvString(name) {
+  const value = process.env[name];
+
+  if (typeof value !== "string") {
+    return "";
+  }
+
+  return value.trim();
 }
 
 function readJsonBody(req) {

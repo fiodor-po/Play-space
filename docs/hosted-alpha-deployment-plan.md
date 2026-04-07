@@ -1,7 +1,11 @@
 # Hosted Alpha Deployment Plan
 
 ## Status
-Planning doc for the first hosted alpha environment.
+Current status:
+
+- first hosted alpha core environment is up;
+- core hosted validation passed;
+- video is still an optional hosted follow-up layer.
 
 This is not a final production platform design.
 It defines the narrowest practical hosted shape that can generate real product signal.
@@ -162,6 +166,8 @@ Suggested first hosted-alpha default:
 ### Phase 4 — LiveKit host (if enabled)
 - deploy LiveKit separately
 - wire signaling URL
+- set `VITE_ENABLE_LIVEKIT_MEDIA=true`
+- set backend `LIVEKIT_API_KEY` / `LIVEKIT_API_SECRET`
 - verify join/leave/mic/cam basics
 
 ### Phase 5 — Hosted smoke pass
@@ -206,6 +212,21 @@ Before hosted alpha, it should be possible to tell from logs:
 - whether durable snapshot load/save failed or conflicted;
 - whether LiveKit token loading failed because of config vs connection;
 - whether video is intentionally disabled vs misconfigured.
+
+## 8.3 Narrow hosted video enable pass
+
+When moving from hosted core to hosted video:
+
+1. keep the existing frontend + realtime/API split unchanged;
+2. enable `VITE_ENABLE_LIVEKIT_MEDIA=true` on the frontend;
+3. configure `VITE_LIVEKIT_URL` to the hosted LiveKit endpoint;
+4. configure backend `LIVEKIT_API_KEY` and `LIVEKIT_API_SECRET`;
+5. redeploy or restart the hosted backend so the running process picks up the new env values;
+6. verify `/api/health` reports `liveKitStatus: "enabled"` and `liveKitCredentials.apiKeyPresent/apiSecretPresent`;
+7. verify `/api/livekit/token` returns a token in hosted mode;
+8. then run a minimal media join/leave smoke pass.
+
+If this adds disproportionate infra complexity, stop and treat video as a separate narrow blocker rather than broadening the whole hosted stack.
 
 ## 8.2 Minimal first-pass hosted commands
 

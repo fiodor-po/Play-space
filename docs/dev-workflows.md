@@ -28,6 +28,7 @@
 Root `.env` не нужен для стандартных repo-local workflows.
 
 `VITE_ENABLE_LIVEKIT_MEDIA` can disable the media dock for the cheapest first hosted-alpha shape.
+For the hosted video enable pass, set `VITE_ENABLE_LIVEKIT_MEDIA=true` and provide valid `VITE_LIVEKIT_URL`, `LIVEKIT_API_KEY`, and `LIVEKIT_API_SECRET`.
 
 ## 3. Main workflows
 

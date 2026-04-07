@@ -8,7 +8,11 @@ import {
   type Participant,
 } from "livekit-client";
 import type { LocalParticipantSession } from "../lib/roomSession";
-import { fetchLiveKitAccessToken, getLiveKitUrl } from "../lib/livekit";
+import {
+  LiveKitAccessTokenError,
+  fetchLiveKitAccessToken,
+  getLiveKitUrl,
+} from "../lib/livekit";
 
 type LiveKitMediaDockProps = {
   roomId: string;
@@ -16,6 +20,7 @@ type LiveKitMediaDockProps = {
 };
 
 type MediaDockError =
+  | "media-disabled"
   | "token-failed"
   | "permission-denied"
   | "connect-failed"
@@ -227,7 +232,10 @@ export function LiveKitMediaDock({
         participantName: participantSession.name,
       });
     } catch (error) {
-      setError("token-failed");
+      const errorCode =
+        error instanceof LiveKitAccessTokenError ? error.code : null;
+
+      setError(errorCode === "LIVEKIT_DISABLED" ? "media-disabled" : "token-failed");
       setErrorDetail(error instanceof Error ? error.message : null);
       setConnectionState(ConnectionState.Disconnected);
       setIsJoining(false);
@@ -398,7 +406,9 @@ export function LiveKitMediaDock({
   };
 
   const errorLabel =
-    error === "token-failed"
+    error === "media-disabled"
+      ? "Media is disabled or not fully configured for this environment."
+      : error === "token-failed"
       ? "Could not load a media token."
       : error === "permission-denied"
         ? "Camera or microphone permission was denied."
@@ -409,7 +419,9 @@ export function LiveKitMediaDock({
             : null;
 
   const statusLabel =
-    connectionState === ConnectionState.Connected
+    error === "media-disabled"
+      ? `Media unavailable for ${roomId}`
+      : connectionState === ConnectionState.Connected
       ? `Connected to ${roomId}`
       : connectionState === ConnectionState.Connecting || isJoining
         ? `Connecting to ${roomId}`

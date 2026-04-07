@@ -30,15 +30,17 @@ Current alpha-core reality:
 - canonical zero-state and board-content-vs-viewport separation are established;
 - narrow LiveKit integration is technically validated;
 - authoritative shared 3D dice are accepted as part of alpha core;
-- the project is now close enough to feature-complete for first hosted alpha work.
+- first hosted alpha core deploy is up;
+- basic hosted validation of the core flow has passed;
+- video remains intentionally disabled/optional for now;
+- the project is now past first hosted core deployment and into narrow hosted follow-up work.
 
 Current preferred sequence:
 
-1. read-only technical audit of the current alpha core;
-2. narrow stabilization for real pre-deploy risks;
-3. first hosted alpha deployment;
-4. real-session validation;
-5. slower UI/UX polish afterwards.
+1. keep the hosted core checkpoint stable and honest;
+2. run a narrow hosted video enable pass;
+3. continue hosted playable-session validation;
+4. only then move into slower UI/UX polish afterwards.
 
 ## Canonical docs to read first
 

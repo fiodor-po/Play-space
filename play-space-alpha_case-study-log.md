@@ -1194,3 +1194,55 @@ Fallback был зафиксирован как small custom controlled renderer
 - hosted-alpha topology ещё не реализована;
 - media dock и dice tray всё ещё имеют polish debt;
 - остаётся вопрос, какие именно findings из hosted alpha станут настоящими product priorities после deploy.
+
+---
+
+## 2026-04-08 — First hosted alpha core checkpoint reached
+
+### Type
+- milestone
+
+### Context
+После capability assembly, technical audit, narrow stabilization и hosted prep проект дошёл до первого реального hosted core deploy.
+
+### Goal or problem
+Нужно было проверить, можно ли поднять board-first core stack в реальном hosted environment без обязательного video layer и без premature infra overbuild.
+
+### What happened
+Был поднят первый hosted alpha core environment:
+
+- frontend работает в hosted environment;
+- realtime/API backend поднят как отдельный long-running service;
+- backend health и recovery signals работают;
+- room entry и базовый hosted core flow были успешно подтверждены;
+- video сознательно оставлен disabled/optional и не включён в этот checkpoint.
+
+### Decision / change
+Зафиксирован новый milestone:
+
+- first hosted alpha core checkpoint достигнут;
+- core deploy и базовая hosted validation считаются успешными;
+- следующий planned step = narrow hosted video enable pass.
+
+### Why
+Это позволило честно зафиксировать, что проект уже вышел из purely local/dev stage, но при этом не переоценивать степень готовности и не притворяться, что video или production-hardening уже закрыты.
+
+### Result
+Проект получил:
+
+- первый реальный hosted core signal;
+- подтверждение, что board-first core stack работает за пределами local-only режима;
+- более узкий и понятный следующий шаг вместо нового broad planning wave.
+
+### Workflow notes
+Этот checkpoint подтвердил полезность последовательности:
+
+- narrow stabilization;
+- cheapest practical hosted deploy;
+- базовая hosted validation;
+- только потом следующий маленький capability step.
+
+### Remaining limitations / open questions
+- video всё ещё не включён и остаётся отдельным следующим шагом;
+- multiplayer/lifecycle validation beyond базового core flow всё ещё должна продолжаться;
+- hosted alpha остаётся alpha, а не production-ready platform.

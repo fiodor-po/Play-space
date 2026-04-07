@@ -47,7 +47,7 @@
 
 - media dock UX остаётся spike-level;
 - dice tray / residual dice polish остаются слегка rough;
-- hosted alpha environment ещё не собран;
+- hosted alpha core environment уже поднят, но video пока intentionally disabled;
 - production-hardening отсутствует и не нужен прямо сейчас;
 - `BoardStage` всё ещё остаётся тяжёлым integration surface;
 - durable room memory остаётся best-effort, а не final collaborative durable platform.
@@ -62,32 +62,31 @@
 
 ## 4. Текущий активный этап
 
-## Phase A — Alpha readiness and first hosted deployment prep
+## Phase B — First hosted core checkpoint and narrow hosted follow-up
 
 **Статус:** active
 
 ### Цель
-Подтвердить, что текущий alpha core достаточно здоров для первого hosted alpha, убрать только реальные pre-deploy blockers и выйти на первый hosted environment.
+Зафиксировать, что hosted core deploy уже состоялся, сохранить узкий practical scope и провести следующий отдельный шаг без premature broadening: hosted video enable pass.
 
 ### Основная последовательность
-1. read-only technical audit текущего alpha core;
-2. narrow stabilization pass по найденным техническим рискам;
-3. first hosted alpha deployment;
-4. playable-session validation в hosted environment;
-5. более длинный UI/UX polish cycle уже после этого.
+1. narrow stabilization для реальных hosted рисков;
+2. first hosted core deploy;
+3. базовая hosted validation core flow;
+4. narrow hosted video enable pass;
+5. затем дальнейшая hosted playable-session validation и только потом более длинный UI/UX polish cycle.
 
 ### Почему это теперь главный фокус
-Capability checklist уже в основном собран.
-Следующая наибольшая ценность — не новый большой spike и не бесконечный локальный polish, а реальный hosted alpha signal.
+Core hosted signal уже получен.
+Следующая наибольшая ценность — не новый capability spike и не broad cleanup, а аккуратно расширить hosted stack ровно на один следующий слой.
 
 ## 5. Что входит в текущий этап
 
-- read-only audit архитектуры и code health перед hosted alpha;
-- проверка deployment-readiness и local-dev-only assumptions;
-- узкая стабилизация только реальных pre-deploy risks;
-- планирование cheapest practical hosted-alpha topology;
-- smoke-validation после первого hosted deploy;
-- сбор product signal из реальной hosted-сессии.
+- удержание core hosted stack в честном рабочем состоянии;
+- narrow follow-up based on confirmed hosted checkpoint;
+- optional hosted video enablement как отдельный шаг;
+- продолжение hosted playable-session validation уже после этого;
+- сбор product signal из реальной hosted-сессии без premature infra overbuild.
 
 ## 6. Что сознательно не является главным фокусом сейчас
 
@@ -102,26 +101,28 @@ Capability checklist уже в основном собран.
 
 На текущий момент основной рабочий порядок такой:
 
-1. провести pre-deploy technical audit;
-2. собрать короткий список narrow stabilization tasks;
-3. зафиксировать first hosted alpha deployment plan;
-4. задеплоить cheapest practical hosted alpha;
-5. только потом идти в длинный polish/coherence цикл.
+1. удерживать successful first hosted core checkpoint как current baseline;
+2. сделать narrow hosted video enable pass;
+3. продолжить hosted playable-session validation;
+4. зафиксировать реальные rough edges уже после hosted use;
+5. только потом идти в следующий validation/polish cycle.
 
 ## 8. Backlog
 
 ## P0 — сейчас
 
-- [ ] провести read-only technical audit текущего alpha core
-- [ ] выделить 3–5 реальных pre-deploy technical risks
-- [ ] сделать narrow stabilization pass по blockers
-- [ ] собрать first hosted alpha deployment plan
-- [ ] определить hosted smoke checklist
-- [ ] задеплоить first hosted alpha environment
+- [x] провести read-only technical audit текущего alpha core
+- [x] выделить 3–5 реальных pre-deploy technical risks
+- [x] сделать narrow stabilization pass по blockers
+- [x] собрать first hosted alpha deployment plan
+- [x] определить hosted smoke checklist
+- [x] задеплоить first hosted alpha core environment
+- [x] подтвердить базовый hosted core flow
+- [ ] сделать narrow hosted video enable pass
 
 ## P1 — сразу после первого hosted alpha
 
-- [ ] playable-session validation в hosted environment
+- [ ] продолжить playable-session validation в hosted environment
 - [ ] зафиксировать реальные rough edges после hosted use
 - [ ] media dock simplification / stabilization pass
 - [ ] dice tray / dice UX cleanup pass
@@ -146,13 +147,8 @@ Capability checklist уже в основном собран.
 
 ## 9. Open questions
 
-- Какие реальные technical risks вскроет pre-deploy audit?
-- Достаточно ли current architecture здорова для hosted alpha после small stabilization pass?
-- Какой самый дешёвый practical hosted split лучше первым:
-  - frontend on Vercel
-  - Node realtime/API on VPS
-  - separate LiveKit service if video remains enabled
-- Входит ли video в первый hosted alpha by default, или его лучше оставить toggled / optional?
+- Насколько narrow может остаться hosted video enable pass без лишнего infra scope?
+- Достаточно ли optional video path хорош для hosted alpha, или ему понадобится ещё один stabilization slice?
 - Какие rough edges проявятся только после hosted playable-session checks?
 - Когда именно hosted-alpha feedback оправдает более глубокий polish или infrastructure hardening?
 
@@ -192,6 +188,14 @@ Capability checklist уже в основном собран.
   - long-running Node realtime/API отдельно
   - separate LiveKit service if video remains enabled
 - old refactor docs остаются полезным historical baseline, но больше не задают главный active direction проекта.
+
+## 2026-04-08
+
+### Решено
+- first hosted alpha core checkpoint достигнут;
+- hosted frontend и hosted realtime/API backend подняты и базовый core flow подтверждён;
+- video не входит в completed core checkpoint и остаётся следующим отдельным narrow step;
+- следующий planned step = hosted video enable pass, а не broad cleanup wave.
 
 ## 11. Правила обновления документа
 
