@@ -1,0 +1,17 @@
+FROM node:24-alpine
+
+WORKDIR /app
+
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev
+
+COPY scripts ./scripts
+COPY data ./data
+
+ENV HOST=0.0.0.0
+ENV PORT=1234
+ENV ROOM_SNAPSHOT_STORE_FILE=/app/data/room-snapshots.json
+
+EXPOSE 1234
+
+CMD ["node", "./scripts/yjs-dev-server.mjs"]

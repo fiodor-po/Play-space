@@ -619,6 +619,14 @@ export default function BoardStage({
       savedViewport.x !== 120 ||
       savedViewport.y !== 80 ||
       savedViewport.scale !== 1;
+    const nextBootstrapEntryId = roomBootstrapEntryIdRef.current + 1;
+
+    console.info("[room-recovery][board-stage][bootstrap-start]", {
+      roomId,
+      bootstrapEntryId: nextBootstrapEntryId,
+      viewportSource: hasSavedViewport ? "saved" : "initial-default",
+      hasSavedViewport,
+    });
 
     replaceBoardObjects(getRoomScopedObjects(roomId));
     setStagePosition(
@@ -640,7 +648,7 @@ export default function BoardStage({
     setRemoteImageDrawingLocks({});
     setRemoteTextCardEditingStates({});
     setLiveSelectedImageActionPosition(null);
-    roomBootstrapEntryIdRef.current += 1;
+    roomBootstrapEntryIdRef.current = nextBootstrapEntryId;
     setTokenInitialSyncRoomId(null);
     setImageInitialSyncRoomId(null);
     setTextCardInitialSyncRoomId(null);
@@ -865,9 +873,20 @@ export default function BoardStage({
           durableSnapshot.textCards.length
         : 0;
 
+      console.info("[room-recovery][board-stage][bootstrap-inputs]", {
+        roomId,
+        bootstrapEntryId: roomBootstrapEntryIdRef.current,
+        sharedRoomObjectCount: sharedRoomObjects.length,
+        durableSnapshotObjectCount,
+        localSnapshotObjectCount,
+        durableSnapshotRevision: durableSnapshot?.revision ?? null,
+        localSnapshotSavedAt: localSnapshot?.savedAt ?? null,
+      });
+
       if (durableSnapshot && durableSnapshotObjectCount > 0) {
         console.info("[room-recovery][board-stage][bootstrap-terminal]", {
           roomId,
+          bootstrapEntryId: roomBootstrapEntryIdRef.current,
           branch: "durable-recovery",
           source: "durable",
           tokenCount: durableSnapshot.tokens.length,
@@ -895,6 +914,7 @@ export default function BoardStage({
       if (!localSnapshot || localSnapshotObjectCount === 0) {
         console.info("[room-recovery][board-stage][bootstrap-terminal]", {
           roomId,
+          bootstrapEntryId: roomBootstrapEntryIdRef.current,
           branch: "empty-room",
         });
         snapshotRecoveryAttemptedRoomRef.current = roomBootstrapEntryIdRef.current;
@@ -904,6 +924,7 @@ export default function BoardStage({
 
       console.info("[room-recovery][board-stage][bootstrap-terminal]", {
         roomId,
+        bootstrapEntryId: roomBootstrapEntryIdRef.current,
         branch: "local-recovery",
         source: "local",
         tokenCount: localSnapshot.tokens.length,

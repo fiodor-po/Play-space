@@ -200,8 +200,25 @@
 - Expected result:
   - если live room уже отсутствует, alpha пытается восстановиться через durable room snapshot;
   - это best-effort alpha behavior, а не final persistence guarantee.
+- Also verify:
+  - в console/logs видно, какой bootstrap branch реально сработал;
+  - если recovery не удался, ошибка выглядит диагностируемой, а не silent.
 - Note:
   - если этот сценарий ведёт себя странно, это уже не "известная нормальность по контракту", а повод перепроверить current durable path.
+
+### 3.6. Config failure visibility smoke
+
+- Setup:
+  - использовать environment с намеренно отсутствующим или неправильным hosted config only if это безопасно для локальной smoke-проверки;
+  - не менять product semantics, проверять только diagnostics.
+- Exact actions:
+  - открыть приложение;
+  - посмотреть console / backend logs;
+  - если видео включено, попробовать `Join media` при misconfigured LiveKit path.
+- Expected result:
+  - видно, какие runtime URLs реально используются;
+  - fallback assumptions не остаются полностью silent;
+  - media/token failure не схлопывается в полностью безликую ошибку.
 
 ---
 

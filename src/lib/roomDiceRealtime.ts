@@ -1,5 +1,6 @@
 import * as Y from "yjs";
 import { WebsocketProvider } from "y-websocket";
+import { getRealtimeServerWsUrl } from "./runtimeConfig";
 
 export const SUPPORTED_DICE = ["d4", "d6", "d8", "d10", "d12", "d20"] as const;
 export const SUPPORTED_ROLL_KINDS = [...SUPPORTED_DICE, "2d10"] as const;
@@ -39,10 +40,7 @@ export function createRoomDiceConnection(params: {
   serverUrl?: string;
 }): RoomDiceConnection {
   const doc = new Y.Doc();
-  const serverUrl =
-    params.serverUrl ??
-    import.meta.env.VITE_Y_WEBSOCKET_URL ??
-    getDefaultRealtimeWsUrl();
+  const serverUrl = getRealtimeServerWsUrl(params.serverUrl);
   const provider = new WebsocketProvider(
     serverUrl,
     `play-space-alpha-dice:${params.roomId}`,
@@ -123,11 +121,6 @@ function getRollEventsFromMap(rollEventMap: Y.Map<string>) {
   });
 
   return events.sort((left, right) => left.createdAt - right.createdAt);
-}
-
-function getDefaultRealtimeWsUrl() {
-  const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-  return `${protocol}//${window.location.hostname}:1234`;
 }
 
 function isSupportedDie(value: unknown): value is SupportedDie {

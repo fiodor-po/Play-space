@@ -1,6 +1,7 @@
 import * as Y from "yjs";
 import { WebsocketProvider } from "y-websocket";
 import type { ParticipantPresence, ParticipantPresenceMap } from "./roomSession";
+import { getRealtimeServerWsUrl } from "./runtimeConfig";
 
 type AwarenessState = {
   presence?: ParticipantPresence | null;
@@ -17,10 +18,7 @@ export function createRoomPresenceConnection(params: {
   serverUrl?: string;
 }): RoomPresenceConnection {
   const doc = new Y.Doc();
-  const serverUrl =
-    params.serverUrl ??
-    import.meta.env.VITE_Y_WEBSOCKET_URL ??
-    getDefaultRoomPresenceWsUrl();
+  const serverUrl = getRealtimeServerWsUrl(params.serverUrl);
   const provider = new WebsocketProvider(
     serverUrl,
     `play-space-alpha-presence:${params.roomId}`,
@@ -79,9 +77,4 @@ function getParticipantPresencesFromAwareness(
   });
 
   return presences;
-}
-
-function getDefaultRoomPresenceWsUrl() {
-  const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-  return `${protocol}//${window.location.hostname}:1234`;
 }

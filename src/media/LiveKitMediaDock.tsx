@@ -152,6 +152,7 @@ export function LiveKitMediaDock({
   const [roomVersion, setRoomVersion] = useState(0);
   const [isJoining, setIsJoining] = useState(false);
   const [error, setError] = useState<MediaDockError | null>(null);
+  const [errorDetail, setErrorDetail] = useState<string | null>(null);
   const [micEnabled, setMicEnabled] = useState(true);
   const [cameraEnabled, setCameraEnabled] = useState(true);
   const [connectionState, setConnectionState] = useState<ConnectionState>(
@@ -180,6 +181,7 @@ export function LiveKitMediaDock({
 
     if (!currentRoom) {
       setError(null);
+      setErrorDetail(null);
       setConnectionState(ConnectionState.Disconnected);
       return;
     }
@@ -189,6 +191,7 @@ export function LiveKitMediaDock({
     roomRef.current = null;
     setRoomVersion((value) => value + 1);
     setError(null);
+    setErrorDetail(null);
     setConnectionState(ConnectionState.Disconnected);
     setIsJoining(false);
   }, [roomId]);
@@ -213,6 +216,7 @@ export function LiveKitMediaDock({
     intentionalDisconnectRef.current = false;
     setIsJoining(true);
     setError(null);
+    setErrorDetail(null);
 
     let token: string;
 
@@ -222,8 +226,9 @@ export function LiveKitMediaDock({
         participantId: participantSession.id,
         participantName: participantSession.name,
       });
-    } catch {
+    } catch (error) {
       setError("token-failed");
+      setErrorDetail(error instanceof Error ? error.message : null);
       setConnectionState(ConnectionState.Disconnected);
       setIsJoining(false);
       return;
@@ -244,14 +249,16 @@ export function LiveKitMediaDock({
 
           if (state === ConnectionState.Connected) {
             setError(null);
+            setErrorDetail(null);
           }
 
           if (
             state === ConnectionState.Disconnected &&
             roomRef.current === nextRoom &&
-            !intentionalDisconnectRef.current
+          !intentionalDisconnectRef.current
           ) {
             setError((currentError) => currentError ?? "disconnected");
+            setErrorDetail((currentDetail) => currentDetail ?? `Room ${nextRoom.name || roomId} disconnected.`);
           }
         })
         .on(RoomEvent.ParticipantConnected, refreshRoom)
@@ -286,6 +293,7 @@ export function LiveKitMediaDock({
         setCameraEnabled(true);
         setMicEnabled(true);
         setError(null);
+        setErrorDetail(null);
       } catch (error) {
         const errorName =
           error && typeof error === "object" && "name" in error
@@ -295,12 +303,20 @@ export function LiveKitMediaDock({
         setError(
           errorName === "NotAllowedError" ? "permission-denied" : "connect-failed"
         );
+        setErrorDetail(
+          errorName === "NotAllowedError"
+            ? null
+            : error instanceof Error
+              ? error.message
+              : null
+        );
       }
 
       refreshRoom();
-    } catch {
+    } catch (error) {
       roomRef.current = null;
       setError("connect-failed");
+      setErrorDetail(error instanceof Error ? error.message : null);
       setConnectionState(ConnectionState.Disconnected);
     } finally {
       setIsJoining(false);
@@ -315,6 +331,7 @@ export function LiveKitMediaDock({
     }
 
     setError(null);
+    setErrorDetail(null);
     intentionalDisconnectRef.current = true;
     await currentRoom.disconnect();
     if (roomRef.current === currentRoom) {
@@ -337,6 +354,7 @@ export function LiveKitMediaDock({
       await currentRoom.localParticipant.setCameraEnabled(nextValue);
       setCameraEnabled(nextValue);
       setError(null);
+      setErrorDetail(null);
       refreshRoom();
     } catch (error) {
       const errorName =
@@ -346,6 +364,7 @@ export function LiveKitMediaDock({
 
       if (errorName === "NotAllowedError") {
         setError("permission-denied");
+        setErrorDetail(null);
       }
     }
   };
@@ -363,6 +382,7 @@ export function LiveKitMediaDock({
       await currentRoom.localParticipant.setMicrophoneEnabled(nextValue);
       setMicEnabled(nextValue);
       setError(null);
+      setErrorDetail(null);
       refreshRoom();
     } catch (error) {
       const errorName =
@@ -372,6 +392,7 @@ export function LiveKitMediaDock({
 
       if (errorName === "NotAllowedError") {
         setError("permission-denied");
+        setErrorDetail(null);
       }
     }
   };
@@ -465,7 +486,10 @@ export function LiveKitMediaDock({
             fontSize: 12,
           }}
         >
-          {errorLabel}
+          <div>{errorLabel}</div>
+          {errorDetail && (
+            <div style={{ marginTop: 4, color: "#fca5a5" }}>{errorDetail}</div>
+          )}
         </div>
       )}
 

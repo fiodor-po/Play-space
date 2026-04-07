@@ -25,6 +25,7 @@ const durableSnapshotStorePath =
   path.join(process.cwd(), "data", "room-snapshots.json");
 const liveKitApiKey = process.env.LIVEKIT_API_KEY || "";
 const liveKitApiSecret = process.env.LIVEKIT_API_SECRET || "";
+const liveKitTokenRouteEnabled = Boolean(liveKitApiKey && liveKitApiSecret);
 
 class WSSharedDoc extends Y.Doc {
   constructor(name) {
@@ -151,6 +152,21 @@ wss.on("connection", (conn, req) => {
 });
 
 server.listen(port, host, () => {
+  console.info("[runtime-config][presence-server]", {
+    host,
+    port,
+    envFile:
+      process.env.PLAY_SPACE_ENV_FILE || path.join(process.cwd(), ".env.localdev"),
+    durableSnapshotStorePath,
+    liveKitTokenRouteEnabled,
+  });
+
+  if (!liveKitTokenRouteEnabled) {
+    console.warn("[runtime-config][presence-server][livekit-disabled]", {
+      reason: "LIVEKIT_API_KEY or LIVEKIT_API_SECRET is missing",
+    });
+  }
+
   console.info(`running at '${host}' on port ${port}`);
 });
 
@@ -208,10 +224,35 @@ async function handleHttpRequest(req, res) {
   );
   const liveKitTokenRouteMatch =
     requestUrl.pathname === "/api/livekit/token";
+  const healthRouteMatch = requestUrl.pathname === "/api/health";
 
-  if (!snapshotRouteMatch && !liveKitTokenRouteMatch) {
+  if (!snapshotRouteMatch && !liveKitTokenRouteMatch && !healthRouteMatch) {
     res.writeHead(404, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ error: "Not found" }));
+    return;
+  }
+
+  if (healthRouteMatch) {
+    if (req.method !== "GET") {
+      res.writeHead(405, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Method not allowed" }));
+      return;
+    }
+
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(
+      JSON.stringify({
+        ok: true,
+        service: "play-space-alpha-realtime-api",
+        host,
+        port,
+        features: {
+          roomSnapshots: true,
+          liveKitTokenRoute: liveKitTokenRouteEnabled,
+        },
+        durableSnapshotStorePath,
+      })
+    );
     return;
   }
 
@@ -222,7 +263,7 @@ async function handleHttpRequest(req, res) {
       return;
     }
 
-    if (!liveKitApiKey || !liveKitApiSecret) {
+    if (!liveKitTokenRouteEnabled) {
       res.writeHead(500, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: "LiveKit credentials are not configured" }));
       return;

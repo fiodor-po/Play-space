@@ -34,6 +34,7 @@
 - [ ] refresh in active room
 - [ ] rejoin while room is still live
 - [ ] durable snapshot smoke still behaves plausibly
+- [ ] bootstrap / recovery branch is visible in logs
 
 ## Dice
 
@@ -51,5 +52,7 @@
 ## Pre-deploy watch items
 
 - [ ] no obvious local-dev-only assumption was introduced
+- [ ] effective realtime/API/LiveKit URLs are visible in diagnostics
 - [ ] logs/errors remain understandable enough for hosted debugging
+- [ ] config failures are understandable enough to debug quickly
 - [ ] no change silently widened scope into architecture rewrite

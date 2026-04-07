@@ -1,6 +1,7 @@
 import * as Y from "yjs";
 import { WebsocketProvider } from "y-websocket";
 import type { BoardObject } from "../types/board";
+import { getRealtimeServerWsUrl } from "./runtimeConfig";
 
 export type TextCardEditingPresence = {
   textCardId: string;
@@ -28,10 +29,7 @@ export function createRoomTextCardConnection(params: {
   serverUrl?: string;
 }): RoomTextCardConnection {
   const doc = new Y.Doc();
-  const serverUrl =
-    params.serverUrl ??
-    import.meta.env.VITE_Y_WEBSOCKET_URL ??
-    getDefaultRealtimeWsUrl();
+  const serverUrl = getRealtimeServerWsUrl(params.serverUrl);
   const provider = new WebsocketProvider(
     serverUrl,
     `play-space-alpha-text-cards:${params.roomId}`,
@@ -201,9 +199,4 @@ function getTextCardEditingStatesFromAwareness(
   });
 
   return editingStates;
-}
-
-function getDefaultRealtimeWsUrl() {
-  const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-  return `${protocol}//${window.location.hostname}:1234`;
 }

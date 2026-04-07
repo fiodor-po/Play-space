@@ -1,6 +1,7 @@
 import * as Y from "yjs";
 import { WebsocketProvider } from "y-websocket";
 import type { BoardObject } from "../types/board";
+import { getRealtimeServerWsUrl } from "./runtimeConfig";
 
 export type RoomTokenConnection = {
   destroy: () => void;
@@ -15,10 +16,7 @@ export function createRoomTokenConnection(params: {
   serverUrl?: string;
 }): RoomTokenConnection {
   const doc = new Y.Doc();
-  const serverUrl =
-    params.serverUrl ??
-    import.meta.env.VITE_Y_WEBSOCKET_URL ??
-    getDefaultRealtimeWsUrl();
+  const serverUrl = getRealtimeServerWsUrl(params.serverUrl);
   const provider = new WebsocketProvider(
     serverUrl,
     `play-space-alpha-tokens:${params.roomId}`,
@@ -128,9 +126,4 @@ function getTokensFromMap(tokenMap: Y.Map<string>) {
   });
 
   return tokens;
-}
-
-function getDefaultRealtimeWsUrl() {
-  const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-  return `${protocol}//${window.location.hostname}:1234`;
 }

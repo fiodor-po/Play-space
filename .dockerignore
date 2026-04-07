@@ -1,0 +1,8 @@
+node_modules
+dist
+.git
+.DS_Store
+incoming
+*.log
+.env*
+!.env.hosted.example

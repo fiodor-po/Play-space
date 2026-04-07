@@ -11,6 +11,7 @@ import {
 } from "./lib/roomSession";
 import { createClientId } from "./lib/id";
 import { createRoomPresenceConnection } from "./lib/roomPresenceRealtime";
+import { isLiveKitMediaEnabled, logClientRuntimeConfig } from "./lib/runtimeConfig";
 import type { FormEvent } from "react";
 import type {
   LocalParticipantSession,
@@ -20,6 +21,7 @@ import type {
 import type { RoomPresenceConnection } from "./lib/roomPresenceRealtime";
 
 export default function App() {
+  const liveKitMediaEnabled = isLiveKitMediaEnabled();
   const [roomId, setRoomId] = useState(() => getRoomIdFromLocation(window.location));
   const [participantSession, setParticipantSession] =
     useState<LocalParticipantSession | null>(() =>
@@ -47,6 +49,10 @@ export default function App() {
       window.removeEventListener("popstate", handlePopState);
     };
   }, []);
+
+  useEffect(() => {
+    logClientRuntimeConfig(roomId);
+  }, [roomId]);
 
   useEffect(() => {
     const nextSession = loadLocalParticipantSession(roomId);
@@ -278,7 +284,9 @@ export default function App() {
         }}
       />
       <DiceSpikeOverlay roomId={roomId} participantSession={participantSession} />
-      <LiveKitMediaDock roomId={roomId} participantSession={participantSession} />
+      {liveKitMediaEnabled ? (
+        <LiveKitMediaDock roomId={roomId} participantSession={participantSession} />
+      ) : null}
     </>
   );
 }

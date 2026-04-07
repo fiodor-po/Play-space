@@ -1,6 +1,7 @@
 import * as Y from "yjs";
 import { WebsocketProvider } from "y-websocket";
 import type { BoardObject } from "../types/board";
+import { getRealtimeServerWsUrl } from "./runtimeConfig";
 
 export type ImageDrawingLock = {
   imageId: string;
@@ -56,10 +57,7 @@ export function createRoomImageConnection(params: {
   serverUrl?: string;
 }): RoomImageConnection {
   const doc = new Y.Doc();
-  const serverUrl =
-    params.serverUrl ??
-    import.meta.env.VITE_Y_WEBSOCKET_URL ??
-    getDefaultRealtimeWsUrl();
+  const serverUrl = getRealtimeServerWsUrl(params.serverUrl);
   const provider = new WebsocketProvider(
     serverUrl,
     `play-space-alpha-images:${params.roomId}`,
@@ -351,9 +349,4 @@ function getImageDrawingLocksFromAwareness(
 
 function toSharedImage(image: BoardObject): BoardObject {
   return image;
-}
-
-function getDefaultRealtimeWsUrl() {
-  const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-  return `${protocol}//${window.location.hostname}:1234`;
 }

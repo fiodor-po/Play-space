@@ -1,4 +1,5 @@
 import type { BoardObject } from "../types/board";
+import { getApiServerBaseUrl } from "./runtimeConfig";
 
 export type DurableRoomSnapshot = {
   roomId: string;
@@ -24,17 +25,22 @@ export type DurableRoomSnapshotSaveResult =
 export async function loadDurableRoomSnapshot(
   roomId: string
 ): Promise<DurableRoomSnapshot | null> {
+  const snapshotUrl = getDurableRoomSnapshotUrl(roomId);
   const controller = new AbortController();
   const timeoutId = window.setTimeout(() => {
     controller.abort();
   }, 1500);
 
   try {
-    const response = await fetch(getDurableRoomSnapshotUrl(roomId), {
+    const response = await fetch(snapshotUrl, {
       signal: controller.signal,
     });
 
     if (response.status === 404) {
+      console.info("[room-recovery][durable-snapshot][load-miss]", {
+        roomId,
+        snapshotUrl,
+      });
       return null;
     }
 
@@ -57,6 +63,7 @@ export async function loadDurableRoomSnapshot(
   } catch (error) {
     console.warn("[room-recovery][durable-snapshot][load-failed]", {
       roomId,
+      snapshotUrl,
       reason: error instanceof DOMException ? error.name : "request-failed",
     });
     return null;
@@ -70,6 +77,7 @@ export async function saveDurableRoomSnapshot(
   objects: BoardObject[],
   baseRevision: number | null
 ): Promise<DurableRoomSnapshotSaveResult> {
+  const snapshotUrl = getDurableRoomSnapshotUrl(roomId);
   const payload: DurableRoomSnapshotWritePayload = {
     baseRevision,
     tokens: objects.filter((object) => object.kind === "token"),
@@ -78,7 +86,7 @@ export async function saveDurableRoomSnapshot(
   };
 
   try {
-    const response = await fetch(getDurableRoomSnapshotUrl(roomId), {
+    const response = await fetch(snapshotUrl, {
       method: "PUT",
       headers: {
         "Content-Type": "application/json",
@@ -93,6 +101,7 @@ export async function saveDurableRoomSnapshot(
 
       console.warn("[room-recovery][durable-snapshot][save-conflict]", {
         roomId,
+        snapshotUrl,
         baseRevision,
         currentRevision:
           typeof parsed.currentRevision === "number"
@@ -121,6 +130,7 @@ export async function saveDurableRoomSnapshot(
     if (!snapshot) {
       console.warn("[room-recovery][durable-snapshot][save-invalid]", {
         roomId,
+        snapshotUrl,
         baseRevision,
       });
       return { status: "unavailable" };
@@ -130,6 +140,7 @@ export async function saveDurableRoomSnapshot(
   } catch (error) {
     console.warn("[room-recovery][durable-snapshot][save-failed]", {
       roomId,
+      snapshotUrl,
       baseRevision,
       reason: error instanceof DOMException ? error.name : "request-failed",
     });
@@ -172,13 +183,5 @@ function getDurableRoomSnapshotUrl(roomId: string) {
 }
 
 function getDurableRoomSnapshotServerUrl() {
-  const realtimeServerUrl = import.meta.env.VITE_Y_WEBSOCKET_URL;
-
-  if (typeof realtimeServerUrl === "string" && realtimeServerUrl.length > 0) {
-    return realtimeServerUrl.replace(/^ws/i, "http");
-  }
-
-  const protocol = window.location.protocol === "https:" ? "https:" : "http:";
-
-  return `${protocol}//${window.location.hostname}:1234`;
+  return getApiServerBaseUrl();
 }

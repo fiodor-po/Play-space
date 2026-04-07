@@ -23,8 +23,11 @@
 
 - localhost mode: `.env.localdev`
 - LAN HTTPS mode: `.env.landev`
+- hosted-like prep: `.env.hosted.example` -> `.env.hosted`
 
 Root `.env` не нужен для стандартных repo-local workflows.
+
+`VITE_ENABLE_LIVEKIT_MEDIA` can disable the media dock for the cheapest first hosted-alpha shape.
 
 ## 3. Main workflows
 
@@ -169,3 +172,4 @@ After startup, confirm:
 - `docs/livekit-local-dev.md`
 - `docs/lan-https-trust.md`
 - `docs/manual-qa-runbook.md`
+- `docs/hosted-alpha-deployment-plan.md`

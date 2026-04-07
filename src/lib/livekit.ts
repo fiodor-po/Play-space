@@ -1,3 +1,5 @@
+import { getApiServerBaseUrl, getLiveKitServerUrl } from "./runtimeConfig";
+
 export type LiveKitTokenResponse = {
   token: string;
 };
@@ -47,14 +49,7 @@ export async function fetchLiveKitAccessToken(params: {
 }
 
 export function getLiveKitUrl() {
-  const configuredUrl = import.meta.env.VITE_LIVEKIT_URL;
-
-  if (typeof configuredUrl === "string" && configuredUrl.length > 0) {
-    return configuredUrl;
-  }
-
-  const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-  return `${protocol}//${window.location.hostname}:7880`;
+  return getLiveKitServerUrl();
 }
 
 function getLiveKitTokenUrl() {
@@ -62,12 +57,5 @@ function getLiveKitTokenUrl() {
 }
 
 function getLiveKitApiServerUrl() {
-  const realtimeServerUrl = import.meta.env.VITE_Y_WEBSOCKET_URL;
-
-  if (typeof realtimeServerUrl === "string" && realtimeServerUrl.length > 0) {
-    return realtimeServerUrl.replace(/^ws/i, "http");
-  }
-
-  const protocol = window.location.protocol === "https:" ? "https:" : "http:";
-  return `${protocol}//${window.location.hostname}:1234`;
+  return getApiServerBaseUrl();
 }
