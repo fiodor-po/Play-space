@@ -14,15 +14,13 @@ export function BoardToolbar({
   return (
     <div
       style={{
-        position: "fixed",
-        top: 20,
-        right: 20,
-        zIndex: 10,
-        display: "flex",
-        gap: 12,
+        display: "grid",
+        gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+        gap: 10,
       }}
     >
       <button
+        type="button"
         onClick={onAddToken}
         style={{
           padding: "10px 14px",
@@ -37,6 +35,7 @@ export function BoardToolbar({
       </button>
 
       <button
+        type="button"
         onClick={onAddImage}
         style={{
           padding: "10px 14px",
@@ -51,6 +50,7 @@ export function BoardToolbar({
       </button>
 
       <button
+        type="button"
         onClick={onAddNote}
         style={{
           padding: "10px 14px",
@@ -65,6 +65,7 @@ export function BoardToolbar({
       </button>
 
       <button
+        type="button"
         onClick={onResetBoard}
         style={{
           padding: "10px 14px",

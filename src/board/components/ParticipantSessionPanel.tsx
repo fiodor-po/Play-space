@@ -1,4 +1,4 @@
-import { forwardRef } from "react";
+import { forwardRef, type ReactNode } from "react";
 import { HTML_UI_FONT_FAMILY } from "../constants";
 
 type ParticipantSessionPanelProps = {
@@ -8,13 +8,16 @@ type ParticipantSessionPanelProps = {
   participantNameDraft: string;
   isEditingParticipantName: boolean;
   isColorPickerOpen: boolean;
+  isDevToolsOpen: boolean;
   participantColorOptions: string[];
   onRequestRoomChange: () => void;
   onToggleColorPicker: () => void;
+  onToggleDevTools: () => void;
   onParticipantNameDraftChange: (value: string) => void;
   onParticipantNameSubmit: () => void;
   onStartEditingParticipantName: () => void;
   onSelectParticipantColor: (color: string) => void;
+  devToolsContent: ReactNode;
 };
 
 export const ParticipantSessionPanel = forwardRef<
@@ -28,13 +31,16 @@ export const ParticipantSessionPanel = forwardRef<
     participantNameDraft,
     isEditingParticipantName,
     isColorPickerOpen,
+    isDevToolsOpen,
     participantColorOptions,
     onRequestRoomChange,
     onToggleColorPicker,
+    onToggleDevTools,
     onParticipantNameDraftChange,
     onParticipantNameSubmit,
     onStartEditingParticipantName,
     onSelectParticipantColor,
+    devToolsContent,
   },
   ref
 ) {
@@ -64,34 +70,85 @@ export const ParticipantSessionPanel = forwardRef<
         style={{
           display: "flex",
           alignItems: "center",
+          justifyContent: "space-between",
           gap: 8,
         }}
       >
         <div
           style={{
-            fontSize: 15,
-            fontWeight: 700,
-            pointerEvents: "none",
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
           }}
         >
-          {roomId}
+          <div
+            style={{
+              fontSize: 15,
+              fontWeight: 700,
+              pointerEvents: "none",
+            }}
+          >
+            {roomId}
+          </div>
+          <button
+            type="button"
+            onClick={onRequestRoomChange}
+            style={{
+              padding: 0,
+              border: "none",
+              background: "transparent",
+              color: "#94a3b8",
+              fontSize: 12,
+              fontWeight: 600,
+              fontFamily: HTML_UI_FONT_FAMILY,
+              cursor: "pointer",
+              pointerEvents: "auto",
+            }}
+          >
+            Change
+          </button>
         </div>
+
         <button
           type="button"
-          onClick={onRequestRoomChange}
+          onClick={onToggleDevTools}
+          aria-label={isDevToolsOpen ? "Close dev tools" : "Open dev tools"}
+          aria-expanded={isDevToolsOpen}
           style={{
-            padding: 0,
-            border: "none",
-            background: "transparent",
-            color: "#94a3b8",
-            fontSize: 12,
-            fontWeight: 600,
-            fontFamily: HTML_UI_FONT_FAMILY,
+            width: 28,
+            height: 28,
+            display: "grid",
+            placeItems: "center",
+            borderRadius: 10,
+            border: isDevToolsOpen
+              ? "1px solid rgba(96, 165, 250, 0.5)"
+              : "1px solid rgba(148, 163, 184, 0.22)",
+            background: isDevToolsOpen
+              ? "rgba(37, 99, 235, 0.18)"
+              : "rgba(15, 23, 42, 0.72)",
+            color: "#e2e8f0",
             cursor: "pointer",
             pointerEvents: "auto",
+            flexShrink: 0,
           }}
         >
-          Change
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 14 14"
+            fill="none"
+            aria-hidden="true"
+          >
+            <path
+              d="M2 3.25H12M4.5 7H12M2 10.75H9.5"
+              stroke="currentColor"
+              strokeWidth="1.4"
+              strokeLinecap="round"
+            />
+            <circle cx="3.2" cy="3.25" r="1.2" fill="currentColor" />
+            <circle cx="10.8" cy="7" r="1.2" fill="currentColor" />
+            <circle cx="8.1" cy="10.75" r="1.2" fill="currentColor" />
+          </svg>
         </button>
       </div>
 
@@ -204,6 +261,33 @@ export const ParticipantSessionPanel = forwardRef<
               />
             );
           })}
+        </div>
+      )}
+
+      {isDevToolsOpen && (
+        <div
+          style={{
+            display: "grid",
+            gap: 10,
+            marginTop: 2,
+            paddingTop: 10,
+            borderTop: "1px solid rgba(148, 163, 184, 0.16)",
+            pointerEvents: "none",
+          }}
+        >
+          <div
+            style={{
+              fontSize: 12,
+              fontWeight: 700,
+              color: "#94a3b8",
+              letterSpacing: "0.04em",
+              textTransform: "uppercase",
+              pointerEvents: "none",
+            }}
+          >
+            Dev tools
+          </div>
+          <div style={{ pointerEvents: "auto" }}>{devToolsContent}</div>
         </div>
       )}
     </div>

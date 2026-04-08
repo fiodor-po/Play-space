@@ -310,6 +310,7 @@ export default function BoardStage({
     participantSession.name
   );
   const [isColorPickerOpen, setIsColorPickerOpen] = useState(false);
+  const [isDevToolsOpen, setIsDevToolsOpen] = useState(false);
   const [remoteImagePreviewPositions, setRemoteImagePreviewPositions] = useState<
     Record<
       string,
@@ -658,6 +659,7 @@ export default function BoardStage({
     pendingDurableSnapshotSaveKeyRef.current = null;
     lastSavedDurableSnapshotKeyRef.current = null;
     panStateRef.current = null;
+    setIsDevToolsOpen(false);
   }, [roomId]);
 
   useEffect(() => {
@@ -665,7 +667,7 @@ export default function BoardStage({
   }, [participantSession.name]);
 
   useEffect(() => {
-    if (!isEditingParticipantName && !isColorPickerOpen) {
+    if (!isEditingParticipantName && !isColorPickerOpen && !isDevToolsOpen) {
       return;
     }
 
@@ -691,6 +693,10 @@ export default function BoardStage({
       if (isColorPickerOpen) {
         setIsColorPickerOpen(false);
       }
+
+      if (isDevToolsOpen) {
+        setIsDevToolsOpen(false);
+      }
     };
 
     window.addEventListener("mousedown", handlePointerDown);
@@ -703,6 +709,7 @@ export default function BoardStage({
   }, [
     isEditingParticipantName,
     isColorPickerOpen,
+    isDevToolsOpen,
     onUpdateParticipantSession,
     participantNameDraft,
     participantSession.name,
@@ -1757,6 +1764,7 @@ export default function BoardStage({
         participantNameDraft={participantNameDraft}
         isEditingParticipantName={isEditingParticipantName}
         isColorPickerOpen={isColorPickerOpen}
+        isDevToolsOpen={isDevToolsOpen}
         participantColorOptions={PARTICIPANT_COLOR_OPTIONS}
         onRequestRoomChange={() => {
           const nextRoomId = window.prompt("Room ID", roomId)?.trim();
@@ -1767,6 +1775,9 @@ export default function BoardStage({
         }}
         onToggleColorPicker={() => {
           setIsColorPickerOpen((current) => !current);
+        }}
+        onToggleDevTools={() => {
+          setIsDevToolsOpen((current) => !current);
         }}
         onParticipantNameDraftChange={setParticipantNameDraft}
         onParticipantNameSubmit={() => {
@@ -1793,15 +1804,16 @@ export default function BoardStage({
           }));
           setIsColorPickerOpen(false);
         }}
-      />
-
-      <BoardToolbar
-        onAddToken={createToken}
-        onAddImage={() => {
-          imageInputRef.current?.click();
-        }}
-        onAddNote={createNote}
-        onResetBoard={resetBoard}
+        devToolsContent={
+          <BoardToolbar
+            onAddToken={createToken}
+            onAddImage={() => {
+              imageInputRef.current?.click();
+            }}
+            onAddNote={createNote}
+            onResetBoard={resetBoard}
+          />
+        }
       />
 
       <input
