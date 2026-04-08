@@ -21,7 +21,8 @@
 - minimal capability checklist собран достаточно для first hosted alpha core checkpoint;
 - first hosted core deploy поднят;
 - базовая hosted validation core flow подтверждена;
-- video пока остаётся отключённым и вынесен в следующий отдельный шаг.
+- video code path подготовлен, но hosted enablement сейчас блокируется узким Railway env/runtime issue;
+- hosted core checkpoint при этом остаётся валидным.
 
 ## 2. What was completed before this chat
 
@@ -85,13 +86,16 @@ Hosted work больше не находится на стадии только 
 - hosted realtime/API backend поднят;
 - backend health и recovery diagnostics работают;
 - room entry и базовый hosted core flow проходят успешно;
-- video сознательно оставлен disabled/optional для отдельного следующего pass.
+- video enable attempt был начат;
+- blocker локализован как Railway-side env/runtime propagation issue для LiveKit credentials;
+- это не выглядит как core app logic failure.
 
 ## 4. Current preferred next step
 
 Следующий правильный шаг:
 
-- сделать narrow hosted video enable pass;
+- снять narrow Railway env/runtime blocker для hosted video;
+- затем повторить narrow hosted video enable pass;
 - сохранить hosted core semantics и scope без broad cleanup;
 - после этого продолжить hosted playable-session validation уже с новым сигналом по video layer.
 
@@ -109,7 +113,7 @@ Hosted work больше не находится на стадии только 
 ## 6. Important open questions
 
 - Насколько narrow и безопасно можно включить video в текущем hosted environment?
-- Нужен ли ещё один короткий stabilization slice перед video enable pass?
+- Является ли текущий Railway blocker одноразовой operational issue или recurring hosted constraint?
 - Какие rough edges проявятся только после hosted playable-session checks?
 - Какие rough edges станут видны только после hosted use beyond room entry and core flow?
 
@@ -129,7 +133,7 @@ Hosted work больше не находится на стадии только 
 - не новый большой capability spike;
 - не broad architecture cleanup;
 - не immediate long polish cycle;
-- а narrow hosted video enable pass как следующий отдельный шаг.
+- а narrow Railway unblock pass, затем повтор narrow hosted video enable pass.
 
 ## 9. Last 3 messages (raw-ish)
 

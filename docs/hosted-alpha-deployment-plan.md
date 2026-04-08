@@ -56,6 +56,14 @@ If built-in video remains enabled in hosted alpha, keep LiveKit as its own separ
 
 Do not try to collapse realtime/API and LiveKit into one magical box before the first hosted alpha proves useful.
 
+### Narrow token-route fallback
+If the hosted backend keeps failing to expose LiveKit credentials cleanly, a narrow fallback is acceptable:
+
+- keep Railway for websocket/API/snapshots/core backend;
+- keep LiveKit as its own service;
+- move only LiveKit token minting to a Vercel Function;
+- point the frontend token fetch at that Vercel endpoint.
+
 ### Recommended first-pass decision
 
 For the cheapest practical hosted alpha:
@@ -105,12 +113,17 @@ Before first hosted alpha, make these runtime assumptions explicit:
 ### Frontend
 - `VITE_Y_WEBSOCKET_URL`
 - `VITE_LIVEKIT_URL` if video is enabled
+- `VITE_LIVEKIT_TOKEN_URL` if using the Vercel token-route fallback
 - `VITE_ENABLE_LIVEKIT_MEDIA`
 
 ### Realtime / API backend
 - websocket host/bind configuration
 - durable room snapshot store path or equivalent persistent storage path
 - `LIVEKIT_API_KEY` and `LIVEKIT_API_SECRET` if token minting stays on this service
+
+### Vercel Function fallback
+- `LIVEKIT_API_KEY`
+- `LIVEKIT_API_SECRET`
 
 ### Product/runtime decisions
 - whether video is enabled by default in hosted alpha
@@ -220,10 +233,10 @@ When moving from hosted core to hosted video:
 1. keep the existing frontend + realtime/API split unchanged;
 2. enable `VITE_ENABLE_LIVEKIT_MEDIA=true` on the frontend;
 3. configure `VITE_LIVEKIT_URL` to the hosted LiveKit endpoint;
-4. configure backend `LIVEKIT_API_KEY` and `LIVEKIT_API_SECRET`;
-5. redeploy or restart the hosted backend so the running process picks up the new env values;
-6. verify `/api/health` reports `liveKitStatus: "enabled"` and `liveKitCredentials.apiKeyPresent/apiSecretPresent`;
-7. verify `/api/livekit/token` returns a token in hosted mode;
+4. either configure backend `LIVEKIT_API_KEY` and `LIVEKIT_API_SECRET`, or set `VITE_LIVEKIT_TOKEN_URL` and configure those secrets on Vercel;
+5. if using Railway token minting, redeploy or restart the hosted backend so the running process picks up the new env values;
+6. verify the chosen token route returns a token in hosted mode;
+7. if using Railway token minting, verify `/api/health` reports `liveKitStatus: "enabled"` and `liveKitCredentials.apiKeyPresent/apiSecretPresent`;
 8. then run a minimal media join/leave smoke pass.
 
 If this adds disproportionate infra complexity, stop and treat video as a separate narrow blocker rather than broadening the whole hosted stack.

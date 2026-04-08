@@ -47,7 +47,7 @@
 
 - media dock UX остаётся spike-level;
 - dice tray / residual dice polish остаются слегка rough;
-- hosted alpha core environment уже поднят, но video пока intentionally disabled;
+- hosted alpha core environment уже поднят, но hosted video сейчас блокируется узким Railway env/runtime issue;
 - production-hardening отсутствует и не нужен прямо сейчас;
 - `BoardStage` всё ещё остаётся тяжёлым integration surface;
 - durable room memory остаётся best-effort, а не final collaborative durable platform.
@@ -67,13 +67,13 @@
 **Статус:** active
 
 ### Цель
-Зафиксировать, что hosted core deploy уже состоялся, сохранить узкий practical scope и провести следующий отдельный шаг без premature broadening: hosted video enable pass.
+Зафиксировать, что hosted core deploy уже состоялся, сохранить узкий practical scope и снять текущий narrow Railway blocker перед hosted video enablement.
 
 ### Основная последовательность
 1. narrow stabilization для реальных hosted рисков;
 2. first hosted core deploy;
 3. базовая hosted validation core flow;
-4. narrow hosted video enable pass;
+4. narrow Railway env/runtime fix for hosted video path;
 5. затем дальнейшая hosted playable-session validation и только потом более длинный UI/UX polish cycle.
 
 ### Почему это теперь главный фокус
@@ -84,7 +84,8 @@ Core hosted signal уже получен.
 
 - удержание core hosted stack в честном рабочем состоянии;
 - narrow follow-up based on confirmed hosted checkpoint;
-- optional hosted video enablement как отдельный шаг;
+- railway-side LiveKit env/runtime unblock как текущий operational blocker;
+- optional hosted video enablement как следующий шаг после unblock;
 - продолжение hosted playable-session validation уже после этого;
 - сбор product signal из реальной hosted-сессии без premature infra overbuild.
 
@@ -102,9 +103,9 @@ Core hosted signal уже получен.
 На текущий момент основной рабочий порядок такой:
 
 1. удерживать successful first hosted core checkpoint как current baseline;
-2. сделать narrow hosted video enable pass;
-3. продолжить hosted playable-session validation;
-4. зафиксировать реальные rough edges уже после hosted use;
+2. снять narrow Railway env/runtime blocker для hosted video;
+3. сделать narrow hosted video enable pass;
+4. продолжить hosted playable-session validation;
 5. только потом идти в следующий validation/polish cycle.
 
 ## 8. Backlog
@@ -118,6 +119,7 @@ Core hosted signal уже получен.
 - [x] определить hosted smoke checklist
 - [x] задеплоить first hosted alpha core environment
 - [x] подтвердить базовый hosted core flow
+- [ ] снять narrow Railway env/runtime blocker для hosted video
 - [ ] сделать narrow hosted video enable pass
 
 ## P1 — сразу после первого hosted alpha
@@ -147,8 +149,8 @@ Core hosted signal уже получен.
 
 ## 9. Open questions
 
-- Насколько narrow может остаться hosted video enable pass без лишнего infra scope?
-- Достаточно ли optional video path хорош для hosted alpha, или ему понадобится ещё один stabilization slice?
+- Является ли Railway env/runtime propagation issue одноразовым operational blocker, или это recurring hosted constraint?
+- Насколько narrow может остаться hosted video enable pass после снятия текущего Railway blocker?
 - Какие rough edges проявятся только после hosted playable-session checks?
 - Когда именно hosted-alpha feedback оправдает более глубокий polish или infrastructure hardening?
 
@@ -196,6 +198,12 @@ Core hosted signal уже получен.
 - hosted frontend и hosted realtime/API backend подняты и базовый core flow подтверждён;
 - video не входит в completed core checkpoint и остаётся следующим отдельным narrow step;
 - следующий planned step = hosted video enable pass, а не broad cleanup wave.
+
+### Update
+- hosted video enable attempt был начат;
+- текущий blocker локализован как narrow Railway env/runtime propagation issue;
+- blocker не считается провалом hosted core stack или LiveKit integration в целом;
+- immediate next step = снять Railway blocker и только потом повторить hosted video enable pass.
 
 ## 11. Правила обновления документа
 

@@ -33,12 +33,13 @@ Current alpha-core reality:
 - first hosted alpha core deploy is up;
 - basic hosted validation of the core flow has passed;
 - video remains intentionally disabled/optional for now;
+- hosted video is currently blocked by a narrow Railway env/runtime propagation issue, not by a core product failure;
 - the project is now past first hosted core deployment and into narrow hosted follow-up work.
 
 Current preferred sequence:
 
 1. keep the hosted core checkpoint stable and honest;
-2. run a narrow hosted video enable pass;
+2. resolve the narrow hosted Railway LiveKit env/runtime blocker;
 3. continue hosted playable-session validation;
 4. only then move into slower UI/UX polish afterwards.
 

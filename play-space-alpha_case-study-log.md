@@ -1246,3 +1246,51 @@ Fallback был зафиксирован как small custom controlled renderer
 - video всё ещё не включён и остаётся отдельным следующим шагом;
 - multiplayer/lifecycle validation beyond базового core flow всё ещё должна продолжаться;
 - hosted alpha остаётся alpha, а не production-ready platform.
+
+---
+
+## 2026-04-08 — Hosted video enablement hit a narrow Railway runtime blocker
+
+### Type
+- blocker
+- debug
+
+### Context
+После successful hosted core checkpoint следующим логичным шагом стала попытка включить current LiveKit path в hosted environment.
+
+### Goal or problem
+Нужно было проверить, можно ли включить video как optional hosted alpha layer без изменения core deploy shape и без broad media work.
+
+### What happened
+Под video path были сделаны узкие readiness/debug improvements, после чего hosted `/api/health` показал, что running Railway process всё ещё не видит:
+
+- `LIVEKIT_API_KEY`
+- `LIVEKIT_API_SECRET`
+
+При этом:
+
+- hosted core stack продолжает работать;
+- backend URL и service path корректны;
+- blocker локализован как Railway-side env/runtime propagation issue, а не как product/core architecture failure.
+
+### Decision / change
+Сделан narrow framing update:
+
+- hosted core checkpoint остаётся действительным;
+- hosted video не отклоняется как направление;
+- immediate next step = снять Railway env/runtime blocker и только потом повторить hosted video enable pass.
+
+### Why
+Это позволяет не драматизировать проблему и не смешивать operational hosted blocker с выводом, будто core stack или LiveKit integration оказались неверными.
+
+### Result
+Проект получил:
+
+- более честную интерпретацию текущего blocker'а;
+- сохранённый hosted core milestone;
+- узкий operational next step вместо broad replanning.
+
+### Remaining limitations / open questions
+- нужно подтвердить, одноразовый ли это Railway operational issue или recurring hosted constraint;
+- hosted video smoke по-прежнему не считается завершённым;
+- broader media polish по-прежнему не является текущим приоритетом.
