@@ -3,6 +3,8 @@ import { HTML_UI_FONT_FAMILY } from "../constants";
 
 type ParticipantSessionPanelProps = {
   roomId: string;
+  isCurrentParticipantRoomCreator: boolean;
+  roomCreatorName: string | null;
   participantName: string;
   participantColor: string;
   participantNameDraft: string;
@@ -26,6 +28,8 @@ export const ParticipantSessionPanel = forwardRef<
 >(function ParticipantSessionPanel(
   {
     roomId,
+    isCurrentParticipantRoomCreator,
+    roomCreatorName,
     participantName,
     participantColor,
     participantNameDraft,
@@ -44,6 +48,12 @@ export const ParticipantSessionPanel = forwardRef<
   },
   ref
 ) {
+  const roomCreatorLine = isCurrentParticipantRoomCreator
+    ? "Creator: You"
+    : roomCreatorName
+      ? `Creator: ${roomCreatorName}`
+      : null;
+
   return (
     <div
       ref={ref}
@@ -151,6 +161,21 @@ export const ParticipantSessionPanel = forwardRef<
           </svg>
         </button>
       </div>
+
+      {roomCreatorLine ? (
+        <div
+          style={{
+            fontSize: 12,
+            color: "#94a3b8",
+            pointerEvents: "none",
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+          }}
+        >
+          {roomCreatorLine}
+        </div>
+      ) : null}
 
       <div
         style={{

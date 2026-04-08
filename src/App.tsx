@@ -184,6 +184,13 @@ export default function App() {
     participantId: participantSession?.id ?? null,
     defaultAccessLevel: "full",
   });
+  const roomCreatorId = roomRecord?.creatorId ?? null;
+  const isCurrentParticipantRoomCreator =
+    !!roomCreatorId && roomCreatorId === participantSession?.id;
+  const roomCreatorName =
+    roomCreatorId && !isCurrentParticipantRoomCreator
+      ? participantPresences[roomCreatorId]?.name ?? null
+      : null;
 
   if (!participantSession) {
     return (
@@ -296,6 +303,8 @@ export default function App() {
         participantSession={participantSession}
         participantPresences={participantPresences}
         roomId={roomId}
+        isCurrentParticipantRoomCreator={isCurrentParticipantRoomCreator}
+        roomCreatorName={roomCreatorName}
         roomEffectiveAccessLevel={roomEffectiveAccessLevel}
         onChangeRoom={changeRoom}
         onUpdateParticipantSession={updateParticipantSession}

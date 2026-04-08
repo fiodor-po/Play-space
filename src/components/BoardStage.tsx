@@ -186,6 +186,8 @@ type BoardStageProps = {
   participantSession: LocalParticipantSession;
   participantPresences: ParticipantPresenceMap;
   roomId: string;
+  isCurrentParticipantRoomCreator: boolean;
+  roomCreatorName: string | null;
   roomEffectiveAccessLevel: AccessLevel;
   onChangeRoom: (roomId: string) => void;
   onUpdateParticipantSession: (
@@ -206,6 +208,8 @@ export default function BoardStage({
   participantSession,
   participantPresences,
   roomId,
+  isCurrentParticipantRoomCreator,
+  roomCreatorName,
   roomEffectiveAccessLevel,
   onChangeRoom,
   onUpdateParticipantSession,
@@ -1826,6 +1830,8 @@ export default function BoardStage({
       <ParticipantSessionPanel
         ref={sessionPanelRef}
         roomId={roomId}
+        isCurrentParticipantRoomCreator={isCurrentParticipantRoomCreator}
+        roomCreatorName={roomCreatorName}
         participantName={participantSession.name}
         participantColor={participantSession.color}
         participantNameDraft={participantNameDraft}
