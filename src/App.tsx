@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import BoardStage from "./components/BoardStage";
 import { DiceSpikeOverlay } from "./dice/DiceSpikeOverlay";
 import { LiveKitMediaDock } from "./media/LiveKitMediaDock";
+import { HTML_UI_FONT_FAMILY } from "./board/constants";
 import {
   createRoomGovernedEntityRef,
   getEffectiveAccessLevel,
@@ -28,6 +29,8 @@ import type {
 } from "./lib/roomSession";
 import type { RoomRecord } from "./lib/roomMetadata";
 import type { RoomPresenceConnection } from "./lib/roomPresenceRealtime";
+
+const ENTRY_SCREEN_VERSION_LABEL = "alpha v0.0.0";
 
 function loadParticipantDraftForRoom(roomId: string) {
   const savedSession = loadLocalParticipantSession(roomId);
@@ -270,127 +273,177 @@ export default function App() {
           padding: 24,
         }}
       >
-        <form
-          onSubmit={joinRoom}
+        <div
           style={{
             width: "100%",
             maxWidth: 420,
             display: "grid",
-            gap: 16,
-            padding: 24,
-            borderRadius: 20,
-            background: "rgba(15, 23, 42, 0.88)",
-            border: "1px solid rgba(148, 163, 184, 0.25)",
-            color: "#e2e8f0",
-            boxShadow: "0 24px 80px rgba(2, 6, 23, 0.55)",
+            gap: 18,
+            fontFamily: HTML_UI_FONT_FAMILY,
           }}
         >
-          <div style={{ display: "grid", gap: 6 }}>
-            <div style={{ fontSize: 14, color: "#94a3b8" }}>Room</div>
-            <input
-              value={draftRoomId}
-              onChange={(event) => {
-                const nextRoomId = event.target.value;
-                setDraftRoomId(nextRoomId);
-
-                const trimmedRoomId = nextRoomId.trim();
-
-                if (!trimmedRoomId) {
-                  return;
-                }
-
-                const nextParticipantDraft =
-                  loadParticipantDraftForRoom(trimmedRoomId);
-
-                if (!nextParticipantDraft.savedSession) {
-                  return;
-                }
-
-                setDraftName(nextParticipantDraft.draftName);
-                setDraftColor(nextParticipantDraft.draftColor);
-              }}
-              placeholder="Room name"
+          <div
+            style={{
+              position: "relative",
+              display: "grid",
+              gap: 6,
+              color: "#e2e8f0",
+              width: "100%",
+              maxWidth: 420,
+              paddingInline: 4,
+            }}
+          >
+            <div
               style={{
-                padding: "12px 14px",
-                borderRadius: 12,
-                border: "1px solid rgba(148, 163, 184, 0.3)",
-                background: "rgba(15, 23, 42, 0.9)",
-                color: "#f8fafc",
-                fontSize: 22,
-                fontWeight: 700,
+                position: "absolute",
+                top: 0,
+                right: 4,
+                fontSize: 11,
+                fontWeight: 600,
+                letterSpacing: "0.08em",
+                textTransform: "uppercase",
+                color: "#94a3b8",
               }}
-            />
-          </div>
-
-          <label style={{ display: "grid", gap: 8 }}>
-            <span style={{ fontSize: 14, color: "#cbd5e1" }}>Display name</span>
-            <input
-              value={draftName}
-              onChange={(event) => {
-                setDraftName(event.target.value);
-              }}
-              placeholder="Your name"
-              autoFocus
+            >
+              {ENTRY_SCREEN_VERSION_LABEL}
+            </div>
+            <div
               style={{
-                padding: "12px 14px",
-                borderRadius: 12,
-                border: "1px solid rgba(148, 163, 184, 0.3)",
-                background: "rgba(15, 23, 42, 0.9)",
+                justifySelf: "center",
+                textAlign: "center",
+                fontSize: 52,
+                lineHeight: 0.94,
+                fontWeight: 800,
+                letterSpacing: "-0.055em",
                 color: "#f8fafc",
-                fontSize: 16,
               }}
-            />
-          </label>
-
-          <div style={{ display: "grid", gap: 8 }}>
-            <div style={{ fontSize: 14, color: "#cbd5e1" }}>Color</div>
-            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-              {PARTICIPANT_COLOR_OPTIONS.map((color) => {
-                const isSelected = color === draftColor;
-
-                return (
-                  <button
-                    key={color}
-                    type="button"
-                    onClick={() => {
-                      setDraftColor(color);
-                    }}
-                    aria-label={`Select color ${color}`}
-                    style={{
-                      width: 36,
-                      height: 36,
-                      borderRadius: 999,
-                      border: isSelected
-                        ? "3px solid #f8fafc"
-                        : "2px solid rgba(255, 255, 255, 0.2)",
-                      background: color,
-                      cursor: "pointer",
-                    }}
-                  />
-                );
-              })}
+            >
+              otheЯRoom
             </div>
           </div>
 
-          <button
-            type="submit"
-            disabled={!draftRoomId.trim() || !draftName.trim()}
+          <form
+            onSubmit={joinRoom}
             style={{
-              padding: "12px 16px",
-              borderRadius: 12,
-              border: "none",
-              background: draftColor,
-              color: "#f8fafc",
-              fontSize: 16,
-              fontWeight: 700,
-              cursor:
-                draftRoomId.trim() && draftName.trim() ? "pointer" : "not-allowed",
-              opacity: draftRoomId.trim() && draftName.trim() ? 1 : 0.6,
+              display: "grid",
+              gap: 16,
+              padding: 24,
+              borderRadius: 20,
+              background: "rgba(15, 23, 42, 0.88)",
+              border: "1px solid rgba(148, 163, 184, 0.25)",
+              color: "#e2e8f0",
+              boxShadow: "0 24px 80px rgba(2, 6, 23, 0.55)",
             }}
           >
-            Join room
-          </button>
-        </form>
+            <div style={{ display: "grid", gap: 6 }}>
+              <div style={{ fontSize: 14, color: "#94a3b8" }}>Room</div>
+              <input
+                value={draftRoomId}
+                onChange={(event) => {
+                  const nextRoomId = event.target.value;
+                  setDraftRoomId(nextRoomId);
+
+                  const trimmedRoomId = nextRoomId.trim();
+
+                  if (!trimmedRoomId) {
+                    return;
+                  }
+
+                  const nextParticipantDraft =
+                    loadParticipantDraftForRoom(trimmedRoomId);
+
+                  if (!nextParticipantDraft.savedSession) {
+                    return;
+                  }
+
+                  setDraftName(nextParticipantDraft.draftName);
+                  setDraftColor(nextParticipantDraft.draftColor);
+                }}
+                placeholder="Room name"
+                style={{
+                  padding: "12px 14px",
+                  borderRadius: 12,
+                  border: "1px solid rgba(148, 163, 184, 0.3)",
+                  background: "rgba(15, 23, 42, 0.9)",
+                  color: "#f8fafc",
+                  fontSize: 16,
+                  fontWeight: 400,
+                }}
+              />
+            </div>
+
+            <label style={{ display: "grid", gap: 8 }}>
+              <span style={{ fontSize: 14, color: "#cbd5e1" }}>Player</span>
+              <input
+                value={draftName}
+                onChange={(event) => {
+                  setDraftName(event.target.value);
+                }}
+                placeholder="Your name"
+                autoFocus
+                style={{
+                  padding: "12px 14px",
+                  borderRadius: 12,
+                  border: "1px solid rgba(148, 163, 184, 0.3)",
+                  background: "rgba(15, 23, 42, 0.9)",
+                  color: "#f8fafc",
+                  fontSize: 16,
+                }}
+              />
+            </label>
+
+            <div style={{ display: "grid", gap: 8 }}>
+              <div style={{ fontSize: 14, color: "#cbd5e1" }}>Color</div>
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                {PARTICIPANT_COLOR_OPTIONS.map((color) => {
+                  const isSelected = color === draftColor;
+
+                  return (
+                    <button
+                      key={color}
+                      type="button"
+                      onClick={() => {
+                        setDraftColor(color);
+                      }}
+                      aria-label={`Select color ${color}`}
+                      style={{
+                        width: 36,
+                        height: 36,
+                        borderRadius: 999,
+                        border: isSelected
+                          ? "3px solid #f8fafc"
+                          : "2px solid rgba(255, 255, 255, 0.2)",
+                        background: color,
+                        cursor: "pointer",
+                      }}
+                    />
+                  );
+                })}
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={!draftRoomId.trim() || !draftName.trim()}
+              style={{
+                padding: "12px 16px",
+                borderRadius: 12,
+                border: "none",
+                background: draftColor,
+                color: "#f8fafc",
+                fontSize: 16,
+                fontWeight: 700,
+                cursor:
+                  draftRoomId.trim() && draftName.trim()
+                    ? "pointer"
+                    : "not-allowed",
+                opacity: draftRoomId.trim() && draftName.trim() ? 1 : 0.6,
+              }}
+            >
+              Join room
+            </button>
+          </form>
+        </div>
       </div>
     );
   }
