@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "smoke:artifact": "node ./scripts/check-built-artifact.mjs",
+    "build:smoke": "npm run build && npm run smoke:artifact",
     "dev:local": "bash ./scripts/dev-local.sh",
     "dev:lan": "bash ./scripts/dev-lan.sh",
     "lint": "eslint .",
