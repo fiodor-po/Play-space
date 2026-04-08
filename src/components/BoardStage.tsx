@@ -196,6 +196,12 @@ type BoardStageProps = {
   ) => void;
 };
 
+type ObjectSemanticsHoverState = {
+  objectId: string;
+  clientX: number;
+  clientY: number;
+};
+
 export default function BoardStage({
   participantSession,
   participantPresences,
@@ -314,6 +320,9 @@ export default function BoardStage({
   );
   const [isColorPickerOpen, setIsColorPickerOpen] = useState(false);
   const [isDevToolsOpen, setIsDevToolsOpen] = useState(false);
+  const [isObjectInspectionEnabled, setIsObjectInspectionEnabled] = useState(false);
+  const [objectSemanticsHoverState, setObjectSemanticsHoverState] =
+    useState<ObjectSemanticsHoverState | null>(null);
   const [remoteImagePreviewPositions, setRemoteImagePreviewPositions] = useState<
     Record<
       string,
@@ -363,6 +372,32 @@ export default function BoardStage({
   const getTextCardAccentColor = (object: BoardObject) => {
     return getLiveCreatorColor(object) ?? object.authorColor ?? "#94a3b8";
   };
+
+  const getObjectSemanticsRows = (object: BoardObject) => {
+    const rows = [
+      { label: "Kind", value: object.kind },
+      { label: "Id", value: object.id },
+      { label: "Creator", value: object.creatorId ?? "none" },
+      { label: "Creator color", value: getLiveCreatorColor(object) ?? "unresolved" },
+      { label: "Author color", value: object.authorColor ?? "none" },
+    ];
+
+    if (object.kind === "image") {
+      rows.push({
+        label: "Stroke creators",
+        value: String(
+          new Set(
+            (object.imageStrokes ?? [])
+              .map((stroke) => stroke.creatorId)
+              .filter((creatorId): creatorId is string => typeof creatorId === "string")
+          ).size
+        ),
+      });
+    }
+
+    return rows;
+  };
+
   const getLiveStrokeColor = (stroke: {
     color: string;
     creatorId?: string;
@@ -376,6 +411,25 @@ export default function BoardStage({
     }
 
     return participantPresences[stroke.creatorId]?.color ?? stroke.color;
+  };
+
+  const updateObjectSemanticsHover = (
+    object: BoardObject,
+    event: { evt: MouseEvent }
+  ) => {
+    if (!isObjectInspectionEnabled) {
+      return;
+    }
+
+    setObjectSemanticsHoverState({
+      objectId: object.id,
+      clientX: event.evt.clientX,
+      clientY: event.evt.clientY,
+    });
+  };
+
+  const clearObjectSemanticsHover = () => {
+    setObjectSemanticsHoverState(null);
   };
 
   const textCardRefs = useRef<Record<string, Konva.Group | null>>({});
@@ -663,6 +717,7 @@ export default function BoardStage({
     lastSavedDurableSnapshotKeyRef.current = null;
     panStateRef.current = null;
     setIsDevToolsOpen(false);
+    setObjectSemanticsHoverState(null);
   }, [roomId]);
 
   useEffect(() => {
@@ -1363,6 +1418,7 @@ export default function BoardStage({
 
         const newImage: BoardObject = createImageObject({
           id: `image-${createClientId()}`,
+          creatorId: participantSession.id,
           label: file.name,
           authorColor: currentUserColor,
           src,
@@ -1588,6 +1644,10 @@ export default function BoardStage({
     );
   }, [draggingImageId, selectedImageObject, transformingImageId]);
 
+  const inspectedObject = objectSemanticsHoverState
+    ? objects.find((object) => object.id === objectSemanticsHoverState.objectId) ?? null
+    : null;
+
   const editingTextareaStyle = useMemo(() => {
     if (!editingTextCard) {
       return null;
@@ -1812,14 +1872,40 @@ export default function BoardStage({
           setIsColorPickerOpen(false);
         }}
         devToolsContent={
-          <BoardToolbar
-            onAddToken={createToken}
-            onAddImage={() => {
-              imageInputRef.current?.click();
-            }}
-            onAddNote={createNote}
-            onResetBoard={resetBoard}
-          />
+          <div style={{ display: "grid", gap: 12 }}>
+            <label
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                color: "#cbd5e1",
+                fontSize: 12,
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={isObjectInspectionEnabled}
+                onChange={(event) => {
+                  const isEnabled = event.target.checked;
+                  setIsObjectInspectionEnabled(isEnabled);
+
+                  if (!isEnabled) {
+                    clearObjectSemanticsHover();
+                  }
+                }}
+              />
+              Inspect object semantics on hover
+            </label>
+
+            <BoardToolbar
+              onAddToken={createToken}
+              onAddImage={() => {
+                imageInputRef.current?.click();
+              }}
+              onAddNote={createNote}
+              onResetBoard={resetBoard}
+            />
+          </div>
         }
       />
 
@@ -2027,7 +2113,18 @@ export default function BoardStage({
                   previewPosition.height !== undefined);
 
               return (
-                <Group key={object.id}>
+                <Group
+                  key={object.id}
+                  onMouseEnter={(event) => {
+                    updateObjectSemanticsHover(object, event);
+                  }}
+                  onMouseMove={(event) => {
+                    updateObjectSemanticsHover(object, event);
+                  }}
+                  onMouseLeave={() => {
+                    clearObjectSemanticsHover();
+                  }}
+                >
                   {isRemoteDragPreviewActive && (
                     <Rect
                       x={previewPosition.x}
@@ -2291,6 +2388,15 @@ export default function BoardStage({
                   selectionColor={currentUserColor}
                   accentColor={getTextCardAccentColor(object)}
                   remoteEditingIndicator={remoteEditingIndicator}
+                  onHoverStart={(event) => {
+                    updateObjectSemanticsHover(object, event);
+                  }}
+                  onHoverMove={(event) => {
+                    updateObjectSemanticsHover(object, event);
+                  }}
+                  onHoverEnd={() => {
+                    clearObjectSemanticsHover();
+                  }}
                   onGroupRef={(node) => {
                     textCardRefs.current[object.id] = node;
                   }}
@@ -2327,15 +2433,24 @@ export default function BoardStage({
             }
 
             return (
-              <TokenRenderer
-                key={object.id}
-                object={object}
-                isSelected={isSelected}
-                selectionColor={currentUserColor}
-                fillColor={getTokenFillColor(object)}
-                onSelect={(event) => {
-                  event.cancelBubble = true;
-                  setSelectedObjectId(object.id);
+                <TokenRenderer
+                  key={object.id}
+                  object={object}
+                  isSelected={isSelected}
+                  selectionColor={currentUserColor}
+                  fillColor={getTokenFillColor(object)}
+                  onHoverStart={(event) => {
+                    updateObjectSemanticsHover(object, event);
+                  }}
+                  onHoverMove={(event) => {
+                    updateObjectSemanticsHover(object, event);
+                  }}
+                  onHoverEnd={() => {
+                    clearObjectSemanticsHover();
+                  }}
+                  onSelect={(event) => {
+                    event.cancelBubble = true;
+                    setSelectedObjectId(object.id);
                 }}
                 onDragStart={(event) => {
                   event.cancelBubble = true;
@@ -2482,6 +2597,70 @@ export default function BoardStage({
             whiteSpace: "pre-wrap",
           }}
         />
+      )}
+
+      {isObjectInspectionEnabled && inspectedObject && objectSemanticsHoverState && (
+        <div
+          style={{
+            position: "fixed",
+            left: Math.min(
+              objectSemanticsHoverState.clientX + 14,
+              window.innerWidth - 250
+            ),
+            top: Math.min(
+              objectSemanticsHoverState.clientY + 14,
+              window.innerHeight - 180
+            ),
+            zIndex: 40,
+            minWidth: 220,
+            maxWidth: 240,
+            display: "grid",
+            gap: 6,
+            padding: 10,
+            borderRadius: 12,
+            border: "1px solid rgba(148, 163, 184, 0.24)",
+            background: "rgba(15, 23, 42, 0.94)",
+            color: "#e2e8f0",
+            boxShadow: "0 20px 48px rgba(2, 6, 23, 0.34)",
+            pointerEvents: "none",
+            fontFamily: HTML_UI_FONT_FAMILY,
+            fontSize: 12,
+          }}
+        >
+          <div
+            style={{
+              color: "#94a3b8",
+              fontSize: 11,
+              fontWeight: 700,
+              letterSpacing: "0.04em",
+              textTransform: "uppercase",
+            }}
+          >
+            Object semantics
+          </div>
+
+          {getObjectSemanticsRows(inspectedObject).map((row) => (
+            <div
+              key={row.label}
+              style={{
+                display: "grid",
+                gridTemplateColumns: "84px minmax(0, 1fr)",
+                gap: 8,
+                alignItems: "start",
+              }}
+            >
+              <div style={{ color: "#94a3b8" }}>{row.label}</div>
+              <div
+                style={{
+                  color: "#f8fafc",
+                  wordBreak: "break-word",
+                }}
+              >
+                {row.value}
+              </div>
+            </div>
+          ))}
+        </div>
       )}
     </div>
   );

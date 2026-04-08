@@ -11,6 +11,9 @@ type TokenRendererProps = {
   onDragStart: (event: KonvaEventObject<DragEvent>) => void;
   onDragMove: (event: KonvaEventObject<DragEvent>) => void;
   onDragEnd: (event: KonvaEventObject<DragEvent>) => void;
+  onHoverStart?: (event: KonvaEventObject<MouseEvent>) => void;
+  onHoverMove?: (event: KonvaEventObject<MouseEvent>) => void;
+  onHoverEnd?: () => void;
 };
 
 export function TokenRenderer({
@@ -22,6 +25,9 @@ export function TokenRenderer({
   onDragStart,
   onDragMove,
   onDragEnd,
+  onHoverStart,
+  onHoverMove,
+  onHoverEnd,
 }: TokenRendererProps) {
   return (
     <Group
@@ -32,6 +38,9 @@ export function TokenRenderer({
       onDragStart={onDragStart}
       onDragMove={onDragMove}
       onDragEnd={onDragEnd}
+      onMouseEnter={onHoverStart}
+      onMouseMove={onHoverMove}
+      onMouseLeave={onHoverEnd}
     >
       {isSelected && (
         <Rect

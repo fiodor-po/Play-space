@@ -30,6 +30,9 @@ type TextCardRendererProps = {
   onHandleMouseDown: (event: KonvaEventObject<MouseEvent>) => void;
   onBodyMouseDown: () => void;
   onBodyDoubleClick: (event: KonvaEventObject<MouseEvent>) => void;
+  onHoverStart?: (event: KonvaEventObject<MouseEvent>) => void;
+  onHoverMove?: (event: KonvaEventObject<MouseEvent>) => void;
+  onHoverEnd?: () => void;
 };
 
 export function TextCardRenderer({
@@ -47,6 +50,9 @@ export function TextCardRenderer({
   onHandleMouseDown,
   onBodyMouseDown,
   onBodyDoubleClick,
+  onHoverStart,
+  onHoverMove,
+  onHoverEnd,
 }: TextCardRendererProps) {
   const remoteEditingLabel = remoteEditingIndicator
     ? `${remoteEditingIndicator.participantName} editing`
@@ -65,6 +71,9 @@ export function TextCardRenderer({
       onDragStart={onDragStart}
       onDragMove={onDragMove}
       onDragEnd={onDragEnd}
+      onMouseEnter={onHoverStart}
+      onMouseMove={onHoverMove}
+      onMouseLeave={onHoverEnd}
     >
       {isSelected && (
         <Rect
