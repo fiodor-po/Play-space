@@ -1,5 +1,6 @@
 type RuntimeUrlSource = "env" | "derived-hostname";
 type ApiUrlSource = "derived-realtime" | "derived-hostname";
+type LiveKitTokenUrlSource = "env" | "derived-api";
 
 const warnedRuntimeAssumptions = new Set<string>();
 let hasLoggedClientRuntimeConfig = false;
@@ -60,6 +61,16 @@ export function getLiveKitServerUrl() {
   return fallbackUrl;
 }
 
+export function getLiveKitTokenUrl() {
+  const configuredUrl = import.meta.env.VITE_LIVEKIT_TOKEN_URL;
+
+  if (typeof configuredUrl === "string" && configuredUrl.length > 0) {
+    return configuredUrl;
+  }
+
+  return new URL("/api/livekit/token", getApiServerBaseUrl()).toString();
+}
+
 export function isLiveKitMediaEnabled() {
   const configuredValue = import.meta.env.VITE_ENABLE_LIVEKIT_MEDIA;
 
@@ -87,6 +98,7 @@ export function logClientRuntimeConfig(roomId: string) {
   const realtimeUrl = getRealtimeServerWsUrl();
   const apiBaseUrl = getApiServerBaseUrl();
   const liveKitUrl = getLiveKitServerUrl();
+  const liveKitTokenUrl = getLiveKitTokenUrl();
   const liveKitEnabled = isLiveKitMediaEnabled();
 
   console.info("[runtime-config][client]", {
@@ -99,6 +111,8 @@ export function logClientRuntimeConfig(roomId: string) {
     apiBaseUrlSource: getApiBaseUrlSource(),
     liveKitUrl,
     liveKitUrlSource: getLiveKitUrlSource(),
+    liveKitTokenUrl,
+    liveKitTokenUrlSource: getLiveKitTokenUrlSource(),
     liveKitEnabled,
   });
 }
@@ -122,6 +136,13 @@ function getLiveKitUrlSource(): RuntimeUrlSource {
     import.meta.env.VITE_LIVEKIT_URL.length > 0
     ? "env"
     : "derived-hostname";
+}
+
+function getLiveKitTokenUrlSource(): LiveKitTokenUrlSource {
+  return typeof import.meta.env.VITE_LIVEKIT_TOKEN_URL === "string" &&
+    import.meta.env.VITE_LIVEKIT_TOKEN_URL.length > 0
+    ? "env"
+    : "derived-api";
 }
 
 function warnRuntimeAssumptionOnce(

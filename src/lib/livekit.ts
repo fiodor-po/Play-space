@@ -1,4 +1,4 @@
-import { getApiServerBaseUrl, getLiveKitServerUrl } from "./runtimeConfig";
+import { getLiveKitServerUrl, getLiveKitTokenUrl } from "./runtimeConfig";
 
 export type LiveKitTokenResponse = {
   token: string;
@@ -84,12 +84,4 @@ export async function fetchLiveKitAccessToken(params: {
 
 export function getLiveKitUrl() {
   return getLiveKitServerUrl();
-}
-
-function getLiveKitTokenUrl() {
-  return new URL("/api/livekit/token", getLiveKitApiServerUrl()).toString();
-}
-
-function getLiveKitApiServerUrl() {
-  return getApiServerBaseUrl();
 }
