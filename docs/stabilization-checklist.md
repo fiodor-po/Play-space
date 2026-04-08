@@ -9,6 +9,14 @@
 
 - [ ] `npm run build`
 
+## Hosted smoke minimum
+
+- [ ] deployed frontend HTML points to the expected current asset
+- [ ] deployed backend `/api/health` matches the expected runtime/env state
+- [ ] if token/media path changed, the intended token endpoint responds directly
+- [ ] room entry still works in hosted mode
+- [ ] one second-client smoke still passes for presence and one shared object flow
+
 ## Core board control
 
 - [ ] empty-space panning still works

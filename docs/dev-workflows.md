@@ -168,6 +168,19 @@ After startup, confirm:
 - if testing video, media join works
 - if testing LAN mode, browser is in secure context and `navigator.mediaDevices` exists
 
+## 8.1 Deploy / Debug Order
+
+Before debugging live deploy behavior:
+
+- confirm the relevant code is committed;
+- confirm the relevant commit is pushed;
+- confirm the deploy was triggered from that commit;
+- confirm the deployed frontend HTML points to the expected asset path;
+- confirm the deployed backend/function route shows the expected runtime state;
+- only then compare live behavior against local behavior.
+
+Do not debug hosted behavior against uncommitted local changes.
+
 ## 9. Related docs
 
 - `docs/livekit-local-dev.md`
