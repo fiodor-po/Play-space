@@ -3,12 +3,17 @@ import BoardStage from "./components/BoardStage";
 import { DiceSpikeOverlay } from "./dice/DiceSpikeOverlay";
 import { LiveKitMediaDock } from "./media/LiveKitMediaDock";
 import {
+  createRoomGovernedEntityRef,
+  getEffectiveAccessLevel,
+} from "./lib/governance";
+import {
   createLocalParticipantPresence,
   getRoomIdFromLocation,
   loadLocalParticipantSession,
   PARTICIPANT_COLOR_OPTIONS,
   saveLocalParticipantSession,
 } from "./lib/roomSession";
+import { ensureRoomMetadata, loadRoomMetadata } from "./lib/roomMetadata";
 import { createClientId } from "./lib/id";
 import { createRoomPresenceConnection } from "./lib/roomPresenceRealtime";
 import { isLiveKitMediaEnabled, logClientRuntimeConfig } from "./lib/runtimeConfig";
@@ -34,6 +39,7 @@ export default function App() {
       const session = loadLocalParticipantSession(roomId);
       return session ? createLocalParticipantPresence(session) : null;
     });
+  const [roomMetadata, setRoomMetadata] = useState(() => loadRoomMetadata(roomId));
   const [draftName, setDraftName] = useState("");
   const [draftColor, setDraftColor] = useState(PARTICIPANT_COLOR_OPTIONS[0]);
   const roomPresenceConnectionRef = useRef<RoomPresenceConnection | null>(null);
@@ -58,6 +64,7 @@ export default function App() {
     const nextSession = loadLocalParticipantSession(roomId);
 
     setParticipantSession(nextSession);
+    setRoomMetadata(loadRoomMetadata(roomId));
     setLocalParticipantPresence(
       nextSession ? createLocalParticipantPresence(nextSession) : null
     );
@@ -80,6 +87,7 @@ export default function App() {
     };
 
     saveLocalParticipantSession(roomId, nextSession);
+    setRoomMetadata(ensureRoomMetadata(roomId, nextSession.id));
     setParticipantSession(nextSession);
     setLocalParticipantPresence(createLocalParticipantPresence(nextSession));
   };
@@ -131,6 +139,8 @@ export default function App() {
       return;
     }
 
+    setRoomMetadata(ensureRoomMetadata(roomId, participantSession.id));
+
     const connection = createRoomPresenceConnection({
       onPresencesChange: setParticipantPresences,
       roomId,
@@ -161,6 +171,16 @@ export default function App() {
       localParticipantPresence ?? createLocalParticipantPresence(participantSession)
     );
   }, [localParticipantPresence, participantSession]);
+
+  const roomGovernedEntity = createRoomGovernedEntityRef({
+    roomId,
+    creatorId: roomMetadata?.creatorId ?? null,
+  });
+  const roomEffectiveAccessLevel = getEffectiveAccessLevel({
+    entity: roomGovernedEntity,
+    participantId: participantSession?.id ?? null,
+    defaultAccessLevel: "full",
+  });
 
   if (!participantSession) {
     return (
@@ -273,6 +293,7 @@ export default function App() {
         participantSession={participantSession}
         participantPresences={participantPresences}
         roomId={roomId}
+        roomEffectiveAccessLevel={roomEffectiveAccessLevel}
         onChangeRoom={changeRoom}
         onUpdateParticipantSession={updateParticipantSession}
         onUpdateLocalPresence={(updater) => {

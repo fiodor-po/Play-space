@@ -98,6 +98,7 @@ import {
   type ParticipantPresence,
   type ParticipantPresenceMap,
 } from "../lib/roomSession";
+import type { AccessLevel } from "../lib/governance";
 import type { BoardObject } from "../types/board";
 
 type SmallFloatingActionButtonProps = {
@@ -185,6 +186,7 @@ type BoardStageProps = {
   participantSession: LocalParticipantSession;
   participantPresences: ParticipantPresenceMap;
   roomId: string;
+  roomEffectiveAccessLevel: AccessLevel;
   onChangeRoom: (roomId: string) => void;
   onUpdateParticipantSession: (
     updater: (session: LocalParticipantSession) => LocalParticipantSession
@@ -198,6 +200,7 @@ export default function BoardStage({
   participantSession,
   participantPresences,
   roomId,
+  roomEffectiveAccessLevel,
   onChangeRoom,
   onUpdateParticipantSession,
   onUpdateLocalPresence,
@@ -1378,6 +1381,10 @@ export default function BoardStage({
   };
 
   const resetBoard = () => {
+    if (roomEffectiveAccessLevel === "none") {
+      return;
+    }
+
     replaceBoardObjects(EMPTY_BOARD_STATE, {
       syncSharedTokens: true,
       syncSharedImages: true,
