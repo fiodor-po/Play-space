@@ -122,7 +122,7 @@ export const ParticipantSessionPanel = forwardRef<
         <button
           type="button"
           onClick={onToggleDevTools}
-          aria-label={isDevToolsOpen ? "Close dev tools" : "Open dev tools"}
+          aria-label={isDevToolsOpen ? "Close debug tools" : "Open debug tools"}
           aria-expanded={isDevToolsOpen}
           style={{
             width: 28,
@@ -310,7 +310,7 @@ export const ParticipantSessionPanel = forwardRef<
               pointerEvents: "none",
             }}
           >
-            Dev tools
+            Debug tools
           </div>
           <div style={{ pointerEvents: "auto" }}>{devToolsContent}</div>
         </div>
