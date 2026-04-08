@@ -21,8 +21,8 @@
 - minimal capability checklist собран достаточно для first hosted alpha core checkpoint;
 - first hosted core deploy поднят;
 - базовая hosted validation core flow подтверждена;
-- video code path подготовлен, но hosted enablement сейчас блокируется узким Railway env/runtime issue;
-- hosted core checkpoint при этом остаётся валидным.
+- hosted video now works as an optional layer via the Vercel token fallback path;
+- hosted core checkpoint remains valid and has now expanded into a practical hosted core + video checkpoint.
 
 ## 2. What was completed before this chat
 
@@ -77,7 +77,7 @@ Built-in video больше не speculative idea only.
 
 Это признано отдельной полезной задачей, а не "вторичной бюрократией".
 
-### 3.5. First hosted alpha core checkpoint was reached
+### 3.5. First hosted alpha hosted checkpoint was reached
 Hosted work больше не находится на стадии только preparation.
 
 Уже подтверждено:
@@ -86,18 +86,27 @@ Hosted work больше не находится на стадии только 
 - hosted realtime/API backend поднят;
 - backend health и recovery diagnostics работают;
 - room entry и базовый hosted core flow проходят успешно;
-- video enable attempt был начат;
-- blocker локализован как Railway-side env/runtime propagation issue для LiveKit credentials;
+- hosted video now works;
+- Vercel token fallback path оказался рабочим practical unblock;
 - это не выглядит как core app logic failure.
+
+### 3.6. A workflow lesson was made explicit
+Важный operational lesson:
+
+- before debugging live deploy behavior, first confirm the relevant code is committed;
+- then confirm it is pushed;
+- then confirm the deployed build actually includes that code.
+
+Часть wasted debugging time пришла из сравнения live behavior не с тем code state.
 
 ## 4. Current preferred next step
 
 Следующий правильный шаг:
 
-- снять narrow Railway env/runtime blocker для hosted video;
-- затем повторить narrow hosted video enable pass;
-- сохранить hosted core semantics и scope без broad cleanup;
-- после этого продолжить hosted playable-session validation уже с новым сигналом по video layer.
+- сохранить working hosted core + video stack без broad cleanup;
+- продолжить hosted playable-session validation;
+- собирать реальные rough edges уже из рабочего hosted environment;
+- только после этого решать, что действительно заслуживает следующего polish/stabilization pass.
 
 ## 5. Current deployment direction
 
@@ -105,17 +114,15 @@ Hosted work больше не находится на стадии только 
 
 - frontend отдельно;
 - long-running Node realtime/API отдельно;
-- video пока disabled/optional;
-- LiveKit отдельно, если video будет включаться следующим pass.
+- video включён и остаётся optional alpha layer;
+- LiveKit отдельно.
 
 Это уже поднятый first hosted alpha core environment, а не final production platform.
 
 ## 6. Important open questions
 
-- Насколько narrow и безопасно можно включить video в текущем hosted environment?
-- Является ли текущий Railway blocker одноразовой operational issue или recurring hosted constraint?
 - Какие rough edges проявятся только после hosted playable-session checks?
-- Какие rough edges станут видны только после hosted use beyond room entry and core flow?
+- Какие rough edges станут видны только после hosted use with working video enabled?
 
 ## 7. Relevant recent checkpoints
 
@@ -127,13 +134,14 @@ Hosted work больше не находится на стадии только 
 - LiveKit chapter reached technical-validation state
 - dice chapter reached accepted alpha-core state
 - first hosted alpha core checkpoint reached
+- hosted video milestone reached
 
 ## 8. Safe intended framing for the next pass
 
 - не новый большой capability spike;
 - не broad architecture cleanup;
 - не immediate long polish cycle;
-- а narrow Railway unblock pass, затем повтор narrow hosted video enable pass.
+- а continued hosted validation from a now-working practical hosted stack.
 
 ## 9. Last 3 messages (raw-ish)
 

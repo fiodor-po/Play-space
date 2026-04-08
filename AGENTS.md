@@ -32,16 +32,26 @@ Current alpha-core reality:
 - authoritative shared 3D dice are accepted as part of alpha core;
 - first hosted alpha core deploy is up;
 - basic hosted validation of the core flow has passed;
-- video remains intentionally disabled/optional for now;
-- hosted video is currently blocked by a narrow Railway env/runtime propagation issue, not by a core product failure;
-- the project is now past first hosted core deployment and into narrow hosted follow-up work.
+- hosted video now works as an optional alpha layer on top of the hosted core stack;
+- the project is now past first hosted core deployment and into continued hosted validation work.
 
 Current preferred sequence:
 
-1. keep the hosted core checkpoint stable and honest;
-2. resolve the narrow hosted Railway LiveKit env/runtime blocker;
-3. continue hosted playable-session validation;
+1. keep the hosted core + hosted video checkpoint stable and honest;
+2. continue hosted playable-session validation in the real hosted stack;
+3. capture real rough edges before broad cleanup or polish;
 4. only then move into slower UI/UX polish afterwards.
+
+## Deployment-debugging discipline
+
+Before debugging live deploy behavior, first confirm:
+
+- the relevant code is committed;
+- the relevant commit is pushed;
+- the deployed environment is actually built from that commit;
+- the deployed artifact matches the code you think you are debugging.
+
+This is now a project workflow rule, not just an incidental lesson.
 
 ## Canonical docs to read first
 

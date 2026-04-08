@@ -9,6 +9,52 @@
 
 ---
 
+## Phase 0X — Hosted video milestone and deploy-discipline lesson
+
+### Type
+- milestone
+
+### Context
+После successful hosted core deploy следующий узкий шаг был про hosted video enablement без broad infrastructure rewrite.
+
+### Goal or problem
+Нужно было включить working video как optional alpha layer и понять, является ли remaining blocker app-side, provider-side или workflow-side.
+
+### What happened
+Hosted video в итоге заработало через narrow Vercel token fallback path поверх уже working hosted core stack.
+
+Одновременно всплыл важный workflow lesson:
+- часть debugging time была потрачена на сравнение live deploy behavior не с тем code state, потому что relevant frontend changes ещё не были committed/pushed.
+- дополнительная задержка возникла из-за перехода из базового ChatGPT flow, где контекст был настроен под новичка и стандартные шаги проговаривались явно, в Codex executor-style flow, где по умолчанию предполагалось, что пользователь уже знает project workflow и сам делает стандартные commit/push/deploy steps.
+- из-за этого ошибки сначала исправлялись локально без commit/push, а mismatch между local state и live deploy оставался неочевидным слишком долго.
+
+### Decision / change
+- hosted video milestone признан достигнутым;
+- Vercel token fallback path признан практическим working hosted solution;
+- commit/push/deploy verification before live-debugging теперь считается explicit workflow discipline.
+- после этого в strategist thread была добавлена явная инструкция про форму общения с пользователем и про то, что правильные project practices / flow steps нужно проговаривать и постепенно закреплять, а не молча предполагать.
+
+### Why
+Это оказался не большой media-architecture chapter, а узкий operational unblock плюс важный engineering-process lesson.
+
+### Result
+Проект перешёл из `hosted core only` в `working hosted core + optional video`.
+
+### Workflow notes
+Перед live-debugging нужно сначала подтвердить:
+- relevant code committed;
+- pushed;
+- actually present in the deployed build.
+
+При переходе между chat modes и tool styles это нужно проговаривать явно, а не предполагать как already-known operator behavior.
+Отдельно был скорректирован strategist-side guidance, чтобы дальше проверить, будет ли работа идти стабильнее, если expected workflow и user-facing communication style заданы явно.
+
+### Remaining limitations / open questions
+- hosted stack всё ещё alpha-stage, не production-ready;
+- следующий сигнал должен приходить уже из continued hosted playable-session validation, а не из speculative cleanup.
+
+---
+
 ## Phase 01 — Exploratory MVP proved the core board primitives
 
 ### Type
