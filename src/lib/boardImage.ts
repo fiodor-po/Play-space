@@ -80,6 +80,7 @@ export function appendImageStrokePointInObjects(
 
 type CreateImageObjectParams = {
   id: string;
+  creatorId: string;
   label: string;
   authorColor: string;
   src: string;
@@ -91,6 +92,7 @@ export function createImageObject(params: CreateImageObjectParams): BoardObject 
   return {
     id: params.id,
     kind: "image",
+    creatorId: params.creatorId,
     x: params.position.x - params.size.width / 2,
     y: params.position.y - params.size.height / 2,
     width: params.size.width,
