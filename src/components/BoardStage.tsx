@@ -189,7 +189,7 @@ type BoardStageProps = {
   isCurrentParticipantRoomCreator: boolean;
   roomCreatorName: string | null;
   roomEffectiveAccessLevel: AccessLevel;
-  onChangeRoom: (roomId: string) => void;
+  onLeaveRoom: () => void;
   onUpdateParticipantSession: (
     updater: (session: LocalParticipantSession) => LocalParticipantSession
   ) => void;
@@ -211,7 +211,7 @@ export default function BoardStage({
   isCurrentParticipantRoomCreator,
   roomCreatorName,
   roomEffectiveAccessLevel,
-  onChangeRoom,
+  onLeaveRoom,
   onUpdateParticipantSession,
   onUpdateLocalPresence,
 }: BoardStageProps) {
@@ -1839,13 +1839,7 @@ export default function BoardStage({
         isColorPickerOpen={isColorPickerOpen}
         isDevToolsOpen={isDevToolsOpen}
         participantColorOptions={PARTICIPANT_COLOR_OPTIONS}
-        onRequestRoomChange={() => {
-          const nextRoomId = window.prompt("Room ID", roomId)?.trim();
-
-          if (nextRoomId) {
-            onChangeRoom(nextRoomId);
-          }
-        }}
+        onLeaveRoom={onLeaveRoom}
         onToggleColorPicker={() => {
           setIsColorPickerOpen((current) => !current);
         }}

@@ -12,7 +12,7 @@ type ParticipantSessionPanelProps = {
   isColorPickerOpen: boolean;
   isDevToolsOpen: boolean;
   participantColorOptions: string[];
-  onRequestRoomChange: () => void;
+  onLeaveRoom: () => void;
   onToggleColorPicker: () => void;
   onToggleDevTools: () => void;
   onParticipantNameDraftChange: (value: string) => void;
@@ -37,7 +37,7 @@ export const ParticipantSessionPanel = forwardRef<
     isColorPickerOpen,
     isDevToolsOpen,
     participantColorOptions,
-    onRequestRoomChange,
+    onLeaveRoom,
     onToggleColorPicker,
     onToggleDevTools,
     onParticipantNameDraftChange,
@@ -102,7 +102,7 @@ export const ParticipantSessionPanel = forwardRef<
           </div>
           <button
             type="button"
-            onClick={onRequestRoomChange}
+            onClick={onLeaveRoom}
             style={{
               padding: 0,
               border: "none",
@@ -115,7 +115,7 @@ export const ParticipantSessionPanel = forwardRef<
               pointerEvents: "auto",
             }}
           >
-            Change
+            Leave room
           </button>
         </div>
 

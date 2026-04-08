@@ -24,6 +24,7 @@ export const PARTICIPANT_COLOR_OPTIONS = [
 ];
 
 const ROOM_SESSION_STORAGE_PREFIX = "play-space-alpha-room-session-v1";
+const ACTIVE_ROOM_STORAGE_KEY = "play-space-alpha-active-room-v1";
 const ROOM_PRESENCE_STORAGE_PREFIX = "play-space-alpha-room-presence-v1";
 const PARTICIPANT_PRESENCE_STALE_MS = 30000;
 
@@ -75,6 +76,20 @@ export function saveLocalParticipantSession(
     getRoomSessionStorageKey(roomId),
     JSON.stringify(session)
   );
+}
+
+export function loadActiveRoomId() {
+  const raw = sessionStorage.getItem(ACTIVE_ROOM_STORAGE_KEY)?.trim();
+
+  return raw ? raw : null;
+}
+
+export function saveActiveRoomId(roomId: string) {
+  sessionStorage.setItem(ACTIVE_ROOM_STORAGE_KEY, roomId);
+}
+
+export function clearActiveRoomId() {
+  sessionStorage.removeItem(ACTIVE_ROOM_STORAGE_KEY);
 }
 
 export function createLocalParticipantPresence(

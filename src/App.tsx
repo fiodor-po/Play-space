@@ -7,10 +7,13 @@ import {
   getEffectiveAccessLevel,
 } from "./lib/governance";
 import {
+  clearActiveRoomId,
   createLocalParticipantPresence,
   getRoomIdFromLocation,
+  loadActiveRoomId,
   loadLocalParticipantSession,
   PARTICIPANT_COLOR_OPTIONS,
+  saveActiveRoomId,
   saveLocalParticipantSession,
 } from "./lib/roomSession";
 import { ensureRoomRecord, loadRoomRecord } from "./lib/roomMetadata";
@@ -26,30 +29,62 @@ import type {
 import type { RoomRecord } from "./lib/roomMetadata";
 import type { RoomPresenceConnection } from "./lib/roomPresenceRealtime";
 
+function loadParticipantDraftForRoom(roomId: string) {
+  const savedSession = loadLocalParticipantSession(roomId);
+
+  return {
+    savedSession,
+    draftName: savedSession?.name ?? "",
+    draftColor: savedSession?.color ?? PARTICIPANT_COLOR_OPTIONS[0],
+  };
+}
+
 export default function App() {
   const liveKitMediaEnabled = isLiveKitMediaEnabled();
-  const [roomId, setRoomId] = useState(() => getRoomIdFromLocation(window.location));
+  const initialDraftRoomId = getRoomIdFromLocation(window.location);
+  const initialParticipantDraft = loadParticipantDraftForRoom(initialDraftRoomId);
+  const initialActiveRoomId = loadActiveRoomId();
+  const shouldRestoreJoinedRoom =
+    initialActiveRoomId === initialDraftRoomId &&
+    !!initialParticipantDraft.savedSession;
+
+  const [draftRoomId, setDraftRoomId] = useState(initialDraftRoomId);
+  const [activeRoomId, setActiveRoomId] = useState<string | null>(() =>
+    shouldRestoreJoinedRoom ? initialDraftRoomId : null
+  );
+  const [isInRoom, setIsInRoom] = useState(() => shouldRestoreJoinedRoom);
   const [participantSession, setParticipantSession] =
     useState<LocalParticipantSession | null>(() =>
-      loadLocalParticipantSession(roomId)
+      shouldRestoreJoinedRoom ? initialParticipantDraft.savedSession : null
     );
   const [participantPresences, setParticipantPresences] =
     useState<ParticipantPresenceMap>({});
   const [localParticipantPresence, setLocalParticipantPresence] =
     useState<ParticipantPresence | null>(() => {
-      const session = loadLocalParticipantSession(roomId);
+      const session = shouldRestoreJoinedRoom
+        ? initialParticipantDraft.savedSession
+        : null;
       return session ? createLocalParticipantPresence(session) : null;
     });
   const [roomRecord, setRoomRecord] = useState<RoomRecord | null>(() =>
-    loadRoomRecord(roomId)
+    shouldRestoreJoinedRoom ? loadRoomRecord(initialDraftRoomId) : null
   );
-  const [draftName, setDraftName] = useState("");
-  const [draftColor, setDraftColor] = useState(PARTICIPANT_COLOR_OPTIONS[0]);
+  const [draftName, setDraftName] = useState(initialParticipantDraft.draftName);
+  const [draftColor, setDraftColor] = useState(initialParticipantDraft.draftColor);
   const roomPresenceConnectionRef = useRef<RoomPresenceConnection | null>(null);
 
   useEffect(() => {
     const handlePopState = () => {
-      setRoomId(getRoomIdFromLocation(window.location));
+      if (isInRoom) {
+        return;
+      }
+
+      const nextRoomId = getRoomIdFromLocation(window.location);
+      const nextParticipantDraft = loadParticipantDraftForRoom(nextRoomId);
+
+      setDraftRoomId(nextRoomId);
+      setDraftName(nextParticipantDraft.draftName);
+      setDraftColor(nextParticipantDraft.draftColor);
     };
 
     window.addEventListener("popstate", handlePopState);
@@ -57,40 +92,58 @@ export default function App() {
     return () => {
       window.removeEventListener("popstate", handlePopState);
     };
-  }, []);
+  }, [isInRoom]);
 
   useEffect(() => {
-    logClientRuntimeConfig(roomId);
-  }, [roomId]);
+    logClientRuntimeConfig(isInRoom ? activeRoomId ?? draftRoomId : draftRoomId);
+  }, [activeRoomId, draftRoomId, isInRoom]);
 
   useEffect(() => {
-    const nextSession = loadLocalParticipantSession(roomId);
+    if (!isInRoom || !activeRoomId) {
+      setRoomRecord(null);
+      setParticipantPresences({});
+      return;
+    }
+
+    const nextSession = loadLocalParticipantSession(activeRoomId);
 
     setParticipantSession(nextSession);
-    setRoomRecord(loadRoomRecord(roomId));
+    setRoomRecord(loadRoomRecord(activeRoomId));
     setLocalParticipantPresence(
       nextSession ? createLocalParticipantPresence(nextSession) : null
     );
     setParticipantPresences({});
-  }, [roomId]);
+  }, [activeRoomId, isInRoom]);
 
   const joinRoom = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
+    const trimmedRoomId = draftRoomId.trim();
     const trimmedName = draftName.trim();
 
-    if (!trimmedName) {
+    if (!trimmedRoomId || !trimmedName) {
       return;
     }
 
+    const savedSession = loadLocalParticipantSession(trimmedRoomId);
     const nextSession: LocalParticipantSession = {
-      id: createClientId(),
+      id: savedSession?.id ?? createClientId(),
       name: trimmedName,
       color: draftColor,
     };
 
-    saveLocalParticipantSession(roomId, nextSession);
-    setRoomRecord(ensureRoomRecord(roomId, nextSession.id));
+    saveLocalParticipantSession(trimmedRoomId, nextSession);
+    saveActiveRoomId(trimmedRoomId);
+    if (getRoomIdFromLocation(window.location) !== trimmedRoomId) {
+      const nextUrl = new URL(window.location.href);
+      nextUrl.searchParams.set("room", trimmedRoomId);
+      window.history.pushState({}, "", nextUrl);
+    }
+
+    setDraftRoomId(trimmedRoomId);
+    setActiveRoomId(trimmedRoomId);
+    setIsInRoom(true);
+    setRoomRecord(ensureRoomRecord(trimmedRoomId, nextSession.id));
     setParticipantSession(nextSession);
     setLocalParticipantPresence(createLocalParticipantPresence(nextSession));
   };
@@ -103,7 +156,15 @@ export default function App() {
 
       const participantId = currentSession.id;
       const nextSession = updater(currentSession);
-      saveLocalParticipantSession(roomId, nextSession);
+      const nextRoomId = activeRoomId;
+
+      if (!nextRoomId) {
+        return currentSession;
+      }
+
+      saveLocalParticipantSession(nextRoomId, nextSession);
+      setDraftName(nextSession.name);
+      setDraftColor(nextSession.color);
       setLocalParticipantPresence((currentPresence) =>
         currentPresence
           ? {
@@ -121,32 +182,36 @@ export default function App() {
     });
   };
 
-  const changeRoom = (nextRoomId: string) => {
-    const trimmedRoomId = nextRoomId.trim();
-
-    if (!trimmedRoomId || trimmedRoomId === roomId) {
+  const leaveRoom = () => {
+    if (!activeRoomId) {
       return;
     }
 
-    const nextUrl = new URL(window.location.href);
-    nextUrl.searchParams.set("room", trimmedRoomId);
-    window.history.pushState({}, "", nextUrl);
-    setRoomId(trimmedRoomId);
+    clearActiveRoomId();
+    setDraftRoomId(activeRoomId);
+    setDraftName(participantSession?.name ?? draftName);
+    setDraftColor(participantSession?.color ?? draftColor);
+    setActiveRoomId(null);
+    setIsInRoom(false);
+    setParticipantSession(null);
+    setLocalParticipantPresence(null);
+    setParticipantPresences({});
+    setRoomRecord(null);
   };
 
   useEffect(() => {
-    if (!participantSession?.id) {
+    if (!isInRoom || !activeRoomId || !participantSession?.id) {
       roomPresenceConnectionRef.current?.destroy();
       roomPresenceConnectionRef.current = null;
       setParticipantPresences({});
       return;
     }
 
-    setRoomRecord(ensureRoomRecord(roomId, participantSession.id));
+    setRoomRecord(ensureRoomRecord(activeRoomId, participantSession.id));
 
     const connection = createRoomPresenceConnection({
       onPresencesChange: setParticipantPresences,
-      roomId,
+      roomId: activeRoomId,
     });
     roomPresenceConnectionRef.current = connection;
 
@@ -157,10 +222,10 @@ export default function App() {
 
       connection.destroy();
     };
-  }, [participantSession?.id, roomId]);
+  }, [activeRoomId, isInRoom, participantSession?.id]);
 
   useEffect(() => {
-    if (!participantSession) {
+    if (!isInRoom || !participantSession) {
       return;
     }
 
@@ -175,8 +240,9 @@ export default function App() {
     );
   }, [localParticipantPresence, participantSession]);
 
+  const joinedRoomId = activeRoomId ?? draftRoomId;
   const roomGovernedEntity = createRoomGovernedEntityRef({
-    roomId,
+    roomId: joinedRoomId,
     creatorId: roomRecord?.creatorId ?? null,
   });
   const roomEffectiveAccessLevel = getEffectiveAccessLevel({
@@ -221,7 +287,39 @@ export default function App() {
         >
           <div style={{ display: "grid", gap: 6 }}>
             <div style={{ fontSize: 14, color: "#94a3b8" }}>Room</div>
-            <div style={{ fontSize: 28, fontWeight: 700 }}>{roomId}</div>
+            <input
+              value={draftRoomId}
+              onChange={(event) => {
+                const nextRoomId = event.target.value;
+                setDraftRoomId(nextRoomId);
+
+                const trimmedRoomId = nextRoomId.trim();
+
+                if (!trimmedRoomId) {
+                  return;
+                }
+
+                const nextParticipantDraft =
+                  loadParticipantDraftForRoom(trimmedRoomId);
+
+                if (!nextParticipantDraft.savedSession) {
+                  return;
+                }
+
+                setDraftName(nextParticipantDraft.draftName);
+                setDraftColor(nextParticipantDraft.draftColor);
+              }}
+              placeholder="Room name"
+              style={{
+                padding: "12px 14px",
+                borderRadius: 12,
+                border: "1px solid rgba(148, 163, 184, 0.3)",
+                background: "rgba(15, 23, 42, 0.9)",
+                color: "#f8fafc",
+                fontSize: 22,
+                fontWeight: 700,
+              }}
+            />
           </div>
 
           <label style={{ display: "grid", gap: 8 }}>
@@ -276,7 +374,7 @@ export default function App() {
 
           <button
             type="submit"
-            disabled={!draftName.trim()}
+            disabled={!draftRoomId.trim() || !draftName.trim()}
             style={{
               padding: "12px 16px",
               borderRadius: 12,
@@ -285,8 +383,9 @@ export default function App() {
               color: "#f8fafc",
               fontSize: 16,
               fontWeight: 700,
-              cursor: draftName.trim() ? "pointer" : "not-allowed",
-              opacity: draftName.trim() ? 1 : 0.6,
+              cursor:
+                draftRoomId.trim() && draftName.trim() ? "pointer" : "not-allowed",
+              opacity: draftRoomId.trim() && draftName.trim() ? 1 : 0.6,
             }}
           >
             Join room
@@ -299,14 +398,14 @@ export default function App() {
   return (
     <>
       <BoardStage
-        key={roomId}
+        key={joinedRoomId}
         participantSession={participantSession}
         participantPresences={participantPresences}
-        roomId={roomId}
+        roomId={joinedRoomId}
         isCurrentParticipantRoomCreator={isCurrentParticipantRoomCreator}
         roomCreatorName={roomCreatorName}
         roomEffectiveAccessLevel={roomEffectiveAccessLevel}
-        onChangeRoom={changeRoom}
+        onLeaveRoom={leaveRoom}
         onUpdateParticipantSession={updateParticipantSession}
         onUpdateLocalPresence={(updater) => {
           setLocalParticipantPresence((currentPresence) =>
@@ -316,9 +415,9 @@ export default function App() {
           );
         }}
       />
-      <DiceSpikeOverlay roomId={roomId} participantSession={participantSession} />
+      <DiceSpikeOverlay roomId={joinedRoomId} participantSession={participantSession} />
       {liveKitMediaEnabled ? (
-        <LiveKitMediaDock roomId={roomId} participantSession={participantSession} />
+        <LiveKitMediaDock roomId={joinedRoomId} participantSession={participantSession} />
       ) : null}
     </>
   );
