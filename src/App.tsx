@@ -13,7 +13,7 @@ import {
   PARTICIPANT_COLOR_OPTIONS,
   saveLocalParticipantSession,
 } from "./lib/roomSession";
-import { ensureRoomMetadata, loadRoomMetadata } from "./lib/roomMetadata";
+import { ensureRoomRecord, loadRoomRecord } from "./lib/roomMetadata";
 import { createClientId } from "./lib/id";
 import { createRoomPresenceConnection } from "./lib/roomPresenceRealtime";
 import { isLiveKitMediaEnabled, logClientRuntimeConfig } from "./lib/runtimeConfig";
@@ -23,6 +23,7 @@ import type {
   ParticipantPresence,
   ParticipantPresenceMap,
 } from "./lib/roomSession";
+import type { RoomRecord } from "./lib/roomMetadata";
 import type { RoomPresenceConnection } from "./lib/roomPresenceRealtime";
 
 export default function App() {
@@ -39,7 +40,9 @@ export default function App() {
       const session = loadLocalParticipantSession(roomId);
       return session ? createLocalParticipantPresence(session) : null;
     });
-  const [roomMetadata, setRoomMetadata] = useState(() => loadRoomMetadata(roomId));
+  const [roomRecord, setRoomRecord] = useState<RoomRecord | null>(() =>
+    loadRoomRecord(roomId)
+  );
   const [draftName, setDraftName] = useState("");
   const [draftColor, setDraftColor] = useState(PARTICIPANT_COLOR_OPTIONS[0]);
   const roomPresenceConnectionRef = useRef<RoomPresenceConnection | null>(null);
@@ -64,7 +67,7 @@ export default function App() {
     const nextSession = loadLocalParticipantSession(roomId);
 
     setParticipantSession(nextSession);
-    setRoomMetadata(loadRoomMetadata(roomId));
+    setRoomRecord(loadRoomRecord(roomId));
     setLocalParticipantPresence(
       nextSession ? createLocalParticipantPresence(nextSession) : null
     );
@@ -87,7 +90,7 @@ export default function App() {
     };
 
     saveLocalParticipantSession(roomId, nextSession);
-    setRoomMetadata(ensureRoomMetadata(roomId, nextSession.id));
+    setRoomRecord(ensureRoomRecord(roomId, nextSession.id));
     setParticipantSession(nextSession);
     setLocalParticipantPresence(createLocalParticipantPresence(nextSession));
   };
@@ -139,7 +142,7 @@ export default function App() {
       return;
     }
 
-    setRoomMetadata(ensureRoomMetadata(roomId, participantSession.id));
+    setRoomRecord(ensureRoomRecord(roomId, participantSession.id));
 
     const connection = createRoomPresenceConnection({
       onPresencesChange: setParticipantPresences,
@@ -174,7 +177,7 @@ export default function App() {
 
   const roomGovernedEntity = createRoomGovernedEntityRef({
     roomId,
-    creatorId: roomMetadata?.creatorId ?? null,
+    creatorId: roomRecord?.creatorId ?? null,
   });
   const roomEffectiveAccessLevel = getEffectiveAccessLevel({
     entity: roomGovernedEntity,

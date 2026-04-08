@@ -1,11 +1,29 @@
-export type RoomMetadata = {
-  roomId: string;
-  creatorId?: string | null;
+export type RoomRecord = {
+  id: string;
+  creatorId: string | null;
 };
 
 const ROOM_METADATA_STORAGE_KEY = "play-space-alpha-room-metadata-v1";
 
-export function loadRoomMetadata(roomId: string): RoomMetadata | null {
+type StoredRoomRecord = {
+  roomId: string;
+  creatorId?: string | null;
+};
+
+export function createRoomRecord(params: {
+  roomId: string;
+  creatorId?: string | null;
+}): RoomRecord {
+  return {
+    id: params.roomId,
+    creatorId:
+      typeof params.creatorId === "string" && params.creatorId.length > 0
+        ? params.creatorId
+        : null,
+  };
+}
+
+export function loadRoomRecord(roomId: string): RoomRecord | null {
   const raw = localStorage.getItem(getRoomMetadataStorageKey(roomId));
 
   if (!raw) {
@@ -13,52 +31,49 @@ export function loadRoomMetadata(roomId: string): RoomMetadata | null {
   }
 
   try {
-    const parsed = JSON.parse(raw) as Partial<RoomMetadata>;
+    const parsed = JSON.parse(raw) as Partial<StoredRoomRecord>;
 
     if (parsed.roomId !== roomId) {
       return null;
     }
 
-    return {
+    return createRoomRecord({
       roomId,
-      creatorId:
-        typeof parsed.creatorId === "string" && parsed.creatorId.length > 0
-          ? parsed.creatorId
-          : null,
-    };
+      creatorId: parsed.creatorId,
+    });
   } catch {
     return null;
   }
 }
 
-export function saveRoomMetadata(roomId: string, metadata: RoomMetadata) {
+export function saveRoomRecord(room: RoomRecord) {
   localStorage.setItem(
-    getRoomMetadataStorageKey(roomId),
+    getRoomMetadataStorageKey(room.id),
     JSON.stringify({
-      roomId,
-      creatorId: metadata.creatorId ?? null,
+      roomId: room.id,
+      creatorId: room.creatorId ?? null,
     })
   );
 }
 
-export function ensureRoomMetadata(
-  roomId: string,
-  creatorId: string
-): RoomMetadata {
-  const existingMetadata = loadRoomMetadata(roomId);
+export function ensureRoomRecord(roomId: string, creatorId: string): RoomRecord {
+  const existingRecord = loadRoomRecord(roomId);
 
-  if (existingMetadata?.creatorId) {
-    return existingMetadata;
+  if (existingRecord?.creatorId) {
+    return existingRecord;
   }
 
-  const nextMetadata: RoomMetadata = {
-    roomId,
-    creatorId,
-  };
+  const nextRecord = createRoomRecord({ roomId, creatorId });
 
-  saveRoomMetadata(roomId, nextMetadata);
-  return nextMetadata;
+  saveRoomRecord(nextRecord);
+  return nextRecord;
 }
+
+export type RoomMetadata = RoomRecord;
+
+export const loadRoomMetadata = loadRoomRecord;
+export const saveRoomMetadata = saveRoomRecord;
+export const ensureRoomMetadata = ensureRoomRecord;
 
 function getRoomMetadataStorageKey(roomId: string) {
   return `${ROOM_METADATA_STORAGE_KEY}:${roomId}`;
