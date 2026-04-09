@@ -12,6 +12,7 @@ type ParticipantSessionPanelProps = {
   isColorPickerOpen: boolean;
   isDevToolsOpen: boolean;
   participantColorOptions: string[];
+  onAddImage: () => void;
   onLeaveRoom: () => void;
   onToggleColorPicker: () => void;
   onToggleDevTools: () => void;
@@ -35,16 +36,17 @@ export const ParticipantSessionPanel = forwardRef<
     participantNameDraft,
     isEditingParticipantName,
     isColorPickerOpen,
-    isDevToolsOpen,
+    isDevToolsOpen: _isDevToolsOpen,
     participantColorOptions,
+    onAddImage,
     onLeaveRoom,
     onToggleColorPicker,
-    onToggleDevTools,
+    onToggleDevTools: _onToggleDevTools,
     onParticipantNameDraftChange,
     onParticipantNameSubmit,
     onStartEditingParticipantName,
     onSelectParticipantColor,
-    devToolsContent,
+    devToolsContent: _devToolsContent,
   },
   ref
 ) {
@@ -102,6 +104,30 @@ export const ParticipantSessionPanel = forwardRef<
           </div>
           <button
             type="button"
+            onClick={onAddImage}
+            aria-label="Add image"
+            style={{
+              width: 24,
+              height: 24,
+              display: "grid",
+              placeItems: "center",
+              padding: 0,
+              borderRadius: 999,
+              border: "1px solid rgba(15, 118, 110, 0.55)",
+              background: "rgba(15, 118, 110, 0.18)",
+              color: "#ccfbf1",
+              fontSize: 16,
+              fontWeight: 700,
+              fontFamily: HTML_UI_FONT_FAMILY,
+              lineHeight: 1,
+              cursor: "pointer",
+              pointerEvents: "auto",
+            }}
+          >
+            +
+          </button>
+          <button
+            type="button"
             onClick={onLeaveRoom}
             style={{
               padding: 0,
@@ -118,48 +144,6 @@ export const ParticipantSessionPanel = forwardRef<
             Leave room
           </button>
         </div>
-
-        <button
-          type="button"
-          onClick={onToggleDevTools}
-          aria-label={isDevToolsOpen ? "Close debug tools" : "Open debug tools"}
-          aria-expanded={isDevToolsOpen}
-          style={{
-            width: 28,
-            height: 28,
-            display: "grid",
-            placeItems: "center",
-            borderRadius: 10,
-            border: isDevToolsOpen
-              ? "1px solid rgba(96, 165, 250, 0.5)"
-              : "1px solid rgba(148, 163, 184, 0.22)",
-            background: isDevToolsOpen
-              ? "rgba(37, 99, 235, 0.18)"
-              : "rgba(15, 23, 42, 0.72)",
-            color: "#e2e8f0",
-            cursor: "pointer",
-            pointerEvents: "auto",
-            flexShrink: 0,
-          }}
-        >
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 14 14"
-            fill="none"
-            aria-hidden="true"
-          >
-            <path
-              d="M2 3.25H12M4.5 7H12M2 10.75H9.5"
-              stroke="currentColor"
-              strokeWidth="1.4"
-              strokeLinecap="round"
-            />
-            <circle cx="3.2" cy="3.25" r="1.2" fill="currentColor" />
-            <circle cx="10.8" cy="7" r="1.2" fill="currentColor" />
-            <circle cx="8.1" cy="10.75" r="1.2" fill="currentColor" />
-          </svg>
-        </button>
       </div>
 
       {roomCreatorLine ? (
@@ -289,7 +273,7 @@ export const ParticipantSessionPanel = forwardRef<
         </div>
       )}
 
-      {isDevToolsOpen && (
+      {_isDevToolsOpen && (
         <div
           style={{
             display: "grid",
@@ -312,7 +296,7 @@ export const ParticipantSessionPanel = forwardRef<
           >
             Debug tools
           </div>
-          <div style={{ pointerEvents: "auto" }}>{devToolsContent}</div>
+          <div style={{ pointerEvents: "auto" }}>{_devToolsContent}</div>
         </div>
       )}
     </div>

@@ -1839,6 +1839,9 @@ export default function BoardStage({
         isColorPickerOpen={isColorPickerOpen}
         isDevToolsOpen={isDevToolsOpen}
         participantColorOptions={PARTICIPANT_COLOR_OPTIONS}
+        onAddImage={() => {
+          imageInputRef.current?.click();
+        }}
         onLeaveRoom={onLeaveRoom}
         onToggleColorPicker={() => {
           setIsColorPickerOpen((current) => !current);
