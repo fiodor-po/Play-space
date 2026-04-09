@@ -13,6 +13,7 @@ import {
   fetchLiveKitAccessToken,
   getLiveKitUrl,
 } from "../lib/livekit";
+import { HTML_UI_FONT_FAMILY } from "../board/constants";
 
 type LiveKitMediaDockProps = {
   roomId: string;
@@ -78,6 +79,7 @@ function ParticipantTile({ participant, isLocal = false }: ParticipantTileProps)
         background: "rgba(15, 23, 42, 0.96)",
         border: "1px solid rgba(148, 163, 184, 0.2)",
         boxShadow: "0 14px 36px rgba(2, 6, 23, 0.3)",
+        fontFamily: HTML_UI_FONT_FAMILY,
       }}
     >
       <div
@@ -444,6 +446,7 @@ export function LiveKitMediaDock({
         boxShadow: "0 24px 60px rgba(2, 6, 23, 0.35)",
         backdropFilter: "blur(10px)",
         zIndex: 20,
+        fontFamily: HTML_UI_FONT_FAMILY,
       }}
     >
       <div
@@ -568,6 +571,7 @@ function actionButtonStyle(
     color: "#f8fafc",
     fontSize: 12,
     fontWeight: 700,
+    fontFamily: HTML_UI_FONT_FAMILY,
     cursor: "pointer",
   };
 }
