@@ -29,10 +29,15 @@ type MediaDockError =
 
 type ParticipantTileProps = {
   participant: Participant;
+  accentColor?: string | null;
   isLocal?: boolean;
 };
 
-function ParticipantTile({ participant, isLocal = false }: ParticipantTileProps) {
+function ParticipantTile({
+  participant,
+  accentColor = null,
+  isLocal = false,
+}: ParticipantTileProps) {
   const videoElementRef = useRef<HTMLVideoElement | null>(null);
   const audioElementRef = useRef<HTMLAudioElement | null>(null);
 
@@ -133,14 +138,38 @@ function ParticipantTile({ participant, isLocal = false }: ParticipantTileProps)
       >
         <span
           style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
             overflow: "hidden",
             textOverflow: "ellipsis",
             whiteSpace: "nowrap",
             fontWeight: 600,
           }}
         >
+          {accentColor ? (
+            <span
+              aria-hidden="true"
+              style={{
+                width: 8,
+                height: 8,
+                borderRadius: 999,
+                background: accentColor,
+                boxShadow: `0 0 0 1px ${accentColor}55`,
+                flexShrink: 0,
+              }}
+            />
+          ) : null}
+          <span
+            style={{
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}
+          >
           {participant.name || participant.identity}
           {isLocal ? " (you)" : ""}
+          </span>
         </span>
         <span style={{ color: "#94a3b8", flexShrink: 0 }}>
           {participant.isMicrophoneEnabled ? "Mic" : "Muted"}
@@ -549,6 +578,11 @@ export function LiveKitMediaDock({
               <ParticipantTile
                 key={participant.identity}
                 participant={participant}
+                accentColor={
+                  participant.identity === participantSession.id
+                    ? participantSession.color
+                    : null
+                }
                 isLocal={participant.identity === participantSession.id}
               />
             ))}
