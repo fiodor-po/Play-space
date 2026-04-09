@@ -1827,6 +1827,36 @@ export default function BoardStage({
     >
       <CursorOverlay cursors={participantCursorScreenPositions} />
 
+      <button
+        type="button"
+        onClick={() => {
+          imageInputRef.current?.click();
+        }}
+        aria-label="Add image"
+        style={{
+          position: "fixed",
+          top: 20,
+          right: 20,
+          zIndex: 30,
+          pointerEvents: "auto",
+          width: 36,
+          height: 36,
+          padding: 0,
+          borderRadius: 12,
+          border: `1px solid ${participantSession.color}`,
+          background: "rgba(15, 23, 42, 0.92)",
+          color: "#f8fafc",
+          fontSize: 18,
+          fontWeight: 700,
+          fontFamily: HTML_UI_FONT_FAMILY,
+          lineHeight: 1,
+          boxShadow: "0 18px 40px rgba(2, 6, 23, 0.3)",
+          cursor: "pointer",
+        }}
+      >
+        +
+      </button>
+
       <ParticipantSessionPanel
         ref={sessionPanelRef}
         roomId={roomId}
@@ -1839,9 +1869,6 @@ export default function BoardStage({
         isColorPickerOpen={isColorPickerOpen}
         isDevToolsOpen={isDevToolsOpen}
         participantColorOptions={PARTICIPANT_COLOR_OPTIONS}
-        onAddImage={() => {
-          imageInputRef.current?.click();
-        }}
         onLeaveRoom={onLeaveRoom}
         onToggleColorPicker={() => {
           setIsColorPickerOpen((current) => !current);

@@ -12,7 +12,6 @@ type ParticipantSessionPanelProps = {
   isColorPickerOpen: boolean;
   isDevToolsOpen: boolean;
   participantColorOptions: string[];
-  onAddImage: () => void;
   onLeaveRoom: () => void;
   onToggleColorPicker: () => void;
   onToggleDevTools: () => void;
@@ -38,7 +37,6 @@ export const ParticipantSessionPanel = forwardRef<
     isColorPickerOpen,
     isDevToolsOpen: _isDevToolsOpen,
     participantColorOptions,
-    onAddImage,
     onLeaveRoom,
     onToggleColorPicker,
     onToggleDevTools: _onToggleDevTools,
@@ -102,30 +100,6 @@ export const ParticipantSessionPanel = forwardRef<
           >
             {roomId}
           </div>
-          <button
-            type="button"
-            onClick={onAddImage}
-            aria-label="Add image"
-            style={{
-              width: 24,
-              height: 24,
-              display: "grid",
-              placeItems: "center",
-              padding: 0,
-              borderRadius: 999,
-              border: "1px solid rgba(15, 118, 110, 0.55)",
-              background: "rgba(15, 118, 110, 0.18)",
-              color: "#ccfbf1",
-              fontSize: 16,
-              fontWeight: 700,
-              fontFamily: HTML_UI_FONT_FAMILY,
-              lineHeight: 1,
-              cursor: "pointer",
-              pointerEvents: "auto",
-            }}
-          >
-            +
-          </button>
           <button
             type="button"
             onClick={onLeaveRoom}
