@@ -22,6 +22,8 @@
 - first hosted core deploy поднят;
 - базовая hosted validation core flow подтверждена;
 - hosted video now works as an optional layer via the Vercel token fallback path;
+- unified room entry screen now exists and room name is editable before join;
+- in-room lifecycle now uses `Leave room` instead of direct room switching;
 - hosted core checkpoint remains valid and has now expanded into a practical hosted core + video checkpoint.
 
 ## 2. What was completed before this chat
@@ -99,6 +101,25 @@ Hosted work больше не находится на стадии только 
 
 Часть wasted debugging time пришла из сравнения live behavior не с тем code state.
 
+### 3.7. Room lifecycle was made more explicit
+Текущий room flow больше не считает direct room URL automatic joined state by itself.
+
+Теперь:
+
+- room id from URL acts as entry-form prefill;
+- room name remains editable before join;
+- active room participation is separated from draft room selection;
+- in-room `Change` was replaced by `Leave room`.
+
+### 3.8. Public demo strategy stays snapshot-based for now
+На текущем этапе проект не вводит separate public/internal build split.
+
+Предпочтённый operational model:
+
+- обычная работа продолжается в main project flow;
+- когда появляется достаточно стабильный checkpoint, именно он выбирается как next public demo;
+- public demo сейчас мыслится как fixed chosen snapshot deploy, а не как отдельный build mode.
+
 ## 4. Current preferred next step
 
 Следующий правильный шаг:
@@ -123,6 +144,7 @@ Hosted work больше не находится на стадии только 
 
 - Какие rough edges проявятся только после hosted playable-session checks?
 - Какие rough edges станут видны только после hosted use with working video enabled?
+- насколько unified entry / leave-room flow feels right in real playable-session use without broader room UX work?
 
 ## 7. Relevant recent checkpoints
 
@@ -135,6 +157,8 @@ Hosted work больше не находится на стадии только 
 - dice chapter reached accepted alpha-core state
 - first hosted alpha core checkpoint reached
 - hosted video milestone reached
+- unified entry / leave-room lifecycle pass completed
+- snapshot-based public demo strategy chosen
 
 ## 8. Safe intended framing for the next pass
 

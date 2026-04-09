@@ -31,6 +31,18 @@ Get `play-space-alpha` into a first hosted environment that is good enough for:
 - autoscaling infrastructure;
 - enterprise-grade observability platform;
 - long-term final hosting architecture.
+- separate public/internal build system.
+
+## 2.1 Public demo strategy for current alpha
+
+For the current stage, public demos should be handled as fixed chosen snapshot deploys.
+
+That means:
+
+- continue normal project work on the main line;
+- periodically select a stable checkpoint;
+- deploy that checkpoint as the current public demo;
+- do not introduce a separate public/internal build split yet.
 
 ## 3. Preferred topology
 

@@ -187,3 +187,20 @@ Do not debug hosted behavior against uncommitted local changes.
 - `docs/lan-https-trust.md`
 - `docs/manual-qa-runbook.md`
 - `docs/hosted-alpha-deployment-plan.md`
+
+## 10. Public Demo Strategy For Current Alpha
+
+For the current project stage, public demos should be handled as fixed chosen snapshot deploys.
+
+Preferred approach:
+
+- continue normal work on the main project;
+- when a checkpoint feels stable enough, choose that commit/state as the next public demo;
+- deploy that snapshot as-is;
+- keep iterating normally afterward.
+
+Explicitly deferred for now:
+
+- separate public/internal build split;
+- dedicated public demo build mode;
+- extra deployment branches just for public demos.

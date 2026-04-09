@@ -9,6 +9,196 @@
 
 ---
 
+## Phase 0X — Snapshot-based public demo strategy
+
+### Type
+- decision
+
+### Context
+После hosted-core и hosted-video milestones стало ясно, что проекту уже нужен способ показывать публичные demo checkpoints, но отдельный public/internal build split пока создаст больше process and deployment complexity, чем пользы.
+
+### Goal or problem
+Нужно было зафиксировать, как именно делать public demos на текущей alpha stage, не вводя premature build-mode system.
+
+### What happened
+Был выбран простой operational approach:
+- продолжать normal work on the main project;
+- периодически выбирать stable checkpoint;
+- деплоить именно этот checkpoint как next public demo.
+
+### Decision / change
+Public demos пока должны мыслиться как fixed snapshot deploys, а не как отдельный public build flavor.
+
+### Why
+Это дешевле, понятнее и безопаснее для текущей стадии проекта, чем преждевременно вводить separate public/internal build split.
+
+### Result
+Release rhythm для public demos стал explicit: chosen stable snapshot first, broader build split later only if реально понадобится.
+
+---
+
+## Phase 0X — Unified room entry and leave-room lifecycle
+
+### Type
+- milestone
+
+### Context
+Старый room flow смешивал:
+- room id from URL;
+- saved room-scoped participant session;
+- active joined participation.
+
+### Goal or problem
+Нужно было сделать room entry explicit и перестать считать in-room room switching primary lifecycle model.
+
+### What happened
+В app был введён unified entry screen:
+- room name теперь editable before join;
+- direct room URL now acts as prefill, not automatic join by itself;
+- in-room `Change` action был заменён на `Leave room`.
+
+### Decision / change
+Проект теперь мыслит room lifecycle через explicit split between:
+- draft room selection;
+- active joined room participation.
+
+### Why
+Это делает room lifecycle более честным и лучше готовит foundation для дальнейшей room/governance work без premature policy design.
+
+### Result
+Room entry и room leaving стали explicit lifecycle steps вместо старого direct switch flow.
+
+---
+
+## Phase 0X — Canonical object semantics baseline before governance work
+
+### Type
+- decision
+
+### Context
+Перед будущей governance work стало ясно, что проекту сначала нужен не permissions chapter, а нормализованная semantic baseline для board objects.
+
+### Goal or problem
+Нужно было явно зафиксировать:
+- creator semantics;
+- actor/interacting semantics;
+- и правило, что отсутствие одного из этих слоёв должно быть deliberate, а не accidental.
+
+### What happened
+Был добавлен canonical design doc:
+- `docs/object-semantics-design.md`
+
+В нём зафиксировано:
+- `creatorId` как canonical persisted creator identity;
+- `participantId` / `participantName` / `participantColor` как canonical transient actor payload;
+- `authorColor` как fallback metadata, а не creator identity.
+
+### Decision / change
+Проект теперь сначала нормализует object semantics, а уже потом идёт в governance/policy work.
+
+### Why
+Без этого governance discussion слишком легко расползается, потому что object identity и current interaction semantics начинают смешиваться.
+
+### Result
+У проекта появился явный semantic rule для текущих и будущих object types без преждевременного ухода в permissions design.
+
+---
+
+## Phase 0X — Lightweight governance scaffold before policy work
+
+### Type
+- decision
+
+### Context
+После object-semantics baseline стало ясно, что перед любым governance implementation проекту нужен один компактный architecture scaffold, а не сразу permissions matrix.
+
+### Goal or problem
+Нужно было зафиксировать минимальную governance grammar, которая одинаково подходит и для rooms, и для board objects.
+
+### What happened
+Был добавлен canonical design doc:
+- `docs/governance-scaffold-design.md`
+
+В нём зафиксировано:
+- governance starts from entity/action/access grammar;
+- room и object governance используют одну и ту же conceptual model;
+- `creatorId` и `effectiveAccessLevel` остаются разными понятиями;
+- policy details сознательно отложены.
+
+### Decision / change
+Проект теперь сначала фиксирует lightweight governance scaffold, а уже потом идёт в narrow policy/implementation passes.
+
+### Why
+Без этого governance work слишком легко превращается либо в ad-hoc rules, либо в premature heavy permission system.
+
+### Result
+У проекта появился компактный governance-capable foundation layer без преждевременного ухода в full permissions design.
+
+---
+
+## Phase 0X — First governance scaffold code slice
+
+### Type
+- milestone
+
+### Context
+После governance scaffold design следующим правильным шагом было не policy rollout, а минимальный code-level foundation, который реально может нести эту grammar.
+
+### Goal or problem
+Нужно было перейти от design-only governance scaffold к реальной code structure без broad permission enforcement.
+
+### What happened
+В repo были добавлены:
+- shared governance types;
+- room metadata shape, способный хранить `creatorId`;
+- helper для вычисления `effectiveAccessLevel`.
+
+При этом current product behavior был сознательно оставлен без broad change.
+
+### Decision / change
+Governance в проекте теперь существует не только как design doc, но и как narrow architecture scaffold in code.
+
+### Why
+Это даёт проекту место для будущей governance implementation, не forcing premature role system, action matrix или ownership model.
+
+### Result
+У проекта появился первый real governance-capable code layer, но он всё ещё остаётся scaffold, а не policy system.
+
+---
+
+## Phase 0X — First tiny automated artifact guardrail
+
+### Type
+- workflow
+
+### Context
+После hosted video / deploy-discipline lesson стало ясно, что проекту полезен не большой testing chapter, а один very small automated guardrail против reasoning about the wrong built frontend artifact.
+
+### Goal or problem
+Нужно было добавить самый маленький repo-local check, который подтверждает, что built frontend bundle действительно содержит ожидаемый runtime-config / token-selection behavior.
+
+### What happened
+В repo был добавлен post-build artifact smoke check:
+- `npm run smoke:artifact`
+- `npm run build:smoke`
+
+Он проверяет built main frontend asset на expected runtime markers вроде:
+- `liveKitTokenUrl`
+- `liveKitTokenUrlSource`
+- `[runtime-config][client]`
+- `/api/livekit/token`
+
+### Decision / change
+Это признано первым маленьким automated safety layer для repo, но не broad test infrastructure milestone.
+
+### Why
+Недавняя debugging pain шла в первую очередь от build/artifact provenance mismatch, а не от отсутствия большого UI/integration test suite.
+
+### Result
+У проекта появился дешёвый post-build sanity check, который помогает раньше заметить mismatch между expected frontend behavior и реально собранным artifact.
+
+---
+
 ## Phase 0X — Hosted video milestone and deploy-discipline lesson
 
 ### Type

@@ -29,7 +29,7 @@
 ### Что уже собрано достаточно убедительно
 
 - shared room presence / cursors;
-- room switching;
+- unified room entry / leave-room lifecycle;
 - shared tokens;
 - shared images;
 - shared text-cards;
@@ -49,6 +49,7 @@
 - dice tray / residual dice polish остаются слегка rough;
 - hosted alpha environment уже включает working core stack и working optional video layer;
 - production-hardening отсутствует и не нужен прямо сейчас;
+- room lifecycle уже отделяет draft room selection от active participation, но broader room UX ещё intentionally rough;
 - `BoardStage` всё ещё остаётся тяжёлым integration surface;
 - durable room memory остаётся best-effort, а не final collaborative durable platform.
 
@@ -146,6 +147,7 @@ Core hosted signal уже получен.
 - [ ] history / undo across sessions
 - [ ] broad type-model redesign
 - [ ] deeper board sync adapter work, если оно не становится blocker до hosted alpha
+- [ ] separate public/internal build split, only if snapshot demos stop being sufficient
 
 ## 9. Open questions
 
@@ -203,6 +205,18 @@ Core hosted signal уже получен.
 - Vercel token fallback path подтвердился как working hosted solution;
 - hosted video now works without changing the hosted core split;
 - важный workflow lesson: before live-debugging, confirm the relevant code is committed, pushed, and actually included in the deployed build.
+
+### Update
+- app moved from direct in-room room switching to explicit unified entry / leave-room lifecycle;
+- room name is now editable before join;
+- direct room URL now acts as entry-form prefill, not automatic join by itself;
+- in-room `Change` action was replaced by `Leave room`;
+- active room participation is now explicitly separated from draft room selection.
+
+### Update
+- for the current alpha stage, public demos should be handled as fixed chosen snapshot deploys;
+- continue normal work on the main project, then periodically promote one stable checkpoint as the next public demo;
+- separate public/internal build split is explicitly deferred for now.
 
 ## 11. Правила обновления документа
 

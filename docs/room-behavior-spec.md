@@ -2,6 +2,21 @@
 
 Это короткая спецификация текущего room behavior для alpha.
 
+## 0. Current entry / leave model
+
+Текущий alpha room flow теперь такой:
+
+- room selection happens through a unified entry screen;
+- room id from URL acts as room-name prefill;
+- room name remains editable before join;
+- joining is explicit;
+- in-room `Leave room` returns the user to the entry screen instead of directly switching to another room.
+
+Важно:
+
+- saved room-scoped participant session больше не означает automatic join by itself;
+- active room participation теперь мыслится отдельно от draft room selection.
+
 ## 1. Новая комната: пустая или seeded?
 
 Для текущего alpha новая комната считается **empty by default**.
@@ -50,6 +65,7 @@ Dice не входят в durable room content.
 
 Refresh в той же комнате должен:
 
+- если пользователь был в active joined room, refresh может сохранить active in-room state;
 - сохранять participant session в том же браузере для этой комнаты;
 - восстанавливать локальный viewport этой комнаты;
 - заново подключать клиента к current live room state;
@@ -59,9 +75,20 @@ Refresh в той же комнате должен:
 
 Rejoin нужно трактовать так:
 
+- room URL сам по себе больше не считается достаточным automatic join signal;
 - если live room state ещё существует, пользователь должен снова увидеть его;
 - если live room уже исчезла, alpha может попытаться восстановиться через durable snapshot;
 - participant session для той же комнаты в том же браузере может переиспользоваться.
+
+## 6.1. Что должно происходить на explicit leave room?
+
+`Leave room` должно:
+
+- завершать active participation в текущей комнате;
+- возвращать пользователя на unified entry screen;
+- оставлять current room name доступным как editable draft;
+- не удалять room content;
+- не удалять room metadata.
 
 ## 7. Reset semantics
 
@@ -92,7 +119,8 @@ Rejoin нужно трактовать так:
 
 Нужно считать багом, если:
 
-- room switching смешивает состояния разных комнат;
+- `Leave room` не возвращает пользователя на entry screen;
+- room draft и active room state снова неявно смешиваются;
 - refresh ломает current live room behavior;
 - rejoin в ещё живую комнату не показывает текущее live state;
 - bootstrap incorrectly skips live state and restores older snapshot;
