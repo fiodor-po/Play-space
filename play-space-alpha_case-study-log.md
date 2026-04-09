@@ -37,6 +37,31 @@ Release rhythm для public demos стал explicit: chosen stable snapshot fir
 
 ---
 
+## Phase 0X — First public demo snapshot chosen
+
+### Type
+- milestone
+
+### Context
+После нескольких маленьких public-surface cleanup passes стало важно не только иметь snapshot-based demo strategy, но и явно признать, что current app surface уже достаточно coherent для первого публичного checkpoint.
+
+### Goal or problem
+Нужно было зафиксировать, что первый public demo больше не hypothetical future idea, а реально выбранный snapshot.
+
+### What happened
+Текущий app surface был признан good enough for the first public demo snapshot.
+
+### Decision / change
+Первый public demo теперь мыслится как уже выбранный stable snapshot, а последующие demos могут выходить как новые chosen checkpoints.
+
+### Why
+Это даёт проекту честный demo baseline без premature public/internal build split и без ненужного release-process overbuild.
+
+### Result
+Snapshot-based public demo strategy перешла из process intent в реальный chosen-demo milestone.
+
+---
+
 ## Phase 0X — Unified room entry and leave-room lifecycle
 
 ### Type

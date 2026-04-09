@@ -218,6 +218,11 @@ Core hosted signal уже получен.
 - continue normal work on the main project, then periodically promote one stable checkpoint as the next public demo;
 - separate public/internal build split is explicitly deferred for now.
 
+### Update
+- current app surface is now considered coherent enough to freeze as the first public demo snapshot;
+- the first public demo should be treated as the first chosen snapshot in that same snapshot-based demo rhythm;
+- future public demos can roll forward as later chosen checkpoints without introducing a separate build mode yet.
+
 ## 11. Правила обновления документа
 
 Обновляй этот документ, когда:

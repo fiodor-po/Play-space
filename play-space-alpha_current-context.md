@@ -120,6 +120,15 @@ Hosted work больше не находится на стадии только 
 - когда появляется достаточно стабильный checkpoint, именно он выбирается как next public demo;
 - public demo сейчас мыслится как fixed chosen snapshot deploy, а не как отдельный build mode.
 
+### 3.9. The first public demo snapshot is now chosen
+Текущий app surface признан достаточно coherent для first public demo snapshot.
+
+Это значит:
+
+- snapshot-based public demo strategy больше не только abstract process choice;
+- выбран первый реальный public demo checkpoint;
+- следующие public demos могут выходить как новые consciously chosen snapshots без separate build split.
+
 ## 4. Current preferred next step
 
 Следующий правильный шаг:
@@ -159,6 +168,7 @@ Hosted work больше не находится на стадии только 
 - hosted video milestone reached
 - unified entry / leave-room lifecycle pass completed
 - snapshot-based public demo strategy chosen
+- first public demo snapshot chosen
 
 ## 8. Safe intended framing for the next pass
 
