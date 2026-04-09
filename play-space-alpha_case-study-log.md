@@ -95,6 +95,69 @@ Room entry и room leaving стали explicit lifecycle steps вместо ст
 
 ---
 
+## Phase 0X — Zero-state, baseline content, and room initialization were separated explicitly
+
+### Type
+- decision
+
+### Context
+Попытка добавить demo-card в room baseline быстро показала, что starter/demo content не имеет права quietly жить внутри sensitive bootstrap/recovery path.
+
+### Goal or problem
+Нужно было явно развести:
+- genuinely empty zero-state;
+- explicit baseline/demo content;
+- one-time room initialization policy.
+
+### What happened
+Был добавлен canonical design doc:
+- `docs/room-initialization-design.md`
+
+В нём зафиксировано, что:
+- zero-state остаётся genuinely empty;
+- baseline/demo content — это отдельный explicit layer;
+- room initialization policy — отдельная one-time decision point;
+- текущий demo-card injection path rejected as architecture.
+
+### Decision / change
+Проект больше не должен решать demo/starter content через ad hoc `BoardStage` bootstrap patches.
+
+### Why
+Иначе baseline content начинает маскироваться под recovery logic и room initialization semantics становятся неустойчивыми.
+
+### Result
+У проекта появился чистый semantic foundation для future versioned demo baselines без превращения room bootstrap в hacky policy layer.
+
+---
+
+## Phase 0X — First real room baseline rollout landed
+
+### Type
+- milestone
+
+### Context
+После design pass и scaffold slice стало важно подтвердить, что baseline content может существовать как real room-initialization layer, а не только как abstract architecture rule.
+
+### Goal or problem
+Нужно было сделать первый named baseline payload real, не возвращаясь к old bootstrap-hack path.
+
+### What happened
+В проекте появился working `public-demo-v1` baseline:
+- zero-state остался genuinely empty;
+- baseline content начал применяться one-time through room initialization;
+- baseline content пишет в normal shared room content layers.
+
+### Decision / change
+Starter/demo content теперь уже реально живёт как explicit room-initialization behavior, а не как ad hoc `BoardStage` injection.
+
+### Why
+Это подтвердило, что canonical room-initialization design можно не только описать, но и использовать без отката к hidden bootstrap hacks.
+
+### Result
+`public-demo-v1` стал первым working baseline rollout, а old demo-card bootstrap-hack framing был фактически superseded.
+
+---
+
 ## Phase 0X — Canonical object semantics baseline before governance work
 
 ### Type

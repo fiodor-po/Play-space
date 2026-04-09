@@ -223,6 +223,12 @@ Core hosted signal уже получен.
 - the first public demo should be treated as the first chosen snapshot in that same snapshot-based demo rhythm;
 - future public demos can roll forward as later chosen checkpoints without introducing a separate build mode yet.
 
+### Update
+- zero-state remains genuinely empty;
+- room baseline content now exists as explicit room-initialization layer;
+- first named baseline payload `public-demo-v1` now works;
+- old bootstrap-hack framing for demo baseline content is superseded by the room-initialization model.
+
 ## 11. Правила обновления документа
 
 Обновляй этот документ, когда:

@@ -129,6 +129,16 @@ Hosted work больше не находится на стадии только 
 - выбран первый реальный public demo checkpoint;
 - следующие public demos могут выходить как новые consciously chosen snapshots без separate build split.
 
+### 3.10. The first real room baseline rollout now exists
+Room initialization model теперь не только design-only.
+
+Уже реализовано:
+
+- zero-state remains genuinely empty;
+- baseline content now exists as explicit room-initialization layer;
+- first named baseline payload `public-demo-v1` now works;
+- baseline applies once through room initialization, not through generic bootstrap hacks.
+
 ## 4. Current preferred next step
 
 Следующий правильный шаг:
@@ -169,6 +179,7 @@ Hosted work больше не находится на стадии только 
 - unified entry / leave-room lifecycle pass completed
 - snapshot-based public demo strategy chosen
 - first public demo snapshot chosen
+- first real room baseline rollout (`public-demo-v1`) implemented
 
 ## 8. Safe intended framing for the next pass
 
