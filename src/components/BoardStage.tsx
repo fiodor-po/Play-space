@@ -98,7 +98,9 @@ import {
   type ParticipantPresence,
   type ParticipantPresenceMap,
 } from "../lib/roomSession";
+import { getRoomBaselinePayload } from "../lib/roomBaseline";
 import type { AccessLevel } from "../lib/governance";
+import type { RoomBaselineDescriptor, RoomBaselineId } from "../lib/roomMetadata";
 import type { BoardObject } from "../types/board";
 
 type SmallFloatingActionButtonProps = {
@@ -188,8 +190,10 @@ type BoardStageProps = {
   roomId: string;
   isCurrentParticipantRoomCreator: boolean;
   roomCreatorName: string | null;
+  roomBaselineToApply: RoomBaselineDescriptor | null;
   roomEffectiveAccessLevel: AccessLevel;
   onLeaveRoom: () => void;
+  onRoomBaselineApplied: (baselineId: RoomBaselineId) => void;
   onUpdateParticipantSession: (
     updater: (session: LocalParticipantSession) => LocalParticipantSession
   ) => void;
@@ -210,8 +214,10 @@ export default function BoardStage({
   roomId,
   isCurrentParticipantRoomCreator,
   roomCreatorName,
+  roomBaselineToApply,
   roomEffectiveAccessLevel,
   onLeaveRoom,
+  onRoomBaselineApplied,
   onUpdateParticipantSession,
   onUpdateLocalPresence,
 }: BoardStageProps) {
@@ -1023,6 +1029,48 @@ export default function BoardStage({
       isCancelled = true;
     };
   }, [hasSharedRoomContentLoaded, roomId, sharedRoomObjects.length]);
+
+  useEffect(() => {
+    if (!roomBaselineToApply) {
+      return;
+    }
+
+    if (!hasSharedRoomContentLoaded) {
+      return;
+    }
+
+    if (resolvedSnapshotBootstrapRoomId !== roomId) {
+      return;
+    }
+
+    if (sharedRoomObjects.length > 0) {
+      return;
+    }
+
+    const baselineObjects = getRoomBaselinePayload(roomBaselineToApply);
+
+    if (baselineObjects.length === 0) {
+      onRoomBaselineApplied(roomBaselineToApply.baselineId);
+      return;
+    }
+
+    replaceBoardObjects(
+      [...getRoomScopedObjects(roomId), ...baselineObjects],
+      {
+        syncSharedTokens: true,
+        syncSharedImages: true,
+        syncSharedTextCards: true,
+      }
+    );
+    onRoomBaselineApplied(roomBaselineToApply.baselineId);
+  }, [
+    hasSharedRoomContentLoaded,
+    onRoomBaselineApplied,
+    resolvedSnapshotBootstrapRoomId,
+    roomBaselineToApply,
+    roomId,
+    sharedRoomObjects.length,
+  ]);
 
   useEffect(() => {
     const connection = createRoomTokenConnection({

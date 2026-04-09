@@ -21,6 +21,7 @@ import {
   createRoomBaselineDescriptor,
   ensureRoomRecordInitialized,
   loadRoomRecord,
+  markRoomBaselineApplied,
 } from "./lib/roomMetadata";
 import { createClientId } from "./lib/id";
 import { createRoomPresenceConnection } from "./lib/roomPresenceRealtime";
@@ -37,7 +38,7 @@ import type { RoomPresenceConnection } from "./lib/roomPresenceRealtime";
 const ENTRY_SCREEN_VERSION_LABEL = "alpha v0.0.0";
 const DEFAULT_ROOM_BASELINE_DESCRIPTOR: RoomBaselineDescriptor =
   createRoomBaselineDescriptor({
-    baselineId: "empty",
+    baselineId: "public-demo-v1",
   });
 
 function loadParticipantDraftForRoom(roomId: string) {
@@ -90,6 +91,23 @@ export default function App() {
       creatorId,
       baseline: DEFAULT_ROOM_BASELINE_DESCRIPTOR,
     });
+  };
+
+  const handleRoomBaselineApplied = (
+    baselineId: RoomBaselineDescriptor["baselineId"]
+  ) => {
+    if (!activeRoomId) {
+      return;
+    }
+
+    const nextRoomRecord = markRoomBaselineApplied({
+      roomId: activeRoomId,
+      baselineId,
+    });
+
+    if (nextRoomRecord) {
+      setRoomRecord(nextRoomRecord);
+    }
   };
 
   useEffect(() => {
@@ -275,6 +293,14 @@ export default function App() {
   const roomCreatorName =
     roomCreatorId && !isCurrentParticipantRoomCreator
       ? participantPresences[roomCreatorId]?.name ?? null
+      : null;
+  const roomBaselineToApply =
+    roomRecord?.initializedBaselineId &&
+    roomRecord.initializedBaselineId !== "empty" &&
+    roomRecord.appliedBaselineId !== roomRecord.initializedBaselineId
+      ? createRoomBaselineDescriptor({
+          baselineId: roomRecord.initializedBaselineId,
+        })
       : null;
 
   if (!participantSession) {
@@ -473,8 +499,10 @@ export default function App() {
         roomId={joinedRoomId}
         isCurrentParticipantRoomCreator={isCurrentParticipantRoomCreator}
         roomCreatorName={roomCreatorName}
+        roomBaselineToApply={roomBaselineToApply}
         roomEffectiveAccessLevel={roomEffectiveAccessLevel}
         onLeaveRoom={leaveRoom}
+        onRoomBaselineApplied={handleRoomBaselineApplied}
         onUpdateParticipantSession={updateParticipantSession}
         onUpdateLocalPresence={(updater) => {
           setLocalParticipantPresence((currentPresence) =>
