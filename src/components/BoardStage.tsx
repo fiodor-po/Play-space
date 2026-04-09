@@ -2095,30 +2095,6 @@ export default function BoardStage({
             }}
           />
 
-          <Text
-            x={120}
-            y={100}
-            text="Play Space Alpha"
-            fontSize={32}
-            fill="#f8fafc"
-          />
-
-          <Text
-            x={120}
-            y={150}
-            text="Text card with drag handle"
-            fontSize={18}
-            fill="#94a3b8"
-          />
-
-          <Text
-            x={120}
-            y={210}
-            text="У note drag работает только через маленький handle в header."
-            fontSize={16}
-            fill="#94a3b8"
-          />
-
           {sortedObjects.map((object) => {
             const isSelected = object.id === selectedObjectId;
             const isImage = object.kind === "image";
