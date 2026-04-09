@@ -502,7 +502,7 @@ export function LiveKitMediaDock({
               void joinMedia();
             }}
             disabled={isJoining}
-            style={actionButtonStyle("#2563eb")}
+            style={actionButtonStyle("#334155")}
           >
             {isJoining ? "Joining..." : "Join media"}
           </button>
@@ -512,7 +512,7 @@ export function LiveKitMediaDock({
             onClick={() => {
               void leaveMedia();
             }}
-            style={actionButtonStyle("#0f172a", "rgba(248, 113, 113, 0.45)")}
+            style={actionButtonStyle("#1e293b")}
           >
             Leave
           </button>
@@ -546,7 +546,7 @@ export function LiveKitMediaDock({
                 void toggleMicrophone();
               }}
               style={actionButtonStyle(
-                micEnabled ? "#2563eb" : "#1e293b",
+                micEnabled ? "#334155" : "#1e293b",
                 "rgba(148, 163, 184, 0.28)"
               )}
             >
@@ -558,7 +558,7 @@ export function LiveKitMediaDock({
                 void toggleCamera();
               }}
               style={actionButtonStyle(
-                cameraEnabled ? "#2563eb" : "#1e293b",
+                cameraEnabled ? "#334155" : "#1e293b",
                 "rgba(148, 163, 184, 0.28)"
               )}
             >
@@ -595,7 +595,7 @@ export function LiveKitMediaDock({
 
 function actionButtonStyle(
   background: string,
-  border = "rgba(96, 165, 250, 0.4)"
+  border = "rgba(148, 163, 184, 0.28)"
 ): CSSProperties {
   return {
     padding: "9px 12px",
