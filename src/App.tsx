@@ -17,7 +17,11 @@ import {
   saveActiveRoomId,
   saveLocalParticipantSession,
 } from "./lib/roomSession";
-import { ensureRoomRecord, loadRoomRecord } from "./lib/roomMetadata";
+import {
+  createRoomBaselineDescriptor,
+  ensureRoomRecordInitialized,
+  loadRoomRecord,
+} from "./lib/roomMetadata";
 import { createClientId } from "./lib/id";
 import { createRoomPresenceConnection } from "./lib/roomPresenceRealtime";
 import { isLiveKitMediaEnabled, logClientRuntimeConfig } from "./lib/runtimeConfig";
@@ -27,10 +31,14 @@ import type {
   ParticipantPresence,
   ParticipantPresenceMap,
 } from "./lib/roomSession";
-import type { RoomRecord } from "./lib/roomMetadata";
+import type { RoomBaselineDescriptor, RoomRecord } from "./lib/roomMetadata";
 import type { RoomPresenceConnection } from "./lib/roomPresenceRealtime";
 
 const ENTRY_SCREEN_VERSION_LABEL = "alpha v0.0.0";
+const DEFAULT_ROOM_BASELINE_DESCRIPTOR: RoomBaselineDescriptor =
+  createRoomBaselineDescriptor({
+    baselineId: "empty",
+  });
 
 function loadParticipantDraftForRoom(roomId: string) {
   const savedSession = loadLocalParticipantSession(roomId);
@@ -75,6 +83,14 @@ export default function App() {
   const [draftName, setDraftName] = useState(initialParticipantDraft.draftName);
   const [draftColor, setDraftColor] = useState(initialParticipantDraft.draftColor);
   const roomPresenceConnectionRef = useRef<RoomPresenceConnection | null>(null);
+
+  const ensureInitializedRoomRecord = (roomId: string, creatorId: string) => {
+    return ensureRoomRecordInitialized({
+      roomId,
+      creatorId,
+      baseline: DEFAULT_ROOM_BASELINE_DESCRIPTOR,
+    });
+  };
 
   useEffect(() => {
     const handlePopState = () => {
@@ -146,7 +162,7 @@ export default function App() {
     setDraftRoomId(trimmedRoomId);
     setActiveRoomId(trimmedRoomId);
     setIsInRoom(true);
-    setRoomRecord(ensureRoomRecord(trimmedRoomId, nextSession.id));
+    setRoomRecord(ensureInitializedRoomRecord(trimmedRoomId, nextSession.id));
     setParticipantSession(nextSession);
     setLocalParticipantPresence(createLocalParticipantPresence(nextSession));
   };
@@ -210,7 +226,7 @@ export default function App() {
       return;
     }
 
-    setRoomRecord(ensureRoomRecord(activeRoomId, participantSession.id));
+    setRoomRecord(ensureInitializedRoomRecord(activeRoomId, participantSession.id));
 
     const connection = createRoomPresenceConnection({
       onPresencesChange: setParticipantPresences,
