@@ -8,6 +8,7 @@ export type RoomRecord = {
   id: string;
   creatorId: string | null;
   initializedBaselineId: RoomBaselineId | null;
+  appliedBaselineId: RoomBaselineId | null;
 };
 
 const ROOM_METADATA_STORAGE_KEY = "play-space-alpha-room-metadata-v1";
@@ -16,6 +17,7 @@ type StoredRoomRecord = {
   roomId: string;
   creatorId?: string | null;
   initializedBaselineId?: RoomBaselineId | null;
+  appliedBaselineId?: RoomBaselineId | null;
 };
 
 export function createRoomBaselineDescriptor(params?: {
@@ -31,6 +33,7 @@ export function createRoomRecord(params: {
   roomId: string;
   creatorId?: string | null;
   initializedBaselineId?: RoomBaselineId | null;
+  appliedBaselineId?: RoomBaselineId | null;
 }): RoomRecord {
   return {
     id: params.roomId,
@@ -42,6 +45,11 @@ export function createRoomRecord(params: {
       params.initializedBaselineId === "empty" ||
       params.initializedBaselineId === "public-demo-v1"
         ? params.initializedBaselineId
+        : null,
+    appliedBaselineId:
+      params.appliedBaselineId === "empty" ||
+      params.appliedBaselineId === "public-demo-v1"
+        ? params.appliedBaselineId
         : null,
   };
 }
@@ -64,6 +72,7 @@ export function loadRoomRecord(roomId: string): RoomRecord | null {
       roomId,
       creatorId: parsed.creatorId,
       initializedBaselineId: parsed.initializedBaselineId,
+      appliedBaselineId: parsed.appliedBaselineId,
     });
   } catch {
     return null;
@@ -77,6 +86,7 @@ export function saveRoomRecord(room: RoomRecord) {
       roomId: room.id,
       creatorId: room.creatorId ?? null,
       initializedBaselineId: room.initializedBaselineId ?? null,
+      appliedBaselineId: room.appliedBaselineId ?? null,
     })
   );
 }
@@ -92,15 +102,44 @@ export function ensureRoomRecordInitialized(params: {
     creatorId: existingRecord?.creatorId ?? params.creatorId,
     initializedBaselineId:
       existingRecord?.initializedBaselineId ?? params.baseline.baselineId,
+    appliedBaselineId:
+      existingRecord?.appliedBaselineId ??
+      (params.baseline.baselineId === "empty" ? "empty" : null),
   });
 
   if (
     existingRecord &&
     existingRecord.creatorId === nextRecord.creatorId &&
-    existingRecord.initializedBaselineId === nextRecord.initializedBaselineId
+    existingRecord.initializedBaselineId === nextRecord.initializedBaselineId &&
+    existingRecord.appliedBaselineId === nextRecord.appliedBaselineId
   ) {
     return existingRecord;
   }
+
+  saveRoomRecord(nextRecord);
+  return nextRecord;
+}
+
+export function markRoomBaselineApplied(params: {
+  roomId: string;
+  baselineId: RoomBaselineId;
+}): RoomRecord | null {
+  const existingRecord = loadRoomRecord(params.roomId);
+
+  if (!existingRecord) {
+    return null;
+  }
+
+  if (existingRecord.appliedBaselineId === params.baselineId) {
+    return existingRecord;
+  }
+
+  const nextRecord = createRoomRecord({
+    roomId: existingRecord.id,
+    creatorId: existingRecord.creatorId,
+    initializedBaselineId: existingRecord.initializedBaselineId,
+    appliedBaselineId: params.baselineId,
+  });
 
   saveRoomRecord(nextRecord);
   return nextRecord;
