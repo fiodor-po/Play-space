@@ -20,6 +20,7 @@ import {
 import {
   createRoomBaselineDescriptor,
   ensureRoomRecordInitialized,
+  getRoomMemberRecord,
   loadRoomRecord,
   markRoomBaselineApplied,
   resolveRoomMemberRegistration,
@@ -362,6 +363,18 @@ export default function App() {
           baselineId: roomRecord.initializedBaselineId,
         })
       : null;
+  const entryRoomId = draftRoomId.trim();
+  const entrySavedSession = !participantSession && entryRoomId
+    ? loadLocalParticipantSession(entryRoomId)
+    : null;
+  const entryRoomRecord = !participantSession && entryRoomId
+    ? loadRoomRecord(entryRoomId)
+    : null;
+  const returningRoomMember =
+    entrySavedSession && entryRoomRecord
+      ? getRoomMemberRecord(entryRoomRecord, entrySavedSession.id)
+      : null;
+  const entryResolvedColor = returningRoomMember?.assignedColor ?? draftColor;
 
   if (!participantSession) {
     return (
@@ -496,32 +509,66 @@ export default function App() {
 
             <div style={{ display: "grid", gap: 8 }}>
               <div style={{ fontSize: 14, color: "#cbd5e1" }}>Color</div>
-              <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                {PARTICIPANT_COLOR_OPTIONS.map((color) => {
-                  const isSelected = color === draftColor;
+              {returningRoomMember ? (
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 12,
+                    padding: "10px 12px",
+                    borderRadius: 12,
+                    border: "1px solid rgba(148, 163, 184, 0.2)",
+                    background: "rgba(15, 23, 42, 0.62)",
+                  }}
+                >
+                  <div
+                    aria-hidden="true"
+                    style={{
+                      width: 36,
+                      height: 36,
+                      borderRadius: 999,
+                      border: "3px solid #f8fafc",
+                      background: entryResolvedColor,
+                      flexShrink: 0,
+                    }}
+                  />
+                  <div style={{ display: "grid", gap: 2 }}>
+                    <div style={{ fontSize: 14, color: "#f8fafc", fontWeight: 600 }}>
+                      Assigned room color
+                    </div>
+                    <div style={{ fontSize: 12, color: "#94a3b8" }}>
+                      Returning members keep their current room color on join.
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                  {PARTICIPANT_COLOR_OPTIONS.map((color) => {
+                    const isSelected = color === draftColor;
 
-                  return (
-                    <button
-                      key={color}
-                      type="button"
-                      onClick={() => {
-                        setDraftColor(color);
-                      }}
-                      aria-label={`Select color ${color}`}
-                      style={{
-                        width: 36,
-                        height: 36,
-                        borderRadius: 999,
-                        border: isSelected
-                          ? "3px solid #f8fafc"
-                          : "2px solid rgba(255, 255, 255, 0.2)",
-                        background: color,
-                        cursor: "pointer",
-                      }}
-                    />
-                  );
-                })}
-              </div>
+                    return (
+                      <button
+                        key={color}
+                        type="button"
+                        onClick={() => {
+                          setDraftColor(color);
+                        }}
+                        aria-label={`Select color ${color}`}
+                        style={{
+                          width: 36,
+                          height: 36,
+                          borderRadius: 999,
+                          border: isSelected
+                            ? "3px solid #f8fafc"
+                            : "2px solid rgba(255, 255, 255, 0.2)",
+                          background: color,
+                          cursor: "pointer",
+                        }}
+                      />
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
             <button
