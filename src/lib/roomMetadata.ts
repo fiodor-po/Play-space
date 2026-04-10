@@ -213,6 +213,56 @@ export function ensureRoomMemberRegistered(params: {
   });
 }
 
+export function resolveRoomMemberRegistration(params: {
+  roomId: string;
+  participantId: string;
+  displayName: string;
+  preferredColor: string;
+  palette: string[];
+  allowExistingMemberColorChange?: boolean;
+}): { roomRecord: RoomRecord; member: RoomMemberRecord } | null {
+  const existingRecord = loadRoomRecord(params.roomId);
+
+  if (!existingRecord) {
+    return null;
+  }
+
+  const existingMember = getRoomMemberRecord(
+    existingRecord,
+    params.participantId
+  );
+  const shouldResolveNextAssignedColor =
+    (!existingMember || params.allowExistingMemberColorChange === true) &&
+    params.preferredColor !== existingMember?.assignedColor;
+  const assignedColor =
+    shouldResolveNextAssignedColor
+      ? allocateRoomMemberColor({
+          participantId: params.participantId,
+          preferredColor: params.preferredColor,
+          palette: params.palette,
+          room: existingRecord,
+        })
+      : existingMember?.assignedColor ?? params.preferredColor;
+  const nextMember = createRoomMemberRecord({
+    participantId: params.participantId,
+    displayName: params.displayName,
+    assignedColor,
+    joinedAt: existingMember?.joinedAt ?? Date.now(),
+    lastSeenAt: Date.now(),
+    isRoomCreator: existingRecord.creatorId === params.participantId,
+  });
+  const nextRoomRecord =
+    upsertRoomMemberRecord({
+      roomId: params.roomId,
+      member: nextMember,
+    }) ?? existingRecord;
+
+  return {
+    roomRecord: nextRoomRecord,
+    member: nextMember,
+  };
+}
+
 export function loadRoomRecord(roomId: string): RoomRecord | null {
   const raw = localStorage.getItem(getRoomMetadataStorageKey(roomId));
 
@@ -351,4 +401,62 @@ function areRoomMemberRegistriesEqual(
       member.isRoomCreator === nextMember.isRoomCreator
     );
   });
+}
+
+function allocateRoomMemberColor(params: {
+  participantId: string;
+  preferredColor: string;
+  palette: string[];
+  room: RoomRecord;
+}) {
+  const usedColors = new Set(
+    Object.values(params.room.members)
+      .filter((member) => member.participantId !== params.participantId)
+      .map((member) => member.assignedColor)
+  );
+
+  if (params.preferredColor && !usedColors.has(params.preferredColor)) {
+    return params.preferredColor;
+  }
+
+  const firstFreePaletteColor = params.palette.find(
+    (color) => !usedColors.has(color)
+  );
+
+  if (firstFreePaletteColor) {
+    return firstFreePaletteColor;
+  }
+
+  return createDeterministicOverflowRoomColor(
+    params.participantId,
+    usedColors
+  );
+}
+
+function createDeterministicOverflowRoomColor(
+  participantId: string,
+  usedColors: Set<string>
+) {
+  const baseHue = hashString(participantId) % 360;
+
+  for (let attempt = 0; attempt < 360; attempt += 1) {
+    const hue = (baseHue + attempt * 37) % 360;
+    const color = `hsl(${hue} 68% 52%)`;
+
+    if (!usedColors.has(color)) {
+      return color;
+    }
+  }
+
+  return `hsl(${baseHue} 68% 52%)`;
+}
+
+function hashString(value: string) {
+  let hash = 0;
+
+  for (let index = 0; index < value.length; index += 1) {
+    hash = (hash * 31 + value.charCodeAt(index)) >>> 0;
+  }
+
+  return hash;
 }
