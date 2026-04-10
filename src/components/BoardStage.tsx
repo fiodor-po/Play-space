@@ -13,6 +13,7 @@ import type Konva from "konva";
 import { BoardToolbar } from "../board/components/BoardToolbar";
 import { CursorOverlay } from "../board/components/CursorOverlay";
 import { ParticipantSessionPanel } from "../board/components/ParticipantSessionPanel";
+import { RemoteInteractionIndicator } from "../board/components/RemoteInteractionIndicator";
 import { createTextCardObject } from "../board/objects/textCard/createTextCardObject";
 import { TextCardRenderer } from "../board/objects/textCard/TextCardRenderer";
 import { createTokenObject } from "../board/objects/token/createTokenObject";
@@ -2480,6 +2481,10 @@ export default function BoardStage({
               const isLockedByAnotherParticipant =
                 !!imageDrawingLock &&
                 imageDrawingLock.participantId !== participantSession.id;
+              const occupiedImageLabel =
+                isLockedByAnotherParticipant && imageDrawingLock
+                  ? `${imageDrawingLock.participantName} drawing`
+                  : null;
               const previewPosition = remoteImagePreviewPositions[object.id];
               const isRemoteDragPreviewActive =
                 draggingImageId !== object.id &&
@@ -2505,16 +2510,13 @@ export default function BoardStage({
                   }}
                 >
                   {isRemoteDragPreviewActive && (
-                    <Rect
+                    <RemoteInteractionIndicator
                       x={previewPosition.x}
                       y={previewPosition.y}
                       width={previewPosition.width ?? object.width}
                       height={previewPosition.height ?? object.height}
-                      stroke={previewPosition.participantColor ?? "#94a3b8"}
-                      strokeWidth={3}
-                      dash={[10, 8]}
-                      opacity={0.85}
-                      listening={false}
+                      participantColor={previewPosition.participantColor ?? "#94a3b8"}
+                      variant="preview"
                     />
                   )}
 
@@ -2742,6 +2744,17 @@ export default function BoardStage({
                       />
                     ))}
                   </Group>
+
+                  {isLockedByAnotherParticipant && imageDrawingLock && (
+                    <RemoteInteractionIndicator
+                      x={object.x}
+                      y={object.y}
+                      width={object.width}
+                      height={object.height}
+                      participantColor={imageDrawingLock.participantColor}
+                      label={occupiedImageLabel ?? ""}
+                    />
+                  )}
                 </Group>
               );
             }

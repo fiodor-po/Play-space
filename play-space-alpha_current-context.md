@@ -139,6 +139,36 @@ Room initialization model теперь не только design-only.
 - first named baseline payload `public-demo-v1` now works;
 - baseline applies once through room initialization, not through generic bootstrap hacks.
 
+### 3.11. Governance now has a real runtime path and first enforced restrictive rules
+Governance в проекте теперь уже не только conceptual scaffold и не только permissive runtime shell.
+
+Уже реализовано:
+
+- room and board-object actions now go through a real governance access path;
+- governance action classification and unified access resolution now exist in runtime code;
+- ordinary shared room/object actions now intentionally use `none`;
+- real restrictive governance rules now exist for:
+  - `board-object.delete`
+  - `board-object.clear-own-drawing`
+  - `board-object.clear-all-drawing`
+- most ordinary shared board actions still remain open/shared;
+- the project now has the machinery needed for later policy tightening without first inventing a new runtime layer.
+
+### 3.12. Governance runtime is now inspectable in Dev tools
+Governance runtime path теперь не только exists, но и minimally observable during development.
+
+Уже реализовано:
+
+- a small `Governance` block now exists inside Dev tools;
+- current room/object governance resolution can be inspected there in runtime;
+- current inspect surface now reflects real allow/deny behavior for the first enforced restrictive actions, not only permissive runtime wiring.
+
+### 3.13. Another workflow lesson was made explicit
+Для invisible/systemic changes зафиксирован ещё один practical workflow lesson:
+
+- when a change is mostly architectural or runtime-internal, ship a small inspectability mechanism when practical;
+- do not rely only on successful builds and “nothing looks broken” as the main validation story.
+
 ## 4. Current preferred next step
 
 Следующий правильный шаг:
@@ -180,6 +210,8 @@ Room initialization model теперь не только design-only.
 - snapshot-based public demo strategy chosen
 - first public demo snapshot chosen
 - first real room baseline rollout (`public-demo-v1`) implemented
+- governance runtime path implemented with first enforced restrictive rules
+- governance runtime inspectability added in Dev tools
 
 ## 8. Safe intended framing for the next pass
 

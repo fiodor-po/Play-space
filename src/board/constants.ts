@@ -19,6 +19,8 @@ export const MAX_INITIAL_IMAGE_DISPLAY_WIDTH = 360;
 export const MAX_INITIAL_IMAGE_DISPLAY_HEIGHT = 240;
 export const HTML_UI_FONT_FAMILY =
   'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+export const REMOTE_INTERACTION_FRAME_OUTSET = 6;
+export const REMOTE_INTERACTION_FRAME_STROKE_WIDTH = 2;
 
 export const objectLayerOrder: Record<BoardObjectKind, number> = {
   image: 0,

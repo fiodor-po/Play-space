@@ -10,6 +10,7 @@ import {
   TEXT_CARD_BODY_LINE_HEIGHT,
   TEXT_CARD_HEADER_HEIGHT,
 } from "../../constants";
+import { RemoteInteractionIndicator } from "../../components/RemoteInteractionIndicator";
 import type { BoardObject } from "../../../types/board";
 
 type TextCardRendererProps = {
@@ -57,9 +58,6 @@ export function TextCardRenderer({
   const remoteEditingLabel = remoteEditingIndicator
     ? `${remoteEditingIndicator.participantName} editing`
     : null;
-  const remoteEditingLabelWidth = remoteEditingLabel
-    ? Math.max(88, remoteEditingLabel.length * 6.5 + 18)
-    : 0;
 
   return (
     <Group
@@ -88,40 +86,14 @@ export function TextCardRenderer({
       )}
 
       {remoteEditingIndicator && (
-        <>
-          <Rect
-            x={-6}
-            y={-6}
-            width={object.width + 12}
-            height={object.height + 12}
-            stroke={remoteEditingIndicator.participantColor}
-            strokeWidth={2}
-            dash={[10, 6]}
-            listening={false}
-          />
-          <Rect
-            x={Math.max(0, object.width - remoteEditingLabelWidth)}
-            y={-30}
-            width={remoteEditingLabelWidth}
-            height={22}
-            fill="#0f172a"
-            stroke={remoteEditingIndicator.participantColor}
-            strokeWidth={1.5}
-            cornerRadius={999}
-            listening={false}
-          />
-          <Text
-            x={Math.max(0, object.width - remoteEditingLabelWidth)}
-            y={-24}
-            width={remoteEditingLabelWidth}
-            align="center"
-            text={remoteEditingLabel ?? ""}
-            fontSize={11}
-            fontStyle="bold"
-            fill="#f8fafc"
-            listening={false}
-          />
-        </>
+        <RemoteInteractionIndicator
+          x={0}
+          y={0}
+          width={object.width}
+          height={object.height}
+          participantColor={remoteEditingIndicator.participantColor}
+          label={remoteEditingLabel ?? ""}
+        />
       )}
 
       <Rect

@@ -254,6 +254,88 @@ Governance в проекте теперь существует не только
 
 ---
 
+## Phase 0X — Governance runtime path landed while policy stayed permissive
+
+### Type
+- milestone
+
+### Context
+После scaffold design и first code slice у проекта всё ещё не было настоящего runtime path, через который room/object actions consistently проходили бы governance resolution.
+
+### Goal or problem
+Нужно было сделать governance real in runtime, не превращая этот pass в restrictive permissions rollout.
+
+### What happened
+В проекте появились:
+- action classification for current room and board-object actions;
+- unified access resolution helpers;
+- runtime wiring for current interaction paths.
+
+При этом active policy осталась permissive, поэтому visible behavior сознательно не менялся.
+
+### Decision / change
+Governance в проекте теперь существует не только как scaffold types, но и как real runtime path that current actions already call.
+
+### Why
+Иначе later policy tightening пришлось бы начинать не с policy changes, а с изобретения whole runtime layer и переподключения interaction surfaces.
+
+### Result
+У проекта теперь есть working governance machinery, но restrictive permissions всё ещё не введены и остаются отдельным будущим pass.
+
+---
+
+## Phase 0X — Governance runtime became inspectable in Dev tools
+
+### Type
+- milestone
+
+### Context
+После permissive governance runtime pass стало ясно, что сам runtime path уже real, но почти invisible in practice.
+
+### Goal or problem
+Нужно было сделать governance runtime directly observable during development, не превращая это в end-user governance UI и не меняя policy behavior.
+
+### What happened
+В existing Dev tools появился небольшой `Governance` block, который показывает runtime governance resolution for current room/object actions.
+
+При этом active policy осталась permissive и visible product behavior сознательно не менялся.
+
+### Decision / change
+Governance runtime теперь не только exists, но и inspectable from the current working UI.
+
+### Why
+Иначе проверка invisible systemic changes слишком сильно опирается на build success и на “ничего визуально не сломалось”.
+
+### Result
+У проекта появился минимальный inspectability surface для governance runtime без premature governance UI rollout.
+
+---
+
+## Phase 0X — Inspectability lesson for invisible systemic changes
+
+### Type
+- workflow
+
+### Context
+Governance runtime pass показал полезный общий pattern для проекта: некоторые архитектурные/systemic changes почти не видны наружу даже тогда, когда они реально работают.
+
+### Goal or problem
+Нужно было явно зафиксировать, как такие changes лучше validating in practice.
+
+### What happened
+Был сделан маленький inspectability pass в existing Dev tools вместо того, чтобы полагаться только на successful build и отсутствие obvious visible regressions.
+
+### Decision / change
+Для invisible/systemic changes проект теперь по возможности добавляет небольшой inspection mechanism рядом с implementation pass.
+
+### Why
+Это даёт более честную runtime feedback loop и снижает риск доверять только indirect signals.
+
+### Result
+У проекта появился ещё один practical workflow rule: invisible architecture/runtime changes should, when practical, ship with a small inspectability surface.
+
+---
+
 ## Phase 0X — First tiny automated artifact guardrail
 
 ### Type
