@@ -169,6 +169,33 @@ Governance runtime path теперь не только exists, но и minimally
 - when a change is mostly architectural or runtime-internal, ship a small inspectability mechanism when practical;
 - do not rely only on successful builds and “nothing looks broken” as the main validation story.
 
+### 3.14. Room color direction was corrected toward an 8-seat active-room model
+Room color chapter больше не должен мыслиться как permanent room-color ownership system.
+
+Текущий intended direction теперь такой:
+
+- room uses exactly 8 allowed participant colors;
+- room supports at most 8 simultaneous active participants;
+- only currently active participants block colors;
+- offline participants do not reserve colors;
+- returning participants should get their previous room color preselected if it is free, not hard-restored as locked ownership;
+- room members are now better framed as room history / remembered defaults, not authoritative color owners.
+
+### 3.15. Participant identity direction is now explicitly browser-local, not tab-local
+Participant identity chapter теперь должен мыслиться не как name-based label и не как tab-scoped accident.
+
+Текущий chosen near-term direction теперь такой:
+
+- same browser profile should count as the same participant;
+- participant identity is not name-based;
+- multiple tabs are allowed;
+- multiple tabs should not behave like multiple independent participants;
+- only the foreground/visible tab should act as the live participant carrier;
+- background tabs should be soft-suspended for active presence behavior.
+
+Это всё ещё не auth/account identity model.
+Это browser-local participant identity model for the current product stage.
+
 ## 4. Current preferred next step
 
 Следующий правильный шаг:
@@ -212,6 +239,7 @@ Governance runtime path теперь не только exists, но и minimally
 - first real room baseline rollout (`public-demo-v1`) implemented
 - governance runtime path implemented with first enforced restrictive rules
 - governance runtime inspectability added in Dev tools
+- room color/member direction corrected toward an 8-color / 8-active-user model
 
 ## 8. Safe intended framing for the next pass
 

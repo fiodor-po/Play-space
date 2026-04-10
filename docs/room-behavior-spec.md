@@ -17,6 +17,20 @@
 - saved room-scoped participant session больше не означает automatic join by itself;
 - active room participation теперь мыслится отдельно от draft room selection.
 
+## 0.1. Current near-term participant identity model
+
+Для текущего product stage:
+
+- same browser profile = same participant;
+- participant identity не определяется по имени;
+- multiple tabs are allowed;
+- multiple tabs не должны вести себя как multiple independent participants;
+- only the foreground/visible tab should act as the live participant carrier;
+- background tabs should be soft-suspended for active presence behavior.
+
+Это не account/auth identity model.
+Это browser-local participant identity model для текущего alpha.
+
 ## 1. Новая комната: пустая или seeded?
 
 Для текущего alpha новая комната считается **empty by default**.
@@ -78,9 +92,15 @@ Rejoin нужно трактовать так:
 - room URL сам по себе больше не считается достаточным automatic join signal;
 - если live room state ещё существует, пользователь должен снова увидеть его;
 - если live room уже исчезла, alpha может попытаться восстановиться через durable snapshot;
-- participant session для той же комнаты в том же браузере может переиспользоваться.
+- participant session / identity для той же комнаты в том же browser profile should be reusable.
 
-## 6.1. Что должно происходить на explicit leave room?
+## 6.1. Multi-tab behavior
+
+- новый tab в том же browser profile должен считаться тем же participant, а не новым человеком;
+- foreground tab should carry live participant presence;
+- background tab should not keep publishing active participant presence as if it were a second participant.
+
+## 6.2. Что должно происходить на explicit leave room?
 
 `Leave room` должно:
 

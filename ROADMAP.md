@@ -50,6 +50,7 @@
 - hosted alpha environment уже включает working core stack и working optional video layer;
 - production-hardening отсутствует и не нужен прямо сейчас;
 - room lifecycle уже отделяет draft room selection от active participation, но broader room UX ещё intentionally rough;
+- participant identity still needs a narrow browser-local stabilization pass so same-browser repeat join and multi-tab behavior become explicit instead of accidental;
 - `BoardStage` всё ещё остаётся тяжёлым integration surface;
 - durable room memory остаётся best-effort, а не final collaborative durable platform.
 
@@ -127,6 +128,7 @@ Core hosted signal уже получен.
 
 - [ ] продолжить playable-session validation в hosted environment
 - [ ] зафиксировать реальные rough edges после hosted use
+- [ ] implement browser-local participant identity pass with foreground-tab-only active presence behavior
 - [ ] media dock simplification / stabilization pass
 - [ ] dice tray / dice UX cleanup pass
 - [ ] board shell coherence pass
@@ -214,6 +216,13 @@ Core hosted signal уже получен.
 - active room participation is now explicitly separated from draft room selection.
 
 ### Update
+- participant identity direction is now explicitly browser-local for the current product stage:
+  - same browser profile = same participant
+  - multiple tabs are allowed
+  - only the foreground/visible tab should carry live participant presence
+  - background tabs should be soft-suspended as active participant carriers
+
+### Update
 - for the current alpha stage, public demos should be handled as fixed chosen snapshot deploys;
 - continue normal work on the main project, then periodically promote one stable checkpoint as the next public demo;
 - separate public/internal build split is explicitly deferred for now.
@@ -228,6 +237,16 @@ Core hosted signal уже получен.
 - room baseline content now exists as explicit room-initialization layer;
 - first named baseline payload `public-demo-v1` now works;
 - old bootstrap-hack framing for demo baseline content is superseded by the room-initialization model.
+
+### Update
+- room color/member direction was corrected away from offline color reservation and permanent room-color ownership;
+- current intended model is now:
+  - exactly 8 allowed participant colors
+  - at most 8 simultaneous active participants per room
+  - only active participants block colors
+  - offline members do not reserve colors
+  - repeat join should preselect previous room color if free, not lock it permanently
+- room members may still remain as room history / remembered defaults, but that is no longer the same as authoritative color ownership.
 
 ## 11. Правила обновления документа
 
