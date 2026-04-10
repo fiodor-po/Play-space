@@ -143,11 +143,13 @@ type AccessLevel = "none" | "non_destructive" | "full";
 
 ### `none`
 
-- no governed access to the entity
+- no special governance access is required for that action
+- ordinary shared actions may intentionally use `none`
 
 ### `non_destructive`
 
-- enough access for safe/non-destructive actions
+- reserved for cases where safe/non-destructive actions should still require elevated governance access
+- this level currently remains part of the model even though the runtime matrix is now mostly `none` / `full`
 
 ### `full`
 
@@ -234,6 +236,11 @@ The first restrictive governance policy now fixed in the project is:
 | Entity type | Action | Required access | Notes |
 | --- | --- | --- | --- |
 | any current board object | `board-object.delete` | `full` | object creator may delete own object; room creator may delete any room object; other participants may not delete another participant's object |
+
+Current intended baseline meaning for ordinary shared board actions is:
+
+- use `none` when no special governance access should be required
+- reserve `full` for genuinely sensitive/destructive actions
 
 ## 8. Room/object policy structure
 

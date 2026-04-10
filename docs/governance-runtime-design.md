@@ -112,20 +112,21 @@ Current runtime classification is:
 
 | Action | Required access now |
 | --- | --- |
-| `room.add-token` | `non_destructive` |
-| `room.add-image` | `non_destructive` |
-| `room.add-note` | `non_destructive` |
+| `room.add-token` | `none` |
+| `room.add-image` | `none` |
+| `room.add-note` | `none` |
 | `room.reset-board` | `full` |
-| `board-object.move` | `non_destructive` |
-| `board-object.edit` | `non_destructive` |
+| `board-object.move` | `none` |
+| `board-object.edit` | `none` |
 | `board-object.delete` | `full` |
-| `board-object.resize` | `full` |
-| `board-object.draw` | `non_destructive` |
+| `board-object.resize` | `none` |
+| `board-object.draw` | `none` |
 
 Important:
 
 - this is the current runtime classification matrix;
 - only `board-object.delete` is now backed by a real restrictive policy rule;
+- ordinary shared board actions now intentionally use `none`;
 - the rest is not yet the final restrictive policy matrix;
 - canonical future policy matrices belong in `docs/governance-model-design.md`.
 
@@ -136,7 +137,7 @@ Current runtime governance is real but intentionally permissive.
 In practice:
 
 - room access currently resolves through permissive defaults
-- most object access currently resolves through permissive defaults
+- ordinary shared room/object actions now require no special governance access by classification
 - `board-object.delete` is now the first real restrictive policy family
 - visible product behavior remains intentionally unchanged except for object deletion policy
 

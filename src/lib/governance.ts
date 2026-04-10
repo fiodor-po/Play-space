@@ -95,10 +95,9 @@ export function classifyGovernedAction(params: {
 }): GovernedAction {
   const requiredAccessLevel =
     params.actionKey === "room.reset-board" ||
-    params.actionKey === "board-object.delete" ||
-    params.actionKey === "board-object.resize"
+    params.actionKey === "board-object.delete"
       ? "full"
-      : "non_destructive";
+      : "none";
 
   return {
     actionKey: params.actionKey,
