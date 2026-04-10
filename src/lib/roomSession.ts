@@ -1,3 +1,5 @@
+import { createClientId } from "./id";
+
 export type LocalParticipantSession = {
   id: string;
   name: string;
@@ -14,18 +16,31 @@ export type ParticipantPresence = {
 
 export type ParticipantPresenceMap = Record<string, ParticipantPresence>;
 
+export type ActiveParticipantRoomSession = {
+  participantId: string;
+  roomId: string;
+  startedAt: number;
+  updatedAt: number;
+};
+
 export const PARTICIPANT_COLOR_OPTIONS = [
   "#0f766e",
+  "#0891b2",
   "#2563eb",
   "#dc2626",
   "#d97706",
   "#7c3aed",
   "#db2777",
+  "#16a34a",
 ];
 
 const ROOM_SESSION_STORAGE_PREFIX = "play-space-alpha-room-session-v1";
 const ACTIVE_ROOM_STORAGE_KEY = "play-space-alpha-active-room-v1";
 const ROOM_PRESENCE_STORAGE_PREFIX = "play-space-alpha-room-presence-v1";
+const BROWSER_PARTICIPANT_ID_STORAGE_KEY =
+  "play-space-alpha-browser-participant-id-v1";
+const ACTIVE_PARTICIPANT_ROOM_SESSION_STORAGE_KEY =
+  "play-space-alpha-active-room-session-v1";
 const PARTICIPANT_PRESENCE_STALE_MS = 30000;
 
 export function getRoomIdFromLocation(location: Location) {
@@ -45,7 +60,9 @@ export function getRoomIdFromLocation(location: Location) {
 }
 
 export function loadLocalParticipantSession(roomId: string) {
-  const raw = sessionStorage.getItem(getRoomSessionStorageKey(roomId));
+  const raw =
+    localStorage.getItem(getRoomSessionStorageKey(roomId)) ??
+    sessionStorage.getItem(getRoomSessionStorageKey(roomId));
 
   if (!raw) {
     return null;
@@ -54,12 +71,14 @@ export function loadLocalParticipantSession(roomId: string) {
   try {
     const parsed = JSON.parse(raw) as Partial<LocalParticipantSession>;
 
-    if (!parsed.id || !parsed.name || !parsed.color) {
+    if (!parsed.name || !parsed.color) {
       return null;
     }
 
+    const participantId = getOrCreateBrowserParticipantId(parsed.id);
+
     return {
-      id: parsed.id,
+      id: participantId,
       name: parsed.name,
       color: parsed.color,
     };
@@ -72,10 +91,40 @@ export function saveLocalParticipantSession(
   roomId: string,
   session: LocalParticipantSession
 ) {
+  const participantId = getOrCreateBrowserParticipantId(session.id);
+
   sessionStorage.setItem(
     getRoomSessionStorageKey(roomId),
-    JSON.stringify(session)
+    JSON.stringify({
+      ...session,
+      id: participantId,
+    } satisfies LocalParticipantSession)
   );
+  localStorage.setItem(
+    getRoomSessionStorageKey(roomId),
+    JSON.stringify({
+      ...session,
+      id: participantId,
+    } satisfies LocalParticipantSession)
+  );
+}
+
+export function getOrCreateBrowserParticipantId(preferredId?: string | null) {
+  const existingParticipantId = localStorage
+    .getItem(BROWSER_PARTICIPANT_ID_STORAGE_KEY)
+    ?.trim();
+
+  if (existingParticipantId) {
+    return existingParticipantId;
+  }
+
+  const nextParticipantId =
+    typeof preferredId === "string" && preferredId.trim().length > 0
+      ? preferredId.trim()
+      : createClientId();
+
+  localStorage.setItem(BROWSER_PARTICIPANT_ID_STORAGE_KEY, nextParticipantId);
+  return nextParticipantId;
 }
 
 export function loadActiveRoomId() {
@@ -90,6 +139,86 @@ export function saveActiveRoomId(roomId: string) {
 
 export function clearActiveRoomId() {
   sessionStorage.removeItem(ACTIVE_ROOM_STORAGE_KEY);
+}
+
+export function loadActiveParticipantRoomSession(
+  participantId: string
+): ActiveParticipantRoomSession | null {
+  const raw = localStorage.getItem(ACTIVE_PARTICIPANT_ROOM_SESSION_STORAGE_KEY);
+
+  if (!raw) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(raw) as Partial<ActiveParticipantRoomSession>;
+
+    if (
+      parsed.participantId !== participantId ||
+      typeof parsed.roomId !== "string" ||
+      parsed.roomId.trim().length === 0 ||
+      typeof parsed.startedAt !== "number" ||
+      typeof parsed.updatedAt !== "number"
+    ) {
+      return null;
+    }
+
+    return {
+      participantId: parsed.participantId,
+      roomId: parsed.roomId,
+      startedAt: parsed.startedAt,
+      updatedAt: parsed.updatedAt,
+    };
+  } catch {
+    return null;
+  }
+}
+
+export function saveActiveParticipantRoomSession(params: {
+  participantId: string;
+  roomId: string;
+}) {
+  const existingSession = loadActiveParticipantRoomSession(params.participantId);
+  const now = Date.now();
+
+  localStorage.setItem(
+    ACTIVE_PARTICIPANT_ROOM_SESSION_STORAGE_KEY,
+    JSON.stringify({
+      participantId: params.participantId,
+      roomId: params.roomId,
+      startedAt: existingSession?.startedAt ?? now,
+      updatedAt: now,
+    } satisfies ActiveParticipantRoomSession)
+  );
+}
+
+export function clearActiveParticipantRoomSession(participantId: string) {
+  const existingSession = loadActiveParticipantRoomSession(participantId);
+
+  if (!existingSession) {
+    return;
+  }
+
+  localStorage.removeItem(ACTIVE_PARTICIPANT_ROOM_SESSION_STORAGE_KEY);
+}
+
+export function subscribeToActiveParticipantRoomSession(
+  participantId: string,
+  onChange: (session: ActiveParticipantRoomSession | null) => void
+) {
+  const handleStorage = (event: StorageEvent) => {
+    if (event.key !== ACTIVE_PARTICIPANT_ROOM_SESSION_STORAGE_KEY) {
+      return;
+    }
+
+    onChange(loadActiveParticipantRoomSession(participantId));
+  };
+
+  window.addEventListener("storage", handleStorage);
+
+  return () => {
+    window.removeEventListener("storage", handleStorage);
+  };
 }
 
 export function createLocalParticipantPresence(

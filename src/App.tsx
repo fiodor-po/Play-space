@@ -8,14 +8,19 @@ import {
   resolveGovernedEntityAccess,
 } from "./lib/governance";
 import {
+  clearActiveParticipantRoomSession,
   clearActiveRoomId,
   createLocalParticipantPresence,
+  getOrCreateBrowserParticipantId,
   getRoomIdFromLocation,
+  loadActiveParticipantRoomSession,
   loadActiveRoomId,
   loadLocalParticipantSession,
   PARTICIPANT_COLOR_OPTIONS,
+  saveActiveParticipantRoomSession,
   saveActiveRoomId,
   saveLocalParticipantSession,
+  subscribeToActiveParticipantRoomSession,
 } from "./lib/roomSession";
 import {
   createRoomBaselineDescriptor,
@@ -25,7 +30,6 @@ import {
   loadRoomRecord,
   markRoomBaselineApplied,
 } from "./lib/roomMetadata";
-import { createClientId } from "./lib/id";
 import { createRoomPresenceConnection } from "./lib/roomPresenceRealtime";
 import { isLiveKitMediaEnabled, logClientRuntimeConfig } from "./lib/runtimeConfig";
 import type { FormEvent } from "react";
@@ -59,14 +63,22 @@ function loadParticipantDraftForRoom(roomId: string) {
   };
 }
 
+function getIsForegroundPresenceCarrier() {
+  return !document.hidden && document.hasFocus();
+}
+
 export default function App() {
   const liveKitMediaEnabled = isLiveKitMediaEnabled();
-  const initialDraftRoomId = getRoomIdFromLocation(window.location);
+  const browserParticipantId = getOrCreateBrowserParticipantId();
+  const initialSharedActiveRoomSession =
+    loadActiveParticipantRoomSession(browserParticipantId);
+  const initialActiveRoomId =
+    initialSharedActiveRoomSession?.roomId ?? loadActiveRoomId();
+  const initialDraftRoomId =
+    initialActiveRoomId ?? getRoomIdFromLocation(window.location);
   const initialParticipantDraft = loadParticipantDraftForRoom(initialDraftRoomId);
-  const initialActiveRoomId = loadActiveRoomId();
   const shouldRestoreJoinedRoom =
-    initialActiveRoomId === initialDraftRoomId &&
-    !!initialParticipantDraft.savedSession;
+    !!initialActiveRoomId && !!initialParticipantDraft.savedSession;
 
   const [draftRoomId, setDraftRoomId] = useState(initialDraftRoomId);
   const [activeRoomId, setActiveRoomId] = useState<string | null>(() =>
@@ -96,6 +108,9 @@ export default function App() {
   const [entryJoinClaims, setEntryJoinClaims] = useState<JoinClaimMap>({});
   const [hasManualEntryColorChoice, setHasManualEntryColorChoice] = useState(false);
   const [isJoinPending, setIsJoinPending] = useState(false);
+  const [isForegroundPresenceCarrier, setIsForegroundPresenceCarrier] = useState(() =>
+    getIsForegroundPresenceCarrier()
+  );
   const entryPresenceConnectionRef = useRef<RoomPresenceConnection | null>(null);
   const roomPresenceConnectionRef = useRef<RoomPresenceConnection | null>(null);
   const entryParticipantPresencesRef = useRef<ParticipantPresenceMap>({});
@@ -220,6 +235,22 @@ export default function App() {
     }
   };
 
+  const collapseToEntryScreen = (nextDraftRoomId: string) => {
+    roomPresenceConnectionRef.current?.destroy();
+    roomPresenceConnectionRef.current = null;
+
+    clearActiveRoomId();
+    setDraftRoomId(nextDraftRoomId);
+    setDraftName(participantSession?.name ?? draftName);
+    setDraftColor(participantSession?.color ?? draftColor);
+    setActiveRoomId(null);
+    setIsInRoom(false);
+    setParticipantSession(null);
+    setLocalParticipantPresence(null);
+    setParticipantPresences({});
+    setRoomRecord(null);
+  };
+
   useEffect(() => {
     const handlePopState = () => {
       if (isInRoom) {
@@ -244,6 +275,25 @@ export default function App() {
   useEffect(() => {
     logClientRuntimeConfig(isInRoom ? activeRoomId ?? draftRoomId : draftRoomId);
   }, [activeRoomId, draftRoomId, isInRoom]);
+
+  useEffect(() => {
+    const syncForegroundPresenceCarrier = () => {
+      setIsForegroundPresenceCarrier(getIsForegroundPresenceCarrier());
+    };
+
+    document.addEventListener("visibilitychange", syncForegroundPresenceCarrier);
+    window.addEventListener("focus", syncForegroundPresenceCarrier);
+    window.addEventListener("blur", syncForegroundPresenceCarrier);
+
+    return () => {
+      document.removeEventListener(
+        "visibilitychange",
+        syncForegroundPresenceCarrier
+      );
+      window.removeEventListener("focus", syncForegroundPresenceCarrier);
+      window.removeEventListener("blur", syncForegroundPresenceCarrier);
+    };
+  }, []);
 
   useEffect(() => {
     entryParticipantPresencesRef.current = entryParticipantPresences;
@@ -303,6 +353,10 @@ export default function App() {
       return;
     }
 
+    saveActiveParticipantRoomSession({
+      participantId: nextSession.id,
+      roomId: activeRoomId,
+    });
     setDraftName(nextSession.name);
     setDraftColor(nextSession.color);
     setParticipantSession(nextSession);
@@ -312,6 +366,30 @@ export default function App() {
     );
     setParticipantPresences({});
   }, [activeRoomId, isInRoom]);
+
+  useEffect(() => {
+    return subscribeToActiveParticipantRoomSession(
+      browserParticipantId,
+      (nextActiveRoomSession) => {
+        if (nextActiveRoomSession?.roomId) {
+          if (isInRoom && activeRoomId === nextActiveRoomSession.roomId) {
+            return;
+          }
+
+          setDraftRoomId(nextActiveRoomSession.roomId);
+          setActiveRoomId(nextActiveRoomSession.roomId);
+          setIsInRoom(true);
+          return;
+        }
+
+        if (!isInRoom && !activeRoomId) {
+          return;
+        }
+
+        collapseToEntryScreen(activeRoomId ?? draftRoomId);
+      }
+    );
+  }, [activeRoomId, browserParticipantId, draftRoomId, draftColor, draftName, isInRoom, participantSession]);
 
   const joinRoom = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -329,7 +407,7 @@ export default function App() {
 
     const savedSession = loadLocalParticipantSession(trimmedRoomId);
     const nextSessionDraft: LocalParticipantSession = {
-      id: savedSession?.id ?? createClientId(),
+      id: savedSession?.id ?? getOrCreateBrowserParticipantId(),
       name: trimmedName,
       color: draftColor,
     };
@@ -393,6 +471,10 @@ export default function App() {
 
       saveLocalParticipantSession(trimmedRoomId, nextSession);
       saveActiveRoomId(trimmedRoomId);
+      saveActiveParticipantRoomSession({
+        participantId: nextSession.id,
+        roomId: trimmedRoomId,
+      });
       if (getRoomIdFromLocation(window.location) !== trimmedRoomId) {
         const nextUrl = new URL(window.location.href);
         nextUrl.searchParams.set("room", trimmedRoomId);
@@ -469,19 +551,11 @@ export default function App() {
       return;
     }
 
-    roomPresenceConnectionRef.current?.destroy();
-    roomPresenceConnectionRef.current = null;
+    if (participantSession?.id) {
+      clearActiveParticipantRoomSession(participantSession.id);
+    }
 
-    clearActiveRoomId();
-    setDraftRoomId(activeRoomId);
-    setDraftName(participantSession?.name ?? draftName);
-    setDraftColor(participantSession?.color ?? draftColor);
-    setActiveRoomId(null);
-    setIsInRoom(false);
-    setParticipantSession(null);
-    setLocalParticipantPresence(null);
-    setParticipantPresences({});
-    setRoomRecord(null);
+    collapseToEntryScreen(activeRoomId);
   };
 
   useEffect(() => {
@@ -519,9 +593,11 @@ export default function App() {
     }
 
     connection.setLocalPresence(
-      localParticipantPresence ?? createLocalParticipantPresence(participantSession)
+      isForegroundPresenceCarrier
+        ? localParticipantPresence ?? createLocalParticipantPresence(participantSession)
+        : null
     );
-  }, [localParticipantPresence, participantSession]);
+  }, [isForegroundPresenceCarrier, localParticipantPresence, participantSession]);
 
   const joinedRoomId = activeRoomId ?? draftRoomId;
   const roomGovernedEntity = createRoomGovernedEntityRef({
