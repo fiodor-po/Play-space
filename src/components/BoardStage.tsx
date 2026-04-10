@@ -99,7 +99,13 @@ import {
   type ParticipantPresenceMap,
 } from "../lib/roomSession";
 import { getRoomBaselinePayload } from "../lib/roomBaseline";
-import type { AccessLevel } from "../lib/governance";
+import {
+  createBoardObjectGovernedEntityRef,
+  createRoomGovernedEntityRef,
+  resolveGovernedActionAccess,
+  type AccessLevel,
+  type GovernanceActionKey,
+} from "../lib/governance";
 import type { RoomBaselineDescriptor, RoomBaselineId } from "../lib/roomMetadata";
 import type { BoardObject } from "../types/board";
 
@@ -190,6 +196,7 @@ type BoardStageProps = {
   roomId: string;
   isCurrentParticipantRoomCreator: boolean;
   roomCreatorName: string | null;
+  roomCreatorId: string | null;
   roomBaselineToApply: RoomBaselineDescriptor | null;
   roomEffectiveAccessLevel: AccessLevel;
   onLeaveRoom: () => void;
@@ -214,6 +221,7 @@ export default function BoardStage({
   roomId,
   isCurrentParticipantRoomCreator,
   roomCreatorName,
+  roomCreatorId,
   roomBaselineToApply,
   roomEffectiveAccessLevel,
   onLeaveRoom,
@@ -442,6 +450,36 @@ export default function BoardStage({
     setObjectSemanticsHoverState(null);
   };
 
+  const resolveRoomActionAccess = (actionKey: GovernanceActionKey) =>
+    resolveGovernedActionAccess({
+      entity: createRoomGovernedEntityRef({
+        roomId,
+        creatorId: roomCreatorId,
+      }),
+      actionKey,
+      participantId: participantSession.id,
+      explicitAccessLevel: roomEffectiveAccessLevel,
+      defaultAccessLevel: "full",
+    });
+
+  const resolveObjectActionAccess = (
+    objectId: string,
+    actionKey: GovernanceActionKey
+  ) => {
+    const object = objects.find((candidate) => candidate.id === objectId);
+
+    if (!object) {
+      return null;
+    }
+
+    return resolveGovernedActionAccess({
+      entity: createBoardObjectGovernedEntityRef(object),
+      actionKey,
+      participantId: participantSession.id,
+      defaultAccessLevel: "full",
+    });
+  };
+
   const textCardRefs = useRef<Record<string, Konva.Group | null>>({});
   const imageRefs = useRef<Record<string, Konva.Image | null>>({});
   const imageStrokeLayerRefs = useRef<Record<string, Konva.Group | null>>({});
@@ -572,6 +610,12 @@ export default function BoardStage({
   };
 
   const startImageDrawingMode = (imageId: string) => {
+    const drawAccess = resolveObjectActionAccess(imageId, "board-object.draw");
+
+    if (!drawAccess?.isAllowed) {
+      return;
+    }
+
     if (isImageLockedByAnotherParticipant(imageId)) {
       return;
     }
@@ -630,6 +674,12 @@ export default function BoardStage({
     scale: { x: number; y: number },
     strokeWidthScale: number
   ) => {
+    const resizeAccess = resolveObjectActionAccess(id, "board-object.resize");
+
+    if (!resizeAccess?.isAllowed) {
+      return;
+    }
+
     applyBoardObjectsUpdate(
       (currentObjects) =>
         updateBoardObjectById(currentObjects, id, (object) => {
@@ -1233,6 +1283,15 @@ export default function BoardStage({
 
       event.preventDefault();
 
+      const deleteAccess = resolveObjectActionAccess(
+        selectedObjectId,
+        "board-object.delete"
+      );
+
+      if (!deleteAccess?.isAllowed) {
+        return;
+      }
+
       removeBoardObject(selectedObjectId);
       setSelectedObjectId(null);
     };
@@ -1242,7 +1301,7 @@ export default function BoardStage({
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [drawingImageId, editingTextCardId, selectedObjectId]);
+  }, [drawingImageId, editingTextCardId, selectedObjectId, objects]);
 
   const sortedObjects = useMemo(() => {
     return [...objects].sort(
@@ -1251,6 +1310,12 @@ export default function BoardStage({
   }, [objects]);
 
   const updateObjectPosition = (id: string, x: number, y: number) => {
+    const moveAccess = resolveObjectActionAccess(id, "board-object.move");
+
+    if (!moveAccess?.isAllowed) {
+      return;
+    }
+
     applyBoardObjectsUpdate(
       (currentObjects) => updateBoardObjectPosition(currentObjects, id, x, y),
       getUpdateBoardObjectSyncOptions(objects, id)
@@ -1270,6 +1335,12 @@ export default function BoardStage({
   };
 
   const updateObjectLabel = (id: string, label: string) => {
+    const editAccess = resolveObjectActionAccess(id, "board-object.edit");
+
+    if (!editAccess?.isAllowed) {
+      return;
+    }
+
     applyBoardObjectsUpdate(
       (currentObjects) => updateBoardObjectLabel(currentObjects, id, label),
       getUpdateBoardObjectSyncOptions(objects, id)
@@ -1371,6 +1442,12 @@ export default function BoardStage({
   };
 
   const createToken = () => {
+    const createTokenAccess = resolveRoomActionAccess("room.add-token");
+
+    if (!createTokenAccess.isAllowed) {
+      return;
+    }
+
     const center = getViewportCenterInBoardCoords({
       stageWidth: stageSize.width,
       stageHeight: stageSize.height,
@@ -1390,6 +1467,12 @@ export default function BoardStage({
   };
 
   const createNote = () => {
+    const createNoteAccess = resolveRoomActionAccess("room.add-note");
+
+    if (!createNoteAccess.isAllowed) {
+      return;
+    }
+
     const center = getViewportCenterInBoardCoords({
       stageWidth: stageSize.width,
       stageHeight: stageSize.height,
@@ -1412,6 +1495,12 @@ export default function BoardStage({
     file: File,
     position?: { x: number; y: number }
   ) => {
+    const createImageAccess = resolveRoomActionAccess("room.add-image");
+
+    if (!createImageAccess.isAllowed) {
+      return;
+    }
+
     const reader = new FileReader();
 
     reader.onload = () => {
@@ -1489,7 +1578,9 @@ export default function BoardStage({
   };
 
   const resetBoard = () => {
-    if (roomEffectiveAccessLevel === "none") {
+    const resetAccess = resolveRoomActionAccess("room.reset-board");
+
+    if (!resetAccess.isAllowed) {
       return;
     }
 

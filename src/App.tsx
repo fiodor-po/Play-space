@@ -5,7 +5,7 @@ import { LiveKitMediaDock } from "./media/LiveKitMediaDock";
 import { HTML_UI_FONT_FAMILY } from "./board/constants";
 import {
   createRoomGovernedEntityRef,
-  getEffectiveAccessLevel,
+  resolveGovernedEntityAccess,
 } from "./lib/governance";
 import {
   clearActiveRoomId,
@@ -282,11 +282,12 @@ export default function App() {
     roomId: joinedRoomId,
     creatorId: roomRecord?.creatorId ?? null,
   });
-  const roomEffectiveAccessLevel = getEffectiveAccessLevel({
+  const roomEffectiveAccess = resolveGovernedEntityAccess({
     entity: roomGovernedEntity,
     participantId: participantSession?.id ?? null,
     defaultAccessLevel: "full",
   });
+  const roomEffectiveAccessLevel = roomEffectiveAccess?.accessLevel ?? "none";
   const roomCreatorId = roomRecord?.creatorId ?? null;
   const isCurrentParticipantRoomCreator =
     !!roomCreatorId && roomCreatorId === participantSession?.id;
@@ -499,6 +500,7 @@ export default function App() {
         roomId={joinedRoomId}
         isCurrentParticipantRoomCreator={isCurrentParticipantRoomCreator}
         roomCreatorName={roomCreatorName}
+        roomCreatorId={roomCreatorId}
         roomBaselineToApply={roomBaselineToApply}
         roomEffectiveAccessLevel={roomEffectiveAccessLevel}
         onLeaveRoom={leaveRoom}
