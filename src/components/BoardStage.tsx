@@ -107,6 +107,7 @@ import {
   type GovernedActionAccessResolution,
   type GovernanceActionKey,
 } from "../lib/governance";
+import { resolveBoardObjectDeletePolicyAccess } from "../lib/governancePolicy";
 import type { RoomBaselineDescriptor, RoomBaselineId } from "../lib/roomMetadata";
 import type { BoardObject } from "../types/board";
 
@@ -499,22 +500,19 @@ export default function BoardStage({
       return null;
     }
 
-    const isRoomCreatorOverride =
-      !!roomCreatorId && roomCreatorId === participantSession.id;
-
-    const resolution = resolveGovernedActionAccess({
-      entity: createBoardObjectGovernedEntityRef(object),
-      actionKey,
-      participantId: participantSession.id,
-      explicitAccessLevel:
-        actionKey === "board-object.delete" && isRoomCreatorOverride
-          ? "full"
-          : undefined,
-      creatorAccessLevel:
-        actionKey === "board-object.delete" ? "full" : undefined,
-      defaultAccessLevel:
-        actionKey === "board-object.delete" ? "none" : "full",
-    });
+    const resolution =
+      actionKey === "board-object.delete"
+        ? resolveBoardObjectDeletePolicyAccess({
+            object,
+            participantId: participantSession.id,
+            roomCreatorId,
+          })
+        : resolveGovernedActionAccess({
+            entity: createBoardObjectGovernedEntityRef(object),
+            actionKey,
+            participantId: participantSession.id,
+            defaultAccessLevel: "full",
+          });
 
     recordGovernanceResolution(resolution);
 
@@ -1856,16 +1854,10 @@ export default function BoardStage({
       return null;
     }
 
-    return resolveGovernedActionAccess({
-      entity: createBoardObjectGovernedEntityRef(selectedObject),
-      actionKey: "board-object.delete",
+    return resolveBoardObjectDeletePolicyAccess({
+      object: selectedObject,
       participantId: participantSession.id,
-      explicitAccessLevel:
-        !!roomCreatorId && roomCreatorId === participantSession.id
-          ? "full"
-          : undefined,
-      creatorAccessLevel: "full",
-      defaultAccessLevel: "none",
+      roomCreatorId,
     });
   }, [objects, participantSession.id, roomCreatorId, selectedObjectId]);
 

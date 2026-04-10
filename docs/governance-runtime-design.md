@@ -70,6 +70,7 @@ Current runtime helper path:
 - `resolveGovernedEntityAccess(...)`
 - `hasRequiredAccessLevel(...)`
 - `resolveGovernedActionAccess(...)`
+- `resolveBoardObjectDeletePolicyAccess(...)`
 
 ### Current runtime resolution order
 
@@ -155,7 +156,7 @@ Current runtime now enforces:
 - room creator may delete any board object in that room
 - other participants may not delete someone else's board object
 
-This is currently implemented as a narrow room-to-object creator override, not as a general nested-entity inheritance engine.
+This is currently implemented in `src/lib/governancePolicy.ts` as a narrow room-to-object creator override, not as a general nested-entity inheritance engine.
 
 ## 7. Inspectability
 
