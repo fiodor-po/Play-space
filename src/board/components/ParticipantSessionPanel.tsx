@@ -35,16 +35,16 @@ export const ParticipantSessionPanel = forwardRef<
     participantNameDraft,
     isEditingParticipantName,
     isColorPickerOpen,
-    isDevToolsOpen: _isDevToolsOpen,
+    isDevToolsOpen,
     participantColorOptions,
     onLeaveRoom,
     onToggleColorPicker,
-    onToggleDevTools: _onToggleDevTools,
+    onToggleDevTools,
     onParticipantNameDraftChange,
     onParticipantNameSubmit,
     onStartEditingParticipantName,
     onSelectParticipantColor,
-    devToolsContent: _devToolsContent,
+    devToolsContent,
   },
   ref
 ) {
@@ -116,6 +116,23 @@ export const ParticipantSessionPanel = forwardRef<
             }}
           >
             Leave room
+          </button>
+          <button
+            type="button"
+            onClick={onToggleDevTools}
+            style={{
+              padding: 0,
+              border: "none",
+              background: "transparent",
+              color: isDevToolsOpen ? "#e2e8f0" : "#94a3b8",
+              fontSize: 12,
+              fontWeight: 600,
+              fontFamily: HTML_UI_FONT_FAMILY,
+              cursor: "pointer",
+              pointerEvents: "auto",
+            }}
+          >
+            Dev tools
           </button>
         </div>
       </div>
@@ -247,7 +264,7 @@ export const ParticipantSessionPanel = forwardRef<
         </div>
       )}
 
-      {_isDevToolsOpen && (
+      {isDevToolsOpen && (
         <div
           style={{
             display: "grid",
@@ -270,7 +287,7 @@ export const ParticipantSessionPanel = forwardRef<
           >
             Debug tools
           </div>
-          <div style={{ pointerEvents: "auto" }}>{_devToolsContent}</div>
+          <div style={{ pointerEvents: "auto" }}>{devToolsContent}</div>
         </div>
       )}
     </div>
