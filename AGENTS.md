@@ -338,6 +338,20 @@ After any meaningful implementation pass:
 - list manual QA steps for the touched flow;
 - if the change touches board/runtime behavior, use `docs/manual-qa-runbook.md` and `docs/stabilization-checklist.md` as the baseline.
 
+## Inspectability default
+
+When an important change is mostly architectural, runtime-level, semantic, or otherwise not reliably verifiable through ordinary visible UI behavior:
+
+- add a minimal inspectability mechanism when practical;
+- prefer existing lightweight dev surfaces such as Dev tools, inspect panels, or current debug affordances;
+- do not treat successful builds and “nothing looks broken” as the main validation story by themselves.
+
+Scope this narrowly:
+
+- this rule applies to invisible/systemic changes, not every visible UI tweak;
+- it does not require heavy tooling or a new debug surface for every pass;
+- the goal is a small practical verification path, not a broad observability system.
+
 ## Canonical semantic / planning sources
 
 ### Color
