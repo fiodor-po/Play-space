@@ -104,6 +104,7 @@ import {
   createRoomGovernedEntityRef,
   resolveGovernedActionAccess,
   type AccessLevel,
+  type GovernedActionAccessResolution,
   type GovernanceActionKey,
 } from "../lib/governance";
 import type { RoomBaselineDescriptor, RoomBaselineId } from "../lib/roomMetadata";
@@ -213,6 +214,12 @@ type ObjectSemanticsHoverState = {
   objectId: string;
   clientX: number;
   clientY: number;
+};
+
+type GovernanceInspectionEntry = {
+  id: string;
+  resolution: GovernedActionAccessResolution;
+  timestamp: number;
 };
 
 export default function BoardStage({
@@ -341,6 +348,9 @@ export default function BoardStage({
   const [isObjectInspectionEnabled, setIsObjectInspectionEnabled] = useState(false);
   const [objectSemanticsHoverState, setObjectSemanticsHoverState] =
     useState<ObjectSemanticsHoverState | null>(null);
+  const [governanceInspectionEntries, setGovernanceInspectionEntries] = useState<
+    GovernanceInspectionEntry[]
+  >([]);
   const [remoteImagePreviewPositions, setRemoteImagePreviewPositions] = useState<
     Record<
       string,
@@ -450,8 +460,21 @@ export default function BoardStage({
     setObjectSemanticsHoverState(null);
   };
 
-  const resolveRoomActionAccess = (actionKey: GovernanceActionKey) =>
-    resolveGovernedActionAccess({
+  const recordGovernanceResolution = (
+    resolution: GovernedActionAccessResolution
+  ) => {
+    setGovernanceInspectionEntries((currentEntries) => [
+      {
+        id: `${Date.now()}-${currentEntries.length}`,
+        resolution,
+        timestamp: Date.now(),
+      },
+      ...currentEntries,
+    ].slice(0, 8));
+  };
+
+  const resolveRoomActionAccess = (actionKey: GovernanceActionKey) => {
+    const resolution = resolveGovernedActionAccess({
       entity: createRoomGovernedEntityRef({
         roomId,
         creatorId: roomCreatorId,
@@ -461,6 +484,10 @@ export default function BoardStage({
       explicitAccessLevel: roomEffectiveAccessLevel,
       defaultAccessLevel: "full",
     });
+    recordGovernanceResolution(resolution);
+
+    return resolution;
+  };
 
   const resolveObjectActionAccess = (
     objectId: string,
@@ -472,12 +499,16 @@ export default function BoardStage({
       return null;
     }
 
-    return resolveGovernedActionAccess({
+    const resolution = resolveGovernedActionAccess({
       entity: createBoardObjectGovernedEntityRef(object),
       actionKey,
       participantId: participantSession.id,
       defaultAccessLevel: "full",
     });
+
+    recordGovernanceResolution(resolution);
+
+    return resolution;
   };
 
   const textCardRefs = useRef<Record<string, Konva.Group | null>>({});
@@ -1790,6 +1821,38 @@ export default function BoardStage({
   const inspectedObject = objectSemanticsHoverState
     ? objects.find((object) => object.id === objectSemanticsHoverState.objectId) ?? null
     : null;
+  const governanceRoomSummary = useMemo(
+    () =>
+      resolveGovernedActionAccess({
+        entity: createRoomGovernedEntityRef({
+          roomId,
+          creatorId: roomCreatorId,
+        }),
+        actionKey: "room.add-image",
+        participantId: participantSession.id,
+        explicitAccessLevel: roomEffectiveAccessLevel,
+        defaultAccessLevel: "full",
+      }),
+    [participantSession.id, roomCreatorId, roomEffectiveAccessLevel, roomId]
+  );
+  const governanceSelectedObjectSummary = useMemo(() => {
+    if (!selectedObjectId) {
+      return null;
+    }
+
+    const selectedObject = objects.find((object) => object.id === selectedObjectId);
+
+    if (!selectedObject) {
+      return null;
+    }
+
+    return resolveGovernedActionAccess({
+      entity: createBoardObjectGovernedEntityRef(selectedObject),
+      actionKey: "board-object.edit",
+      participantId: participantSession.id,
+      defaultAccessLevel: "full",
+    });
+  }, [objects, participantSession.id, selectedObjectId]);
 
   const editingTextareaStyle = useMemo(() => {
     if (!editingTextCard) {
@@ -2065,6 +2128,79 @@ export default function BoardStage({
               />
               Inspect object semantics on hover
             </label>
+
+            <div
+              style={{
+                display: "grid",
+                gap: 8,
+                padding: 10,
+                borderRadius: 12,
+                border: "1px solid rgba(148, 163, 184, 0.16)",
+                background: "rgba(15, 23, 42, 0.45)",
+                color: "#cbd5e1",
+                fontSize: 12,
+              }}
+            >
+              <div
+                style={{
+                  fontSize: 11,
+                  fontWeight: 700,
+                  letterSpacing: "0.04em",
+                  textTransform: "uppercase",
+                  color: "#94a3b8",
+                }}
+              >
+                Governance
+              </div>
+              <div>
+                Room access: {governanceRoomSummary.effectiveAccess?.accessLevel ?? "none"}
+                {" · "}
+                sample action requires {governanceRoomSummary.action.requiredAccessLevel}
+              </div>
+              {governanceSelectedObjectSummary ? (
+                <div>
+                  Selected object:{" "}
+                  {governanceSelectedObjectSummary.entity.entityType}
+                  {" · "}
+                  access {governanceSelectedObjectSummary.effectiveAccess?.accessLevel ?? "none"}
+                </div>
+              ) : (
+                <div style={{ color: "#94a3b8" }}>Selected object: none</div>
+              )}
+              <div style={{ display: "grid", gap: 4 }}>
+                {governanceInspectionEntries.length > 0 ? (
+                  governanceInspectionEntries.map((entry) => (
+                    <div
+                      key={entry.id}
+                      style={{
+                        display: "grid",
+                        gap: 2,
+                        padding: "6px 8px",
+                        borderRadius: 8,
+                        background: "rgba(2, 6, 23, 0.28)",
+                      }}
+                    >
+                      <div style={{ color: "#e2e8f0" }}>
+                        {entry.resolution.action.actionKey}
+                        {" · "}
+                        {entry.resolution.entity.entityType}
+                        {" · "}
+                        {entry.resolution.isAllowed ? "allowed" : "blocked"}
+                      </div>
+                      <div style={{ color: "#94a3b8", fontSize: 11 }}>
+                        effective{" "}
+                        {entry.resolution.effectiveAccess?.accessLevel ?? "none"}
+                        {" · "}required {entry.resolution.action.requiredAccessLevel}
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div style={{ color: "#94a3b8" }}>
+                    Trigger a room or object action to see governance resolutions here.
+                  </div>
+                )}
+              </div>
+            </div>
 
             <BoardToolbar
               onAddToken={createToken}
