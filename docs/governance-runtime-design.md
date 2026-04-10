@@ -46,6 +46,7 @@ type GovernanceActionKey =
   | "board-object.move"
   | "board-object.edit"
   | "board-object.delete"
+  | "board-object.clear-own-drawing"
   | "board-object.clear-all-drawing"
   | "board-object.resize"
   | "board-object.draw";
@@ -72,6 +73,7 @@ Current runtime helper path:
 - `hasRequiredAccessLevel(...)`
 - `resolveGovernedActionAccess(...)`
 - `resolveBoardObjectDeletePolicyAccess(...)`
+- `resolveImageClearOwnDrawingPolicyAccess(...)`
 - `resolveImageClearAllDrawingPolicyAccess(...)`
 
 ### Current runtime resolution order
@@ -103,6 +105,7 @@ Current runtime helper path:
 - `board-object.move`
 - `board-object.edit`
 - `board-object.delete`
+- `board-object.clear-own-drawing`
 - `board-object.clear-all-drawing`
 - `board-object.resize`
 - `board-object.draw`
@@ -122,6 +125,7 @@ Current runtime classification is:
 | `board-object.move` | `none` |
 | `board-object.edit` | `none` |
 | `board-object.delete` | `full` |
+| `board-object.clear-own-drawing` | `none` |
 | `board-object.clear-all-drawing` | `full` |
 | `board-object.resize` | `none` |
 | `board-object.draw` | `none` |
@@ -130,6 +134,7 @@ Important:
 
 - this is the current runtime classification matrix;
 - only `board-object.delete` is now backed by a real restrictive policy rule;
+- `board-object.clear-own-drawing` is now a real governed action for personal stroke cleanup;
 - `board-object.clear-all-drawing` is now also backed by a real restrictive policy rule;
 - ordinary shared board actions now intentionally use `none`;
 - the rest is not yet the final restrictive policy matrix;
@@ -144,6 +149,7 @@ In practice:
 - room access currently resolves through permissive defaults
 - ordinary shared room/object actions now require no special governance access by classification
 - `board-object.delete` is now the first real restrictive policy family
+- image `Clear` now exists as a governed personal-cleanup action
 - image `Clear drawing` is now a second restrictive governed action
 - visible product behavior remains intentionally unchanged except for object deletion and image clear-all policy
 
@@ -165,6 +171,17 @@ Current runtime now enforces:
 
 This is currently implemented in `src/lib/governancePolicy.ts` as a narrow room-to-object creator override, not as a general nested-entity inheritance engine.
 
+### Current enforced image clear-own rule
+
+Current runtime now enforces:
+
+- participant may clear only their own strokes on the selected image
+- image creator may naturally clear their own strokes through the same rule
+- room creator may naturally clear their own strokes through the same rule
+- the action does not remove strokes created by other participants
+
+This is currently implemented in `src/lib/governancePolicy.ts` plus stroke filtering in `src/lib/boardImage.ts`.
+
 ### Current enforced image clear-all rule
 
 Current runtime now enforces:
@@ -183,6 +200,7 @@ The current `Governance` block in Dev tools exposes:
 
 - room governance summary
 - selected-object delete governance summary
+- selected-image clear-own governance summary
 - selected-image clear-drawing governance summary
 - recent action resolution trace
 
@@ -205,6 +223,7 @@ Creator semantics are real runtime inputs, but current permissive runtime does n
 Current exception:
 
 - `board-object.delete` now uses object creator semantics plus a room-creator override
+- `board-object.clear-own-drawing` now uses stroke-creator applicability rather than elevated parent access
 - `board-object.clear-all-drawing` now uses image creator semantics plus a room-creator override
 
 ## 9. Rules for future implementation passes

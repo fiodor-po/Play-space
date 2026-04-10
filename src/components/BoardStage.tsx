@@ -52,6 +52,7 @@ import {
 import { EMPTY_BOARD_STATE } from "../data/emptyBoard";
 import {
   appendImageStrokePointInObjects,
+  clearImageStrokesByCreatorInObjects,
   clearImageStrokesInObjects,
   createImageObject,
   DEFAULT_IMAGE_STROKE_WIDTH,
@@ -109,6 +110,7 @@ import {
 } from "../lib/governance";
 import {
   resolveBoardObjectDeletePolicyAccess,
+  resolveImageClearOwnDrawingPolicyAccess,
   resolveImageClearAllDrawingPolicyAccess,
 } from "../lib/governancePolicy";
 import type { RoomBaselineDescriptor, RoomBaselineId } from "../lib/roomMetadata";
@@ -516,6 +518,11 @@ export default function BoardStage({
               participantId: participantSession.id,
               roomCreatorId,
             })
+        : actionKey === "board-object.clear-own-drawing"
+          ? resolveImageClearOwnDrawingPolicyAccess({
+              object,
+              participantId: participantSession.id,
+            })
         : resolveGovernedActionAccess({
             entity: createBoardObjectGovernedEntityRef(object),
             actionKey,
@@ -648,6 +655,27 @@ export default function BoardStage({
 
     applyBoardObjectsUpdate(
       (currentObjects) => clearImageStrokesInObjects(currentObjects, id),
+      { syncSharedImageIds: [id] }
+    );
+  };
+
+  const clearOwnImageDrawing = (id: string) => {
+    const clearAccess = resolveObjectActionAccess(
+      id,
+      "board-object.clear-own-drawing"
+    );
+
+    if (!clearAccess?.isAllowed) {
+      return;
+    }
+
+    applyBoardObjectsUpdate(
+      (currentObjects) =>
+        clearImageStrokesByCreatorInObjects(
+          currentObjects,
+          id,
+          participantSession.id
+        ),
       { syncSharedImageIds: [id] }
     );
   };
@@ -1889,6 +1917,16 @@ export default function BoardStage({
       roomCreatorId,
     });
   }, [participantSession.id, roomCreatorId, selectedImageObject]);
+  const governanceSelectedImageClearOwnSummary = useMemo(() => {
+    if (!selectedImageObject) {
+      return null;
+    }
+
+    return resolveImageClearOwnDrawingPolicyAccess({
+      object: selectedImageObject,
+      participantId: participantSession.id,
+    });
+  }, [participantSession.id, selectedImageObject]);
 
   const editingTextareaStyle = useMemo(() => {
     if (!editingTextCard) {
@@ -2205,12 +2243,22 @@ export default function BoardStage({
                   </div>
                   {governanceSelectedImageClearSummary ? (
                     <div style={{ color: "#94a3b8" }}>
-                      clear drawing{" "}
+                      clear all{" "}
                       {governanceSelectedImageClearSummary.isAllowed
                         ? "allowed"
                         : "blocked"}
                       {" · "}required{" "}
                       {governanceSelectedImageClearSummary.action.requiredAccessLevel}
+                    </div>
+                  ) : null}
+                  {governanceSelectedImageClearOwnSummary ? (
+                    <div style={{ color: "#94a3b8" }}>
+                      clear own{" "}
+                      {governanceSelectedImageClearOwnSummary.isAllowed
+                        ? "allowed"
+                        : "blocked"}
+                      {" · "}required{" "}
+                      {governanceSelectedImageClearOwnSummary.action.requiredAccessLevel}
                     </div>
                   ) : null}
                 </div>
@@ -2829,12 +2877,25 @@ export default function BoardStage({
                 />
 
                 {drawingImageId !== selectedImageObject.id &&
-                  governanceSelectedImageClearSummary?.isAllowed &&
-                  (selectedImageObject.imageStrokes?.length ?? 0) > 0 && (
+                  governanceSelectedImageClearOwnSummary?.isAllowed && (
                     <SmallFloatingActionButton
                       x={52}
                       y={0}
                       label="Clear"
+                      tone="danger"
+                      onClick={() => {
+                        clearOwnImageDrawing(selectedImageObject.id);
+                      }}
+                    />
+                  )}
+
+                {drawingImageId !== selectedImageObject.id &&
+                  governanceSelectedImageClearSummary?.isAllowed &&
+                  (selectedImageObject.imageStrokes?.length ?? 0) > 0 && (
+                    <SmallFloatingActionButton
+                      x={112}
+                      y={0}
+                      label="Clear all"
                       tone="danger"
                       onClick={() => {
                         clearImageDrawing(selectedImageObject.id);

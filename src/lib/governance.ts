@@ -9,6 +9,7 @@ export type GovernanceActionKey =
   | "board-object.move"
   | "board-object.edit"
   | "board-object.delete"
+  | "board-object.clear-own-drawing"
   | "board-object.clear-all-drawing"
   | "board-object.resize"
   | "board-object.draw";

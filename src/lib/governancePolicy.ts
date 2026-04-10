@@ -40,3 +40,27 @@ export function resolveImageClearAllDrawingPolicyAccess(params: {
     defaultAccessLevel: "none",
   });
 }
+
+export function resolveImageClearOwnDrawingPolicyAccess(params: {
+  object: BoardObject;
+  participantId?: string | null;
+}): GovernedActionAccessResolution {
+  const baseResolution = resolveGovernedActionAccess({
+    entity: createBoardObjectGovernedEntityRef(params.object),
+    actionKey: "board-object.clear-own-drawing",
+    participantId: params.participantId,
+    defaultAccessLevel: "none",
+  });
+
+  const hasOwnStrokes =
+    !!params.participantId &&
+    params.object.kind === "image" &&
+    (params.object.imageStrokes ?? []).some(
+      (stroke) => stroke.creatorId === params.participantId
+    );
+
+  return {
+    ...baseResolution,
+    isAllowed: baseResolution.isAllowed && hasOwnStrokes,
+  };
+}

@@ -44,6 +44,23 @@ export function clearImageStrokesInObjects(
   );
 }
 
+export function clearImageStrokesByCreatorInObjects(
+  objects: BoardObject[],
+  imageId: string,
+  creatorId: string
+) {
+  return objects.map((object) =>
+    object.id === imageId && object.kind === "image"
+      ? {
+          ...object,
+          imageStrokes: (object.imageStrokes ?? []).filter(
+            (stroke) => stroke.creatorId !== creatorId
+          ),
+        }
+      : object
+  );
+}
+
 export function updateImageStrokeInObjects(
   objects: BoardObject[],
   id: string,

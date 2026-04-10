@@ -243,6 +243,12 @@ The first restrictive governance policy now fixed in the project is:
 | --- | --- | --- | --- |
 | `image` | `board-object.clear-all-drawing` | `full` | image creator may clear all drawing on own image; room creator may clear all drawing on any image in the room; other participants may not clear all drawing on someone else's image |
 
+#### Image drawing clear-own policy
+
+| Entity type | Action | Required access | Notes |
+| --- | --- | --- | --- |
+| `image` | `board-object.clear-own-drawing` | `none` | participant may clear only their own strokes on the selected image; the action must not remove other participants' strokes |
+
 Current intended baseline meaning for ordinary shared board actions is:
 
 - use `none` when no special governance access should be required
