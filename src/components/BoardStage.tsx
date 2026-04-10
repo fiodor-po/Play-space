@@ -125,6 +125,15 @@ type SmallFloatingActionButtonProps = {
   onClick: () => void;
 };
 
+const SMALL_FLOATING_ACTION_BUTTON_MIN_WIDTH = 44;
+const SMALL_FLOATING_ACTION_BUTTON_HEIGHT = 28;
+const IMAGE_ATTACHED_CONTROLS_GAP = 8;
+const IMAGE_ATTACHED_CONTROLS_OUTER_OFFSET_Y = 12;
+
+function getSmallFloatingActionButtonWidth(label: string) {
+  return Math.max(SMALL_FLOATING_ACTION_BUTTON_MIN_WIDTH, label.length * 7 + 18);
+}
+
 function SmallFloatingActionButton({
   x,
   y,
@@ -132,8 +141,8 @@ function SmallFloatingActionButton({
   tone = "default",
   onClick,
 }: SmallFloatingActionButtonProps) {
-  const width = Math.max(44, label.length * 7 + 18);
-  const height = 28;
+  const width = getSmallFloatingActionButtonWidth(label);
+  const height = SMALL_FLOATING_ACTION_BUTTON_HEIGHT;
   const toneStyles =
     tone === "primary"
       ? {
@@ -376,7 +385,7 @@ export default function BoardStage({
   const [remoteTextCardEditingStates, setRemoteTextCardEditingStates] = useState<
     Record<string, TextCardEditingPresence>
   >({});
-  const [liveSelectedImageActionPosition, setLiveSelectedImageActionPosition] =
+  const [liveSelectedImageControlAnchor, setLiveSelectedImageControlAnchor] =
     useState<{ imageId: string; x: number; y: number } | null>(null);
   const [tokenInitialSyncRoomId, setTokenInitialSyncRoomId] = useState<
     string | null
@@ -851,7 +860,7 @@ export default function BoardStage({
     setRemoteImagePreviewPositions({});
     setRemoteImageDrawingLocks({});
     setRemoteTextCardEditingStates({});
-    setLiveSelectedImageActionPosition(null);
+    setLiveSelectedImageControlAnchor(null);
     roomBootstrapEntryIdRef.current = nextBootstrapEntryId;
     setTokenInitialSyncRoomId(null);
     setImageInitialSyncRoomId(null);
@@ -1500,18 +1509,17 @@ export default function BoardStage({
     strokeLayer.getLayer()?.batchDraw();
   };
 
-  const getImageActionPositionFromBounds = (bounds: {
+  const getImageControlsAnchorFromBounds = (bounds: {
     x: number;
     y: number;
-    width: number;
   }) => {
     return {
-      x: bounds.x + bounds.width - 72,
-      y: bounds.y - 36,
+      x: bounds.x,
+      y: bounds.y,
     };
   };
 
-  const updateLiveSelectedImageActionPosition = (
+  const updateLiveSelectedImageControlAnchor = (
     imageId: string,
     node: Konva.Image
   ) => {
@@ -1521,9 +1529,9 @@ export default function BoardStage({
       relativeTo: node.getLayer() ?? undefined,
     });
 
-    setLiveSelectedImageActionPosition({
+    setLiveSelectedImageControlAnchor({
       imageId,
-      ...getImageActionPositionFromBounds(bounds),
+      ...getImageControlsAnchorFromBounds(bounds),
     });
   };
 
@@ -1840,24 +1848,22 @@ export default function BoardStage({
       return null;
     }
 
-    return getImageActionPositionFromBounds({
+    return getImageControlsAnchorFromBounds({
       x: selectedImageObject.x,
       y: selectedImageObject.y,
-      width: selectedImageObject.width,
     });
   }, [selectedImageObject]);
-  const selectedImageActionPosition =
+  const selectedImageControlAnchor =
     selectedImageObject &&
-    liveSelectedImageActionPosition?.imageId === selectedImageObject.id
+    liveSelectedImageControlAnchor?.imageId === selectedImageObject.id
       ? {
-          x: liveSelectedImageActionPosition.x,
-          y: liveSelectedImageActionPosition.y,
+          x: liveSelectedImageControlAnchor.x,
+          y: liveSelectedImageControlAnchor.y,
         }
       : selectedImageBaseActionPosition;
-
   useEffect(() => {
     if (!selectedImageObject) {
-      setLiveSelectedImageActionPosition(null);
+      setLiveSelectedImageControlAnchor(null);
       return;
     }
 
@@ -1868,7 +1874,7 @@ export default function BoardStage({
       return;
     }
 
-    setLiveSelectedImageActionPosition((current) =>
+    setLiveSelectedImageControlAnchor((current) =>
       current?.imageId === selectedImageObject.id ? null : current
     );
   }, [draggingImageId, selectedImageObject, transformingImageId]);
@@ -1928,6 +1934,68 @@ export default function BoardStage({
       participantId: participantSession.id,
     });
   }, [participantSession.id, selectedImageObject]);
+  const selectedImageControlButtons = useMemo(() => {
+    if (!selectedImageObject) {
+      return [];
+    }
+
+    const buttons: Array<{
+      key: string;
+      label: string;
+      tone?: "default" | "danger" | "primary";
+      onClick: () => void;
+    }> = [
+      {
+        key: "draw",
+        label: drawingImageId === selectedImageObject.id ? "Save" : "Draw",
+        tone: drawingImageId === selectedImageObject.id ? "primary" : "default",
+        onClick: () => {
+          if (drawingImageId === selectedImageObject.id) {
+            finishImageDrawingMode();
+            return;
+          }
+
+          startImageDrawingMode(selectedImageObject.id);
+        },
+      },
+    ];
+
+    if (
+      drawingImageId !== selectedImageObject.id &&
+      governanceSelectedImageClearOwnSummary?.isAllowed
+    ) {
+      buttons.push({
+        key: "clear-own",
+        label: "Clear",
+        tone: "danger",
+        onClick: () => {
+          clearOwnImageDrawing(selectedImageObject.id);
+        },
+      });
+    }
+
+    if (
+      drawingImageId !== selectedImageObject.id &&
+      governanceSelectedImageClearSummary?.isAllowed &&
+      (selectedImageObject.imageStrokes?.length ?? 0) > 0
+    ) {
+      buttons.push({
+        key: "clear-all",
+        label: "Clear all",
+        tone: "danger",
+        onClick: () => {
+          clearImageDrawing(selectedImageObject.id);
+        },
+      });
+    }
+
+    return buttons;
+  }, [
+    drawingImageId,
+    governanceSelectedImageClearOwnSummary?.isAllowed,
+    governanceSelectedImageClearSummary?.isAllowed,
+    selectedImageObject,
+  ]);
 
   const editingTextareaStyle = useMemo(() => {
     if (!editingTextCard) {
@@ -2481,10 +2549,6 @@ export default function BoardStage({
               const isLockedByAnotherParticipant =
                 !!imageDrawingLock &&
                 imageDrawingLock.participantId !== participantSession.id;
-              const occupiedImageLabel =
-                isLockedByAnotherParticipant && imageDrawingLock
-                  ? `${imageDrawingLock.participantName} drawing`
-                  : null;
               const previewPosition = remoteImagePreviewPositions[object.id];
               const isRemoteDragPreviewActive =
                 draggingImageId !== object.id &&
@@ -2592,7 +2656,7 @@ export default function BoardStage({
 
                       setSelectedObjectId(object.id);
                       setDraggingImageId(object.id);
-                      updateLiveSelectedImageActionPosition(
+                      updateLiveSelectedImageControlAnchor(
                         object.id,
                         event.target as Konva.Image
                       );
@@ -2604,7 +2668,7 @@ export default function BoardStage({
                     }}
                     onDragMove={(event) => {
                       event.cancelBubble = true;
-                      updateLiveSelectedImageActionPosition(
+                      updateLiveSelectedImageControlAnchor(
                         object.id,
                         event.target as Konva.Image
                       );
@@ -2621,7 +2685,7 @@ export default function BoardStage({
                     }}
                     onDragEnd={(event) => {
                       event.cancelBubble = true;
-                      updateLiveSelectedImageActionPosition(
+                      updateLiveSelectedImageControlAnchor(
                         object.id,
                         event.target as Konva.Image
                       );
@@ -2648,7 +2712,7 @@ export default function BoardStage({
                       setTransformingImageId(object.id);
                       transformingImageSnapshotRef.current[object.id] = object;
                       event.target.draggable(false);
-                      updateLiveSelectedImageActionPosition(
+                      updateLiveSelectedImageControlAnchor(
                         object.id,
                         event.target as Konva.Image
                       );
@@ -2662,7 +2726,7 @@ export default function BoardStage({
                     }}
                     onTransform={(event) => {
                       event.cancelBubble = true;
-                      updateLiveSelectedImageActionPosition(
+                      updateLiveSelectedImageControlAnchor(
                         object.id,
                         event.target as Konva.Image
                       );
@@ -2688,7 +2752,7 @@ export default function BoardStage({
                       event.cancelBubble = true;
 
                       const node = event.target;
-                      updateLiveSelectedImageActionPosition(
+                      updateLiveSelectedImageControlAnchor(
                         object.id,
                         node as Konva.Image
                       );
@@ -2752,7 +2816,6 @@ export default function BoardStage({
                       width={object.width}
                       height={object.height}
                       participantColor={imageDrawingLock.participantColor}
-                      label={occupiedImageLabel ?? ""}
                     />
                   )}
                 </Group>
@@ -2866,55 +2929,37 @@ export default function BoardStage({
           })}
 
           {selectedImageObject &&
-            selectedImageActionPosition &&
+            selectedImageControlAnchor &&
+            selectedImageControlButtons.length > 0 &&
             !isSelectedImageLockedByAnotherParticipant && (
               <Group
-                x={selectedImageActionPosition.x}
-                y={selectedImageActionPosition.y}
+                x={selectedImageControlAnchor.x}
+                y={selectedImageControlAnchor.y}
+                scaleX={1 / stageScale}
+                scaleY={1 / stageScale}
               >
-                <SmallFloatingActionButton
-                  x={0}
-                  y={0}
-                  label={drawingImageId === selectedImageObject.id ? "Save" : "Draw"}
-                  tone={
-                    drawingImageId === selectedImageObject.id ? "primary" : "default"
-                  }
-                  onClick={() => {
-                    if (drawingImageId === selectedImageObject.id) {
-                      finishImageDrawingMode();
-                      return;
-                    }
+                {selectedImageControlButtons.map((button, buttonIndex) => {
+                  const x = selectedImageControlButtons
+                    .slice(0, buttonIndex)
+                    .reduce(
+                      (offset, currentButton) =>
+                        offset +
+                        getSmallFloatingActionButtonWidth(currentButton.label) +
+                        IMAGE_ATTACHED_CONTROLS_GAP,
+                      0
+                    );
 
-                    startImageDrawingMode(selectedImageObject.id);
-                  }}
-                />
-
-                {drawingImageId !== selectedImageObject.id &&
-                  governanceSelectedImageClearOwnSummary?.isAllowed && (
+                  return (
                     <SmallFloatingActionButton
-                      x={52}
-                      y={0}
-                      label="Clear"
-                      tone="danger"
-                      onClick={() => {
-                        clearOwnImageDrawing(selectedImageObject.id);
-                      }}
+                      key={button.key}
+                      x={x}
+                      y={-(SMALL_FLOATING_ACTION_BUTTON_HEIGHT + IMAGE_ATTACHED_CONTROLS_OUTER_OFFSET_Y)}
+                      label={button.label}
+                      tone={button.tone}
+                      onClick={button.onClick}
                     />
-                  )}
-
-                {drawingImageId !== selectedImageObject.id &&
-                  governanceSelectedImageClearSummary?.isAllowed &&
-                  (selectedImageObject.imageStrokes?.length ?? 0) > 0 && (
-                    <SmallFloatingActionButton
-                      x={112}
-                      y={0}
-                      label="Clear all"
-                      tone="danger"
-                      onClick={() => {
-                        clearImageDrawing(selectedImageObject.id);
-                      }}
-                    />
-                  )}
+                  );
+                })}
               </Group>
             )}
 
