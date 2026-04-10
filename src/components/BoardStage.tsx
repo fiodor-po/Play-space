@@ -880,7 +880,7 @@ export default function BoardStage({
   }, [participantSession.name]);
 
   useEffect(() => {
-    if (!isEditingParticipantName && !isColorPickerOpen && !isDevToolsOpen) {
+    if (!isEditingParticipantName && !isColorPickerOpen) {
       return;
     }
 
@@ -907,9 +907,6 @@ export default function BoardStage({
         setIsColorPickerOpen(false);
       }
 
-      if (isDevToolsOpen) {
-        setIsDevToolsOpen(false);
-      }
     };
 
     window.addEventListener("mousedown", handlePointerDown);
@@ -922,7 +919,6 @@ export default function BoardStage({
   }, [
     isEditingParticipantName,
     isColorPickerOpen,
-    isDevToolsOpen,
     onUpdateParticipantSession,
     participantNameDraft,
     participantSession.name,
@@ -2215,6 +2211,7 @@ export default function BoardStage({
         isDevToolsOpen={isDevToolsOpen}
         participantColorOptions={PARTICIPANT_COLOR_OPTIONS}
         onLeaveRoom={onLeaveRoom}
+        onResetBoard={resetBoard}
         onToggleColorPicker={() => {
           setIsColorPickerOpen((current) => !current);
         }}

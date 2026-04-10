@@ -13,6 +13,7 @@ type ParticipantSessionPanelProps = {
   isDevToolsOpen: boolean;
   participantColorOptions: string[];
   onLeaveRoom: () => void;
+  onResetBoard: () => void;
   onToggleColorPicker: () => void;
   onToggleDevTools: () => void;
   onParticipantNameDraftChange: (value: string) => void;
@@ -38,6 +39,7 @@ export const ParticipantSessionPanel = forwardRef<
     isDevToolsOpen,
     participantColorOptions,
     onLeaveRoom,
+    onResetBoard,
     onToggleColorPicker,
     onToggleDevTools,
     onParticipantNameDraftChange,
@@ -86,55 +88,30 @@ export const ParticipantSessionPanel = forwardRef<
       >
         <div
           style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
+            fontSize: 15,
+            fontWeight: 700,
+            pointerEvents: "none",
           }}
         >
-          <div
-            style={{
-              fontSize: 15,
-              fontWeight: 700,
-              pointerEvents: "none",
-            }}
-          >
-            {roomId}
-          </div>
-          <button
-            type="button"
-            onClick={onLeaveRoom}
-            style={{
-              padding: 0,
-              border: "none",
-              background: "transparent",
-              color: "#94a3b8",
-              fontSize: 12,
-              fontWeight: 600,
-              fontFamily: HTML_UI_FONT_FAMILY,
-              cursor: "pointer",
-              pointerEvents: "auto",
-            }}
-          >
-            Leave room
-          </button>
-          <button
-            type="button"
-            onClick={onToggleDevTools}
-            style={{
-              padding: 0,
-              border: "none",
-              background: "transparent",
-              color: isDevToolsOpen ? "#e2e8f0" : "#94a3b8",
-              fontSize: 12,
-              fontWeight: 600,
-              fontFamily: HTML_UI_FONT_FAMILY,
-              cursor: "pointer",
-              pointerEvents: "auto",
-            }}
-          >
-            Dev tools
-          </button>
+          {roomId}
         </div>
+        <button
+          type="button"
+          onClick={onLeaveRoom}
+          style={{
+            padding: 0,
+            border: "none",
+            background: "transparent",
+            color: "#94a3b8",
+            fontSize: 12,
+            fontWeight: 600,
+            fontFamily: HTML_UI_FONT_FAMILY,
+            cursor: "pointer",
+            pointerEvents: "auto",
+          }}
+        >
+          Leave room
+        </button>
       </div>
 
       {roomCreatorLine ? (
@@ -264,11 +241,11 @@ export const ParticipantSessionPanel = forwardRef<
         </div>
       )}
 
-      {isDevToolsOpen && (
+      {isCurrentParticipantRoomCreator && (
         <div
           style={{
             display: "grid",
-            gap: 10,
+            gap: 8,
             marginTop: 2,
             paddingTop: 10,
             borderTop: "1px solid rgba(148, 163, 184, 0.16)",
@@ -285,11 +262,70 @@ export const ParticipantSessionPanel = forwardRef<
               pointerEvents: "none",
             }}
           >
-            Debug tools
+            Room tools
           </div>
-          <div style={{ pointerEvents: "auto" }}>{devToolsContent}</div>
+
+          <button
+            type="button"
+            onClick={onResetBoard}
+            style={{
+              padding: "6px 10px",
+              borderRadius: 10,
+              border: "1px solid rgba(248, 113, 113, 0.32)",
+              background: "rgba(69, 10, 10, 0.9)",
+              color: "#fecaca",
+              fontSize: 12,
+              fontWeight: 700,
+              fontFamily: HTML_UI_FONT_FAMILY,
+              textAlign: "left",
+              cursor: "pointer",
+              pointerEvents: "auto",
+            }}
+          >
+            Reset board
+          </button>
         </div>
       )}
+
+      <div
+        style={{
+          display: "grid",
+          gap: 10,
+          marginTop: 2,
+          paddingTop: 10,
+          borderTop: "1px solid rgba(148, 163, 184, 0.16)",
+          pointerEvents: "none",
+        }}
+      >
+        <label
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            color: "#94a3b8",
+            fontSize: 12,
+            fontWeight: 700,
+            cursor: "pointer",
+            pointerEvents: "auto",
+          }}
+        >
+          <input
+            type="checkbox"
+            checked={isDevToolsOpen}
+            onChange={() => {
+              onToggleDevTools();
+            }}
+            style={{
+              margin: 0,
+            }}
+          />
+          Debug tools
+        </label>
+
+        {isDevToolsOpen && (
+          <div style={{ pointerEvents: "auto" }}>{devToolsContent}</div>
+        )}
+      </div>
     </div>
   );
 });
