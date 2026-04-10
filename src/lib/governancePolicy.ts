@@ -22,3 +22,21 @@ export function resolveBoardObjectDeletePolicyAccess(params: {
     defaultAccessLevel: "none",
   });
 }
+
+export function resolveImageClearAllDrawingPolicyAccess(params: {
+  object: BoardObject;
+  participantId?: string | null;
+  roomCreatorId?: string | null;
+}): GovernedActionAccessResolution {
+  const isRoomCreatorOverride =
+    !!params.roomCreatorId && params.roomCreatorId === params.participantId;
+
+  return resolveGovernedActionAccess({
+    entity: createBoardObjectGovernedEntityRef(params.object),
+    actionKey: "board-object.clear-all-drawing",
+    participantId: params.participantId,
+    explicitAccessLevel: isRoomCreatorOverride ? "full" : undefined,
+    creatorAccessLevel: "full",
+    defaultAccessLevel: "none",
+  });
+}

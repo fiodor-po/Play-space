@@ -107,7 +107,10 @@ import {
   type GovernedActionAccessResolution,
   type GovernanceActionKey,
 } from "../lib/governance";
-import { resolveBoardObjectDeletePolicyAccess } from "../lib/governancePolicy";
+import {
+  resolveBoardObjectDeletePolicyAccess,
+  resolveImageClearAllDrawingPolicyAccess,
+} from "../lib/governancePolicy";
 import type { RoomBaselineDescriptor, RoomBaselineId } from "../lib/roomMetadata";
 import type { BoardObject } from "../types/board";
 
@@ -507,6 +510,12 @@ export default function BoardStage({
             participantId: participantSession.id,
             roomCreatorId,
           })
+        : actionKey === "board-object.clear-all-drawing"
+          ? resolveImageClearAllDrawingPolicyAccess({
+              object,
+              participantId: participantSession.id,
+              roomCreatorId,
+            })
         : resolveGovernedActionAccess({
             entity: createBoardObjectGovernedEntityRef(object),
             actionKey,
@@ -628,6 +637,15 @@ export default function BoardStage({
   };
 
   const clearImageDrawing = (id: string) => {
+    const clearAccess = resolveObjectActionAccess(
+      id,
+      "board-object.clear-all-drawing"
+    );
+
+    if (!clearAccess?.isAllowed) {
+      return;
+    }
+
     applyBoardObjectsUpdate(
       (currentObjects) => clearImageStrokesInObjects(currentObjects, id),
       { syncSharedImageIds: [id] }
@@ -1860,6 +1878,17 @@ export default function BoardStage({
       roomCreatorId,
     });
   }, [objects, participantSession.id, roomCreatorId, selectedObjectId]);
+  const governanceSelectedImageClearSummary = useMemo(() => {
+    if (!selectedImageObject) {
+      return null;
+    }
+
+    return resolveImageClearAllDrawingPolicyAccess({
+      object: selectedImageObject,
+      participantId: participantSession.id,
+      roomCreatorId,
+    });
+  }, [participantSession.id, roomCreatorId, selectedImageObject]);
 
   const editingTextareaStyle = useMemo(() => {
     if (!editingTextCard) {
@@ -2165,13 +2194,25 @@ export default function BoardStage({
                 sample action requires {governanceRoomSummary.action.requiredAccessLevel}
               </div>
               {governanceSelectedObjectSummary ? (
-                <div>
-                  Selected object:{" "}
-                  {governanceSelectedObjectSummary.entity.entityType}
-                  {" · "}
-                  access {governanceSelectedObjectSummary.effectiveAccess?.accessLevel ?? "none"}
-                  {" · "}
-                  delete {governanceSelectedObjectSummary.isAllowed ? "allowed" : "blocked"}
+                <div style={{ display: "grid", gap: 2 }}>
+                  <div>
+                    Selected object:{" "}
+                    {governanceSelectedObjectSummary.entity.entityType}
+                    {" · "}
+                    access {governanceSelectedObjectSummary.effectiveAccess?.accessLevel ?? "none"}
+                    {" · "}
+                    delete {governanceSelectedObjectSummary.isAllowed ? "allowed" : "blocked"}
+                  </div>
+                  {governanceSelectedImageClearSummary ? (
+                    <div style={{ color: "#94a3b8" }}>
+                      clear drawing{" "}
+                      {governanceSelectedImageClearSummary.isAllowed
+                        ? "allowed"
+                        : "blocked"}
+                      {" · "}required{" "}
+                      {governanceSelectedImageClearSummary.action.requiredAccessLevel}
+                    </div>
+                  ) : null}
                 </div>
               ) : (
                 <div style={{ color: "#94a3b8" }}>Selected object: none</div>
@@ -2788,6 +2829,7 @@ export default function BoardStage({
                 />
 
                 {drawingImageId !== selectedImageObject.id &&
+                  governanceSelectedImageClearSummary?.isAllowed &&
                   (selectedImageObject.imageStrokes?.length ?? 0) > 0 && (
                     <SmallFloatingActionButton
                       x={52}

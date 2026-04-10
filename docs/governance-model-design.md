@@ -237,6 +237,12 @@ The first restrictive governance policy now fixed in the project is:
 | --- | --- | --- | --- |
 | any current board object | `board-object.delete` | `full` | object creator may delete own object; room creator may delete any room object; other participants may not delete another participant's object |
 
+#### Image drawing clear-all policy
+
+| Entity type | Action | Required access | Notes |
+| --- | --- | --- | --- |
+| `image` | `board-object.clear-all-drawing` | `full` | image creator may clear all drawing on own image; room creator may clear all drawing on any image in the room; other participants may not clear all drawing on someone else's image |
+
 Current intended baseline meaning for ordinary shared board actions is:
 
 - use `none` when no special governance access should be required

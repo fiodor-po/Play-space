@@ -9,6 +9,7 @@ export type GovernanceActionKey =
   | "board-object.move"
   | "board-object.edit"
   | "board-object.delete"
+  | "board-object.clear-all-drawing"
   | "board-object.resize"
   | "board-object.draw";
 
@@ -95,7 +96,8 @@ export function classifyGovernedAction(params: {
 }): GovernedAction {
   const requiredAccessLevel =
     params.actionKey === "room.reset-board" ||
-    params.actionKey === "board-object.delete"
+    params.actionKey === "board-object.delete" ||
+    params.actionKey === "board-object.clear-all-drawing"
       ? "full"
       : "none";
 
