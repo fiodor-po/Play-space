@@ -3,17 +3,30 @@ import { WebsocketProvider } from "y-websocket";
 import type { ParticipantPresence, ParticipantPresenceMap } from "./roomSession";
 import { getRealtimeServerWsUrl } from "./runtimeConfig";
 
+export type JoinClaim = {
+  participantId: string;
+  roomId: string;
+  color: string;
+  requestedAt: number;
+  expiresAt: number;
+};
+
+export type JoinClaimMap = Record<string, JoinClaim>;
+
 type AwarenessState = {
   presence?: ParticipantPresence | null;
+  joinClaim?: JoinClaim | null;
 };
 
 export type RoomPresenceConnection = {
   destroy: () => void;
   setLocalPresence: (presence: ParticipantPresence | null) => void;
+  setLocalJoinClaim: (claim: JoinClaim | null) => void;
 };
 
 export function createRoomPresenceConnection(params: {
   onPresencesChange: (presences: ParticipantPresenceMap) => void;
+  onJoinClaimsChange?: (claims: JoinClaimMap) => void;
   roomId: string;
   serverUrl?: string;
 }): RoomPresenceConnection {
@@ -26,9 +39,10 @@ export function createRoomPresenceConnection(params: {
   );
 
   const publishPresences = () => {
-    params.onPresencesChange(
-      getParticipantPresencesFromAwareness(provider.awareness.getStates())
-    );
+    const states = provider.awareness.getStates();
+
+    params.onPresencesChange(getParticipantPresencesFromAwareness(states));
+    params.onJoinClaimsChange?.(getJoinClaimsFromAwareness(states, params.roomId));
   };
 
   provider.awareness.on("change", publishPresences);
@@ -50,8 +64,22 @@ export function createRoomPresenceConnection(params: {
       doc.destroy();
     },
     setLocalPresence: (presence) => {
+      const currentPresence = provider.awareness.getLocalState()?.presence ?? null;
+
+      if (areParticipantPresencesEqual(currentPresence, presence)) {
+        return;
+      }
+
       provider.awareness.setLocalStateField("presence", presence);
-      publishPresences();
+    },
+    setLocalJoinClaim: (claim) => {
+      const currentClaim = provider.awareness.getLocalState()?.joinClaim ?? null;
+
+      if (areJoinClaimsEqual(currentClaim, claim)) {
+        return;
+      }
+
+      provider.awareness.setLocalStateField("joinClaim", claim);
     },
   };
 }
@@ -77,4 +105,80 @@ function getParticipantPresencesFromAwareness(
   });
 
   return presences;
+}
+
+function getJoinClaimsFromAwareness(
+  states: Map<number, AwarenessState>,
+  roomId: string
+): JoinClaimMap {
+  const now = Date.now();
+  const claims: JoinClaimMap = {};
+
+  states.forEach((state) => {
+    const claim = state.joinClaim;
+
+    if (
+      !claim ||
+      claim.roomId !== roomId ||
+      typeof claim.participantId !== "string" ||
+      claim.participantId.length === 0 ||
+      typeof claim.color !== "string" ||
+      claim.color.length === 0 ||
+      typeof claim.requestedAt !== "number" ||
+      typeof claim.expiresAt !== "number" ||
+      claim.expiresAt <= now
+    ) {
+      return;
+    }
+
+    claims[claim.participantId] = claim;
+  });
+
+  return claims;
+}
+
+function areParticipantPresencesEqual(
+  current: ParticipantPresence | null | undefined,
+  next: ParticipantPresence | null | undefined
+) {
+  if (!current && !next) {
+    return true;
+  }
+
+  if (!current || !next) {
+    return false;
+  }
+
+  return (
+    current.participantId === next.participantId &&
+    current.name === next.name &&
+    current.color === next.color &&
+    current.lastActiveAt === next.lastActiveAt &&
+    ((current.cursor === null && next.cursor === null) ||
+      (current.cursor !== null &&
+        next.cursor !== null &&
+        current.cursor.x === next.cursor.x &&
+        current.cursor.y === next.cursor.y))
+  );
+}
+
+function areJoinClaimsEqual(
+  current: JoinClaim | null | undefined,
+  next: JoinClaim | null | undefined
+) {
+  if (!current && !next) {
+    return true;
+  }
+
+  if (!current || !next) {
+    return false;
+  }
+
+  return (
+    current.participantId === next.participantId &&
+    current.roomId === next.roomId &&
+    current.color === next.color &&
+    current.requestedAt === next.requestedAt &&
+    current.expiresAt === next.expiresAt
+  );
 }
