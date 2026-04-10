@@ -66,6 +66,7 @@ Before non-trivial work, read:
 Then read only the directly relevant focused docs, for example:
 
 - `docs/color-model-design.md`
+- `docs/indication-design.md`
 - `docs/room-behavior-spec.md`
 - `docs/room-memory-model.md`
 - `docs/dev-workflows.md`
@@ -102,6 +103,18 @@ When several options are possible, prefer:
 - the narrowest change that improves the real playable-session product;
 - the path that keeps AI-assisted iteration manageable;
 - the path that does not create hidden infrastructure complexity.
+
+## Indication default
+
+When a change adds or modifies an important multiplayer, remote-state, occupied-state, or interaction-preview indication:
+
+1. read `docs/indication-design.md` first;
+2. classify the indication into an existing indication family if possible;
+3. reuse the canonical indication source rather than inventing a local variant in the implementation file;
+4. if a genuinely new variant is required, record that distinction in `docs/indication-design.md`.
+
+Do not rely on "roughly matches the existing look" as sufficient.
+For indication work, reuse of the canonical source is the default rule.
 
 ## Architecture guardrails
 
