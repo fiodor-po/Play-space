@@ -124,7 +124,8 @@ Current runtime classification is:
 Important:
 
 - this is the current runtime classification matrix;
-- it is not yet the final restrictive policy matrix;
+- only `board-object.delete` is now backed by a real restrictive policy rule;
+- the rest is not yet the final restrictive policy matrix;
 - canonical future policy matrices belong in `docs/governance-model-design.md`.
 
 ## 6. Current rollout state
@@ -134,9 +135,9 @@ Current runtime governance is real but intentionally permissive.
 In practice:
 
 - room access currently resolves through permissive defaults
-- object access currently resolves through permissive defaults
-- everyone still effectively can do everything
-- visible product behavior is not intentionally changed yet
+- most object access currently resolves through permissive defaults
+- `board-object.delete` is now the first real restrictive policy family
+- visible product behavior remains intentionally unchanged except for object deletion policy
 
 This is deliberate.
 
@@ -144,7 +145,17 @@ The project needed:
 
 1. real runtime path
 2. real inspectability
-3. only later restrictive policy tightening
+3. only later broader restrictive policy tightening
+
+### Current enforced delete rule
+
+Current runtime now enforces:
+
+- object creator may delete their own object
+- room creator may delete any board object in that room
+- other participants may not delete someone else's board object
+
+This is currently implemented as a narrow room-to-object creator override, not as a general nested-entity inheritance engine.
 
 ## 7. Inspectability
 
@@ -153,7 +164,7 @@ Current governance runtime is inspectable in Dev tools.
 The current `Governance` block in Dev tools exposes:
 
 - room governance summary
-- selected-object governance summary
+- selected-object delete governance summary
 - recent action resolution trace
 
 This exists because governance runtime is otherwise mostly invisible while policy remains permissive.
@@ -171,6 +182,10 @@ Room runtime governance currently interacts with room metadata through:
 - `RoomRecord.creatorId`
 
 Creator semantics are real runtime inputs, but current permissive runtime does not yet tighten access based on creator-specific policy.
+
+Current exception:
+
+- `board-object.delete` now uses object creator semantics plus a room-creator override
 
 ## 9. Rules for future implementation passes
 

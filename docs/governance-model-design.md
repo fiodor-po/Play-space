@@ -225,6 +225,16 @@ Current runtime classification matrix remains documented in:
 
 That runtime matrix should move here only when policy decisions become canonical rather than provisional/permissive rollout details.
 
+### First real policy now fixed
+
+The first restrictive governance policy now fixed in the project is:
+
+#### Object delete policy
+
+| Entity type | Action | Required access | Notes |
+| --- | --- | --- | --- |
+| any current board object | `board-object.delete` | `full` | object creator may delete own object; room creator may delete any room object; other participants may not delete another participant's object |
+
 ## 8. Room/object policy structure
 
 Governance policy in this project should be structured in this order:
@@ -256,6 +266,15 @@ Object policy should describe:
 - object-scoped actions
 - object-level effective access resolution
 - whether object creator semantics matter in policy
+
+Current real policy direction already includes one explicit parent-to-child creator rule in the currently real scope:
+
+- room creator may receive `full` delete access for room objects
+
+This is not yet a general nested-entity inheritance system.
+It is a narrow current rule for:
+
+- room -> room objects
 
 ## 9. Rules for adding new governed actions
 
@@ -290,6 +309,11 @@ This document intentionally defers:
 - exceptions by future object types
 
 These are future policy/design passes.
+
+Important nuance:
+
+- the first restrictive delete policy now exists
+- but broad room/object policy is still intentionally incomplete
 
 ## 11. Relationship to other docs
 

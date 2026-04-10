@@ -499,11 +499,21 @@ export default function BoardStage({
       return null;
     }
 
+    const isRoomCreatorOverride =
+      !!roomCreatorId && roomCreatorId === participantSession.id;
+
     const resolution = resolveGovernedActionAccess({
       entity: createBoardObjectGovernedEntityRef(object),
       actionKey,
       participantId: participantSession.id,
-      defaultAccessLevel: "full",
+      explicitAccessLevel:
+        actionKey === "board-object.delete" && isRoomCreatorOverride
+          ? "full"
+          : undefined,
+      creatorAccessLevel:
+        actionKey === "board-object.delete" ? "full" : undefined,
+      defaultAccessLevel:
+        actionKey === "board-object.delete" ? "none" : "full",
     });
 
     recordGovernanceResolution(resolution);
@@ -1848,11 +1858,16 @@ export default function BoardStage({
 
     return resolveGovernedActionAccess({
       entity: createBoardObjectGovernedEntityRef(selectedObject),
-      actionKey: "board-object.edit",
+      actionKey: "board-object.delete",
       participantId: participantSession.id,
-      defaultAccessLevel: "full",
+      explicitAccessLevel:
+        !!roomCreatorId && roomCreatorId === participantSession.id
+          ? "full"
+          : undefined,
+      creatorAccessLevel: "full",
+      defaultAccessLevel: "none",
     });
-  }, [objects, participantSession.id, selectedObjectId]);
+  }, [objects, participantSession.id, roomCreatorId, selectedObjectId]);
 
   const editingTextareaStyle = useMemo(() => {
     if (!editingTextCard) {
@@ -2163,6 +2178,8 @@ export default function BoardStage({
                   {governanceSelectedObjectSummary.entity.entityType}
                   {" · "}
                   access {governanceSelectedObjectSummary.effectiveAccess?.accessLevel ?? "none"}
+                  {" · "}
+                  delete {governanceSelectedObjectSummary.isAllowed ? "allowed" : "blocked"}
                 </div>
               ) : (
                 <div style={{ color: "#94a3b8" }}>Selected object: none</div>
