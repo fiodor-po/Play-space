@@ -19,6 +19,7 @@ import {
 } from "./lib/roomSession";
 import {
   createRoomBaselineDescriptor,
+  ensureRoomMemberRegistered,
   ensureRoomRecordInitialized,
   loadRoomRecord,
   markRoomBaselineApplied,
@@ -91,6 +92,22 @@ export default function App() {
       creatorId,
       baseline: DEFAULT_ROOM_BASELINE_DESCRIPTOR,
     });
+  };
+
+  const ensureJoinedRoomMemberRecord = (
+    roomId: string,
+    session: LocalParticipantSession
+  ) => {
+    const initializedRoomRecord = ensureInitializedRoomRecord(roomId, session.id);
+
+    return (
+      ensureRoomMemberRegistered({
+        roomId,
+        participantId: session.id,
+        displayName: session.name,
+        assignedColor: session.color,
+      }) ?? initializedRoomRecord
+    );
   };
 
   const handleRoomBaselineApplied = (
@@ -180,7 +197,7 @@ export default function App() {
     setDraftRoomId(trimmedRoomId);
     setActiveRoomId(trimmedRoomId);
     setIsInRoom(true);
-    setRoomRecord(ensureInitializedRoomRecord(trimmedRoomId, nextSession.id));
+    setRoomRecord(ensureJoinedRoomMemberRecord(trimmedRoomId, nextSession));
     setParticipantSession(nextSession);
     setLocalParticipantPresence(createLocalParticipantPresence(nextSession));
   };
@@ -244,7 +261,7 @@ export default function App() {
       return;
     }
 
-    setRoomRecord(ensureInitializedRoomRecord(activeRoomId, participantSession.id));
+    setRoomRecord(ensureJoinedRoomMemberRecord(activeRoomId, participantSession));
 
     const connection = createRoomPresenceConnection({
       onPresencesChange: setParticipantPresences,

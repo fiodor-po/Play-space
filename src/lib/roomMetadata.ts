@@ -182,6 +182,37 @@ export function upsertRoomMemberRecord(params: {
   return nextRecord;
 }
 
+export function ensureRoomMemberRegistered(params: {
+  roomId: string;
+  participantId: string;
+  displayName: string;
+  assignedColor: string;
+}): RoomRecord | null {
+  const existingRecord = loadRoomRecord(params.roomId);
+
+  if (!existingRecord) {
+    return null;
+  }
+
+  const existingMember = getRoomMemberRecord(
+    existingRecord,
+    params.participantId
+  );
+  const nextMember = createRoomMemberRecord({
+    participantId: params.participantId,
+    displayName: params.displayName,
+    assignedColor: params.assignedColor,
+    joinedAt: existingMember?.joinedAt ?? Date.now(),
+    lastSeenAt: Date.now(),
+    isRoomCreator: existingRecord.creatorId === params.participantId,
+  });
+
+  return upsertRoomMemberRecord({
+    roomId: params.roomId,
+    member: nextMember,
+  });
+}
+
 export function loadRoomRecord(roomId: string): RoomRecord | null {
   const raw = localStorage.getItem(getRoomMetadataStorageKey(roomId));
 
