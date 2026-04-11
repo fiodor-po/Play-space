@@ -696,6 +696,7 @@ export default function BoardStage({
   const snapshotRecoveryAttemptedRoomRef = useRef<number | null>(null);
   const [resolvedSnapshotBootstrapRoomId, setResolvedSnapshotBootstrapRoomId] =
     useState<string | null>(null);
+  const [durableSnapshotRetryNonce, setDurableSnapshotRetryNonce] = useState(0);
   const durableSnapshotRevisionRef = useRef<number | null>(null);
   const pendingDurableSnapshotSaveKeyRef = useRef<string | null>(null);
   const lastSavedDurableSnapshotKeyRef = useRef<string | null>(null);
@@ -1141,6 +1142,9 @@ export default function BoardStage({
 
       if (result.status === "conflict") {
         durableSnapshotRevisionRef.current = result.currentRevision;
+        if (result.currentRevision !== null) {
+          setDurableSnapshotRetryNonce((value) => value + 1);
+        }
         return;
       }
 
@@ -1162,6 +1166,7 @@ export default function BoardStage({
   }, [
     drawingImageId,
     draggingImageId,
+    durableSnapshotRetryNonce,
     hasSharedRoomContentLoaded,
     objects,
     resolvedSnapshotBootstrapRoomId,
