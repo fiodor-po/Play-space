@@ -1,4 +1,5 @@
 import type { BoardObject, ViewportState } from "../types/board";
+import { normalizeTokenObject } from "../board/objects/token/createTokenObject";
 
 export const BOARD_STORAGE_KEY = "play-space-alpha-board-v1";
 export const VIEWPORT_STORAGE_KEY = "play-space-alpha-viewport-v1";
@@ -23,7 +24,7 @@ export function loadBoardObjects(roomId: string, fallback: BoardObject[]) {
   }
 
   try {
-    return JSON.parse(raw) as BoardObject[];
+    return normalizeTokenObjects(JSON.parse(raw) as BoardObject[]);
   } catch {
     return fallback;
   }
@@ -99,7 +100,9 @@ export function loadRoomSnapshot(roomId: string): RoomSnapshot | null {
       savedAt:
         typeof parsed.savedAt === "number" ? parsed.savedAt : Date.now(),
       tokens: Array.isArray(parsed.tokens)
-        ? parsed.tokens.filter((object) => object?.kind === "token")
+        ? normalizeTokenObjects(
+            parsed.tokens.filter((object) => object?.kind === "token")
+          )
         : [],
       images: Array.isArray(parsed.images)
         ? parsed.images.filter((object) => object?.kind === "image")
@@ -137,12 +140,20 @@ export function loadRoomTokenObjects(
   }
 
   try {
-    return (JSON.parse(raw) as BoardObject[]).filter(
-      (object) => object.kind === "token"
+    return normalizeTokenObjects(
+      (JSON.parse(raw) as BoardObject[]).filter(
+        (object) => object.kind === "token"
+      )
     );
   } catch {
     return fallback.filter((object) => object.kind === "token");
   }
+}
+
+function normalizeTokenObjects(objects: BoardObject[]) {
+  return objects.map((object) =>
+    object.kind === "token" ? normalizeTokenObject(object) : object
+  );
 }
 
 export function saveRoomTokenObjects(roomId: string, objects: BoardObject[]) {

@@ -2888,6 +2888,7 @@ export default function BoardStage({
                 <TokenRenderer
                   key={object.id}
                   object={object}
+                  stageScale={stageScale}
                   isSelected={isSelected}
                   selectionColor={currentUserColor}
                   fillColor={getTokenFillColor(object)}

@@ -1,9 +1,10 @@
-import { Group, Rect, Text } from "react-konva";
+import { Circle, Group } from "react-konva";
 import type { KonvaEventObject } from "konva/lib/Node";
 import type { BoardObject } from "../../../types/board";
 
 type TokenRendererProps = {
   object: BoardObject;
+  stageScale: number;
   isSelected: boolean;
   selectionColor: string;
   fillColor: string;
@@ -18,6 +19,7 @@ type TokenRendererProps = {
 
 export function TokenRenderer({
   object,
+  stageScale,
   isSelected,
   selectionColor,
   fillColor,
@@ -29,10 +31,15 @@ export function TokenRenderer({
   onHoverMove,
   onHoverEnd,
 }: TokenRendererProps) {
+  const radius = Math.min(object.width, object.height) / 2;
+  const bodyRadius = Math.max(radius - 3, 8);
+
   return (
     <Group
       x={object.x}
       y={object.y}
+      scaleX={1 / stageScale}
+      scaleY={1 / stageScale}
       draggable
       onMouseDown={onSelect}
       onDragStart={onDragStart}
@@ -43,32 +50,41 @@ export function TokenRenderer({
       onMouseLeave={onHoverEnd}
     >
       {isSelected && (
-        <Rect
-          x={-4}
-          y={-4}
-          width={object.width + 8}
-          height={object.height + 8}
+        <Circle
+          x={0}
+          y={0}
+          radius={radius + 5}
           stroke={selectionColor}
           strokeWidth={3}
           listening={false}
         />
       )}
 
-      <Rect
-        width={object.width}
-        height={object.height}
-        fill={fillColor}
-        shadowBlur={8}
+      <Circle
+        x={0}
+        y={0}
+        radius={radius}
+        fill="rgba(248, 250, 252, 0.16)"
+        listening={false}
       />
 
-      <Text
+      <Circle
         x={0}
-        y={object.height / 2 - 12}
-        width={object.width}
-        align="center"
-        text={object.label}
-        fontSize={24}
-        fill={object.textColor ?? "#f8fafc"}
+        y={0}
+        radius={bodyRadius}
+        fill={fillColor}
+        stroke="rgba(248, 250, 252, 0.92)"
+        strokeWidth={2}
+        shadowBlur={8}
+        shadowColor="rgba(15, 23, 42, 0.45)"
+      />
+
+      <Circle
+        x={0}
+        y={0}
+        radius={Math.max(radius * 0.3, 6)}
+        fill="rgba(248, 250, 252, 0.95)"
+        listening={false}
       />
     </Group>
   );

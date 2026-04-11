@@ -1,6 +1,7 @@
 import * as Y from "yjs";
 import { WebsocketProvider } from "y-websocket";
 import type { BoardObject } from "../types/board";
+import { normalizeTokenObject } from "../board/objects/token/createTokenObject";
 import { getRealtimeServerWsUrl } from "./runtimeConfig";
 
 export type RoomTokenConnection = {
@@ -118,7 +119,7 @@ function getTokensFromMap(tokenMap: Y.Map<string>) {
       const token = JSON.parse(value) as BoardObject;
 
       if (token.kind === "token") {
-        tokens.push(token);
+        tokens.push(normalizeTokenObject(token));
       }
     } catch {
       return;

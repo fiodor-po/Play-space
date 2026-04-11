@@ -15,6 +15,7 @@ export type BoardObject = {
   y: number;
   width: number;
   height: number;
+  anchorPosition?: "top-left" | "center";
   fill: string;
   label: string;
   authorColor?: string;

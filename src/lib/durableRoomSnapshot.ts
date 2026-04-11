@@ -1,4 +1,5 @@
 import type { BoardObject } from "../types/board";
+import { normalizeTokenObject } from "../board/objects/token/createTokenObject";
 import { getApiServerBaseUrl } from "./runtimeConfig";
 
 export type DurableRoomSnapshot = {
@@ -164,7 +165,9 @@ function normalizeDurableRoomSnapshot(
         ? snapshot.savedAt
         : new Date(0).toISOString(),
     tokens: Array.isArray(snapshot.tokens)
-      ? snapshot.tokens.filter((object) => object?.kind === "token")
+      ? snapshot.tokens
+          .filter((object) => object?.kind === "token")
+          .map((object) => normalizeTokenObject(object as BoardObject))
       : [],
     images: Array.isArray(snapshot.images)
       ? snapshot.images.filter((object) => object?.kind === "image")
