@@ -475,7 +475,157 @@ Design intent:
 
 - same semantic family should not drift into one-off local variants.
 
-## 10. What should explicitly not become an indication by default
+## 10. Cross-user action visibility
+
+This section defines how one participant's actions should become visible and understandable to other participants.
+
+The goal is multiplayer readability, not narration.
+
+### 10.1. Which participant actions should be visible to others by default
+
+These participant actions should be visible to others by default:
+
+- active manipulation of shared objects;
+- active editing/drawing on shared objects;
+- transient previews of soon-to-be-committed shared actions;
+- occupied/blocked conditions caused by another participant's current action;
+- consequential room-level actions when they change what others can do or trust.
+
+These should not become visible by default just because they happen:
+
+- every hover;
+- every tentative local draft;
+- every internal tool toggle;
+- every blocked attempt that never affects shared understanding;
+- every implementation-level transition.
+
+### 10.2. When only the result is enough vs when the live process should be visible
+
+Only the result is enough when:
+
+- the process does not affect coordination while it is happening;
+- other participants do not need to react during the action;
+- the committed state is the only meaningful thing.
+
+Examples:
+
+- completed rename after commit;
+- completed content edit once saved;
+- finished room-level change if no live intervention mattered.
+
+The live process should be visible when:
+
+- others need to understand what is happening right now;
+- the action temporarily changes availability or spatial understanding;
+- hiding the process would make the room feel confusing or misleading.
+
+Examples:
+
+- remote dragging/resizing preview;
+- another participant currently editing a text card;
+- another participant currently drawing on an image;
+- an object currently occupied/blocked by someone else.
+
+### 10.3. What another participant should understand from a cross-user action signal
+
+A cross-user action signal should communicate, in the smallest useful form:
+
+- who is acting;
+- with what;
+- what they are doing;
+- whether it is happening now or just happened.
+
+In practice:
+
+- participant identity usually comes from participant color and, when needed, a short participant label;
+- the affected object or room surface should be legible from placement/context;
+- the action type should be clear from the signal family or short text;
+- the lifetime/weight should distinguish live action from completed consequence.
+
+### 10.4. Live visibility vs post-action visibility
+
+Live visibility:
+
+- is for actions currently in progress;
+- should be spatial and attached to the thing being affected when possible;
+- should answer "what is happening right now?"
+
+Post-action visibility:
+
+- is for consequential completed actions;
+- should be short-lived unless the resulting state itself persists;
+- should answer "what just changed?"
+
+Recommended rule:
+
+- prefer live visibility for coordination-sensitive actions;
+- prefer result-only visibility for low-coordination actions;
+- use post-action cues only when the consequence matters and is not obvious enough from the new state alone.
+
+### 10.5. Audience model for cross-user action cues
+
+Cross-user action visibility should still obey the broader audience model in this document.
+
+Typical mapping:
+
+- `all participants`
+  - active object interaction
+  - previews
+  - occupied states
+  - room-wide consequential actions
+- `involved participants only`
+  - claim-race loss
+  - blocked retries
+  - participant-specific action failure detail
+- `local only`
+  - local pending action detail before it becomes shared truth
+- `dev-only`
+  - governance/runtime reasoning behind what happened
+
+### 10.6. Truthfulness requirements
+
+If another participant sees a signal as room truth, it must come from actual shared/live state, not local guesswork.
+
+#### Shared-state truth
+
+Committed results must reflect real shared room state.
+
+Post-action visibility must not imply a committed result that did not actually land.
+
+#### Temporary live state
+
+Live action visibility may use ephemeral realtime signals, but it must still represent a real current action.
+
+Previews, locks, occupied states, and similar cues should come from actual live coordination state.
+
+#### Local guess / speculative UI
+
+Local speculation is acceptable only for clearly local pre-commit guidance.
+
+It is not acceptable when shown to others as if it were shared truth.
+
+Especially unacceptable as speculative cross-user truth:
+
+- occupancy;
+- action blocking;
+- active room availability;
+- claimed/held resources;
+- completed-action claims.
+
+### 10.7. What should explicitly not become cross-user-visible by default
+
+Do not make these cross-user-visible by default:
+
+- every local intention before it matters;
+- every intermediate draft with no coordination impact;
+- every internal retry/failure;
+- every governance/internal runtime detail;
+- every background tab/process detail;
+- every action history event as a feed.
+
+The room should feel readable, not narrated.
+
+## 11. What should explicitly not become an indication by default
 
 Do not indicate by default:
 
@@ -488,7 +638,7 @@ Do not indicate by default:
 
 The project should not become a "signal everything" interface.
 
-## 11. Rules for future indication work
+## 12. Rules for future indication work
 
 When adding or changing an indication:
 
@@ -507,7 +657,7 @@ as equivalent to:
 
 - "this deserves a product indication."
 
-## 12. What is intentionally left for later
+## 13. What is intentionally left for later
 
 Left for later:
 
