@@ -1,178 +1,136 @@
-# ExecPlan — Room Member Registry and Unique Room Colors
+# ExecPlan — Room Color Defaults and 8-Seat Active Color Blocking
 
 ## 1. Goal
 
-Introduce the smallest coherent architecture for room-scoped participant identity so that:
+Correct the room color/member chapter toward the current intended product rule:
 
-- participant colors become unique within a room;
-- colors remain stable over time within that room;
-- returning participants keep their assigned room color;
-- simultaneous color conflicts resolve correctly;
-- future host-facing room member surfaces can include offline members.
+- exactly 8 allowed participant colors;
+- at most 8 simultaneous active participants per room;
+- only currently active participants block colors;
+- offline participants do not reserve colors;
+- returning participants get their previous room color preselected if it is free;
+- returning participants may still choose another currently free color before join;
+- no generated overflow colors.
 
 ## 2. Why now
 
-This chapter is now necessary because participant color is already a meaningful product identity signal, and the project wants that signal to become room-stable and conflict-safe.
+The current code and docs moved partway into a heavier model:
 
-The current architecture can no longer get there with entry-time filtering or awareness presence alone.
+- persistent room member registry;
+- authoritative room-color assignment;
+- offline color reservation;
+- returning-member fixed-color behavior.
 
-Without this work:
+That is no longer the active direction.
 
-- simultaneous joins can still conflict;
-- offline returning members cannot keep reserved colors reliably;
-- future host/member tooling would rest on weak identity assumptions.
+The project now wants a lighter room-presence-driven model that is easier to explain and better matched to the current product stage.
 
 ## 3. Roadmap link
 
 Supports:
 
-- `ROADMAP.md` Phase B follow-up product hardening
-- P1/P2 style room lifecycle clarity and stronger multiplayer readability
-- future backlog area adjacent to room tools / governance / member surfaces
+- current multiplayer readability and room-entry clarity
+- a strict 8-color / 8-concurrent-user room model
+- a later narrow corrective runtime pass
 
-This work is not a full permissions/admin chapter.
-It is a room identity and room metadata chapter.
+This does not introduce:
+
+- host/member management UI
+- global identity/auth
+- heavy member ownership semantics
 
 ## 4. In scope
 
-In scope for the planned chapter:
+In scope for the corrected chapter:
 
-- room member registry data model
-- room-scoped color assignment model
-- join-time member resolution
-- simultaneous color conflict handling
-- offline member persistence
-- local participant session reconciliation to assigned room color
-- future room-members host surface implications
+- fixed 8-color palette
+- active-presence-driven color blocking
+- remembered previous room color for repeat joins
+- join-time selection of any currently free color
+- blocking join when all 8 active colors are occupied
+- narrowing room members to room history / remembered defaults
 
 Primary files/modules likely involved:
 
-- `src/lib/roomMetadata.ts`
 - `src/lib/roomSession.ts`
 - `src/lib/roomPresenceRealtime.ts`
 - `src/App.tsx`
-- current room docs and color docs
+- `src/lib/roomMetadata.ts`
+- current room/color docs
 
 ## 5. Out of scope
 
 Out of scope:
 
-- full account/auth system
+- host/member management UI
 - global cross-device identity guarantees
-- invitations
-- broad member-management UI
-- role system beyond current room creator semantics
-- unrelated header/panel redesign
-- broad rewrite of presence transport
+- offline color reservation
+- unlimited palette growth
+- generated overflow colors
+- broad account/auth work
+- broad room lifecycle redesign
 
-## 6. Current mechanism
+## 6. Superseded assumptions
 
-Current system shape:
+These are explicitly no longer the active direction:
 
-- local participant session lives in browser session storage
-- participant color is chosen locally and stored locally
-- live presence publishes the current participant color via awareness
-- room metadata stores creator/baseline state, but not members
-- awareness presence disappears on disconnect
-- no authoritative room-scoped member/color reservation exists
-
-Consequences:
-
-- entry-time filtering could only be advisory
-- simultaneous joins can race
-- offline members cannot reserve colors
-- returning participant color stability is only browser-local best effort
+- offline participants reserve colors
+- room-member `assignedColor` is a permanent room-ownership contract
+- returning participants should be locked back to their previous room color before join
+- palette growth beyond the fixed room palette is acceptable
+- future host/member surface is needed to justify the color system
 
 ## 7. Target mechanism
 
 Target mechanism:
 
-- room metadata includes a persistent room member registry
-- each room member has an assigned room color
-- that assigned color is unique within the room
-- local participant session is reconciled against the room member record
-- live presence publishes the resolved room color, not an arbitrary local choice
-- offline members remain in registry and keep their color reservation
+- room uses exactly 8 valid participant colors
+- active colors are derived from currently active room presence
+- only active participants block those colors
+- room member records may remain as room history / remembered defaults
+- previous room color is remembered for repeat joins, but not hard-owned
+- if remembered color is free, it is preselected
+- if remembered color is occupied, another free color is preselected
+- participant may choose any currently free color before join
+- if all 8 colors are occupied, joining is blocked
 
 Important architectural separation:
 
-- room member registry = room metadata / durable room identity layer
-- live presence = awareness-only current activity layer
-- local participant session = client-local cache of resolved room member identity
+- active presence = who is in the room right now and which colors are occupied
+- room members = room history / remembered defaults only
+- local participant session = local cache of identity and last chosen room color
 
-## 8. Migration plan
+## 8. Corrective migration plan
 
-### Phase 1 — Data model groundwork
+### Phase A — Docs correction
 
-Add room member registry types and storage helpers to room metadata without changing visible behavior yet.
+Correct the docs so they stop describing offline color reservation and authoritative permanent color ownership as the active direction.
 
-Safe outcome:
+### Phase B — Runtime softening
 
-- repo remains buildable
-- room metadata can represent members
-- existing room behavior remains unchanged
+Keep room member records, but reinterpret them as:
 
-### Phase 2 — Join-time member resolution
+- remembered room history
+- previous/default color memory
 
-At room join:
+and not as authoritative color owners.
 
-- resolve or create room member record by `participantId`
-- if record exists, reuse assigned color
-- if record does not exist, allocate first free color
-- persist result in room metadata
+### Phase C — Active blocking join path
 
-Safe outcome:
+At entry/join:
 
-- room color becomes authoritative at join time
-- no host UI required yet
+- derive occupied colors from active presence
+- preselect remembered previous color only if it is free
+- allow any currently free color to be chosen
+- block join if all 8 colors are occupied
 
-### Phase 3 — Conflict-safe color allocation
+### Phase D — Entry-screen truthfulness
 
-Make color allocation robust against simultaneous joins by reconciling proposed color against stored room member registry state.
+Update entry UI so:
 
-Rule:
-
-- first successful claim keeps color
-- later conflict gets next free color
-
-Safe outcome:
-
-- uniqueness is enforced by registry logic, not only entry UI
-
-### Phase 4 — Local/presence reconciliation
-
-After resolution:
-
-- update local participant session with assigned room color
-- publish resolved color to live presence
-- ensure current UI reads the resolved room color consistently
-
-Safe outcome:
-
-- presence, UI, and stored session agree on room identity color
-
-### Phase 5 — Entry-screen hints
-
-Only after authoritative registry logic exists:
-
-- expose used/reserved colors as advisory UI in room entry flow
-- present picker as preference hint rather than source of truth
-
-Safe outcome:
-
-- better UX without pretending the picker is authoritative
-
-### Phase 6 — Host-facing room members surface
-
-After registry logic is stable:
-
-- add a small room members surface for host/room creator
-- include offline members
-- possibly show assigned colors and member list
-
-Safe outcome:
-
-- host-facing surface rests on real member data rather than ephemeral presence
+- repeat joins show remembered previous color as a default, not a lock
+- blocked/occupied colors are derived from current active participants
+- no UI implies offline reservation
 
 ## 9. Validation
 
@@ -182,73 +140,56 @@ Implementation phases should validate with:
 
 Manual QA by phase:
 
-### After Phase 1
+### After Phase A
 
-- existing room join/leave flow still works
-- existing room metadata still loads for pre-member rooms
+- docs no longer mix old and new directions
+- 8-color / 8-active-user rule is recorded clearly
 
-### After Phase 2
+### After Phase B
 
-- joining a room creates/resolves a room member record
-- rejoining same room in same browser restores assigned color
+- room members still load safely from existing metadata
+- room history/defaults remain intact
+- offline members no longer act as active color blockers
 
-### After Phase 3
+### After Phase C
 
-- simultaneous joins do not end with the same assigned color
-- conflict resolution converges to distinct final colors
+- first-time join can choose any currently free color
+- repeat join preselects previous color only if free
+- active participants do not share a color
+- join is blocked when all 8 colors are occupied
 
-### After Phase 4
+### After Phase D
 
-- local session color matches resolved room color
-- live presence shows the resolved room color
-- returning participant keeps same room color
-
-### After Phase 5
-
-- entry screen hints match registry state
-- hints do not break if another participant joins concurrently
-
-### After Phase 6
-
-- room creator sees member list including offline members
-- colors shown there match assigned room colors
+- entry screen reflects active occupancy honestly
+- no UI implies permanent room-color ownership
 
 ## 10. Risks
 
 Key risks:
 
-- backwards compatibility for existing room metadata
-- palette exhaustion with current small color set
-- confusing distinction between local preferred color and resolved room color
-- race handling if storage/realtime update order is not explicit enough
-- overreaching into account/global identity work
+- mixing remembered defaults with active color blocking in the same UI
+- leaving current code half on the old authoritative model
+- not defining a clear behavior when all 8 colors are occupied
+- treating current room metadata as stronger than the new product rule intends
 
-Rollback points:
+Rollback point:
 
-- after Phase 1 types/storage only
-- after Phase 2 join-time registry without UI hints
-- after Phase 4 before host-facing member surface
+- after docs correction and before runtime behavior change
 
 ## 11. Stop conditions
 
 Stop and split the work if:
 
-- implementation starts requiring global auth/account assumptions
-- the room member registry starts implying a broad role/admin system
-- join-time reconciliation cannot be added without touching too many unrelated room bootstrap paths
-- host/member UI starts expanding beyond a small room-scoped member list
-- palette exhaustion forces a separate color-palette design chapter first
+- implementation starts drifting back toward offline reservation
+- the room member registry starts implying a broad member-management system
+- the 8-color / 8-concurrent-user rule stops being treated as strict
+- the work starts requiring host/member UI to make sense
 
 ## 12. Documentation updates
 
-If this plan lands, update:
+If this corrected plan lands, update:
 
-- `ROADMAP.md`
 - `play-space-alpha_current-context.md`
-- `play-space-alpha_case-study-log.md`
-- `docs/color-model-design.md`
-- `docs/room-behavior-spec.md`
-- `docs/room-memory-model.md`
+- `ROADMAP.md`
 - `docs/room-member-registry-design.md`
-
-If host/member surface becomes real later, also update any room-tools / governance-facing docs that mention room creator capabilities.
+- any room-entry/current-state docs that still imply permanent room-color ownership

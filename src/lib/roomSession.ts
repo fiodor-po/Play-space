@@ -16,6 +16,14 @@ export type ParticipantPresence = {
 
 export type ParticipantPresenceMap = Record<string, ParticipantPresence>;
 
+export type RoomOccupancy = {
+  participantId: string;
+  name: string;
+  color: string;
+};
+
+export type RoomOccupancyMap = Record<string, RoomOccupancy>;
+
 export type ActiveParticipantRoomSession = {
   participantId: string;
   roomId: string;
@@ -230,6 +238,16 @@ export function createLocalParticipantPresence(
     color: session.color,
     cursor: null,
     lastActiveAt: Date.now(),
+  };
+}
+
+export function createRoomOccupancy(
+  session: LocalParticipantSession
+): RoomOccupancy {
+  return {
+    participantId: session.id,
+    name: session.name,
+    color: session.color,
   };
 }
 

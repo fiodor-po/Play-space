@@ -140,6 +140,11 @@ Core hosted signal уже получен.
 - [ ] stronger room lifecycle clarity
 - [ ] better observability / support ergonomics
 - [ ] hosted deploy hardening only if product validation justifies it
+- [ ] behavior indication model chapter
+- [ ] cross-user action visibility model chapter
+- [ ] object-by-object review chapter
+- [ ] video / media layer review chapter
+- [ ] video presentation / frame composition chapter
 
 ## Parked / later
 
@@ -150,6 +155,42 @@ Core hosted signal уже получен.
 - [ ] broad type-model redesign
 - [ ] deeper board sync adapter work, если оно не становится blocker до hosted alpha
 - [ ] separate public/internal build split, only if snapshot demos stop being sufficient
+
+## 8.1. Next structured review chapters
+
+После текущего hosted-first validation цикла и связанных narrow stabilization passes
+следующий большой backlog now groups into three families:
+
+- **System models**
+  - behavior indication model
+  - cross-user action visibility model
+- **Object layer**
+  - object-by-object review
+- **Video layer**
+  - video / media layer review
+  - video presentation / frame composition
+
+Рекомендуемый порядок сейчас такой:
+
+1. behavior indication model
+2. cross-user action visibility model
+3. object-by-object review
+4. video / media layer review
+5. video presentation / frame composition
+
+Смысл этого порядка:
+
+- сначала собрать coherent signaling/readability system for the room;
+- потом проходить object layer уже against that clearer system model;
+- video layer разбирать после этого как отдельный room layer, а не как ещё один object family.
+
+Дополнительная заметка к будущему `object-by-object review`:
+
+- current object layer is structurally asymmetric in code;
+- `token` и `text-card` already exist as clearer object modules;
+- `image` is a first-class object family product-wise, but still remains more dispersed across `BoardStage`, `boardImage` helpers, and realtime image sync paths;
+- `drawing` currently behaves more like an image capability than a separate object family;
+- `dice` и `video/media` should be reviewed separately as non-object layers rather than forced into the same object-family bucket.
 
 ## 9. Open questions
 

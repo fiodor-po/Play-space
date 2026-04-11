@@ -11,6 +11,7 @@ import {
   clearActiveParticipantRoomSession,
   clearActiveRoomId,
   createLocalParticipantPresence,
+  createRoomOccupancy,
   getOrCreateBrowserParticipantId,
   getRoomIdFromLocation,
   loadActiveParticipantRoomSession,
@@ -37,6 +38,7 @@ import type {
   LocalParticipantSession,
   ParticipantPresence,
   ParticipantPresenceMap,
+  RoomOccupancyMap,
 } from "./lib/roomSession";
 import type { RoomBaselineDescriptor, RoomRecord } from "./lib/roomMetadata";
 import type {
@@ -52,6 +54,7 @@ const DEFAULT_ROOM_BASELINE_DESCRIPTOR: RoomBaselineDescriptor =
   });
 const JOIN_CLAIM_TTL_MS = 5000;
 const JOIN_CLAIM_SETTLE_MS = 220;
+const ENTRY_JOIN_FAILURE_CUE_MS = 4000;
 
 function loadParticipantDraftForRoom(roomId: string) {
   const savedSession = loadLocalParticipantSession(roomId);
@@ -89,6 +92,7 @@ export default function App() {
     useState<LocalParticipantSession | null>(() =>
       shouldRestoreJoinedRoom ? initialParticipantDraft.savedSession : null
     );
+  const [roomOccupancies, setRoomOccupancies] = useState<RoomOccupancyMap>({});
   const [participantPresences, setParticipantPresences] =
     useState<ParticipantPresenceMap>({});
   const [localParticipantPresence, setLocalParticipantPresence] =
@@ -103,16 +107,21 @@ export default function App() {
   );
   const [draftName, setDraftName] = useState(initialParticipantDraft.draftName);
   const [draftColor, setDraftColor] = useState(initialParticipantDraft.draftColor);
+  const [entryRoomOccupancies, setEntryRoomOccupancies] = useState<RoomOccupancyMap>(
+    {}
+  );
   const [entryParticipantPresences, setEntryParticipantPresences] =
     useState<ParticipantPresenceMap>({});
   const [entryJoinClaims, setEntryJoinClaims] = useState<JoinClaimMap>({});
   const [hasManualEntryColorChoice, setHasManualEntryColorChoice] = useState(false);
   const [isJoinPending, setIsJoinPending] = useState(false);
+  const [entryJoinFailureMessage, setEntryJoinFailureMessage] = useState<string | null>(null);
   const [isForegroundPresenceCarrier, setIsForegroundPresenceCarrier] = useState(() =>
     getIsForegroundPresenceCarrier()
   );
   const entryPresenceConnectionRef = useRef<RoomPresenceConnection | null>(null);
   const roomPresenceConnectionRef = useRef<RoomPresenceConnection | null>(null);
+  const entryRoomOccupanciesRef = useRef<RoomOccupancyMap>({});
   const entryParticipantPresencesRef = useRef<ParticipantPresenceMap>({});
   const entryJoinClaimsRef = useRef<JoinClaimMap>({});
 
@@ -140,26 +149,26 @@ export default function App() {
   };
 
   const getOccupiedParticipantColors = (
-    presences: ParticipantPresenceMap,
+    occupancies: RoomOccupancyMap,
     excludeParticipantId?: string
   ) => {
     return new Set(
-      Object.values(presences)
-        .filter((presence) => presence.participantId !== excludeParticipantId)
-        .map((presence) => presence.color)
+      Object.values(occupancies)
+        .filter((occupancy) => occupancy.participantId !== excludeParticipantId)
+        .map((occupancy) => occupancy.color)
         .filter((color) => PARTICIPANT_COLOR_OPTIONS.includes(color))
     );
   };
 
   const getWinningJoinClaimsByColor = (
     claims: JoinClaimMap,
-    presences: ParticipantPresenceMap
+    occupancies: RoomOccupancyMap
   ) => {
-    const activeParticipantIds = new Set(Object.keys(presences));
+    const occupiedParticipantIds = new Set(Object.keys(occupancies));
     const winningClaims: Record<string, JoinClaim> = {};
 
     Object.values(claims).forEach((claim) => {
-      if (activeParticipantIds.has(claim.participantId)) {
+      if (occupiedParticipantIds.has(claim.participantId)) {
         return;
       }
 
@@ -183,15 +192,26 @@ export default function App() {
   };
 
   const getEntryBlockedColors = (
-    presences: ParticipantPresenceMap,
+    occupancies: RoomOccupancyMap,
     claims: JoinClaimMap,
-    participantId?: string
+    options?: {
+      excludeJoinClaim?: JoinClaim | null;
+    }
   ) => {
-    const blockedColors = getOccupiedParticipantColors(presences, participantId);
-    const winningClaims = getWinningJoinClaimsByColor(claims, presences);
+    const blockedColors = getOccupiedParticipantColors(occupancies);
+    const winningClaims = getWinningJoinClaimsByColor(claims, occupancies);
 
     Object.entries(winningClaims).forEach(([color, claim]) => {
-      if (claim.participantId !== participantId) {
+      const excludedJoinClaim = options?.excludeJoinClaim;
+      const isExcludedJoinClaim =
+        !!excludedJoinClaim &&
+        claim.participantId === excludedJoinClaim.participantId &&
+        claim.roomId === excludedJoinClaim.roomId &&
+        claim.color === excludedJoinClaim.color &&
+        claim.requestedAt === excludedJoinClaim.requestedAt &&
+        claim.expiresAt === excludedJoinClaim.expiresAt;
+
+      if (!isExcludedJoinClaim) {
         blockedColors.add(color);
       }
     });
@@ -247,6 +267,7 @@ export default function App() {
     setIsInRoom(false);
     setParticipantSession(null);
     setLocalParticipantPresence(null);
+    setRoomOccupancies({});
     setParticipantPresences({});
     setRoomRecord(null);
   };
@@ -296,6 +317,10 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    entryRoomOccupanciesRef.current = entryRoomOccupancies;
+  }, [entryRoomOccupancies]);
+
+  useEffect(() => {
     entryParticipantPresencesRef.current = entryParticipantPresences;
   }, [entryParticipantPresences]);
 
@@ -304,17 +329,34 @@ export default function App() {
   }, [entryJoinClaims]);
 
   useEffect(() => {
+    if (!entryJoinFailureMessage) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setEntryJoinFailureMessage(null);
+    }, ENTRY_JOIN_FAILURE_CUE_MS);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [entryJoinFailureMessage]);
+
+  useEffect(() => {
     if (participantSession || !draftRoomId.trim()) {
       entryPresenceConnectionRef.current?.destroy();
       entryPresenceConnectionRef.current = null;
+      setEntryRoomOccupancies({});
       setEntryParticipantPresences({});
       setEntryJoinClaims({});
+      setEntryJoinFailureMessage(null);
       setIsJoinPending(false);
       return;
     }
 
     const entryRoomId = draftRoomId.trim();
     const connection = createRoomPresenceConnection({
+      onOccupanciesChange: setEntryRoomOccupancies,
       onPresencesChange: setEntryParticipantPresences,
       onJoinClaimsChange: setEntryJoinClaims,
       roomId: entryRoomId,
@@ -335,11 +377,13 @@ export default function App() {
       return;
     }
     setHasManualEntryColorChoice(false);
+    setEntryJoinFailureMessage(null);
   }, [draftRoomId, participantSession]);
 
   useEffect(() => {
     if (!isInRoom || !activeRoomId) {
       setRoomRecord(null);
+      setRoomOccupancies({});
       setParticipantPresences({});
       return;
     }
@@ -349,6 +393,7 @@ export default function App() {
       setParticipantSession(null);
       setRoomRecord(loadRoomRecord(activeRoomId));
       setLocalParticipantPresence(null);
+      setRoomOccupancies({});
       setParticipantPresences({});
       return;
     }
@@ -364,6 +409,7 @@ export default function App() {
     setLocalParticipantPresence(
       createLocalParticipantPresence(nextSession)
     );
+    setRoomOccupancies({});
     setParticipantPresences({});
   }, [activeRoomId, isInRoom]);
 
@@ -412,9 +458,8 @@ export default function App() {
       color: draftColor,
     };
     const blockedColors = getEntryBlockedColors(
-      entryParticipantPresencesRef.current,
-      entryJoinClaimsRef.current,
-      nextSessionDraft.id
+      entryRoomOccupanciesRef.current,
+      entryJoinClaimsRef.current
     );
 
     if (
@@ -434,21 +479,25 @@ export default function App() {
 
     const finalizeJoin = async () => {
       setIsJoinPending(true);
+      setEntryJoinFailureMessage(null);
       entryPresenceConnectionRef.current?.setLocalJoinClaim(joinClaim);
 
       await new Promise((resolve) => {
         window.setTimeout(resolve, JOIN_CLAIM_SETTLE_MS);
       });
 
-      const latestPresences = entryParticipantPresencesRef.current;
+      const latestOccupancies = entryRoomOccupanciesRef.current;
       const latestClaims = entryJoinClaimsRef.current;
       const latestBlockedColors = getEntryBlockedColors(
-        latestPresences,
+        latestOccupancies,
         latestClaims,
-        nextSessionDraft.id
+        {
+          excludeJoinClaim: joinClaim,
+        }
       );
       const winningClaim =
-        getWinningJoinClaimsByColor(latestClaims, latestPresences)[draftColor] ?? null;
+        getWinningJoinClaimsByColor(latestClaims, latestOccupancies)[draftColor] ??
+        null;
 
       if (
         latestBlockedColors.size >= PARTICIPANT_COLOR_OPTIONS.length ||
@@ -456,6 +505,9 @@ export default function App() {
         (winningClaim && winningClaim.participantId !== nextSessionDraft.id)
       ) {
         entryPresenceConnectionRef.current?.setLocalJoinClaim(null);
+        setEntryJoinFailureMessage(
+          "That color became unavailable while you were joining. Choose another free color and try again."
+        );
         setIsJoinPending(false);
         return;
       }
@@ -510,7 +562,7 @@ export default function App() {
       }
 
       const occupiedColors = getOccupiedParticipantColors(
-        participantPresences,
+        roomOccupancies,
         currentSession.id
       );
       if (
@@ -562,11 +614,13 @@ export default function App() {
     if (!isInRoom || !activeRoomId || !participantSession?.id) {
       roomPresenceConnectionRef.current?.destroy();
       roomPresenceConnectionRef.current = null;
+      setRoomOccupancies({});
       setParticipantPresences({});
       return;
     }
 
     const connection = createRoomPresenceConnection({
+      onOccupanciesChange: setRoomOccupancies,
       onPresencesChange: setParticipantPresences,
       roomId: activeRoomId,
     });
@@ -580,6 +634,20 @@ export default function App() {
       connection.destroy();
     };
   }, [activeRoomId, isInRoom, participantSession?.id]);
+
+  useEffect(() => {
+    if (!isInRoom || !participantSession) {
+      return;
+    }
+
+    const connection = roomPresenceConnectionRef.current;
+
+    if (!connection) {
+      return;
+    }
+
+    connection.setLocalOccupancy(createRoomOccupancy(participantSession));
+  }, [isInRoom, participantSession]);
 
   useEffect(() => {
     if (!isInRoom || !participantSession) {
@@ -615,7 +683,9 @@ export default function App() {
     !!roomCreatorId && roomCreatorId === participantSession?.id;
   const roomCreatorName =
     roomCreatorId && !isCurrentParticipantRoomCreator
-      ? participantPresences[roomCreatorId]?.name ?? null
+      ? roomOccupancies[roomCreatorId]?.name ??
+        participantPresences[roomCreatorId]?.name ??
+        null
       : null;
   const roomBaselineToApply =
     roomRecord?.initializedBaselineId &&
@@ -637,9 +707,8 @@ export default function App() {
       ? getRoomMemberRecord(entryRoomRecord, entrySavedSession.id)
       : null;
   const entryOccupiedColors = getEntryBlockedColors(
-    entryParticipantPresences,
-    entryJoinClaims,
-    entrySavedSession?.id
+    entryRoomOccupancies,
+    entryJoinClaims
   );
   const entryPreviousColor = returningRoomMember?.assignedColor ?? entrySavedSession?.color ?? null;
   const entrySuggestedColor = getFirstFreeParticipantColor(entryOccupiedColors, [
@@ -852,12 +921,38 @@ export default function App() {
                     Dashed swatches are currently occupied by active participants or active join claims.
                   </div>
                 ) : (
-                  <div style={{ fontSize: 12, color: "#fda4af" }}>
-                    All 8 participant colors are currently occupied. This room is full right now.
+                  <div
+                    style={{
+                      padding: "10px 12px",
+                      borderRadius: 10,
+                      border: "1px solid rgba(251, 113, 133, 0.35)",
+                      background: "rgba(127, 29, 29, 0.2)",
+                      fontSize: 12,
+                      fontWeight: 600,
+                      color: "#fecdd3",
+                    }}
+                  >
+                    Room full right now: all 8 participant colors are currently occupied.
                   </div>
                 )}
               </div>
             </div>
+
+            {entryJoinFailureMessage ? (
+              <div
+                style={{
+                  padding: "10px 12px",
+                  borderRadius: 10,
+                  border: "1px solid rgba(251, 191, 36, 0.35)",
+                  background: "rgba(120, 53, 15, 0.2)",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  color: "#fde68a",
+                }}
+              >
+                {entryJoinFailureMessage}
+              </div>
+            ) : null}
 
             <button
               type="submit"

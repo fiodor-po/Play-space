@@ -1700,3 +1700,255 @@ Fallback был зафиксирован как small custom controlled renderer
 - нужно подтвердить, одноразовый ли это Railway operational issue или recurring hosted constraint;
 - hosted video smoke по-прежнему не считается завершённым;
 - broader media polish по-прежнему не является текущим приоритетом.
+
+---
+
+## 2026-04-08 — Hosted video was unblocked without changing the hosted core split
+
+### Type
+- milestone
+- workflow
+
+### Context
+После hosted core checkpoint video path уже был технически валиден локально, но hosted enablement упёрся в Railway env/runtime visibility issue.
+
+### Goal or problem
+Нужно было включить hosted video как optional alpha layer, не превращая это в broad replanning of the hosted architecture и не ломая working core split.
+
+### What happened
+Вместо попытки перестраивать весь hosted shape был найден узкий practical unblock:
+
+- Vercel token fallback path подтвердился как working hosted solution;
+- hosted video заработал;
+- hosted core split при этом не пришлось менять.
+
+### Decision / change
+Был зафиксирован важный статусный вывод:
+
+- hosted video now works;
+- video остаётся optional alpha layer, а не новый broad media chapter;
+- first hosted checkpoint теперь честно мыслится как working hosted core + optional video.
+
+### Why
+Это позволило сохранить narrow hosted scope и не подменять узкий operational unblock unnecessary architecture motion.
+
+### Result
+Проект получил:
+
+- working hosted video path;
+- подтверждение, что LiveKit integration не была architectural dead end;
+- сильный workflow lesson про то, что перед live-debugging нужно сначала подтвердить commit / push / deploy state.
+
+### Workflow notes
+- hosted/debug work нельзя интерпретировать без уверенности, что нужный code state действительно попал в deploy;
+- узкий fallback path sometimes beats broader infra redesign at alpha stage.
+
+### Remaining limitations / open questions
+- media dock UX остаётся rough;
+- broader video/media product chapter по-прежнему deliberately deferred;
+- hosted stack всё ещё alpha checkpoint, а не production platform.
+
+---
+
+## 2026-04-09 — Room color model was corrected away from offline reservation and fixed around an 8-seat active-room model
+
+### Type
+- decision
+- milestone
+
+### Context
+После первых room-member/color passes проект начал дрейфовать в более тяжёлую модель:
+
+- offline color reservation;
+- authoritative permanent room-color ownership;
+- entry truthfulness around fixed returning-member colors.
+
+Это оказалось слишком тяжёлым и не совпадало с реальным product stage.
+
+### Goal or problem
+Нужно было вернуть color chapter к более лёгкой и честной multiplayer model:
+
+- enough structure for stable readable colors;
+- without durable offline reservation;
+- without heavy member-management semantics.
+
+### What happened
+Сначала был сделан explicit re-alignment pass на уровне docs и planning.
+
+После этого project direction был пересобран так:
+
+- exactly 8 allowed participant colors;
+- at most 8 simultaneous active participants;
+- only active participants block colors;
+- offline participants do not reserve colors;
+- repeat join should prefer previous color if free, not hard-own it.
+
+Потом runtime был скорректирован под эту модель:
+
+- active color occupancy moved to live room presence;
+- local mirror stopped being the authority for pre-join occupancy;
+- entry flow and join validation now rely on real live room state;
+- simple post-join silent recolor was explicitly rejected as the main fix.
+
+### Decision / change
+Color chapter больше не должен мыслиться как durable ownership system.
+Он теперь основан на:
+
+- active-room occupancy;
+- lightweight pre-join coordination;
+- soft remembered defaults;
+- fixed 8-seat room model.
+
+### Why
+Эта модель намного лучше совпала с реальным product shape:
+
+- small multiplayer rooms;
+- board-first readability;
+- no need for early heavy member/admin system;
+- no fake permanence where project does not yet support it honestly.
+
+### Result
+Проект получил:
+
+- более честную and narrower room-color model;
+- clearer separation between room history and active occupancy;
+- reduced semantic drift toward heavy membership semantics.
+
+### Remaining limitations / open questions
+- near-simultaneous same-color join race still needed a narrow dedicated fix;
+- participant identity substrate was still weaker than the room-member/history meaning layered on top of it.
+
+---
+
+## 2026-04-10 — Pre-join color claims and presence stabilization closed the main active-color race
+
+### Type
+- milestone
+- stabilization
+
+### Context
+После перехода на live room presence main stale-source bug ушёл, но два класса проблем всё ещё оставались:
+
+- presence lifecycle churn and heat / unstable leave behavior;
+- near-simultaneous duplicate-color race before join.
+
+### Goal or problem
+Нужно было:
+
+- стабилизировать room presence lifecycle;
+- убрать needless feedback loops;
+- и закрыть simple duplicate-color race без silent post-join recoloring.
+
+### What happened
+Сначала был сделан narrow stabilization pass:
+
+- убран main presence feedback loop in `App.tsx`;
+- reduced duplicate local presence publishing;
+- room presence teardown on `Leave room` became explicit;
+- entry observer overlap with in-room connection was reduced.
+
+После этого был добавлен temporary pre-join `joinClaim` mechanism:
+
+- claim lives in the same live room coordination layer;
+- active colors and short-lived claims both block selection;
+- `Join room` now briefly claims the selected color before final room entry;
+- claim clears on successful join or quickly expires on abandonment.
+
+### Decision / change
+Near-term duplicate-color prevention теперь строится на:
+
+- real live room presence;
+- temporary pre-join claims;
+- no offline reservation;
+- no silent post-join recolor as the main fix.
+
+### Why
+Это сохранило product honesty:
+
+- user sees the room state before join;
+- color conflict is resolved before room entry completes;
+- no heavy durable reservation system was required.
+
+### Result
+Проект получил:
+
+- stable enough room presence lifecycle for current alpha use;
+- working `Leave room` again after the churn fixes;
+- pre-join color blocking that now behaves plausibly even across two live clients.
+
+### Workflow notes
+- before fixing multiplayer race semantics, it was worth stabilizing the presence lifecycle itself;
+- real source-of-truth fixes beat UI hint polishing when duplicate active state is the actual bug.
+
+### Remaining limitations / open questions
+- the claim layer remains lightweight, not mathematically perfect transactional locking;
+- broader participant identity semantics still needed a dedicated chapter.
+
+---
+
+## 2026-04-11 — Participant identity was reframed as browser-local and then extended across tabs
+
+### Type
+- decision
+- milestone
+
+### Context
+После room-color and join-claim stabilization стало ясно, что participant/member semantics уже стали богаче, чем identity substrate beneath them. Identity всё ещё жила как tab-session accident in `sessionStorage`.
+
+### Goal or problem
+Нужно было:
+
+- explicitly define what “same participant” means now;
+- stop treating same-browser repeat join as accidental;
+- make multiple tabs of one browser profile stop behaving like multiple independent users.
+
+### What happened
+Сначала был сделан docs-first identity chapter:
+
+- same browser profile = same participant;
+- participant identity is browser-local, not name-based;
+- only the foreground/visible tab should act as the live participant carrier;
+- background tabs should be soft-suspended for active presence;
+- room-member history should be treated as best-effort browser-local history/defaults, not person-level truth.
+
+Потом identity runtime был tightened in small slices:
+
+1. `participantId` moved from tab-scoped persistence to browser-local persistence;
+2. only foreground/visible tab now publishes active presence;
+3. a shared browser-local active-room-session record was introduced so:
+   - one `participantId` owns one active room session across tabs;
+   - a new tab can attach to that session instead of running a fresh join flow;
+   - `Leave room` propagates across same-browser tabs.
+
+### Decision / change
+Current near-term identity model is now:
+
+- browser-local, not auth/account-based;
+- same browser profile = same participant;
+- one active room session per participant across tabs;
+- foreground tab carries live presence;
+- background tabs do not act like equal active participant carriers.
+
+### Why
+Это был smallest coherent fix:
+
+- much stronger than tab-scoped accidental identity;
+- much lighter than auth/accounts;
+- enough to stop duplicate self-joins, duplicate seat usage, and noisy same-browser presence behavior.
+
+### Result
+Проект получил:
+
+- stronger repeat-join semantics in the same browser profile;
+- cross-tab room-session coherence;
+- leave propagation across tabs;
+- more honest foundation for future room/member/history semantics.
+
+### Workflow notes
+- docs-first work turned out useful again: the project needed a clear product identity rule before touching runtime;
+- participant identity, active room session, and live presence carrier are related but should still be implemented as separate narrow slices.
+
+### Remaining limitations / open questions
+- stale active-room-session cleanup is still a likely future narrow follow-up;
+- cross-device identity remains explicitly out of scope;
+- full cross-tab UI mirroring remains unnecessary and deferred.

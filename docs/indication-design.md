@@ -127,6 +127,11 @@ Primary meaning:
 - what the room/session currently allows;
 - whether the state is blocking, temporary, or persistent.
 
+Rule:
+
+- explicit room/session cues should exist only for consequential states whose meaning is not already self-evident from the resulting room state;
+- if the consequence is already physically obvious from the room state itself, an extra room/session cue is not needed by default.
+
 ### D. Consequence signals
 
 Use when an action has meaningful consequence and the participant needs lightweight confirmation or warning.
@@ -255,6 +260,29 @@ Examples:
 - join failed;
 - reset completed;
 - degraded runtime trust condition.
+
+### Current room/session cue shortlist
+
+Keep now:
+
+- `room full`
+- `join failed because chosen color became unavailable`
+
+Keep later:
+
+- `degraded realtime/presence trust`
+
+Explicitly exclude for now:
+
+- `join pending`
+- `active session resumed in another tab`
+- `active session ended in another tab`
+- `reset board completed`
+- `reset board blocked`
+
+Reason:
+
+- these should not become explicit room/session cues by default unless their consequence is important and not already legible from the resulting room state itself.
 
 ## 5. Audience model
 

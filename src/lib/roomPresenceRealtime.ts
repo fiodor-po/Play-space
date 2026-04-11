@@ -1,6 +1,11 @@
 import * as Y from "yjs";
 import { WebsocketProvider } from "y-websocket";
-import type { ParticipantPresence, ParticipantPresenceMap } from "./roomSession";
+import type {
+  ParticipantPresence,
+  ParticipantPresenceMap,
+  RoomOccupancy,
+  RoomOccupancyMap,
+} from "./roomSession";
 import { getRealtimeServerWsUrl } from "./runtimeConfig";
 
 export type JoinClaim = {
@@ -14,17 +19,20 @@ export type JoinClaim = {
 export type JoinClaimMap = Record<string, JoinClaim>;
 
 type AwarenessState = {
+  occupancy?: RoomOccupancy | null;
   presence?: ParticipantPresence | null;
   joinClaim?: JoinClaim | null;
 };
 
 export type RoomPresenceConnection = {
   destroy: () => void;
+  setLocalOccupancy: (occupancy: RoomOccupancy | null) => void;
   setLocalPresence: (presence: ParticipantPresence | null) => void;
   setLocalJoinClaim: (claim: JoinClaim | null) => void;
 };
 
 export function createRoomPresenceConnection(params: {
+  onOccupanciesChange?: (occupancies: RoomOccupancyMap) => void;
   onPresencesChange: (presences: ParticipantPresenceMap) => void;
   onJoinClaimsChange?: (claims: JoinClaimMap) => void;
   roomId: string;
@@ -41,6 +49,7 @@ export function createRoomPresenceConnection(params: {
   const publishPresences = () => {
     const states = provider.awareness.getStates();
 
+    params.onOccupanciesChange?.(getRoomOccupanciesFromAwareness(states));
     params.onPresencesChange(getParticipantPresencesFromAwareness(states));
     params.onJoinClaimsChange?.(getJoinClaimsFromAwareness(states, params.roomId));
   };
@@ -63,6 +72,15 @@ export function createRoomPresenceConnection(params: {
       provider.destroy();
       doc.destroy();
     },
+    setLocalOccupancy: (occupancy) => {
+      const currentOccupancy = provider.awareness.getLocalState()?.occupancy ?? null;
+
+      if (areRoomOccupanciesEqual(currentOccupancy, occupancy)) {
+        return;
+      }
+
+      provider.awareness.setLocalStateField("occupancy", occupancy);
+    },
     setLocalPresence: (presence) => {
       const currentPresence = provider.awareness.getLocalState()?.presence ?? null;
 
@@ -82,6 +100,29 @@ export function createRoomPresenceConnection(params: {
       provider.awareness.setLocalStateField("joinClaim", claim);
     },
   };
+}
+
+function getRoomOccupanciesFromAwareness(
+  states: Map<number, AwarenessState>
+): RoomOccupancyMap {
+  const occupancies: RoomOccupancyMap = {};
+
+  states.forEach((state) => {
+    const occupancy = state.occupancy;
+
+    if (
+      !occupancy ||
+      !occupancy.participantId ||
+      !occupancy.name ||
+      !occupancy.color
+    ) {
+      return;
+    }
+
+    occupancies[occupancy.participantId] = occupancy;
+  });
+
+  return occupancies;
 }
 
 function getParticipantPresencesFromAwareness(
@@ -135,6 +176,25 @@ function getJoinClaimsFromAwareness(
   });
 
   return claims;
+}
+
+function areRoomOccupanciesEqual(
+  current: RoomOccupancy | null | undefined,
+  next: RoomOccupancy | null | undefined
+) {
+  if (!current && !next) {
+    return true;
+  }
+
+  if (!current || !next) {
+    return false;
+  }
+
+  return (
+    current.participantId === next.participantId &&
+    current.name === next.name &&
+    current.color === next.color
+  );
 }
 
 function areParticipantPresencesEqual(

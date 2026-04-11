@@ -55,10 +55,6 @@ export function TextCardRenderer({
   onHoverMove,
   onHoverEnd,
 }: TextCardRendererProps) {
-  const remoteEditingLabel = remoteEditingIndicator
-    ? `${remoteEditingIndicator.participantName} editing`
-    : null;
-
   return (
     <Group
       ref={onGroupRef}
@@ -92,7 +88,6 @@ export function TextCardRenderer({
           width={object.width}
           height={object.height}
           participantColor={remoteEditingIndicator.participantColor}
-          label={remoteEditingLabel ?? ""}
         />
       )}
 
