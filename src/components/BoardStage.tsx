@@ -1113,7 +1113,6 @@ export default function BoardStage({
 
     const durableSnapshotKey = JSON.stringify({
       roomId,
-      roomCreatorId,
       tokens: objects.filter((object) => object.kind === "token"),
       images: objects.filter((object) => object.kind === "image"),
       textCards: objects.filter((object) => isNoteCardObject(object)),
@@ -1133,10 +1132,7 @@ export default function BoardStage({
       const result = await saveDurableRoomSnapshot(
         roomId,
         objects,
-        durableSnapshotRevisionRef.current,
-        {
-          roomCreatorId,
-        }
+        durableSnapshotRevisionRef.current
       );
 
       if (isCancelled) {
@@ -1831,6 +1827,10 @@ export default function BoardStage({
       return;
     }
 
+    if (resolvedSnapshotBootstrapRoomId !== roomId) {
+      return;
+    }
+
     const participantMarkers = getParticipantMarkerTokens(
       objects,
       participantSession.id
@@ -1876,6 +1876,7 @@ export default function BoardStage({
     objects,
     participantSession.id,
     roomId,
+    resolvedSnapshotBootstrapRoomId,
     stagePosition.x,
     stagePosition.y,
     stageScale,

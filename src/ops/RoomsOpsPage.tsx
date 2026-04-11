@@ -266,10 +266,14 @@ export function RoomsOpsPage() {
 
       setRooms((currentRooms) =>
         currentRooms.map((room) =>
-          room.roomId === selectedRoomId
+            room.roomId === selectedRoomId
             ? {
                 ...room,
-                status: room.live.isActive ? "live-only" : "unknown",
+                status: room.live.isActive
+                  ? "live-only"
+                  : room.identity.exists
+                    ? "identity-only"
+                    : "unknown",
                 snapshot: {
                   exists: false,
                   revision: null,
@@ -291,7 +295,21 @@ export function RoomsOpsPage() {
       } else if (selectedRoomSummary) {
         setSelectedRoom({
           ...selectedRoomSummary,
-          status: selectedRoomSummary.live.isActive ? "live-only" : "unknown",
+          status: selectedRoomSummary.live.isActive
+            ? "live-only"
+            : selectedRoomSummary.identity.exists
+              ? "identity-only"
+              : "unknown",
+          identity: {
+            ...selectedRoomSummary.identity,
+            data: selectedRoomSummary.identity.exists
+              ? {
+                  roomId: selectedRoomSummary.roomId,
+                  creatorId: selectedRoomSummary.identity.creatorId,
+                  createdAt: selectedRoomSummary.identity.createdAt ?? new Date(0).toISOString(),
+                }
+              : null,
+          },
           snapshot: {
             exists: false,
             revision: null,
@@ -385,7 +403,7 @@ export function RoomsOpsPage() {
           <div>
             <div style={{ fontSize: 28, fontWeight: 800 }}>Room Ops</div>
             <div style={{ fontSize: 13, color: "#94a3b8" }}>
-              Backend-known rooms only. Live docs and durable snapshots are shown separately.
+              Backend-known rooms only. Durable identity, live docs, and durable snapshots are shown separately.
             </div>
           </div>
           <button
@@ -452,11 +470,12 @@ export function RoomsOpsPage() {
                   >
                     <div style={{ fontSize: 14, fontWeight: 700 }}>{room.roomId}</div>
                     <div style={mutedTextStyle}>
-                      {room.status} · live {room.live.activeConnectionCount} · snapshot rev{" "}
-                      {room.snapshot.revision ?? "none"}
+                      {room.status} · creator {room.identity.creatorId ?? "none"} · live{" "}
+                      {room.live.activeConnectionCount}
                     </div>
                     <div style={mutedTextStyle}>
-                      objects {room.snapshot.objectCounts.total} · images{" "}
+                      snapshot rev {room.snapshot.revision ?? "none"} · objects{" "}
+                      {room.snapshot.objectCounts.total} · images{" "}
                       {room.snapshot.objectCounts.images} · notes{" "}
                       {room.snapshot.objectCounts.textCards}
                     </div>
@@ -501,6 +520,10 @@ export function RoomsOpsPage() {
                 {detailError ? <div style={errorTextStyle}>{detailError}</div> : null}
 
                 <div style={statsGridStyle}>
+                  <InfoCard
+                    label="Identity"
+                    value={selectedRoom.identity.exists ? "present" : "none"}
+                  />
                   <InfoCard label="Live" value={selectedRoom.live.isActive ? "active" : "none"} />
                   <InfoCard
                     label="Connections"
@@ -510,10 +533,16 @@ export function RoomsOpsPage() {
                     label="Snapshot"
                     value={selectedRoom.snapshot.exists ? "present" : "none"}
                   />
-                  <InfoCard
-                    label="Revision"
-                    value={selectedRoom.snapshot.revision?.toString() ?? "none"}
-                  />
+                  <InfoCard label="Revision" value={selectedRoom.snapshot.revision?.toString() ?? "none"} />
+                </div>
+
+                <div style={{ display: "grid", gap: 8 }}>
+                  <div style={{ fontSize: 15, fontWeight: 700 }}>Durable identity</div>
+                  <div style={mutedTextStyle}>
+                    {selectedRoom.identity.exists
+                      ? `creator ${selectedRoom.identity.creatorId ?? "none"} · created ${selectedRoom.identity.createdAt ?? "unknown"}`
+                      : "No durable room identity stored."}
+                  </div>
                 </div>
 
                 <div style={{ display: "grid", gap: 8 }}>

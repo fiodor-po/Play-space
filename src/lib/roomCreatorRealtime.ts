@@ -1,6 +1,6 @@
 import * as Y from "yjs";
 import { WebsocketProvider } from "y-websocket";
-import { loadDurableRoomSnapshot } from "./durableRoomSnapshot";
+import { ensureDurableRoomIdentity } from "./durableRoomIdentity";
 import { getRealtimeServerWsUrl } from "./runtimeConfig";
 
 const ROOM_CREATOR_DOC_PREFIX = "play-space-alpha-room-state";
@@ -25,51 +25,81 @@ export function createRoomCreatorConnection(params: {
   );
   const roomState = doc.getMap<string | null>("room-state");
   let isDestroyed = false;
-  let hasAttemptedInitialization = false;
-
-  const publishCreatorId = () => {
-    params.onCreatorIdChange(readCreatorId(roomState));
+  let durableCreatorId: string | null = null;
+  let hasResolvedDurableIdentity = false;
+  let lastPublishedCreatorId: string | null | undefined;
+  const handleRoomStateChange = () => {
+    publishCreatorId();
+  };
+  const handleProviderSync = () => {
+    mirrorDurableCreatorToLiveRoomState();
+    publishCreatorId();
   };
 
-  const initializeCreatorIfMissing = async () => {
-    if (hasAttemptedInitialization || isDestroyed) {
+  const publishCreatorId = () => {
+    const nextCreatorId = readCreatorId(roomState) ?? durableCreatorId;
+
+    if (lastPublishedCreatorId === nextCreatorId) {
       return;
     }
 
-    hasAttemptedInitialization = true;
+    lastPublishedCreatorId = nextCreatorId;
+    params.onCreatorIdChange(nextCreatorId);
+  };
 
-    if (readCreatorId(roomState)) {
+  const mirrorDurableCreatorToLiveRoomState = () => {
+    if (
+      isDestroyed ||
+      !provider.synced ||
+      !hasResolvedDurableIdentity ||
+      !durableCreatorId
+    ) {
       return;
     }
 
-    const snapshot = await loadDurableRoomSnapshot(params.roomId);
-    const initialCreatorId =
-      snapshot?.roomCreatorId ?? params.participantId ?? null;
-
-    if (!initialCreatorId || isDestroyed || readCreatorId(roomState)) {
+    const liveCreatorId = readCreatorId(roomState);
+    if (liveCreatorId === durableCreatorId) {
       return;
     }
 
     doc.transact(() => {
-      if (!readCreatorId(roomState)) {
-        roomState.set(ROOM_CREATOR_KEY, initialCreatorId);
-      }
+      roomState.set(ROOM_CREATOR_KEY, durableCreatorId);
     });
   };
 
-  roomState.observe(publishCreatorId);
-  provider.on("sync", initializeCreatorIfMissing);
-  publishCreatorId();
+  const resolveDurableIdentity = async () => {
+    const identity = await ensureDurableRoomIdentity(params.roomId, {
+      creatorId: params.participantId,
+    });
+
+    if (isDestroyed) {
+      return;
+    }
+
+    durableCreatorId = identity?.creatorId ?? null;
+    hasResolvedDurableIdentity = true;
+    publishCreatorId();
+    mirrorDurableCreatorToLiveRoomState();
+  };
+
+  roomState.observe(handleRoomStateChange);
+  provider.on("sync", handleProviderSync);
+
+  if (readCreatorId(roomState)) {
+    publishCreatorId();
+  }
 
   if (provider.synced) {
-    void initializeCreatorIfMissing();
+    mirrorDurableCreatorToLiveRoomState();
   }
+
+  void resolveDurableIdentity();
 
   return {
     destroy: () => {
       isDestroyed = true;
-      roomState.unobserve(publishCreatorId);
-      provider.off("sync", initializeCreatorIfMissing);
+      roomState.unobserve(handleRoomStateChange);
+      provider.off("sync", handleProviderSync);
       provider.destroy();
       doc.destroy();
     },

@@ -23,13 +23,17 @@ const docs = new Map();
 const durableSnapshotStorePath =
   process.env.ROOM_SNAPSHOT_STORE_FILE ||
   path.join(process.cwd(), "data", "room-snapshots.json");
+const durableIdentityStorePath =
+  process.env.ROOM_IDENTITY_STORE_FILE ||
+  path.join(process.cwd(), "data", "room-identities.json");
 const opsKey = readEnvString("PLAY_SPACE_OPS_KEY");
 const ROOM_DOC_PREFIXES = {
   tokens: "play-space-alpha-tokens:",
   images: "play-space-alpha-images:",
   textCards: "play-space-alpha-text-cards:",
   presence: "play-space-alpha-presence:",
-} ;
+  roomState: "play-space-alpha-room-state:",
+};
 
 class WSSharedDoc extends Y.Doc {
   constructor(name) {
@@ -233,6 +237,9 @@ async function handleHttpRequest(req, res) {
   const snapshotRouteMatch = requestUrl.pathname.match(
     /^\/api\/room-snapshots\/([^/]+)$/
   );
+  const roomIdentityRouteMatch = requestUrl.pathname.match(
+    /^\/api\/room-identities\/([^/]+)$/
+  );
   const roomsRouteMatch = requestUrl.pathname === "/api/rooms";
   const roomDetailRouteMatch = requestUrl.pathname.match(/^\/api\/rooms\/([^/]+)$/);
   const roomSnapshotDeleteRouteMatch = requestUrl.pathname.match(
@@ -248,6 +255,7 @@ async function handleHttpRequest(req, res) {
     !snapshotRouteMatch &&
     !liveKitTokenRouteMatch &&
     !healthRouteMatch &&
+    !roomIdentityRouteMatch &&
     !clientResetPolicyRouteMatch &&
     !roomsRouteMatch &&
     !roomDetailRouteMatch &&
@@ -275,6 +283,7 @@ async function handleHttpRequest(req, res) {
         host,
         port,
         features: {
+          roomIdentity: true,
           roomSnapshots: true,
           liveKitTokenRoute: liveKitConfig.enabled,
         },
@@ -283,6 +292,7 @@ async function handleHttpRequest(req, res) {
           apiKeyPresent: liveKitConfig.apiKeyPresent,
           apiSecretPresent: liveKitConfig.apiSecretPresent,
         },
+        durableIdentityStorePath,
         durableSnapshotStorePath,
       })
     );
@@ -300,8 +310,9 @@ async function handleHttpRequest(req, res) {
       return;
     }
 
-    const store = await readDurableSnapshotStore();
-    const rooms = getRoomOpsSummaries(store);
+    const snapshotStore = await readDurableSnapshotStore();
+    const identityStore = await readDurableIdentityStore();
+    const rooms = getRoomOpsSummaries(identityStore, snapshotStore);
 
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ rooms }));
@@ -336,8 +347,9 @@ async function handleHttpRequest(req, res) {
     }
 
     const roomId = decodeURIComponent(roomDetailRouteMatch[1]);
-    const store = await readDurableSnapshotStore();
-    const room = getRoomOpsDetail(roomId, store);
+    const snapshotStore = await readDurableSnapshotStore();
+    const identityStore = await readDurableIdentityStore();
+    const room = getRoomOpsDetail(roomId, identityStore, snapshotStore);
 
     if (!room) {
       res.writeHead(404, { "Content-Type": "application/json" });
@@ -363,8 +375,9 @@ async function handleHttpRequest(req, res) {
 
     const roomId = decodeURIComponent(roomSnapshotDeleteRouteMatch[1]);
     const result = await deleteDurableRoomSnapshot(roomId);
-    const store = await readDurableSnapshotStore();
-    const room = getRoomOpsDetail(roomId, store);
+    const snapshotStore = await readDurableSnapshotStore();
+    const identityStore = await readDurableIdentityStore();
+    const room = getRoomOpsDetail(roomId, identityStore, snapshotStore);
 
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(
@@ -374,6 +387,44 @@ async function handleHttpRequest(req, res) {
         room,
       })
     );
+    return;
+  }
+
+  if (roomIdentityRouteMatch) {
+    const roomId = decodeURIComponent(roomIdentityRouteMatch[1]);
+
+    if (req.method === "GET") {
+      const identity = await readDurableRoomIdentity(roomId);
+
+      if (!identity) {
+        res.writeHead(404, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ identity: null }));
+        return;
+      }
+
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ identity }));
+      return;
+    }
+
+    if (req.method === "PUT") {
+      const body = await readJsonBody(req);
+
+      if (!body || typeof body !== "object") {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Invalid JSON body" }));
+        return;
+      }
+
+      const identity = await ensureDurableRoomIdentity(roomId, body);
+
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ identity }));
+      return;
+    }
+
+    res.writeHead(405, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ error: "Method not allowed" }));
     return;
   }
 
@@ -546,6 +597,47 @@ async function deleteDurableRoomSnapshot(roomId) {
   return { deleted: true };
 }
 
+async function readDurableRoomIdentity(roomId) {
+  const store = await readDurableIdentityStore();
+  const identity = store[roomId];
+
+  if (!identity || typeof identity !== "object") {
+    return null;
+  }
+
+  return normalizeDurableRoomIdentity(roomId, identity);
+}
+
+async function ensureDurableRoomIdentity(roomId, body) {
+  const identityStore = await readDurableIdentityStore();
+  const existingIdentity = normalizeDurableRoomIdentity(
+    roomId,
+    identityStore[roomId]
+  );
+
+  if (existingIdentity) {
+    return existingIdentity;
+  }
+
+  const snapshotStore = await readDurableSnapshotStore();
+  const snapshot = normalizeDurableRoomSnapshot(roomId, snapshotStore[roomId]);
+  const requestedCreatorId =
+    typeof body.creatorId === "string" && body.creatorId.trim().length > 0
+      ? body.creatorId.trim()
+      : null;
+  const creatorId = snapshot?.roomCreatorId ?? requestedCreatorId ?? null;
+
+  const nextIdentity = {
+    roomId,
+    creatorId,
+    createdAt: new Date().toISOString(),
+  };
+
+  identityStore[roomId] = nextIdentity;
+  await writeDurableIdentityStore(identityStore);
+  return nextIdentity;
+}
+
 async function readDurableSnapshotStore() {
   try {
     const raw = await fs.readFile(durableSnapshotStorePath, "utf8");
@@ -561,6 +653,21 @@ async function readDurableSnapshotStore() {
   }
 }
 
+async function readDurableIdentityStore() {
+  try {
+    const raw = await fs.readFile(durableIdentityStorePath, "utf8");
+
+    return JSON.parse(raw);
+  } catch (error) {
+    if (error && typeof error === "object" && "code" in error && error.code === "ENOENT") {
+      return {};
+    }
+
+    console.error("Failed to read durable room identity store", error);
+    return {};
+  }
+}
+
 async function writeDurableSnapshotStore(store) {
   try {
     await fs.mkdir(path.dirname(durableSnapshotStorePath), { recursive: true });
@@ -571,6 +678,20 @@ async function writeDurableSnapshotStore(store) {
     );
   } catch (error) {
     console.error("Failed to write durable room snapshot store", error);
+    throw error;
+  }
+}
+
+async function writeDurableIdentityStore(store) {
+  try {
+    await fs.mkdir(path.dirname(durableIdentityStorePath), { recursive: true });
+    await fs.writeFile(
+      durableIdentityStorePath,
+      JSON.stringify(store, null, 2),
+      "utf8"
+    );
+  } catch (error) {
+    console.error("Failed to write durable room identity store", error);
     throw error;
   }
 }
@@ -610,6 +731,24 @@ function normalizeDurableRoomSnapshot(roomId, snapshot) {
     tokens: normalizeRoomObjects(snapshot.tokens, "token"),
     images: normalizeRoomObjects(snapshot.images, "image"),
     textCards: normalizeRoomObjects(snapshot.textCards, "note-card"),
+  };
+}
+
+function normalizeDurableRoomIdentity(roomId, identity) {
+  if (!identity || typeof identity !== "object" || identity.roomId !== roomId) {
+    return null;
+  }
+
+  return {
+    roomId,
+    creatorId:
+      typeof identity.creatorId === "string" && identity.creatorId.trim().length > 0
+        ? identity.creatorId.trim()
+        : null,
+    createdAt:
+      typeof identity.createdAt === "string"
+        ? identity.createdAt
+        : new Date(0).toISOString(),
   };
 }
 
@@ -660,22 +799,23 @@ function readHeaderString(req, name) {
   return "";
 }
 
-function getRoomOpsSummaries(snapshotStore) {
-  return getBackendKnownRoomIds(snapshotStore).map((roomId) =>
-    buildRoomOpsSummary(roomId, snapshotStore)
+function getRoomOpsSummaries(identityStore, snapshotStore) {
+  return getBackendKnownRoomIds(identityStore, snapshotStore).map((roomId) =>
+    buildRoomOpsSummary(roomId, identityStore, snapshotStore)
   );
 }
 
-function getRoomOpsDetail(roomId, snapshotStore) {
-  const knownRoomIds = getBackendKnownRoomIds(snapshotStore);
+function getRoomOpsDetail(roomId, identityStore, snapshotStore) {
+  const knownRoomIds = getBackendKnownRoomIds(identityStore, snapshotStore);
 
   if (!knownRoomIds.includes(roomId)) {
     return null;
   }
 
-  const summary = buildRoomOpsSummary(roomId, snapshotStore);
+  const summary = buildRoomOpsSummary(roomId, identityStore, snapshotStore);
   const liveSlices = getLiveRoomSlices(roomId);
   const snapshot = normalizeDurableRoomSnapshot(roomId, snapshotStore[roomId] ?? null);
+  const identity = normalizeDurableRoomIdentity(roomId, identityStore[roomId] ?? null);
 
   return {
     ...summary,
@@ -687,11 +827,18 @@ function getRoomOpsDetail(roomId, snapshotStore) {
       ...summary.snapshot,
       data: snapshot,
     },
+    identity: {
+      ...summary.identity,
+      data: identity,
+    },
   };
 }
 
-function getBackendKnownRoomIds(snapshotStore) {
-  const roomIds = new Set(Object.keys(snapshotStore));
+function getBackendKnownRoomIds(identityStore, snapshotStore) {
+  const roomIds = new Set(Object.keys(identityStore));
+  Object.keys(snapshotStore).forEach((roomId) => {
+    roomIds.add(roomId);
+  });
 
   docs.forEach((_, docName) => {
     const parsed = parseRoomDocName(docName);
@@ -704,9 +851,10 @@ function getBackendKnownRoomIds(snapshotStore) {
   return Array.from(roomIds).sort((left, right) => left.localeCompare(right));
 }
 
-function buildRoomOpsSummary(roomId, snapshotStore) {
+function buildRoomOpsSummary(roomId, identityStore, snapshotStore) {
   const liveSlices = getLiveRoomSlices(roomId);
   const snapshot = normalizeDurableRoomSnapshot(roomId, snapshotStore[roomId] ?? null);
+  const identity = normalizeDurableRoomIdentity(roomId, identityStore[roomId] ?? null);
   const presenceSlice =
     liveSlices.find((slice) => slice.kind === "presence") ?? null;
   const fallbackConnectionCount = liveSlices.reduce(
@@ -719,9 +867,15 @@ function buildRoomOpsSummary(roomId, snapshotStore) {
   return {
     roomId,
     status: getRoomOpsStatus({
+      hasIdentity: !!identity,
       hasLive: liveSlices.length > 0,
       hasSnapshot: !!snapshot,
     }),
+    identity: {
+      exists: !!identity,
+      creatorId: identity?.creatorId ?? null,
+      createdAt: identity?.createdAt ?? null,
+    },
     live: {
       isActive: liveSlices.length > 0,
       activeConnectionCount,
@@ -751,7 +905,7 @@ function buildRoomOpsSummary(roomId, snapshotStore) {
   };
 }
 
-function getRoomOpsStatus({ hasLive, hasSnapshot }) {
+function getRoomOpsStatus({ hasIdentity, hasLive, hasSnapshot }) {
   if (hasLive && hasSnapshot) {
     return "live-and-snapshot";
   }
@@ -762,6 +916,10 @@ function getRoomOpsStatus({ hasLive, hasSnapshot }) {
 
   if (hasSnapshot) {
     return "snapshot-only";
+  }
+
+  if (hasIdentity) {
+    return "identity-only";
   }
 
   return "unknown";
@@ -810,6 +968,8 @@ function getLiveDocSharedObjectCount(doc, kind) {
       return doc.getMap("images").size;
     case "textCards":
       return doc.getMap("text-cards").size;
+    case "roomState":
+      return doc.getMap("room-state").size;
     default:
       return 0;
   }

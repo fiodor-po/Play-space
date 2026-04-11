@@ -4,11 +4,17 @@ export type RoomOpsStatus =
   | "live-and-snapshot"
   | "live-only"
   | "snapshot-only"
+  | "identity-only"
   | "unknown";
 
 export type RoomOpsSummary = {
   roomId: string;
   status: RoomOpsStatus;
+  identity: {
+    exists: boolean;
+    creatorId: string | null;
+    createdAt: string | null;
+  };
   live: {
     isActive: boolean;
     activeConnectionCount: number;
@@ -28,6 +34,13 @@ export type RoomOpsSummary = {
 };
 
 export type RoomOpsDetail = RoomOpsSummary & {
+  identity: RoomOpsSummary["identity"] & {
+    data: {
+      roomId: string;
+      creatorId: string | null;
+      createdAt: string;
+    } | null;
+  };
   live: RoomOpsSummary["live"] & {
     slices: Array<{
       kind: string;
