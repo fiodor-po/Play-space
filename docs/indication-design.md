@@ -94,6 +94,15 @@ Primary meaning:
 - whether the object is occupied/blocked;
 - whether the state lasts only during the action.
 
+Concurrent movable-object rule:
+
+- if another participant is currently moving/dragging a movable object, that object should use the project's standard occupied/blocked interaction language rather than a one-off object-specific cue;
+- the local participant should be able to understand:
+  - who is moving it;
+  - that the object is currently occupied;
+  - that starting the same move interaction is blocked while that live action lasts;
+- this should be handled as a reusable movable-object interaction rule, not as token-only logic.
+
 ### B. Object preview signals
 
 Use when another participant is previewing a possible committed result, but that result is not yet committed room content.
@@ -189,6 +198,21 @@ Primary encoding for:
 - remote preview bounds.
 
 This is the default board-first multiplayer indication surface.
+
+Viewport rule for interaction chrome:
+
+- interaction chrome and color indications should remain visually stable relative to the viewport by default;
+- zooming the board should not make these cues grow or shrink like normal board content;
+- this applies to things such as:
+  - object interaction frames;
+  - occupied/blocked frames;
+  - preview frames;
+  - object-attached controls;
+  - pin-style markers and their selection treatment.
+
+Exception:
+
+- line thickness may still scale with the board/object when that preserves spatial readability better than a fully fixed stroke width.
 
 ### Fill / highlight
 
@@ -675,7 +699,8 @@ When adding or changing an indication:
 3. define its lifetime before choosing its weight;
 4. choose the quietest encoding that still communicates the needed state;
 5. prefer ambient/contextual over blocking/system-critical unless the product meaning truly requires more;
-6. keep dev-only inspectability separate from normal end-user indication.
+6. keep dev-only inspectability separate from normal end-user indication;
+7. treat interaction chrome sizing as viewport-stable by default unless there is a deliberate exception.
 
 Do not treat:
 

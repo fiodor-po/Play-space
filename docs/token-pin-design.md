@@ -66,6 +66,10 @@ That means:
 - only its anchored board position should move with camera/board transforms;
 - token body, selection treatment, and controls should all stay viewport-stable in size.
 
+Exception:
+
+- token-related line thickness may still scale with the board/object if that preserves spatial readability better than a fully fixed stroke width.
+
 This is the key distinction between token-as-pin and token-as-normal-object.
 
 ## 5. Layer rule
@@ -86,6 +90,12 @@ Near-term drag behavior should remain simple:
 - no attachment logic is required for the first slice.
 
 This keeps token useful immediately without forcing the attachment chapter early.
+
+Conflict rule for later system work:
+
+- if another participant is currently moving a token, that state should be expressed through the project's standard occupied/blocked movable-object indication language;
+- token should not invent a separate ad hoc conflict signal model;
+- this should stay aligned with the broader movable-object interaction system so the same conflict semantics can later apply to other draggable objects too.
 
 ## 7. Selection and controls rule
 

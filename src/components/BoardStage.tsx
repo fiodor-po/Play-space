@@ -413,6 +413,14 @@ export default function BoardStage({
     return getLiveCreatorColor(object) ?? object.authorColor ?? object.fill;
   };
 
+  const getParticipantMarkerTokens = (
+    nextObjects: BoardObject[],
+    participantId: string
+  ) =>
+    nextObjects.filter(
+      (object) => object.kind === "token" && object.creatorId === participantId
+    );
+
   const getTextCardAccentColor = (object: BoardObject) => {
     return getLiveCreatorColor(object) ?? object.authorColor ?? "#94a3b8";
   };
@@ -1373,6 +1381,11 @@ export default function BoardStage({
       }
 
       event.preventDefault();
+      const selectedObject = objects.find((object) => object.id === selectedObjectId);
+
+      if (selectedObject?.kind === "token") {
+        return;
+      }
 
       const deleteAccess = resolveObjectActionAccess(
         selectedObjectId,
@@ -1531,30 +1544,100 @@ export default function BoardStage({
     });
   };
 
-  const createToken = () => {
+  const createParticipantMarker = (position?: { x: number; y: number }) => {
     const createTokenAccess = resolveRoomActionAccess("room.add-token");
 
     if (!createTokenAccess.isAllowed) {
-      return;
+      return null;
     }
 
-    const center = getViewportCenterInBoardCoords({
-      stageWidth: stageSize.width,
-      stageHeight: stageSize.height,
-      stageX: stagePosition.x,
-      stageY: stagePosition.y,
-      stageScale,
-    });
-    const newToken = createTokenObject({
+    const markerPosition =
+      position ??
+      getViewportCenterInBoardCoords({
+        stageWidth: stageSize.width,
+        stageHeight: stageSize.height,
+        stageX: stagePosition.x,
+        stageY: stagePosition.y,
+        stageScale,
+      });
+
+    return createTokenObject({
       id: `token-${createClientId()}`,
       color: currentUserColor,
       creatorId: participantSession.id,
-      position: center,
+      position: markerPosition,
     });
-
-    addBoardObject(newToken);
-    setSelectedObjectId(newToken.id);
   };
+
+  useEffect(() => {
+    if (tokenInitialSyncRoomId !== roomId) {
+      return;
+    }
+
+    const participantMarkers = getParticipantMarkerTokens(
+      objects,
+      participantSession.id
+    ).sort((a, b) => a.id.localeCompare(b.id));
+
+    if (participantMarkers.length === 1) {
+      return;
+    }
+
+    if (participantMarkers.length === 0) {
+      const marker = createParticipantMarker();
+
+      if (!marker) {
+        return;
+      }
+
+      addBoardObject(marker);
+      return;
+    }
+
+    applyBoardObjectsUpdate(
+      (currentObjects) => {
+        const currentParticipantMarkers = getParticipantMarkerTokens(
+          currentObjects,
+          participantSession.id
+        ).sort((a, b) => a.id.localeCompare(b.id));
+
+        if (currentParticipantMarkers.length <= 1) {
+          return currentObjects;
+        }
+
+        const [, ...markersToRemove] = currentParticipantMarkers;
+        const removeIds = new Set(markersToRemove.map((marker) => marker.id));
+
+        return currentObjects.filter((object) => !removeIds.has(object.id));
+      },
+      { syncSharedTokens: true }
+    );
+  }, [
+    addBoardObject,
+    applyBoardObjectsUpdate,
+    currentUserColor,
+    objects,
+    participantSession.id,
+    roomId,
+    stagePosition.x,
+    stagePosition.y,
+    stageScale,
+    stageSize.height,
+    stageSize.width,
+    tokenInitialSyncRoomId,
+  ]);
+
+  useEffect(() => {
+    if (!selectedObjectId) {
+      return;
+    }
+
+    const selectedObject = objects.find((object) => object.id === selectedObjectId);
+
+    if (selectedObject?.kind === "token") {
+      setSelectedObjectId(null);
+    }
+  }, [objects, selectedObjectId]);
 
   const createNote = () => {
     const createNoteAccess = resolveRoomActionAccess("room.add-note");
@@ -2367,7 +2450,6 @@ export default function BoardStage({
             </div>
 
             <BoardToolbar
-              onAddToken={createToken}
               onAddImage={() => {
                 imageInputRef.current?.click();
               }}
@@ -2889,7 +2971,7 @@ export default function BoardStage({
                   key={object.id}
                   object={object}
                   stageScale={stageScale}
-                  isSelected={isSelected}
+                  isSelected={false}
                   selectionColor={currentUserColor}
                   fillColor={getTokenFillColor(object)}
                   onHoverStart={(event) => {
@@ -2903,11 +2985,9 @@ export default function BoardStage({
                   }}
                   onSelect={(event) => {
                     event.cancelBubble = true;
-                    setSelectedObjectId(object.id);
-                }}
+                  }}
                 onDragStart={(event) => {
                   event.cancelBubble = true;
-                  setSelectedObjectId(object.id);
                 }}
                 onDragMove={(event) => {
                   event.cancelBubble = true;
