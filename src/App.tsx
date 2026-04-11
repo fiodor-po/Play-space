@@ -26,6 +26,7 @@ import {
   saveLocalParticipantSession,
   subscribeToActiveParticipantRoomSession,
 } from "./lib/roomSession";
+import { normalizeRoomId } from "./lib/roomId";
 import {
   createRoomBaselineDescriptor,
   ensureRoomMemberRegistered,
@@ -554,7 +555,7 @@ function BootstrappedApp() {
   const joinRoom = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    const trimmedRoomId = draftRoomId.trim();
+    const trimmedRoomId = normalizeRoomId(draftRoomId);
     const trimmedName = draftName.trim();
 
     if (!trimmedRoomId || !trimmedName) {

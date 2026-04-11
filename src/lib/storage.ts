@@ -4,6 +4,7 @@ import {
   isNoteCardObject,
   normalizeNoteCardObject,
 } from "../board/objects/noteCard/sizing";
+import { normalizeRoomId } from "./roomId";
 
 export const BOARD_STORAGE_KEY = "play-space-alpha-board-v1";
 export const VIEWPORT_STORAGE_KEY = "play-space-alpha-viewport-v1";
@@ -358,25 +359,25 @@ export function subscribeToRoomTextCardObjects(
 }
 
 function getBoardStorageKey(roomId: string) {
-  return `${BOARD_STORAGE_KEY}:${roomId}`;
+  return `${BOARD_STORAGE_KEY}:${normalizeRoomId(roomId)}`;
 }
 
 function getViewportStorageKey(roomId: string) {
-  return `${VIEWPORT_STORAGE_KEY}:${roomId}`;
+  return `${VIEWPORT_STORAGE_KEY}:${normalizeRoomId(roomId)}`;
 }
 
 function getRoomTokenStorageKey(roomId: string) {
-  return `${ROOM_TOKEN_STORAGE_KEY}:${roomId}`;
+  return `${ROOM_TOKEN_STORAGE_KEY}:${normalizeRoomId(roomId)}`;
 }
 
 function getRoomImageStorageKey(roomId: string) {
-  return `${ROOM_IMAGE_STORAGE_KEY}:${roomId}`;
+  return `${ROOM_IMAGE_STORAGE_KEY}:${normalizeRoomId(roomId)}`;
 }
 
 function getRoomTextCardStorageKey(roomId: string) {
-  return `${ROOM_TEXT_CARD_STORAGE_KEY}:${roomId}`;
+  return `${ROOM_TEXT_CARD_STORAGE_KEY}:${normalizeRoomId(roomId)}`;
 }
 
 function getRoomSnapshotStorageKey(roomId: string) {
-  return `${ROOM_SNAPSHOT_STORAGE_KEY}:${roomId}`;
+  return `${ROOM_SNAPSHOT_STORAGE_KEY}:${normalizeRoomId(roomId)}`;
 }

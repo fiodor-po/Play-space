@@ -1,4 +1,5 @@
 import { createClientId } from "./id";
+import { normalizeRoomId } from "./roomId";
 
 export type LocalParticipantSession = {
   id: string;
@@ -52,7 +53,9 @@ export const ACTIVE_PARTICIPANT_ROOM_SESSION_STORAGE_KEY =
 const PARTICIPANT_PRESENCE_STALE_MS = 30000;
 
 export function getRoomIdFromLocation(location: Location) {
-  const searchRoomId = new URLSearchParams(location.search).get("room")?.trim();
+  const searchRoomId = normalizeRoomId(
+    new URLSearchParams(location.search).get("room")
+  );
 
   if (searchRoomId) {
     return searchRoomId;
@@ -61,16 +64,17 @@ export function getRoomIdFromLocation(location: Location) {
   const pathSegments = location.pathname.split("/").filter(Boolean);
 
   if (pathSegments.length > 0) {
-    return decodeURIComponent(pathSegments[pathSegments.length - 1]);
+    return normalizeRoomId(decodeURIComponent(pathSegments[pathSegments.length - 1]));
   }
 
   return "alpha";
 }
 
 export function loadLocalParticipantSession(roomId: string) {
+  const normalizedRoomId = normalizeRoomId(roomId);
   const raw =
-    localStorage.getItem(getRoomSessionStorageKey(roomId)) ??
-    sessionStorage.getItem(getRoomSessionStorageKey(roomId));
+    localStorage.getItem(getRoomSessionStorageKey(normalizedRoomId)) ??
+    sessionStorage.getItem(getRoomSessionStorageKey(normalizedRoomId));
 
   if (!raw) {
     return null;
@@ -99,17 +103,18 @@ export function saveLocalParticipantSession(
   roomId: string,
   session: LocalParticipantSession
 ) {
+  const normalizedRoomId = normalizeRoomId(roomId);
   const participantId = getOrCreateBrowserParticipantId(session.id);
 
   sessionStorage.setItem(
-    getRoomSessionStorageKey(roomId),
+    getRoomSessionStorageKey(normalizedRoomId),
     JSON.stringify({
       ...session,
       id: participantId,
     } satisfies LocalParticipantSession)
   );
   localStorage.setItem(
-    getRoomSessionStorageKey(roomId),
+    getRoomSessionStorageKey(normalizedRoomId),
     JSON.stringify({
       ...session,
       id: participantId,
@@ -136,13 +141,13 @@ export function getOrCreateBrowserParticipantId(preferredId?: string | null) {
 }
 
 export function loadActiveRoomId() {
-  const raw = sessionStorage.getItem(ACTIVE_ROOM_STORAGE_KEY)?.trim();
+  const raw = normalizeRoomId(sessionStorage.getItem(ACTIVE_ROOM_STORAGE_KEY));
 
   return raw ? raw : null;
 }
 
 export function saveActiveRoomId(roomId: string) {
-  sessionStorage.setItem(ACTIVE_ROOM_STORAGE_KEY, roomId);
+  sessionStorage.setItem(ACTIVE_ROOM_STORAGE_KEY, normalizeRoomId(roomId));
 }
 
 export function clearActiveRoomId() {
@@ -173,7 +178,7 @@ export function loadActiveParticipantRoomSession(
 
     return {
       participantId: parsed.participantId,
-      roomId: parsed.roomId,
+      roomId: normalizeRoomId(parsed.roomId),
       startedAt: parsed.startedAt,
       updatedAt: parsed.updatedAt,
     };
@@ -186,6 +191,7 @@ export function saveActiveParticipantRoomSession(params: {
   participantId: string;
   roomId: string;
 }) {
+  const normalizedRoomId = normalizeRoomId(params.roomId);
   const existingSession = loadActiveParticipantRoomSession(params.participantId);
   const now = Date.now();
 
@@ -193,7 +199,7 @@ export function saveActiveParticipantRoomSession(params: {
     ACTIVE_PARTICIPANT_ROOM_SESSION_STORAGE_KEY,
     JSON.stringify({
       participantId: params.participantId,
-      roomId: params.roomId,
+      roomId: normalizedRoomId,
       startedAt: existingSession?.startedAt ?? now,
       updatedAt: now,
     } satisfies ActiveParticipantRoomSession)
@@ -395,11 +401,11 @@ function pruneStaleParticipantPresences(presences: ParticipantPresenceMap) {
 }
 
 function getRoomSessionStorageKey(roomId: string) {
-  return `${ROOM_SESSION_STORAGE_PREFIX}:${roomId}`;
+  return `${ROOM_SESSION_STORAGE_PREFIX}:${normalizeRoomId(roomId)}`;
 }
 
 function getRoomPresenceStorageKey(roomId: string) {
-  return `${ROOM_PRESENCE_STORAGE_PREFIX}:${roomId}`;
+  return `${ROOM_PRESENCE_STORAGE_PREFIX}:${normalizeRoomId(roomId)}`;
 }
 
 function clearStorageKeysByPrefix(storage: Storage, prefix: string) {

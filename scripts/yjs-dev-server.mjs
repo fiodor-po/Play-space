@@ -97,7 +97,7 @@ const server = http.createServer((req, res) => {
 const wss = new WebSocketServer({ server });
 
 wss.on("connection", (conn, req) => {
-  const docName = (req.url || "/").slice(1).split("?")[0];
+  const docName = normalizeRealtimeDocName((req.url || "/").slice(1).split("?")[0]);
   const doc = getDoc(docName);
 
   conn.binaryType = "arraybuffer";
@@ -346,7 +346,7 @@ async function handleHttpRequest(req, res) {
       return;
     }
 
-    const roomId = decodeURIComponent(roomDetailRouteMatch[1]);
+    const roomId = normalizeRoomId(decodeURIComponent(roomDetailRouteMatch[1]));
     const snapshotStore = await readDurableSnapshotStore();
     const identityStore = await readDurableIdentityStore();
     const room = getRoomOpsDetail(roomId, identityStore, snapshotStore);
@@ -373,7 +373,7 @@ async function handleHttpRequest(req, res) {
       return;
     }
 
-    const roomId = decodeURIComponent(roomSnapshotDeleteRouteMatch[1]);
+    const roomId = normalizeRoomId(decodeURIComponent(roomSnapshotDeleteRouteMatch[1]));
     const result = await deleteDurableRoomSnapshot(roomId);
     const snapshotStore = await readDurableSnapshotStore();
     const identityStore = await readDurableIdentityStore();
@@ -391,7 +391,7 @@ async function handleHttpRequest(req, res) {
   }
 
   if (roomIdentityRouteMatch) {
-    const roomId = decodeURIComponent(roomIdentityRouteMatch[1]);
+    const roomId = normalizeRoomId(decodeURIComponent(roomIdentityRouteMatch[1]));
 
     if (req.method === "GET") {
       const identity = await readDurableRoomIdentity(roomId);
@@ -461,7 +461,7 @@ async function handleHttpRequest(req, res) {
     }
 
     const roomId =
-      typeof body.roomId === "string" ? body.roomId.trim() : "";
+      typeof body.roomId === "string" ? normalizeRoomId(body.roomId) : "";
     const participantId =
       typeof body.participantId === "string" ? body.participantId.trim() : "";
     const participantName =
@@ -491,7 +491,7 @@ async function handleHttpRequest(req, res) {
     return;
   }
 
-  const roomId = decodeURIComponent(snapshotRouteMatch[1]);
+  const roomId = normalizeRoomId(decodeURIComponent(snapshotRouteMatch[1]));
 
   if (req.method === "GET") {
     const snapshot = await readDurableRoomSnapshot(roomId);
@@ -952,12 +952,33 @@ function parseRoomDocName(docName) {
     if (docName.startsWith(prefix)) {
       return {
         kind,
-        roomId: docName.slice(prefix.length),
+        roomId: normalizeRoomId(docName.slice(prefix.length)),
       };
     }
   }
 
   return null;
+}
+
+function normalizeRoomId(roomId) {
+  if (typeof roomId !== "string") {
+    return "";
+  }
+
+  return roomId.trim().replace(/\s+/g, " ").toLowerCase();
+}
+
+function normalizeRealtimeDocName(docName) {
+  for (const prefix of Object.values(ROOM_DOC_PREFIXES)) {
+    if (!docName.startsWith(prefix)) {
+      continue;
+    }
+
+    const encodedRoomId = docName.slice(prefix.length);
+    return `${prefix}${normalizeRoomId(decodeURIComponent(encodedRoomId))}`;
+  }
+
+  return decodeURIComponent(docName);
 }
 
 function getLiveDocSharedObjectCount(doc, kind) {

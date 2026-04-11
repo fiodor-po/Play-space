@@ -1,3 +1,5 @@
+import { normalizeRoomId } from "./roomId";
+
 export type RoomBaselineId = "empty" | "public-demo-v1";
 
 export type RoomBaselineDescriptor = {
@@ -214,7 +216,8 @@ export function ensureRoomMemberRegistered(params: {
 }
 
 export function loadRoomRecord(roomId: string): RoomRecord | null {
-  const raw = localStorage.getItem(getRoomMetadataStorageKey(roomId));
+  const normalizedRoomId = normalizeRoomId(roomId);
+  const raw = localStorage.getItem(getRoomMetadataStorageKey(normalizedRoomId));
 
   if (!raw) {
     return null;
@@ -223,12 +226,12 @@ export function loadRoomRecord(roomId: string): RoomRecord | null {
   try {
     const parsed = JSON.parse(raw) as Partial<StoredRoomRecord>;
 
-    if (parsed.roomId !== roomId) {
+    if (normalizeRoomId(parsed.roomId) !== normalizedRoomId) {
       return null;
     }
 
     return createRoomRecord({
-      roomId,
+      roomId: normalizedRoomId,
       creatorId: parsed.creatorId,
       initializedBaselineId: parsed.initializedBaselineId,
       appliedBaselineId: parsed.appliedBaselineId,
@@ -392,7 +395,7 @@ export function clearAllRoomMetadataStorage() {
 }
 
 function getRoomMetadataStorageKey(roomId: string) {
-  return `${ROOM_METADATA_STORAGE_KEY}:${roomId}`;
+  return `${ROOM_METADATA_STORAGE_KEY}:${normalizeRoomId(roomId)}`;
 }
 
 function areRoomMemberRegistriesEqual(
