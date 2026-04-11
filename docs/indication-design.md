@@ -214,6 +214,17 @@ Exception:
 
 - line thickness may still scale with the board/object when that preserves spatial readability better than a fully fixed stroke width.
 
+Shape rule for future interaction frames:
+
+- interaction frames may later use shape-aware silhouettes when object shape materially affects multiplayer readability;
+- the default should still be a small set of simple canonical shapes such as:
+  - rectangle;
+  - rounded rectangle;
+  - circle;
+  - ellipse;
+- exact complex contour matching should be treated as an exception, not the default;
+- use a more exact outline only when it improves readability more than it increases visual noise or implementation fragility.
+
 ### Fill / highlight
 
 Use sparingly.
@@ -526,6 +537,7 @@ Known uses:
 Design intent:
 
 - same semantic family should not drift into one-off local variants.
+- shape-aware variants are acceptable when they stay inside the same shared indication family rather than becoming custom per-object indicator systems.
 
 ## 10. Cross-user action visibility
 

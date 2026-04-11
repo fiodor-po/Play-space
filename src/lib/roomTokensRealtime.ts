@@ -4,14 +4,27 @@ import type { BoardObject } from "../types/board";
 import { normalizeTokenObject } from "../board/objects/token/createTokenObject";
 import { getRealtimeServerWsUrl } from "./runtimeConfig";
 
+export type ActiveObjectMove = {
+  objectId: string;
+  objectKind: BoardObject["kind"];
+  participantId: string;
+  participantName: string;
+  participantColor: string;
+  startedAt: number;
+};
+
+export type ActiveObjectMoveMap = Record<string, ActiveObjectMove>;
+
 export type RoomTokenConnection = {
   destroy: () => void;
+  setActiveMove: (move: ActiveObjectMove | null) => void;
   replaceTokens: (tokens: BoardObject[]) => void;
   seedTokens: (tokens: BoardObject[]) => void;
 };
 
 export function createRoomTokenConnection(params: {
   roomId: string;
+  onActiveMovesChange?: (moves: ActiveObjectMoveMap) => void;
   onTokensChange: (tokens: BoardObject[]) => void;
   onInitialSyncComplete?: () => void;
   serverUrl?: string;
@@ -30,6 +43,12 @@ export function createRoomTokenConnection(params: {
 
   const publishTokens = () => {
     params.onTokensChange(getTokensFromMap(tokenMap));
+  };
+
+  const publishActiveMoves = () => {
+    params.onActiveMovesChange?.(
+      getActiveObjectMovesFromAwareness(provider.awareness.getStates())
+    );
   };
 
   const handleStatus = (event: {
@@ -64,15 +83,28 @@ export function createRoomTokenConnection(params: {
   tokenMap.observe(publishTokens);
   provider.on("status", handleStatus);
   provider.on("sync", handleSync);
+  provider.awareness.on("change", publishActiveMoves);
   publishTokens();
+  publishActiveMoves();
 
   return {
     destroy: () => {
+      provider.awareness.setLocalStateField("activeMove", null);
       tokenMap.unobserve(publishTokens);
       provider.off("status", handleStatus);
       provider.off("sync", handleSync);
+      provider.awareness.off("change", publishActiveMoves);
       provider.destroy();
       doc.destroy();
+    },
+    setActiveMove: (move) => {
+      const currentMove = provider.awareness.getLocalState()?.activeMove ?? null;
+
+      if (areActiveObjectMovesEqual(currentMove, move)) {
+        return;
+      }
+
+      provider.awareness.setLocalStateField("activeMove", move);
     },
     replaceTokens: (tokens) => {
       const nextTokens = tokens.filter((token) => token.kind === "token");
@@ -127,4 +159,61 @@ function getTokensFromMap(tokenMap: Y.Map<string>) {
   });
 
   return tokens;
+}
+
+function getActiveObjectMovesFromAwareness(states: Map<number, Record<string, unknown>>) {
+  const moves: ActiveObjectMoveMap = {};
+
+  states.forEach((state) => {
+    const activeMove = state.activeMove;
+
+    if (!activeMove || typeof activeMove !== "object") {
+      return;
+    }
+
+    const move = activeMove as Partial<ActiveObjectMove>;
+
+    if (
+      typeof move.objectId !== "string" ||
+      move.objectId.length === 0 ||
+      (move.objectKind !== "token" &&
+        move.objectKind !== "image" &&
+        move.objectKind !== "text-card") ||
+      typeof move.participantId !== "string" ||
+      move.participantId.length === 0 ||
+      typeof move.participantName !== "string" ||
+      move.participantName.length === 0 ||
+      typeof move.participantColor !== "string" ||
+      move.participantColor.length === 0 ||
+      typeof move.startedAt !== "number"
+    ) {
+      return;
+    }
+
+    moves[move.objectId] = move as ActiveObjectMove;
+  });
+
+  return moves;
+}
+
+function areActiveObjectMovesEqual(
+  current: ActiveObjectMove | null | undefined,
+  next: ActiveObjectMove | null | undefined
+) {
+  if (!current && !next) {
+    return true;
+  }
+
+  if (!current || !next) {
+    return false;
+  }
+
+  return (
+    current.objectId === next.objectId &&
+    current.objectKind === next.objectKind &&
+    current.participantId === next.participantId &&
+    current.participantName === next.participantName &&
+    current.participantColor === next.participantColor &&
+    current.startedAt === next.startedAt
+  );
 }

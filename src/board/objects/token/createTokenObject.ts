@@ -27,6 +27,9 @@ export function createTokenObject({
     fill: color,
     label: "",
     authorColor: color,
+    tokenAttachment: {
+      mode: "free",
+    },
     textColor: "#f8fafc",
   };
 }
@@ -46,5 +49,8 @@ export function normalizeTokenObject(object: BoardObject): BoardObject {
     width,
     height,
     anchorPosition: "center",
+    tokenAttachment: object.tokenAttachment ?? {
+      mode: "free",
+    },
   };
 }

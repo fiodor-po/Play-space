@@ -55,6 +55,7 @@ const DEFAULT_ROOM_BASELINE_DESCRIPTOR: RoomBaselineDescriptor =
 const JOIN_CLAIM_TTL_MS = 5000;
 const JOIN_CLAIM_SETTLE_MS = 220;
 const ENTRY_JOIN_FAILURE_CUE_MS = 4000;
+const IS_DEV = import.meta.env.DEV;
 
 function loadParticipantDraftForRoom(roomId: string) {
   const savedSession = loadLocalParticipantSession(roomId);
@@ -116,6 +117,11 @@ export default function App() {
   const [hasManualEntryColorChoice, setHasManualEntryColorChoice] = useState(false);
   const [isJoinPending, setIsJoinPending] = useState(false);
   const [entryJoinFailureMessage, setEntryJoinFailureMessage] = useState<string | null>(null);
+  const [isEntryDebugOpen, setIsEntryDebugOpen] = useState(false);
+  const [entryDebugOccupiedColors, setEntryDebugOccupiedColors] = useState<string[]>(
+    []
+  );
+  const [entryDebugClaimColor, setEntryDebugClaimColor] = useState<string | null>(null);
   const [isForegroundPresenceCarrier, setIsForegroundPresenceCarrier] = useState(() =>
     getIsForegroundPresenceCarrier()
   );
@@ -710,14 +716,27 @@ export default function App() {
     entryRoomOccupancies,
     entryJoinClaims
   );
+  const effectiveEntryOccupiedColors = new Set(entryOccupiedColors);
+  entryDebugOccupiedColors.forEach((color) => {
+    if (PARTICIPANT_COLOR_OPTIONS.includes(color)) {
+      effectiveEntryOccupiedColors.add(color);
+    }
+  });
+  if (
+    entryDebugClaimColor &&
+    PARTICIPANT_COLOR_OPTIONS.includes(entryDebugClaimColor)
+  ) {
+    effectiveEntryOccupiedColors.add(entryDebugClaimColor);
+  }
   const entryPreviousColor = returningRoomMember?.assignedColor ?? entrySavedSession?.color ?? null;
-  const entrySuggestedColor = getFirstFreeParticipantColor(entryOccupiedColors, [
+  const entrySuggestedColor = getFirstFreeParticipantColor(effectiveEntryOccupiedColors, [
     draftColor,
     entryPreviousColor,
     PARTICIPANT_COLOR_OPTIONS[0],
   ]);
   const entryHasFreeColor = entrySuggestedColor !== null;
-  const isDraftColorOccupied = draftColor.length > 0 && entryOccupiedColors.has(draftColor);
+  const isDraftColorOccupied =
+    draftColor.length > 0 && effectiveEntryOccupiedColors.has(draftColor);
 
   useEffect(() => {
     if (participantSession) {
@@ -883,7 +902,7 @@ export default function App() {
                 <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
                   {PARTICIPANT_COLOR_OPTIONS.map((color) => {
                     const isSelected = color === draftColor;
-                    const isOccupied = entryOccupiedColors.has(color);
+                    const isOccupied = effectiveEntryOccupiedColors.has(color);
 
                     return (
                       <button
@@ -918,7 +937,7 @@ export default function App() {
                 </div>
                 {entryHasFreeColor ? (
                   <div style={{ fontSize: 12, color: "#94a3b8" }}>
-                    Dashed swatches are currently occupied by active participants or active join claims.
+                    Dashed swatches are currently occupied by active participants, active join claims, or local debug overrides.
                   </div>
                 ) : (
                   <div
@@ -937,6 +956,148 @@ export default function App() {
                 )}
               </div>
             </div>
+
+            {IS_DEV ? (
+              <details
+                open={isEntryDebugOpen}
+                onToggle={(event) => {
+                  setIsEntryDebugOpen((event.target as HTMLDetailsElement).open);
+                }}
+                style={{
+                  borderRadius: 12,
+                  border: "1px solid rgba(96, 165, 250, 0.25)",
+                  background: "rgba(15, 23, 42, 0.55)",
+                  padding: "10px 12px",
+                }}
+              >
+                <summary
+                  style={{
+                    cursor: "pointer",
+                    fontSize: 12,
+                    fontWeight: 700,
+                    color: "#93c5fd",
+                    userSelect: "none",
+                  }}
+                >
+                  Entry debug
+                </summary>
+                <div
+                  style={{
+                    display: "grid",
+                    gap: 10,
+                    marginTop: 10,
+                  }}
+                >
+                  <div style={{ fontSize: 11, color: "#94a3b8" }}>
+                    Local overrides only. These do not publish fake room state.
+                  </div>
+                  <div style={{ display: "grid", gap: 6 }}>
+                    <div style={{ fontSize: 12, color: "#cbd5e1" }}>
+                      Simulated occupied colors
+                    </div>
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                      {PARTICIPANT_COLOR_OPTIONS.map((color) => {
+                        const isDebugOccupied = entryDebugOccupiedColors.includes(color);
+
+                        return (
+                          <button
+                            key={`entry-debug-occupied-${color}`}
+                            type="button"
+                            onClick={() => {
+                              setEntryDebugOccupiedColors((current) =>
+                                current.includes(color)
+                                  ? current.filter((currentColor) => currentColor !== color)
+                                  : [...current, color]
+                              );
+                            }}
+                            style={{
+                              width: 24,
+                              height: 24,
+                              borderRadius: 999,
+                              border: isDebugOccupied
+                                ? "3px solid #f8fafc"
+                                : "1px solid rgba(255, 255, 255, 0.22)",
+                              background: color,
+                              cursor: "pointer",
+                              opacity: isDebugOccupied ? 1 : 0.7,
+                            }}
+                            aria-label={`Toggle debug occupied color ${color}`}
+                            title="Toggle local debug occupied color"
+                          />
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <label style={{ display: "grid", gap: 6 }}>
+                    <span style={{ fontSize: 12, color: "#cbd5e1" }}>
+                      Simulated claimed color
+                    </span>
+                    <select
+                      value={entryDebugClaimColor ?? ""}
+                      onChange={(event) => {
+                        const nextValue = event.target.value.trim();
+                        setEntryDebugClaimColor(nextValue ? nextValue : null);
+                      }}
+                      style={{
+                        padding: "8px 10px",
+                        borderRadius: 10,
+                        border: "1px solid rgba(148, 163, 184, 0.3)",
+                        background: "rgba(15, 23, 42, 0.9)",
+                        color: "#f8fafc",
+                        fontSize: 12,
+                      }}
+                    >
+                      <option value="">None</option>
+                      {PARTICIPANT_COLOR_OPTIONS.map((color) => (
+                        <option key={`entry-debug-claim-${color}`} value={color}>
+                          {color}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEntryDebugOccupiedColors([...PARTICIPANT_COLOR_OPTIONS]);
+                        setEntryDebugClaimColor(null);
+                      }}
+                      style={{
+                        padding: "7px 10px",
+                        borderRadius: 999,
+                        border: "1px solid rgba(148, 163, 184, 0.25)",
+                        background: "rgba(15, 23, 42, 0.92)",
+                        color: "#e2e8f0",
+                        fontSize: 12,
+                        fontWeight: 600,
+                        cursor: "pointer",
+                      }}
+                    >
+                      Room full
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEntryDebugOccupiedColors([]);
+                        setEntryDebugClaimColor(null);
+                      }}
+                      style={{
+                        padding: "7px 10px",
+                        borderRadius: 999,
+                        border: "1px solid rgba(148, 163, 184, 0.25)",
+                        background: "rgba(15, 23, 42, 0.92)",
+                        color: "#e2e8f0",
+                        fontSize: 12,
+                        fontWeight: 600,
+                        cursor: "pointer",
+                      }}
+                    >
+                      Clear debug overrides
+                    </button>
+                  </div>
+                </div>
+              </details>
+            ) : null}
 
             {entryJoinFailureMessage ? (
               <div

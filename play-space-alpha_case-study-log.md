@@ -1952,3 +1952,149 @@ Current near-term identity model is now:
 - stale active-room-session cleanup is still a likely future narrow follow-up;
 - cross-device identity remains explicitly out of scope;
 - full cross-tab UI mirroring remains unnecessary and deferred.
+
+---
+
+## 2026-04-11 — Token was reset from placeholder object to participant marker pin
+
+### Type
+- decision
+- milestone
+
+### Context
+После room/session/identity stabilization стало яснее, что current token больше не соответствует продуктовой роли.
+Он всё ещё жил как generic draggable placeholder object, хотя фактическая нужная semantics уже была другой:
+
+- participant marker on the map;
+- readable over board/image content;
+- useful in multiplayer without becoming another generic object family.
+
+### Goal or problem
+Нужно было:
+
+- reset token semantics away from generic placeholder object;
+- make token visually and behaviorally closer to a participant marker / pin;
+- stop relying on debug-style token creation as the main token flow;
+- add the first honest multiplayer conflict layer for token movement without inventing a token-only protocol.
+
+### What happened
+Сначала token direction была зафиксирована docs-first:
+
+- token = participant marker / pin;
+- token anchor = center point;
+- token size should remain viewport-stable across zoom;
+- later token may attach to board objects, image first;
+- token conflict indication should reuse the standard occupied/blocked movable-object language.
+
+Потом token chapter был собран маленькими runtime slices:
+
+1. placeholder-like rectangular token was visually reset toward a circular participant marker;
+2. token rendering and selection were moved to pin behavior:
+   - center-anchor semantics;
+   - viewport-stable size;
+   - viewport-stable selection treatment;
+3. participant-marker flow replaced debug-style generic token creation:
+   - each participant now gets one marker automatically;
+   - marker is recreated if missing;
+   - marker no longer behaves like a normal selectable/deletable object;
+4. concurrent token movement got the first reusable live occupancy slice:
+   - lightweight `activeMove` awareness semantics;
+   - tokens wired first;
+   - competing drag start is blocked while another participant is moving that token;
+   - occupied state reuses the shared frame indication language.
+
+### Decision / change
+Current near-term token model is now:
+
+- token is not a generic board object first;
+- token is a participant pin/marker first;
+- token is board-anchored by center point and viewport-stable in size;
+- each participant gets a simple marker automatically;
+- token movement already participates in the broader live object-interaction family through reusable `activeMove` occupancy semantics.
+
+### Why
+Это дало project a much more honest token foundation:
+
+- better match to board-first multiplayer play;
+- cleaner path to map/image usage;
+- less debug-tooling feel;
+- first reusable conflict semantics instead of another one-off token behavior.
+
+### Result
+Проект получил:
+
+- first real participant-marker token model;
+- pin-like token behavior across zoom;
+- automatic one-marker-per-participant flow;
+- non-selectable / non-deletable marker behavior for the current stage;
+- first reusable move-occupancy runtime slice for movable objects, wired through token first.
+
+### Workflow notes
+- this chapter benefited from alternating docs-first and narrow runtime slices;
+- visual cleanup alone was not enough until token workflow and conflict semantics were reset too;
+- it was useful to treat token conflict handling as phase 1 of a broader live object-interaction unification rather than as a token-only rule.
+
+### Remaining limitations / open questions
+- token attachment and first image-first dependent behavior later became the next larger chapter and are no longer just a future direction;
+- current marker governance is intentionally simple: markers are movable by everyone for now;
+- token occupied frame may still receive tiny visual polish later;
+- broader image/text-card migration into the same interaction family remains later.
+
+### Later continuation
+That next token chapter was then carried further:
+
+- token gained image-first attachment with token-local attachment metadata;
+- attached token position began deriving from parent image bounds through normalized parent-local coordinates;
+- attached token remained viewport-stable in size while attached;
+- a first shared image `effective bounds` resolver was introduced for image-backed dependents;
+- attached tokens and selected image controls became the first two runtime dependents using that family;
+- remote resize/transform semantics for attached dependents were later aligned with remote move semantics so dependents no longer moved “ahead” of the visible parent image on remote clients.
+
+This moved token work from “first participant marker” into a broader image-first attachment/effective-bounds checkpoint.
+
+---
+
+## 2026-04-11 — Current alpha direction became more explicitly media-centered
+
+### Type
+- decision
+
+### Context
+As token attachment, drawing, notes, and object-scoped interaction work kept progressing, a clearer product pattern emerged: practical session value was increasingly organizing itself around placed media surfaces rather than around the abstract board alone.
+
+### Goal or problem
+Нужно было зафиксировать текущую product truth without overreacting into a broad platform redefinition.
+
+### What happened
+Было explicitly recognized, что current alpha interaction gravity is becoming media-centered:
+
+- the board acts as staging space;
+- images are currently the first real anchor type;
+- tokens, notes, drawing, and attached interaction increasingly happen on or around those media-backed surfaces;
+- this may later expand to other anchor types such as PDFs.
+
+### Decision / change
+Near-term product framing is now:
+
+- still board-first;
+- but increasingly organized around media-backed play surfaces;
+- image is the first practical anchor object, not necessarily the last.
+
+### Why
+Это лучше объясняет why current work is converging on:
+
+- token attachment;
+- attached dependents;
+- effective bounds;
+- image interaction quality;
+- notes/drawing behavior relative to media surfaces.
+
+### Result
+The project now has a clearer current-direction lens:
+
+- not “generic objects floating equally on a board”;
+- but “board as shared staging space around media-centered play surfaces.”
+
+### Workflow notes
+- this was useful to record as a current-direction insight, not as a final platform doctrine;
+- it supports continuing image-first attachment/runtime work without pretending the project has already become a generalized media platform.

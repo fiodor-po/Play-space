@@ -7,6 +7,21 @@ export type ImageStroke = {
   width?: number;
 };
 
+export type TokenAttachment =
+  | {
+      mode: "free";
+    }
+  | {
+      mode: "attached";
+      parentObjectId: string;
+      parentObjectKind: BoardObjectKind;
+      coordinateSpace: "parent-normalized";
+      anchor: {
+        x: number;
+        y: number;
+      };
+    };
+
 export type BoardObject = {
   id: string;
   kind: BoardObjectKind;
@@ -19,6 +34,7 @@ export type BoardObject = {
   fill: string;
   label: string;
   authorColor?: string;
+  tokenAttachment?: TokenAttachment;
   imageStrokes?: ImageStroke[];
   src?: string;
   textColor?: string;

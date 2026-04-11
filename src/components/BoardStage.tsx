@@ -19,6 +19,10 @@ import { TextCardRenderer } from "../board/objects/textCard/TextCardRenderer";
 import { createTokenObject } from "../board/objects/token/createTokenObject";
 import { TokenRenderer } from "../board/objects/token/TokenRenderer";
 import {
+  resolveEffectiveImageBounds,
+  type ImageEffectiveBounds,
+} from "../board/images/effectiveBounds";
+import {
   getAddBoardObjectSyncOptions,
   getRemoveBoardObjectSyncOptions,
   getUpdateBoardObjectSyncOptions,
@@ -82,6 +86,8 @@ import {
 import { createClientId } from "../lib/id";
 import {
   createRoomTokenConnection,
+  type ActiveObjectMove,
+  type ActiveObjectMoveMap,
   type RoomTokenConnection,
 } from "../lib/roomTokensRealtime";
 import {
@@ -115,7 +121,7 @@ import {
   resolveImageClearAllDrawingPolicyAccess,
 } from "../lib/governancePolicy";
 import type { RoomBaselineDescriptor, RoomBaselineId } from "../lib/roomMetadata";
-import type { BoardObject } from "../types/board";
+import type { BoardObject, TokenAttachment } from "../types/board";
 
 type SmallFloatingActionButtonProps = {
   x: number;
@@ -385,6 +391,9 @@ export default function BoardStage({
   const [remoteTextCardEditingStates, setRemoteTextCardEditingStates] = useState<
     Record<string, TextCardEditingPresence>
   >({});
+  const [remoteActiveObjectMoves, setRemoteActiveObjectMoves] = useState<
+    ActiveObjectMoveMap
+  >({});
   const [liveSelectedImageControlAnchor, setLiveSelectedImageControlAnchor] =
     useState<{ imageId: string; x: number; y: number } | null>(null);
   const [tokenInitialSyncRoomId, setTokenInitialSyncRoomId] = useState<
@@ -420,6 +429,93 @@ export default function BoardStage({
     nextObjects.filter(
       (object) => object.kind === "token" && object.creatorId === participantId
     );
+
+  const getBlockingActiveMove = (objectId: string): ActiveObjectMove | null => {
+    const move = remoteActiveObjectMoves[objectId];
+
+    if (!move || move.participantId === participantSession.id) {
+      return null;
+    }
+
+    return move;
+  };
+
+  const getTokenAttachment = (object: BoardObject): TokenAttachment =>
+    object.kind === "token" && object.tokenAttachment
+      ? object.tokenAttachment
+      : { mode: "free" };
+
+  const getImageById = (objectId: string) => {
+    const object = objects.find((candidate) => candidate.id === objectId);
+
+    return object?.kind === "image" ? object : null;
+  };
+
+  const getEffectiveImageBoundsForImageId = (
+    objectId: string
+  ): ImageEffectiveBounds | null => {
+    const image = getImageById(objectId);
+
+    if (!image) {
+      return null;
+    }
+
+    const localImageNode = imageRefs.current[objectId];
+    const sharedPreview =
+      remoteImagePreviewPositions[objectId] ?? null;
+
+    return resolveEffectiveImageBounds({
+      committedImage: image,
+      localNode: localImageNode,
+      isLocallyInteracting:
+        draggingImageId === objectId || transformingImageId === objectId,
+      sharedPreview,
+    });
+  };
+
+  const getTokenAnchorPosition = (
+    object: BoardObject
+  ): {
+    x: number;
+    y: number;
+  } => {
+    const attachment = getTokenAttachment(object);
+
+    if (object.kind !== "token" || attachment.mode !== "attached") {
+      return { x: object.x, y: object.y };
+    }
+
+    if (attachment.parentObjectKind !== "image") {
+      return { x: object.x, y: object.y };
+    }
+
+    const parentImage = getEffectiveImageBoundsForImageId(
+      attachment.parentObjectId
+    );
+
+    if (!parentImage) {
+      return { x: object.x, y: object.y };
+    }
+
+    return {
+      x: parentImage.x + parentImage.width * attachment.anchor.x,
+      y: parentImage.y + parentImage.height * attachment.anchor.y,
+    };
+  };
+
+  const createAttachedTokenAttachment = (
+    image: BoardObject,
+    point: { x: number; y: number }
+  ): TokenAttachment => ({
+    mode: "attached",
+    parentObjectId: image.id,
+    parentObjectKind: "image",
+    coordinateSpace: "parent-normalized",
+    anchor: {
+      x: image.width > 0 ? (point.x - image.x) / image.width : 0.5,
+      y: image.height > 0 ? (point.y - image.y) / image.height : 0.5,
+    },
+  });
 
   const getTextCardAccentColor = (object: BoardObject) => {
     return getLiveCreatorColor(object) ?? object.authorColor ?? "#94a3b8";
@@ -1224,6 +1320,7 @@ export default function BoardStage({
   useEffect(() => {
     const connection = createRoomTokenConnection({
       roomId,
+      onActiveMovesChange: setRemoteActiveObjectMoves,
       onTokensChange: (sharedTokens) => {
         setObjects((currentObjects) => [
           ...currentObjects.filter((object) => object.kind !== "token"),
@@ -1422,6 +1519,82 @@ export default function BoardStage({
 
     applyBoardObjectsUpdate(
       (currentObjects) => updateBoardObjectPosition(currentObjects, id, x, y),
+      getUpdateBoardObjectSyncOptions(objects, id)
+    );
+  };
+
+  const updateTokenAnchorPosition = (id: string, x: number, y: number) => {
+    const moveAccess = resolveObjectActionAccess(id, "board-object.move");
+
+    if (!moveAccess?.isAllowed) {
+      return;
+    }
+
+    applyBoardObjectsUpdate(
+      (currentObjects) =>
+        updateBoardObjectById(currentObjects, id, (object) => {
+          if (object.kind !== "token") {
+            return object;
+          }
+
+          return {
+            ...object,
+            x,
+            y,
+            tokenAttachment: {
+              mode: "free",
+            },
+          };
+        }),
+      getUpdateBoardObjectSyncOptions(objects, id)
+    );
+  };
+
+  const updateTokenPlacementAfterDrop = (id: string, point: { x: number; y: number }) => {
+    const moveAccess = resolveObjectActionAccess(id, "board-object.move");
+
+    if (!moveAccess?.isAllowed) {
+      return;
+    }
+
+    applyBoardObjectsUpdate(
+      (currentObjects) =>
+        updateBoardObjectById(currentObjects, id, (object) => {
+          if (object.kind !== "token") {
+            return object;
+          }
+
+          const attachmentTarget = currentObjects
+            .filter((candidate) => candidate.kind === "image")
+            .slice()
+            .reverse()
+            .find((candidate) => {
+              const withinX =
+                point.x >= candidate.x && point.x <= candidate.x + candidate.width;
+              const withinY =
+                point.y >= candidate.y && point.y <= candidate.y + candidate.height;
+
+              return withinX && withinY;
+            });
+
+          if (!attachmentTarget) {
+            return {
+              ...object,
+              x: point.x,
+              y: point.y,
+              tokenAttachment: {
+                mode: "free",
+              },
+            };
+          }
+
+          return {
+            ...object,
+            x: point.x,
+            y: point.y,
+            tokenAttachment: createAttachedTokenAttachment(attachmentTarget, point),
+          };
+        }),
       getUpdateBoardObjectSyncOptions(objects, id)
     );
   };
@@ -1922,24 +2095,23 @@ export default function BoardStage({
   const isSelectedImageLockedByAnotherParticipant =
     !!selectedImageLock &&
     selectedImageLock.participantId !== participantSession.id;
-  const selectedImageBaseActionPosition = useMemo(() => {
+  const selectedImageEffectiveBounds = useMemo(() => {
     if (!selectedImageObject) {
       return null;
     }
 
-    return getImageControlsAnchorFromBounds({
-      x: selectedImageObject.x,
-      y: selectedImageObject.y,
-    });
-  }, [selectedImageObject]);
+    return getEffectiveImageBoundsForImageId(selectedImageObject.id);
+  }, [
+    draggingImageId,
+    remoteImagePreviewPositions,
+    selectedImageObject,
+    transformingImageId,
+    liveSelectedImageControlAnchor,
+  ]);
   const selectedImageControlAnchor =
-    selectedImageObject &&
-    liveSelectedImageControlAnchor?.imageId === selectedImageObject.id
-      ? {
-          x: liveSelectedImageControlAnchor.x,
-          y: liveSelectedImageControlAnchor.y,
-        }
-      : selectedImageBaseActionPosition;
+    selectedImageEffectiveBounds
+      ? getImageControlsAnchorFromBounds(selectedImageEffectiveBounds)
+      : null;
   useEffect(() => {
     if (!selectedImageObject) {
       setLiveSelectedImageControlAnchor(null);
@@ -2970,10 +3142,14 @@ export default function BoardStage({
                 <TokenRenderer
                   key={object.id}
                   object={object}
+                  position={getTokenAnchorPosition(object)}
                   stageScale={stageScale}
                   isSelected={false}
                   selectionColor={currentUserColor}
                   fillColor={getTokenFillColor(object)}
+                  occupiedIndicatorColor={
+                    getBlockingActiveMove(object.id)?.participantColor ?? null
+                  }
                   onHoverStart={(event) => {
                     updateObjectSemanticsHover(object, event);
                   }}
@@ -2988,6 +3164,32 @@ export default function BoardStage({
                   }}
                 onDragStart={(event) => {
                   event.cancelBubble = true;
+
+                  const blockingMove = getBlockingActiveMove(object.id);
+
+                  if (blockingMove) {
+                    event.target.stopDrag();
+                    return;
+                  }
+
+                  if (getTokenAttachment(object).mode === "attached") {
+                    const anchorPosition = getTokenAnchorPosition(object);
+
+                    updateTokenAnchorPosition(
+                      object.id,
+                      anchorPosition.x,
+                      anchorPosition.y
+                    );
+                  }
+
+                  roomTokenConnectionRef.current?.setActiveMove({
+                    objectId: object.id,
+                    objectKind: object.kind,
+                    participantId: participantSession.id,
+                    participantName: participantSession.name,
+                    participantColor: participantSession.color,
+                    startedAt: Date.now(),
+                  });
                 }}
                 onDragMove={(event) => {
                   event.cancelBubble = true;
@@ -2996,11 +3198,19 @@ export default function BoardStage({
                     return;
                   }
 
-                  updateObjectPosition(object.id, event.target.x(), event.target.y());
+                  updateTokenAnchorPosition(
+                    object.id,
+                    event.target.x(),
+                    event.target.y()
+                  );
                 }}
                 onDragEnd={(event) => {
                   event.cancelBubble = true;
-                  updateObjectPosition(object.id, event.target.x(), event.target.y());
+                  roomTokenConnectionRef.current?.setActiveMove(null);
+                  updateTokenPlacementAfterDrop(object.id, {
+                    x: event.target.x(),
+                    y: event.target.y(),
+                  });
                 }}
               />
             );

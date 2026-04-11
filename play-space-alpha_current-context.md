@@ -7,6 +7,13 @@
 Основной продуктовый курс не изменился:
 лёгкий board-first multiplayer play space, а не heavy VTT.
 
+Но current alpha interaction gravity now reads more clearly as media-centered:
+
+- board acts as staging space;
+- media-backed surfaces, currently images first, are becoming the main anchors of play;
+- tokens, notes, drawing, and other attached interaction increasingly organize themselves around those media surfaces;
+- this is a current product direction for the alpha stage, not yet a broad media-platform redesign.
+
 Текущая собранная база:
 
 - React + TypeScript + Vite + Konva/react-konva;
@@ -208,14 +215,88 @@ Token chapter больше не должен мыслиться как generic p
 - later, token may attach to images/maps and move with them;
 - the first useful implementation should still stay simple before attachment mechanics.
 
+### 3.17. Token already moved into a first participant-marker phase
+Token chapter теперь уже не только design-only.
+
+Уже реализовано:
+
+- token behaves as a viewport-stable pin rather than a normal scaling object;
+- each participant now gets a simple marker automatically;
+- marker no longer behaves like a normal selectable/deletable board object;
+- current token flow is now much closer to a product-facing participant marker than to a debug-only generic token.
+
+Но attachment semantics deliberately remain later.
+
+### 3.18. Reusable movable-object `activeMove` was added for tokens first
+Token chapter теперь уже получил первый runtime conflict/occupancy layer.
+
+Уже реализовано:
+
+- reusable movable-object `activeMove` occupancy semantics;
+- tokens are the first wired runtime user;
+- token drag now publishes temporary move occupancy;
+- competing token drags are blocked while that occupancy is live;
+- occupied state reuses the shared frame-based indication language rather than token-only UI.
+
+При этом intentionally unchanged:
+
+- image drag preview;
+- image drawing lock;
+- text-card editing presence;
+- broader transport consolidation.
+
+То есть phase 1 of live object-interaction unification уже началась, но only for token move occupancy so far.
+
+### 3.19. Token attachment and effective bounds reached a first coherent checkpoint
+После pin behavior, participant-marker flow, and first `activeMove` occupancy slice
+token chapter went through its next larger image-first attachment phase.
+
+Уже реализовано:
+
+- object-attached pin model, image first;
+- attachment source of truth lives on the token object itself;
+- token may be `free` or `attached`;
+- attached position uses normalized parent-local coordinates;
+- attached token repositions from current parent bounds while remaining viewport-stable in size;
+- local token follow during image move/resize now uses the best available local live geometry path;
+- remote attached-dependent behavior is now intentionally consistent with remote image preview semantics.
+
+This is now a real runtime checkpoint, not only a design direction.
+
+### 3.20. Attachment now points toward dependency hierarchy and effective bounds
+Attachment chapter now also has a clearer higher-level target beyond the first working image-first slice.
+
+It should be understood as:
+
+- dependency hierarchy for geometry and interaction follow;
+- not yet a full scene-graph or permissions tree;
+- parent object provides the geometry source;
+- attached pins, controls, and similar attached surfaces are dependents of that object.
+
+The desired architecture concept is:
+
+- `effective bounds`
+
+with resolution priority:
+
+1. local live interaction state
+2. shared live preview state
+3. committed object state
+
+This should eventually let attached dependents feel like one live scene with the parent object rather than separate layers catching up independently.
+
+Important backlog note:
+
+- current effective-bounds extraction is a good intermediate step;
+- ideal local feel still points toward near-zero visible catch-up between parent object and attached dependents during local interaction;
+- that later polish likely needs a deeper local interaction-loop / dependent-follow pass, not just more helper tweaks.
+
 ## 4. Current preferred next step
 
-Следующий правильный шаг:
+Следующие правильные шаги сейчас split into two tracks:
 
-- сохранить working hosted core + video stack без broad cleanup;
-- продолжить hosted playable-session validation;
-- собирать реальные rough edges уже из рабочего hosted environment;
-- только после этого решать, что действительно заслуживает следующего polish/stabilization pass.
+- continue hosted playable-session validation without broad cleanup;
+- in the object/runtime layer, token attachment and first effective-bounds extraction now form a coherent checkpoint; later work can move either into a deeper local interaction-loop polish pass or into the next object/media-centered chapter.
 
 ## 5. Current deployment direction
 

@@ -60,6 +60,11 @@
 - не делать broad rewrite `BoardStage.tsx`;
 - не ломать manual empty-space panning;
 - image interaction — чувствительная зона;
+- current alpha interaction gravity is increasingly media-centered:
+  - the board behaves as staging space;
+  - media-backed surfaces such as images are becoming the main anchors of play;
+  - tokens, notes, drawing, and attached interaction increasingly organize themselves around those media surfaces;
+  - this is a current product direction, not yet a commitment to a broad media-platform rewrite;
 - не подменять реальные product/deployment цели бесконечной локальной polish-спиралью.
 
 ## 4. Текущий активный этап
@@ -143,6 +148,8 @@ Core hosted signal уже получен.
 - [ ] behavior indication model chapter
 - [ ] cross-user action visibility model chapter
 - [ ] object-by-object review chapter
+- [x] reusable movable-object `activeMove` occupancy as phase 1 of live object-interaction unification
+- [x] object-attached pin / token attachment chapter (image first)
 - [ ] video / media layer review chapter
 - [ ] video presentation / frame composition chapter
 
@@ -191,6 +198,24 @@ Core hosted signal уже получен.
 - `image` is a first-class object family product-wise, but still remains more dispersed across `BoardStage`, `boardImage` helpers, and realtime image sync paths;
 - `drawing` currently behaves more like an image capability than a separate object family;
 - `dice` и `video/media` should be reviewed separately as non-object layers rather than forced into the same object-family bucket.
+
+Дополнительная заметка к текущему token / movable-object direction:
+
+- token chapter now already moved from generic placeholder object toward participant marker / pin semantics;
+- reusable movable-object `activeMove` occupancy now exists as the first runtime conflict/occupancy slice for tokens;
+- token attachment semantics now exist as a first working image-first runtime slice;
+- attachment source of truth should live on the token object itself, not in room metadata;
+- first attachment model should use normalized parent-local coordinates and derive render position from current parent bounds;
+- token should remain viewport-stable in size even when attached in the first slice;
+- attachment should later grow into an effective-bounds model for attached dependents;
+- first shared image effective-bounds extraction now exists for attached tokens and image-backed controls;
+- this is dependency hierarchy for geometry/interaction follow, not yet a full scene-graph or permissions tree;
+- later polish target: attached dependents should ideally follow local parent interaction with near-zero visible catch-up, likely requiring a deeper local interaction-loop / dependent-follow pass beyond the current effective-bounds extraction;
+- this should be implemented as phase 1 of live object-interaction unification:
+  - token first for `activeMove`
+  - reusable semantics
+  - no token-only conflict model
+  - no broad transport consolidation yet.
 
 ## 9. Open questions
 
