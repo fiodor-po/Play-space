@@ -134,8 +134,16 @@ export function getTextCardMinimumBounds(label: string, width: number) {
   };
 }
 
-export function normalizeTextCardObject(object: BoardObject) {
-  if (object.kind !== "text-card") {
+export function isNoteLikeObjectKind(kind: BoardObject["kind"]) {
+  return kind === "text-card" || kind === "note-card";
+}
+
+export function isNoteLikeObject(object: BoardObject) {
+  return isNoteLikeObjectKind(object.kind);
+}
+
+export function normalizeNoteLikeObject(object: BoardObject) {
+  if (!isNoteLikeObject(object)) {
     return object;
   }
 
@@ -147,4 +155,12 @@ export function normalizeTextCardObject(object: BoardObject) {
     width,
     height: Math.max(Math.round(object.height), minimumHeight),
   };
+}
+
+export function normalizeTextCardObject(object: BoardObject) {
+  if (object.kind !== "text-card") {
+    return object;
+  }
+
+  return normalizeNoteLikeObject(object);
 }

@@ -25,5 +25,6 @@ export const REMOTE_INTERACTION_FRAME_STROKE_WIDTH = 2;
 export const objectLayerOrder: Record<BoardObjectKind, number> = {
   image: 0,
   "text-card": 1,
+  "note-card": 1,
   token: 2,
 };

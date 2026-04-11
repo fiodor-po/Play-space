@@ -1,66 +1,97 @@
-# Text-Card Sizing Design
+# Text-Card / Note-Card Design
 
-Status: canonical near-term text-card sizing source  
-Scope: text-card resize behavior, auto-height behavior, readable note proportions
+Status: canonical note replacement and near-term sizing source  
+Scope: legacy text-card status, new note-card direction, note sizing behavior
 
-This document defines how note/text-card sizing should behave in the current
-product stage.
+This document defines the current replacement direction for notes in the
+product and the intended sizing behavior for the future note surface.
 
 It does not define:
 
 - media association or attachment;
 - rich text or document-editor behavior;
-- a broad text-card object-system redesign;
+- a broad board/object redesign;
 - a full annotation platform.
 
-## 1. Canonical sizing rule
+## 1. Canonical replacement direction
 
-Text-cards should remain **free board context cards**.
+The current `text-card` should now be treated as a **legacy object**.
 
-Canonical rule:
+The canonical future note surface should be a new `note-card` object.
 
-- text-card should resize like a normal text box;
-- manual resize may change both width and height;
-- text should reflow to the current box size;
-- while typing, if text no longer fits vertically, the card should auto-grow in height;
-- normal note text should not be clipped by default;
-- text-cards should stay lightweight readable cards, not document-editor objects.
+Replacement rule:
 
-This is the core model going forward.
+- keep legacy `text-card` working for existing rooms and snapshots;
+- future note implementation should move to `note-card`;
+- first replacement slice should introduce `note-card` alongside legacy `text-card`;
+- no migration should happen in the first replacement slice;
+- future note creation flow should target `note-card`, not legacy `text-card`.
+
+This is the core direction going forward.
 
 ## 2. Product role reminder
 
-Text-cards and tokens serve different jobs.
+Notes and tokens serve different jobs.
 
 - token optimizes for spatial placement;
-- text-card optimizes for readability.
+- note-card optimizes for readability.
 
-That means text-card sizing should favor:
+That means the future note surface should favor:
 
 - readable line length;
 - visible text without clipping;
 - stable note-card proportions.
 
-## 3. Manual resize rule
+## 3. Canonical new note-card semantics
+
+The new `note-card` should be built from correct text-box semantics from the
+start.
+
+Canonical rule:
+
+- `note-card` remains a free board context card;
+- `note-card` resizes like a normal text box;
+- manual resize may change width and height;
+- text should wrap/reflow to the current box width;
+- while typing, if text no longer fits vertically, the card should auto-grow in height;
+- normal note text should not be clipped by default;
+- no internal scroll region should appear in normal note flow;
+- the object should stay lightweight and readable, not become a document editor.
+
+## 4. Coexistence rule
+
+Legacy `text-card` and new `note-card` should coexist for now.
+
+Near-term coexistence rule:
+
+- existing `text-card` remains supported and readable;
+- existing `text-card` remains editable enough for continuity;
+- new note creation should later target `note-card`;
+- legacy `text-card` should stop receiving broad polish except for critical bugs;
+- automatic migration is intentionally deferred.
+
+This keeps the replacement path safe and incremental.
+
+## 5. Manual resize rule for the new note-card
 
 Manual resize should stay standard and predictable.
 
 Near-term rule:
 
-- text-card should resize from its box handles/corners like a normal board text box;
+- `note-card` should resize from its box handles/corners like a normal board text box;
 - manual resize may change width and height;
 - text should wrap/reflow to the current box width;
 - resize should not depend on internal scroll regions to make text readable.
 
 This keeps resize behavior familiar without turning the note into a document editor.
 
-## 4. Auto-height rule
+## 6. Auto-height rule for the new note-card
 
 Auto-height should be a readability safety behavior, not the whole sizing model.
 
 Near-term rule:
 
-- text-card keeps a sensible minimum card height for empty or short notes;
+- `note-card` keeps a sensible minimum card height for empty or short notes;
 - while typing/editing, once text needs more vertical space, card height should auto-grow to fit it;
 - normal note text should remain visible without an internal scroll region.
 
@@ -70,14 +101,14 @@ So the card should behave like:
 - normal text box resize by hand;
 - extra vertical growth when live text input would otherwise overflow.
 
-## 5. Before, during, and after editing
+## 7. Before, during, and after editing
 
-### 5.1. Before editing
+### 7.1. Before editing
 
 If saved note text would overflow at the current width, the card should already
 be large enough for that saved content.
 
-### 5.2. During editing
+### 7.2. During editing
 
 As the participant types:
 
@@ -85,7 +116,7 @@ As the participant types:
 - editable text area should grow with the note rather than hiding overflow;
 - typing should not feel like writing into a clipped viewport.
 
-### 5.3. After editing
+### 7.3. After editing
 
 After commit:
 
@@ -93,9 +124,9 @@ After commit:
 - normal note text should remain fully readable;
 - manual box sizing should remain preserved except where extra height was needed to keep text visible.
 
-## 6. Readable width and note proportions
+## 8. Readable width and note proportions
 
-Text-cards should avoid both extremes:
+Notes should avoid both extremes:
 
 - too narrow: tall unreadable text column;
 - too wide: hard-to-scan paragraph slab.
@@ -116,22 +147,23 @@ Practical result:
 - note should still read like a note card, not a text strip and not a document
   page.
 
-## 7. First implementation-oriented sizing model
+## 9. First implementation-oriented replacement slice
 
 The first useful implementation slice should follow this model:
 
-1. text-card remains a normal free board object;
-2. text-card box can be resized manually in a standard way;
-3. text content reflows to the current width;
-4. while typing, card height auto-grows if text would otherwise overflow vertically;
-5. the same no-clipping rule applies in normal display and editing flow.
+1. introduce `note-card` as a new object kind;
+2. keep legacy `text-card` working without migration;
+3. switch later note creation flow to `note-card`;
+4. build `note-card` from correct text-box resize semantics from the start;
+5. keep the same no-clipping rule in normal display and editing flow.
 
-This is enough to improve note usability without broadening scope.
+This is enough to prove the replacement path without broadening scope.
 
-## 8. What is intentionally deferred
+## 10. What is intentionally deferred
 
 Deferred for later:
 
+- automatic migration from `text-card` to `note-card`;
 - rich text editing;
 - internal scroll containers for normal note flow;
 - note/media association;
@@ -140,13 +172,16 @@ Deferred for later:
 - typography redesign;
 - annotation/document-platform behavior.
 
-## 9. Practical interpretation
+## 11. Practical interpretation
 
 If there is tension between fixed geometry and readable text, readability wins.
 
 That means:
 
-- do not require participants to accept clipped text just because the box is currently too small;
-- do not let text-cards become hidden-overflow boxes by default;
-- keep the object lightweight, but let the card behave like a readable note
-  surface.
+- do not keep polishing legacy `text-card` into a final note object if the
+  interaction base is wrong;
+- do not require participants to accept clipped text just because the box is
+  currently too small;
+- do not let the future `note-card` become a hidden-overflow box by default;
+- keep the future note surface lightweight, but let it behave like a readable
+  note surface.

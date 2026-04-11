@@ -229,6 +229,15 @@ Core hosted signal уже получен.
   - normal note text should not clip in ordinary note flow;
 - first implementation slice should focus on standard text-box resize plus no-clipping auto-grow behavior, not on document-editor behavior.
 
+Дополнительная заметка к текущему note replacement direction:
+
+- current `text-card` should now be treated as a legacy object;
+- future note work should move to a new `note-card` object rather than continue polishing legacy `text-card`;
+- legacy `text-card` and new `note-card` should coexist for now;
+- first replacement slice should not migrate existing objects;
+- future note creation flow should later target `note-card`;
+- media association, attachment, and document-editor behavior remain out of scope for the first replacement slice.
+
 ## 9. Open questions
 
 - Какие rough edges проявятся только после hosted playable-session checks?

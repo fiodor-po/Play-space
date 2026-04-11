@@ -306,6 +306,20 @@ Current intended direction:
 
 This is a design checkpoint for later implementation, not a runtime slice yet.
 
+### 3.22. Legacy text-card -> new note-card replacement direction is now explicit
+The current text-card chapter has now reached a clearer replacement decision as well.
+
+Current intended direction:
+
+- current `text-card` should be treated as a legacy object;
+- a new `note-card` should become the canonical future note surface;
+- legacy `text-card` and new `note-card` should coexist for now;
+- first replacement slice should not migrate existing content;
+- future note creation flow should later target `note-card`;
+- new `note-card` should be built from correct text-box semantics from the start.
+
+This is a replacement-direction checkpoint, not an immediate migration plan.
+
 ## 4. Current preferred next step
 
 Следующие правильные шаги сейчас split into two tracks:

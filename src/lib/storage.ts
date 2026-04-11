@@ -1,6 +1,9 @@
 import type { BoardObject, ViewportState } from "../types/board";
 import { normalizeTokenObject } from "../board/objects/token/createTokenObject";
-import { normalizeTextCardObject } from "../board/objects/textCard/sizing";
+import {
+  isNoteLikeObject,
+  normalizeNoteLikeObject,
+} from "../board/objects/textCard/sizing";
 
 export const BOARD_STORAGE_KEY = "play-space-alpha-board-v1";
 export const VIEWPORT_STORAGE_KEY = "play-space-alpha-viewport-v1";
@@ -69,7 +72,7 @@ export function saveRoomSnapshot(roomId: string, objects: BoardObject[]) {
     savedAt: Date.now(),
     tokens: objects.filter((object) => object.kind === "token"),
     images: objects.filter((object) => object.kind === "image"),
-    textCards: objects.filter((object) => object.kind === "text-card"),
+    textCards: objects.filter((object) => isNoteLikeObject(object)),
   };
 
   try {
@@ -110,7 +113,10 @@ export function loadRoomSnapshot(roomId: string): RoomSnapshot | null {
         : [],
       textCards: Array.isArray(parsed.textCards)
         ? normalizeTextCardObjects(
-            parsed.textCards.filter((object) => object?.kind === "text-card")
+            parsed.textCards.filter(
+              (object) =>
+                object?.kind === "text-card" || object?.kind === "note-card"
+            )
           )
         : [],
     };
@@ -161,7 +167,7 @@ function normalizeTokenObjects(objects: BoardObject[]) {
 
 function normalizeTextCardObjects(objects: BoardObject[]) {
   return objects.map((object) =>
-    object.kind === "text-card" ? normalizeTextCardObject(object) : object
+    isNoteLikeObject(object) ? normalizeNoteLikeObject(object) : object
   );
 }
 
@@ -171,8 +177,8 @@ function normalizeBoardObjects(objects: BoardObject[]) {
       return normalizeTokenObject(object);
     }
 
-    if (object.kind === "text-card") {
-      return normalizeTextCardObject(object);
+    if (isNoteLikeObject(object)) {
+      return normalizeNoteLikeObject(object);
     }
 
     return object;
@@ -285,19 +291,17 @@ export function loadRoomTextCardObjects(
 
   if (!raw) {
     return normalizeTextCardObjects(
-      fallback.filter((object) => object.kind === "text-card")
+      fallback.filter((object) => isNoteLikeObject(object))
     );
   }
 
   try {
     return normalizeTextCardObjects(
-      (JSON.parse(raw) as BoardObject[]).filter(
-        (object) => object.kind === "text-card"
-      )
+      (JSON.parse(raw) as BoardObject[]).filter((object) => isNoteLikeObject(object))
     );
   } catch {
     return normalizeTextCardObjects(
-      fallback.filter((object) => object.kind === "text-card")
+      fallback.filter((object) => isNoteLikeObject(object))
     );
   }
 }
@@ -305,7 +309,7 @@ export function loadRoomTextCardObjects(
 export function saveRoomTextCardObjects(roomId: string, objects: BoardObject[]) {
   localStorage.setItem(
     getRoomTextCardStorageKey(roomId),
-    JSON.stringify(objects.filter((object) => object.kind === "text-card"))
+    JSON.stringify(objects.filter((object) => isNoteLikeObject(object)))
   );
 }
 
