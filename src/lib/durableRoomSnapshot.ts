@@ -1,9 +1,9 @@
 import type { BoardObject } from "../types/board";
 import { normalizeTokenObject } from "../board/objects/token/createTokenObject";
 import {
-  isNoteLikeObject,
-  normalizeNoteLikeObject,
-} from "../board/objects/textCard/sizing";
+  isNoteCardObject,
+  normalizeNoteCardObject,
+} from "../board/objects/noteCard/sizing";
 import { getApiServerBaseUrl } from "./runtimeConfig";
 
 export type DurableRoomSnapshot = {
@@ -93,7 +93,7 @@ export async function saveDurableRoomSnapshot(
     roomCreatorId: options?.roomCreatorId ?? null,
     tokens: objects.filter((object) => object.kind === "token"),
     images: objects.filter((object) => object.kind === "image"),
-    textCards: objects.filter((object) => isNoteLikeObject(object)),
+    textCards: objects.filter((object) => isNoteCardObject(object)),
   };
 
   try {
@@ -189,11 +189,8 @@ function normalizeDurableRoomSnapshot(
       : [],
     textCards: Array.isArray(snapshot.textCards)
       ? snapshot.textCards
-          .filter(
-            (object) =>
-              object?.kind === "text-card" || object?.kind === "note-card"
-          )
-          .map((object) => normalizeNoteLikeObject(object as BoardObject))
+          .filter((object) => object?.kind === "note-card")
+          .map((object) => normalizeNoteCardObject(object as BoardObject))
       : [],
   };
 }

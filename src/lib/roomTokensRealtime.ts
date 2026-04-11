@@ -178,7 +178,6 @@ function getActiveObjectMovesFromAwareness(states: Map<number, Record<string, un
       move.objectId.length === 0 ||
       (move.objectKind !== "token" &&
         move.objectKind !== "image" &&
-        move.objectKind !== "text-card" &&
         move.objectKind !== "note-card") ||
       typeof move.participantId !== "string" ||
       move.participantId.length === 0 ||

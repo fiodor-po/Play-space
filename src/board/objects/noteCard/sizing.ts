@@ -4,14 +4,13 @@ import {
   TEXT_CARD_BODY_INSET_X,
   TEXT_CARD_BODY_INSET_Y,
   TEXT_CARD_BODY_LINE_HEIGHT,
-  TEXT_CARD_HEADER_HEIGHT,
 } from "../../constants";
 import type { BoardObject } from "../../../types/board";
 
-export const MIN_TEXT_CARD_WIDTH = 96;
-export const MIN_TEXT_CARD_HEIGHT = 72;
+export const MIN_NOTE_CARD_WIDTH = 96;
+export const MIN_NOTE_CARD_HEIGHT = 72;
 
-const MIN_TEXT_CARD_BODY_WIDTH = 40;
+const MIN_NOTE_CARD_BODY_WIDTH = 40;
 
 let cachedMeasureContext: CanvasRenderingContext2D | null = null;
 
@@ -30,14 +29,14 @@ function getMeasureContext() {
   return cachedMeasureContext;
 }
 
-export function clampTextCardWidth(width: number) {
-  return Math.max(MIN_TEXT_CARD_WIDTH, Math.round(width));
+export function clampNoteCardWidth(width: number) {
+  return Math.max(MIN_NOTE_CARD_WIDTH, Math.round(width));
 }
 
-export function getTextCardBodyWidth(width: number) {
+export function getNoteCardBodyWidth(width: number) {
   return Math.max(
-    clampTextCardWidth(width) - TEXT_CARD_BODY_INSET_X * 2,
-    MIN_TEXT_CARD_BODY_WIDTH
+    clampNoteCardWidth(width) - TEXT_CARD_BODY_INSET_X * 2,
+    MIN_NOTE_CARD_BODY_WIDTH
   );
 }
 
@@ -112,43 +111,25 @@ function getWrappedLineCount(text: string, bodyWidth: number) {
   return Math.max(lineCount, 1);
 }
 
-export function getTextCardHeightForLabel(label: string, width: number) {
-  const bodyWidth = getTextCardBodyWidth(width);
+export function getNoteCardHeightForLabel(label: string, width: number) {
+  const bodyWidth = getNoteCardBodyWidth(width);
   const lineCount = getWrappedLineCount(label, bodyWidth);
   const contentHeight = Math.ceil(lineCount * getLineHeightPx());
-  const minimumBodyHeight = MIN_TEXT_CARD_HEIGHT - TEXT_CARD_HEADER_HEIGHT;
   const bodyHeight = Math.max(
-    minimumBodyHeight,
+    MIN_NOTE_CARD_HEIGHT,
     contentHeight + TEXT_CARD_BODY_INSET_Y * 2
   );
 
-  return TEXT_CARD_HEADER_HEIGHT + bodyHeight;
+  return bodyHeight;
 }
 
-export function getTextCardMinimumBounds(label: string, width: number) {
-  const clampedWidth = clampTextCardWidth(width);
-
-  return {
-    width: clampedWidth,
-    height: getTextCardHeightForLabel(label, clampedWidth),
-  };
-}
-
-export function isNoteLikeObjectKind(kind: BoardObject["kind"]) {
-  return kind === "text-card" || kind === "note-card";
-}
-
-export function isNoteLikeObject(object: BoardObject) {
-  return isNoteLikeObjectKind(object.kind);
-}
-
-export function normalizeNoteLikeObject(object: BoardObject) {
-  if (!isNoteLikeObject(object)) {
+export function normalizeNoteCardObject(object: BoardObject) {
+  if (object.kind !== "note-card") {
     return object;
   }
 
-  const width = clampTextCardWidth(object.width);
-  const minimumHeight = getTextCardHeightForLabel(object.label, width);
+  const width = clampNoteCardWidth(object.width);
+  const minimumHeight = getNoteCardHeightForLabel(object.label, width);
 
   return {
     ...object,
@@ -157,10 +138,10 @@ export function normalizeNoteLikeObject(object: BoardObject) {
   };
 }
 
-export function normalizeTextCardObject(object: BoardObject) {
-  if (object.kind !== "text-card") {
-    return object;
-  }
+export function isNoteCardObjectKind(kind: BoardObject["kind"]) {
+  return kind === "note-card";
+}
 
-  return normalizeNoteLikeObject(object);
+export function isNoteCardObject(object: BoardObject) {
+  return isNoteCardObjectKind(object.kind);
 }

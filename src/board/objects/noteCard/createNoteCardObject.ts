@@ -1,5 +1,8 @@
 import type { BoardObject } from "../../../types/board";
-import { getTextCardHeightForLabel, normalizeNoteLikeObject } from "../textCard/sizing";
+import {
+  getNoteCardHeightForLabel,
+  normalizeNoteCardObject,
+} from "./sizing";
 
 type CreateNoteCardObjectParams = {
   id: string;
@@ -16,14 +19,14 @@ export function createNoteCardObject({
 }: CreateNoteCardObjectParams): BoardObject {
   const width = 260;
 
-  return normalizeNoteLikeObject({
+  return normalizeNoteCardObject({
     id,
     kind: "note-card",
     creatorId,
     x: position.x - width / 2,
     y: position.y - 90,
     width,
-    height: getTextCardHeightForLabel("New note", width),
+    height: getNoteCardHeightForLabel("New note", width),
     fill: "#f8fafc",
     label: "New note",
     authorColor: color,

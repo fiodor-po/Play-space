@@ -3,9 +3,9 @@ import { WebsocketProvider } from "y-websocket";
 import type { BoardObject } from "../types/board";
 import { getRealtimeServerWsUrl } from "./runtimeConfig";
 import {
-  isNoteLikeObject,
-  normalizeNoteLikeObject,
-} from "../board/objects/textCard/sizing";
+  isNoteCardObject,
+  normalizeNoteCardObject,
+} from "../board/objects/noteCard/sizing";
 
 export type TextCardEditingPresence = {
   textCardId: string;
@@ -124,7 +124,7 @@ export function createRoomTextCardConnection(params: {
     },
     replaceTextCards: (textCards) => {
       const nextTextCards = textCards.filter(
-        (textCard) => isNoteLikeObject(textCard)
+        (textCard) => isNoteCardObject(textCard)
       );
       const nextTextCardIds = new Set(nextTextCards.map((textCard) => textCard.id));
 
@@ -140,7 +140,7 @@ export function createRoomTextCardConnection(params: {
     },
     upsertTextCards: (textCards) => {
       textCards
-        .filter((textCard) => isNoteLikeObject(textCard))
+        .filter((textCard) => isNoteCardObject(textCard))
         .forEach((textCard) => {
           textCardMap.set(textCard.id, JSON.stringify(textCard));
         });
@@ -160,7 +160,7 @@ export function createRoomTextCardConnection(params: {
     },
     seedTextCards: (textCards) => {
       const nextSeedTextCards = textCards.filter(
-        (textCard) => isNoteLikeObject(textCard)
+        (textCard) => isNoteCardObject(textCard)
       );
 
       if (nextSeedTextCards.length === 0) {
@@ -190,8 +190,8 @@ function getTextCardsFromMap(textCardMap: Y.Map<string>) {
     try {
       const textCard = JSON.parse(value) as BoardObject;
 
-      if (isNoteLikeObject(textCard)) {
-        textCards.push(normalizeNoteLikeObject(textCard));
+      if (isNoteCardObject(textCard)) {
+        textCards.push(normalizeNoteCardObject(textCard));
       }
     } catch {
       return;

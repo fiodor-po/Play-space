@@ -586,7 +586,7 @@ function createDurableRoomSnapshot(roomId, body) {
         : null,
     tokens: normalizeRoomObjects(body.tokens, "token"),
     images: normalizeRoomObjects(body.images, "image"),
-    textCards: normalizeRoomObjects(body.textCards, ["text-card", "note-card"]),
+    textCards: normalizeRoomObjects(body.textCards, "note-card"),
   };
 }
 
@@ -609,7 +609,7 @@ function normalizeDurableRoomSnapshot(roomId, snapshot) {
         : null,
     tokens: normalizeRoomObjects(snapshot.tokens, "token"),
     images: normalizeRoomObjects(snapshot.images, "image"),
-    textCards: normalizeRoomObjects(snapshot.textCards, ["text-card", "note-card"]),
+    textCards: normalizeRoomObjects(snapshot.textCards, "note-card"),
   };
 }
 

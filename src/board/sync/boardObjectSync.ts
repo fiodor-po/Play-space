@@ -2,7 +2,7 @@ import type { BoardObject } from "../../types/board";
 import type { RoomImageConnection } from "../../lib/roomImagesRealtime";
 import type { RoomTextCardConnection } from "../../lib/roomTextCardsRealtime";
 import type { RoomTokenConnection } from "../../lib/roomTokensRealtime";
-import { isNoteLikeObjectKind } from "../objects/textCard/sizing";
+import { isNoteCardObjectKind } from "../objects/noteCard/sizing";
 
 export type BoardObjectSyncOptions = {
   syncSharedTokens?: boolean;
@@ -55,7 +55,7 @@ export function getAddBoardObjectSyncOptions(
   return {
     syncSharedTokens: object.kind === "token",
     syncSharedImageIds: object.kind === "image" ? [object.id] : undefined,
-    syncSharedTextCards: isNoteLikeObjectKind(object.kind),
+    syncSharedTextCards: isNoteCardObjectKind(object.kind),
   };
 }
 
@@ -68,7 +68,7 @@ export function getUpdateBoardObjectSyncOptions(
   return {
     syncSharedTokens: object?.kind === "token",
     syncSharedImageIds: object?.kind === "image" ? [id] : undefined,
-    syncSharedTextCards: object ? isNoteLikeObjectKind(object.kind) : false,
+    syncSharedTextCards: object ? isNoteCardObjectKind(object.kind) : false,
   };
 }
 
@@ -81,6 +81,6 @@ export function getRemoveBoardObjectSyncOptions(
   return {
     syncSharedTokens: object?.kind === "token",
     removeSharedImageIds: object?.kind === "image" ? [id] : undefined,
-    syncSharedTextCards: object ? isNoteLikeObjectKind(object.kind) : false,
+    syncSharedTextCards: object ? isNoteCardObjectKind(object.kind) : false,
   };
 }

@@ -4,7 +4,7 @@ import type { RoomBaselineDescriptor } from "./roomMetadata";
 const PUBLIC_DEMO_V1_BASELINE_OBJECTS: BoardObject[] = [
   {
     id: "baseline-public-demo-v1-card",
-    kind: "text-card",
+    kind: "note-card",
     creatorId: "system",
     x: 1680,
     y: 1160,

@@ -1,9 +1,9 @@
 import type { BoardObject } from "../types/board";
 import {
-  getTextCardHeightForLabel,
-  isNoteLikeObject,
-  normalizeNoteLikeObject,
-} from "../board/objects/textCard/sizing";
+  getNoteCardHeightForLabel,
+  isNoteCardObject,
+  normalizeNoteCardObject,
+} from "../board/objects/noteCard/sizing";
 
 export function updateBoardObjectById(
   objects: BoardObject[],
@@ -28,13 +28,13 @@ export function updateBoardObjectLabel(
   label: string
 ) {
   return updateBoardObjectById(objects, id, (object) => {
-    if (!isNoteLikeObject(object)) {
+    if (!isNoteCardObject(object)) {
       return { ...object, label };
     }
 
-    const minimumHeight = getTextCardHeightForLabel(label, object.width);
+    const minimumHeight = getNoteCardHeightForLabel(label, object.width);
 
-    return normalizeNoteLikeObject({
+    return normalizeNoteCardObject({
       ...object,
       label,
       height: Math.max(object.height, minimumHeight),

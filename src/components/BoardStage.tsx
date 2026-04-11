@@ -16,14 +16,13 @@ import { ParticipantSessionPanel } from "../board/components/ParticipantSessionP
 import { RemoteInteractionIndicator } from "../board/components/RemoteInteractionIndicator";
 import { createNoteCardObject } from "../board/objects/noteCard/createNoteCardObject";
 import { NoteCardRenderer } from "../board/objects/noteCard/NoteCardRenderer";
-import { TextCardRenderer } from "../board/objects/textCard/TextCardRenderer";
 import {
-  clampTextCardWidth,
-  getTextCardHeightForLabel,
-  MIN_TEXT_CARD_HEIGHT,
-  MIN_TEXT_CARD_WIDTH,
-  isNoteLikeObject,
-} from "../board/objects/textCard/sizing";
+  clampNoteCardWidth,
+  getNoteCardHeightForLabel,
+  MIN_NOTE_CARD_HEIGHT,
+  MIN_NOTE_CARD_WIDTH,
+  isNoteCardObject,
+} from "../board/objects/noteCard/sizing";
 import { createTokenObject } from "../board/objects/token/createTokenObject";
 import { TokenRenderer } from "../board/objects/token/TokenRenderer";
 import {
@@ -54,7 +53,6 @@ import {
   TEXT_CARD_BODY_INSET_X,
   TEXT_CARD_BODY_INSET_Y,
   TEXT_CARD_BODY_LINE_HEIGHT,
-  TEXT_CARD_HEADER_HEIGHT,
 } from "../board/constants";
 import {
   getBoardPointFromScreen,
@@ -304,7 +302,7 @@ export default function BoardStage({
         (object) =>
           object.kind !== "token" &&
           object.kind !== "image" &&
-          !isNoteLikeObject(object)
+          !isNoteCardObject(object)
       ),
     ];
   };
@@ -365,13 +363,6 @@ export default function BoardStage({
   const [editingTextCardId, setEditingTextCardId] = useState<string | null>(null);
   const [editingDraft, setEditingDraft] = useState("");
   const [editingOriginal, setEditingOriginal] = useState("");
-  const [liveTextCardResizePreview, setLiveTextCardResizePreview] = useState<{
-    textCardId: string;
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-  } | null>(null);
   const [liveNoteCardResizePreview, setLiveNoteCardResizePreview] = useState<{
     noteCardId: string;
     x: number;
@@ -543,10 +534,6 @@ export default function BoardStage({
     },
   });
 
-  const getTextCardAccentColor = (object: BoardObject) => {
-    return getLiveCreatorColor(object) ?? object.authorColor ?? "#94a3b8";
-  };
-
   const getObjectSemanticsRows = (object: BoardObject) => {
     const rows = [
       { label: "Kind", value: object.kind },
@@ -675,21 +662,11 @@ export default function BoardStage({
     return resolution;
   };
 
-  const textCardRefs = useRef<Record<string, Konva.Group | null>>({});
   const noteCardRefs = useRef<Record<string, Konva.Group | null>>({});
   const imageRefs = useRef<Record<string, Konva.Image | null>>({});
   const imageStrokeLayerRefs = useRef<Record<string, Konva.Group | null>>({});
-  const textCardTransformerRef = useRef<Konva.Transformer | null>(null);
   const noteCardTransformerRef = useRef<Konva.Transformer | null>(null);
   const imageTransformerRef = useRef<Konva.Transformer | null>(null);
-  const liveTextCardResizePreviewRef = useRef<{
-    textCardId: string;
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-  } | null>(null);
-  const liveTextCardResizeFrameRef = useRef<number | null>(null);
   const liveNoteCardResizePreviewRef = useRef<{
     noteCardId: string;
     x: number;
@@ -726,17 +703,6 @@ export default function BoardStage({
     {}
   );
 
-  const scheduleTextCardResizePreviewRender = () => {
-    if (liveTextCardResizeFrameRef.current !== null) {
-      return;
-    }
-
-    liveTextCardResizeFrameRef.current = window.requestAnimationFrame(() => {
-      liveTextCardResizeFrameRef.current = null;
-      setLiveTextCardResizePreview(liveTextCardResizePreviewRef.current);
-    });
-  };
-
   const scheduleNoteCardResizePreviewRender = () => {
     if (liveNoteCardResizeFrameRef.current !== null) {
       return;
@@ -758,7 +724,7 @@ export default function BoardStage({
         (object) =>
           object.kind === "token" ||
           object.kind === "image" ||
-          isNoteLikeObject(object)
+          isNoteCardObject(object)
       ),
     [objects]
   );
@@ -1025,12 +991,12 @@ export default function BoardStage({
     setEditingTextCardId(null);
     setEditingDraft("");
     setEditingOriginal("");
-    liveTextCardResizePreviewRef.current = null;
-    if (liveTextCardResizeFrameRef.current !== null) {
-      window.cancelAnimationFrame(liveTextCardResizeFrameRef.current);
-      liveTextCardResizeFrameRef.current = null;
+    liveNoteCardResizePreviewRef.current = null;
+    if (liveNoteCardResizeFrameRef.current !== null) {
+      window.cancelAnimationFrame(liveNoteCardResizeFrameRef.current);
+      liveNoteCardResizeFrameRef.current = null;
     }
-    setLiveTextCardResizePreview(null);
+    setLiveNoteCardResizePreview(null);
     setDrawingImageId(null);
     setTransformingImageId(null);
     setDraggingImageId(null);
@@ -1150,7 +1116,7 @@ export default function BoardStage({
       roomCreatorId,
       tokens: objects.filter((object) => object.kind === "token"),
       images: objects.filter((object) => object.kind === "image"),
-      textCards: objects.filter((object) => isNoteLikeObject(object)),
+      textCards: objects.filter((object) => isNoteCardObject(object)),
     });
 
     if (
@@ -1454,7 +1420,7 @@ export default function BoardStage({
       roomId,
       onTextCardsChange: (sharedTextCards) => {
         setObjects((currentObjects) => [
-          ...currentObjects.filter((object) => !isNoteLikeObject(object)),
+          ...currentObjects.filter((object) => !isNoteCardObject(object)),
           ...sharedTextCards,
         ]);
       },
@@ -1722,12 +1688,12 @@ export default function BoardStage({
     applyBoardObjectsUpdate(
       (currentObjects) =>
         updateBoardObjectById(currentObjects, id, (object) => {
-          if (!isNoteLikeObject(object)) {
+          if (!isNoteCardObject(object)) {
             return object;
           }
 
-          const width = clampTextCardWidth(nextBounds.width);
-          const textFitHeight = getTextCardHeightForLabel(object.label, width);
+          const width = clampNoteCardWidth(nextBounds.width);
+          const textFitHeight = getNoteCardHeightForLabel(object.label, width);
           const height = Math.max(Math.round(nextBounds.height), textFitHeight);
 
           return {
@@ -2057,14 +2023,6 @@ export default function BoardStage({
     clearBoardContentStorage(roomId);
   };
 
-  const startDraggingTextCard = (id: string) => {
-    const node = textCardRefs.current[id];
-
-    if (!node) return;
-
-    node.startDrag();
-  };
-
   const startEditingTextCard = (object: BoardObject) => {
     setSelectedObjectId(object.id);
     setEditingTextCardId(object.id);
@@ -2114,27 +2072,6 @@ export default function BoardStage({
   }, [editingTextCardId]);
 
   useEffect(() => {
-    const transformer = textCardTransformerRef.current;
-
-    if (!transformer) {
-      return;
-    }
-
-    const selectedTextCardNode =
-      selectedObjectId && !editingTextCardId
-        ? textCardRefs.current[selectedObjectId] ?? null
-        : null;
-
-    if (selectedTextCardNode) {
-      transformer.nodes([selectedTextCardNode]);
-    } else {
-      transformer.nodes([]);
-    }
-
-    transformer.getLayer()?.batchDraw();
-  }, [editingTextCardId, selectedObjectId]);
-
-  useEffect(() => {
     const transformer = noteCardTransformerRef.current;
 
     if (!transformer) {
@@ -2153,27 +2090,6 @@ export default function BoardStage({
     }
 
     transformer.getLayer()?.batchDraw();
-  }, [editingTextCardId, selectedObjectId]);
-
-  useEffect(() => {
-    if (!selectedObjectId || editingTextCardId) {
-      liveTextCardResizePreviewRef.current = null;
-      if (liveTextCardResizeFrameRef.current !== null) {
-        window.cancelAnimationFrame(liveTextCardResizeFrameRef.current);
-        liveTextCardResizeFrameRef.current = null;
-      }
-      setLiveTextCardResizePreview(null);
-      return;
-    }
-
-    if (!textCardRefs.current[selectedObjectId]) {
-      liveTextCardResizePreviewRef.current = null;
-      if (liveTextCardResizeFrameRef.current !== null) {
-        window.cancelAnimationFrame(liveTextCardResizeFrameRef.current);
-        liveTextCardResizeFrameRef.current = null;
-      }
-      setLiveTextCardResizePreview(null);
-    }
   }, [editingTextCardId, selectedObjectId]);
 
   useEffect(() => {
@@ -2199,9 +2115,6 @@ export default function BoardStage({
 
   useEffect(() => {
     return () => {
-      if (liveTextCardResizeFrameRef.current !== null) {
-        window.cancelAnimationFrame(liveTextCardResizeFrameRef.current);
-      }
       if (liveNoteCardResizeFrameRef.current !== null) {
         window.cancelAnimationFrame(liveNoteCardResizeFrameRef.current);
       }
@@ -2305,25 +2218,9 @@ export default function BoardStage({
 
   const editingTextCard = editingTextCardId
     ? objects.find(
-        (object) => object.id === editingTextCardId && isNoteLikeObject(object)
+        (object) => object.id === editingTextCardId && isNoteCardObject(object)
       ) ?? null
     : null;
-  const getTextCardPreviewBounds = (object: BoardObject) => {
-    if (
-      liveTextCardResizePreview &&
-      liveTextCardResizePreview.textCardId === object.id
-    ) {
-      return liveTextCardResizePreview;
-    }
-
-    return {
-      textCardId: object.id,
-      x: object.x,
-      y: object.y,
-      width: object.width,
-      height: object.height,
-    };
-  };
   const getNoteCardPreviewBounds = (object: BoardObject) => {
     if (
       liveNoteCardResizePreview &&
@@ -2342,14 +2239,10 @@ export default function BoardStage({
   };
   const editingTextCardDisplayHeight = editingTextCard
     ? Math.max(
-        (editingTextCard.kind === "note-card"
-          ? getNoteCardPreviewBounds(editingTextCard).height
-          : getTextCardPreviewBounds(editingTextCard).height),
-        getTextCardHeightForLabel(
+        getNoteCardPreviewBounds(editingTextCard).height,
+        getNoteCardHeightForLabel(
           editingDraft,
-          editingTextCard.kind === "note-card"
-            ? getNoteCardPreviewBounds(editingTextCard).width
-            : getTextCardPreviewBounds(editingTextCard).width
+          getNoteCardPreviewBounds(editingTextCard).width
         )
       )
     : null;
@@ -2529,20 +2422,13 @@ export default function BoardStage({
       return null;
     }
 
-    const editingTopInset =
-      editingTextCard.kind === "note-card"
-        ? TEXT_CARD_BODY_INSET_Y
-        : TEXT_CARD_HEADER_HEIGHT + TEXT_CARD_BODY_INSET_Y;
-    const editingVerticalChrome =
-      editingTextCard.kind === "note-card" ? 0 : TEXT_CARD_HEADER_HEIGHT;
-
     const left =
       stagePosition.x +
       (editingTextCard.x + TEXT_CARD_BODY_INSET_X) * stageScale -
       containerRect.left;
     const top =
       stagePosition.y +
-      (editingTextCard.y + editingTopInset) * stageScale -
+      (editingTextCard.y + TEXT_CARD_BODY_INSET_Y) * stageScale -
       containerRect.top;
     const width = Math.max(
       (editingTextCard.width - TEXT_CARD_BODY_INSET_X * 2) * stageScale,
@@ -2551,7 +2437,6 @@ export default function BoardStage({
     const height = Math.max(
       (
         (editingTextCardDisplayHeight ?? editingTextCard.height) -
-        editingVerticalChrome -
         TEXT_CARD_BODY_INSET_Y * 2
       ) * stageScale,
       32
@@ -3073,7 +2958,6 @@ export default function BoardStage({
 
           {sortedObjects.map((object) => {
             const isImage = object.kind === "image";
-            const isTextCard = object.kind === "text-card";
             const isNoteCard = object.kind === "note-card";
 
             if (isImage) {
@@ -3445,12 +3329,12 @@ export default function BoardStage({
                     event.cancelBubble = true;
 
                     const node = event.target as Konva.Group;
-                    const nextWidth = clampTextCardWidth(
+                    const nextWidth = clampNoteCardWidth(
                       Math.abs(node.width() * node.scaleX())
                     );
                     const nextHeight = Math.max(
                       Math.round(Math.abs(node.height() * node.scaleY())),
-                      MIN_TEXT_CARD_HEIGHT
+                      MIN_NOTE_CARD_HEIGHT
                     );
 
                     liveNoteCardResizePreviewRef.current = {
@@ -3480,12 +3364,12 @@ export default function BoardStage({
                         : {
                             x: node.x(),
                             y: node.y(),
-                            width: clampTextCardWidth(
+                            width: clampNoteCardWidth(
                               Math.abs(node.width() * node.scaleX())
                             ),
                             height: Math.max(
                               Math.round(Math.abs(node.height() * node.scaleY())),
-                              MIN_TEXT_CARD_HEIGHT
+                              MIN_NOTE_CARD_HEIGHT
                             ),
                           };
 
@@ -3503,167 +3387,6 @@ export default function BoardStage({
                     setLiveNoteCardResizePreview(null);
                   }}
                   onDoubleClick={(event) => {
-                    event.cancelBubble = true;
-                    startEditingTextCard(object);
-                  }}
-                />
-              );
-            }
-
-            if (isTextCard) {
-              const isEditing = object.id === editingTextCardId;
-              const textCardPreviewBounds = getTextCardPreviewBounds(object);
-              const remoteEditingState = remoteTextCardEditingStates[object.id];
-              const remoteResizeState = remoteTextCardResizeStates[object.id];
-              const remoteEditingIndicator =
-                remoteEditingState &&
-                remoteEditingState.participantId !== participantSession.id
-                  ? {
-                      participantName: remoteEditingState.participantName,
-                      participantColor: remoteEditingState.participantColor,
-                    }
-                  : null;
-              const remoteResizeIndicator =
-                remoteResizeState &&
-                remoteResizeState.participantId !== participantSession.id
-                  ? {
-                      participantName: remoteResizeState.participantName,
-                      participantColor: remoteResizeState.participantColor,
-                    }
-                  : null;
-
-              return (
-                <TextCardRenderer
-                  key={object.id}
-                  object={object}
-                  displayX={textCardPreviewBounds.x}
-                  displayY={textCardPreviewBounds.y}
-                  displayWidth={textCardPreviewBounds.width}
-                  displayHeight={
-                    object.id === editingTextCardId
-                      ? editingTextCardDisplayHeight ?? undefined
-                      : textCardPreviewBounds.height
-                  }
-                  isSelected={false}
-                  isEditing={isEditing}
-                  selectionColor={currentUserColor}
-                  accentColor={getTextCardAccentColor(object)}
-                  remoteEditingIndicator={remoteEditingIndicator}
-                  remoteResizeIndicator={remoteResizeIndicator}
-                  onHoverStart={(event) => {
-                    updateObjectSemanticsHover(object, event);
-                  }}
-                  onHoverMove={(event) => {
-                    updateObjectSemanticsHover(object, event);
-                  }}
-                  onHoverEnd={() => {
-                    clearObjectSemanticsHover();
-                  }}
-                  onGroupRef={(node) => {
-                    textCardRefs.current[object.id] = node;
-                  }}
-                  onSelect={(event) => {
-                    event.cancelBubble = true;
-                    setSelectedObjectId(object.id);
-                  }}
-                  onDragStart={(event) => {
-                    event.cancelBubble = true;
-                    setSelectedObjectId(object.id);
-                  }}
-                  onDragMove={(event) => {
-                    event.cancelBubble = true;
-                    updateObjectPosition(object.id, event.target.x(), event.target.y());
-                  }}
-                  onDragEnd={(event) => {
-                    event.cancelBubble = true;
-                    updateObjectPosition(object.id, event.target.x(), event.target.y());
-                  }}
-                  onTransformStart={(event) => {
-                    event.cancelBubble = true;
-                    setSelectedObjectId(object.id);
-                    roomTextCardConnectionRef.current?.setActiveResizingTextCard({
-                      textCardId: object.id,
-                      participantId: participantSession.id,
-                      participantName: participantSession.name,
-                      participantColor: participantSession.color,
-                    });
-                    liveTextCardResizePreviewRef.current = {
-                      textCardId: object.id,
-                      x: object.x,
-                      y: object.y,
-                      width: object.width,
-                      height: object.height,
-                    };
-                    setLiveTextCardResizePreview(
-                      liveTextCardResizePreviewRef.current
-                    );
-                  }}
-                  onTransform={(event) => {
-                    event.cancelBubble = true;
-
-                    const node = event.target as Konva.Group;
-                    const nextWidth = clampTextCardWidth(
-                      Math.abs(node.width() * node.scaleX())
-                    );
-                    const nextHeight = Math.max(
-                      Math.round(Math.abs(node.height() * node.scaleY())),
-                      MIN_TEXT_CARD_HEIGHT
-                    );
-
-                    liveTextCardResizePreviewRef.current = {
-                      textCardId: object.id,
-                      x: node.x(),
-                      y: node.y(),
-                      width: nextWidth,
-                      height: nextHeight,
-                    };
-                    scheduleTextCardResizePreviewRender();
-
-                    node.scaleX(1);
-                    node.scaleY(1);
-                  }}
-                  onTransformEnd={(event) => {
-                    event.cancelBubble = true;
-
-                    const node = event.target as Konva.Group;
-                    const nextBounds =
-                      liveTextCardResizePreviewRef.current?.textCardId === object.id
-                        ? liveTextCardResizePreviewRef.current
-                        : {
-                            textCardId: object.id,
-                            x: node.x(),
-                            y: node.y(),
-                            width: clampTextCardWidth(
-                              Math.abs(node.width() * node.scaleX())
-                            ),
-                            height: Math.max(
-                              Math.round(Math.abs(node.height() * node.scaleY())),
-                              MIN_TEXT_CARD_HEIGHT
-                            ),
-                          };
-
-                    node.scaleX(1);
-                    node.scaleY(1);
-                    resizeTextCardBounds(object.id, nextBounds);
-                    roomTextCardConnectionRef.current?.setActiveResizingTextCard(
-                      null
-                    );
-                    liveTextCardResizePreviewRef.current = null;
-                    if (liveTextCardResizeFrameRef.current !== null) {
-                      window.cancelAnimationFrame(liveTextCardResizeFrameRef.current);
-                      liveTextCardResizeFrameRef.current = null;
-                    }
-                    setLiveTextCardResizePreview(null);
-                  }}
-                  onHandleMouseDown={(event) => {
-                    event.cancelBubble = true;
-                    setSelectedObjectId(object.id);
-                    startDraggingTextCard(object.id);
-                  }}
-                  onBodyMouseDown={() => {
-                    setSelectedObjectId(object.id);
-                  }}
-                  onBodyDoubleClick={(event) => {
                     event.cancelBubble = true;
                     startEditingTextCard(object);
                   }}
@@ -3802,36 +3525,8 @@ export default function BoardStage({
             ]}
             boundBoxFunc={(oldBox, newBox) => {
               if (
-                Math.abs(newBox.width) < MIN_TEXT_CARD_WIDTH ||
-                Math.abs(newBox.height) < MIN_TEXT_CARD_HEIGHT
-              ) {
-                return oldBox;
-              }
-
-              return newBox;
-            }}
-          />
-
-          <Transformer
-            ref={textCardTransformerRef}
-            rotateEnabled={false}
-            flipEnabled={false}
-            keepRatio={false}
-            borderStroke={currentUserColor}
-            borderStrokeWidth={3}
-            anchorStroke={currentUserColor}
-            anchorFill="#f8fafc"
-            anchorCornerRadius={999}
-            enabledAnchors={[
-              "top-left",
-              "top-right",
-              "bottom-left",
-              "bottom-right",
-            ]}
-            boundBoxFunc={(oldBox, newBox) => {
-              if (
-                Math.abs(newBox.width) < MIN_TEXT_CARD_WIDTH ||
-                Math.abs(newBox.height) < MIN_TEXT_CARD_HEIGHT
+                Math.abs(newBox.width) < MIN_NOTE_CARD_WIDTH ||
+                Math.abs(newBox.height) < MIN_NOTE_CARD_HEIGHT
               ) {
                 return oldBox;
               }
