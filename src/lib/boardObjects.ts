@@ -1,4 +1,5 @@
 import type { BoardObject } from "../types/board";
+import { getTextCardHeightForLabel, normalizeTextCardObject } from "../board/objects/textCard/sizing";
 
 export function updateBoardObjectById(
   objects: BoardObject[],
@@ -22,7 +23,19 @@ export function updateBoardObjectLabel(
   id: string,
   label: string
 ) {
-  return updateBoardObjectById(objects, id, (object) => ({ ...object, label }));
+  return updateBoardObjectById(objects, id, (object) => {
+    if (object.kind !== "text-card") {
+      return { ...object, label };
+    }
+
+    const minimumHeight = getTextCardHeightForLabel(label, object.width);
+
+    return normalizeTextCardObject({
+      ...object,
+      label,
+      height: Math.max(object.height, minimumHeight),
+    });
+  });
 }
 
 export function removeBoardObjectById(objects: BoardObject[], id: string) {

@@ -16,6 +16,12 @@ import { ParticipantSessionPanel } from "../board/components/ParticipantSessionP
 import { RemoteInteractionIndicator } from "../board/components/RemoteInteractionIndicator";
 import { createTextCardObject } from "../board/objects/textCard/createTextCardObject";
 import { TextCardRenderer } from "../board/objects/textCard/TextCardRenderer";
+import {
+  clampTextCardWidth,
+  getTextCardHeightForLabel,
+  MIN_TEXT_CARD_HEIGHT,
+  MIN_TEXT_CARD_WIDTH,
+} from "../board/objects/textCard/sizing";
 import { createTokenObject } from "../board/objects/token/createTokenObject";
 import { TokenRenderer } from "../board/objects/token/TokenRenderer";
 import {
@@ -99,6 +105,7 @@ import {
   createRoomTextCardConnection,
   type TextCardEditingPresence,
   type RoomTextCardConnection,
+  type TextCardResizePresence,
 } from "../lib/roomTextCardsRealtime";
 import {
   PARTICIPANT_COLOR_OPTIONS,
@@ -356,6 +363,13 @@ export default function BoardStage({
   const [editingTextCardId, setEditingTextCardId] = useState<string | null>(null);
   const [editingDraft, setEditingDraft] = useState("");
   const [editingOriginal, setEditingOriginal] = useState("");
+  const [liveTextCardResizePreview, setLiveTextCardResizePreview] = useState<{
+    textCardId: string;
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  } | null>(null);
   const [transformingImageId, setTransformingImageId] = useState<string | null>(
     null
   );
@@ -390,6 +404,9 @@ export default function BoardStage({
   >({});
   const [remoteTextCardEditingStates, setRemoteTextCardEditingStates] = useState<
     Record<string, TextCardEditingPresence>
+  >({});
+  const [remoteTextCardResizeStates, setRemoteTextCardResizeStates] = useState<
+    Record<string, TextCardResizePresence>
   >({});
   const [remoteActiveObjectMoves, setRemoteActiveObjectMoves] = useState<
     ActiveObjectMoveMap
@@ -652,7 +669,16 @@ export default function BoardStage({
   const textCardRefs = useRef<Record<string, Konva.Group | null>>({});
   const imageRefs = useRef<Record<string, Konva.Image | null>>({});
   const imageStrokeLayerRefs = useRef<Record<string, Konva.Group | null>>({});
+  const textCardTransformerRef = useRef<Konva.Transformer | null>(null);
   const imageTransformerRef = useRef<Konva.Transformer | null>(null);
+  const liveTextCardResizePreviewRef = useRef<{
+    textCardId: string;
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  } | null>(null);
+  const liveTextCardResizeFrameRef = useRef<number | null>(null);
   const boardBackgroundRef = useRef<Konva.Rect | null>(null);
   const panStateRef = useRef<{
     isPanning: boolean;
@@ -680,6 +706,17 @@ export default function BoardStage({
   const [loadedImages, setLoadedImages] = useState<Record<string, HTMLImageElement>>(
     {}
   );
+
+  const scheduleTextCardResizePreviewRender = () => {
+    if (liveTextCardResizeFrameRef.current !== null) {
+      return;
+    }
+
+    liveTextCardResizeFrameRef.current = window.requestAnimationFrame(() => {
+      liveTextCardResizeFrameRef.current = null;
+      setLiveTextCardResizePreview(liveTextCardResizePreviewRef.current);
+    });
+  };
 
   const hasSharedRoomContentLoaded =
     tokenInitialSyncRoomId === roomId &&
@@ -958,12 +995,19 @@ export default function BoardStage({
     setEditingTextCardId(null);
     setEditingDraft("");
     setEditingOriginal("");
+    liveTextCardResizePreviewRef.current = null;
+    if (liveTextCardResizeFrameRef.current !== null) {
+      window.cancelAnimationFrame(liveTextCardResizeFrameRef.current);
+      liveTextCardResizeFrameRef.current = null;
+    }
+    setLiveTextCardResizePreview(null);
     setDrawingImageId(null);
     setTransformingImageId(null);
     setDraggingImageId(null);
     setRemoteImagePreviewPositions({});
     setRemoteImageDrawingLocks({});
     setRemoteTextCardEditingStates({});
+    setRemoteTextCardResizeStates({});
     setLiveSelectedImageControlAnchor(null);
     roomBootstrapEntryIdRef.current = nextBootstrapEntryId;
     setTokenInitialSyncRoomId(null);
@@ -1384,6 +1428,7 @@ export default function BoardStage({
         setTextCardInitialSyncRoomId(roomId);
       },
       onTextCardEditingStatesChange: setRemoteTextCardEditingStates,
+      onTextCardResizeStatesChange: setRemoteTextCardResizeStates,
     });
     roomTextCardConnectionRef.current = connection;
 
@@ -1413,6 +1458,12 @@ export default function BoardStage({
     participantSession.id,
     participantSession.name,
   ]);
+
+  useEffect(() => {
+    return () => {
+      roomTextCardConnectionRef.current?.setActiveResizingTextCard(null);
+    };
+  }, []);
 
   useEffect(() => {
     objects.forEach((object) => {
@@ -1620,6 +1671,39 @@ export default function BoardStage({
 
     applyBoardObjectsUpdate(
       (currentObjects) => updateBoardObjectLabel(currentObjects, id, label),
+      getUpdateBoardObjectSyncOptions(objects, id)
+    );
+  };
+
+  const resizeTextCardBounds = (
+    id: string,
+    nextBounds: { x: number; y: number; width: number; height: number }
+  ) => {
+    const resizeAccess = resolveObjectActionAccess(id, "board-object.resize");
+
+    if (!resizeAccess?.isAllowed) {
+      return;
+    }
+
+    applyBoardObjectsUpdate(
+      (currentObjects) =>
+        updateBoardObjectById(currentObjects, id, (object) => {
+          if (object.kind !== "text-card") {
+            return object;
+          }
+
+          const width = clampTextCardWidth(nextBounds.width);
+          const textFitHeight = getTextCardHeightForLabel(object.label, width);
+          const height = Math.max(Math.round(nextBounds.height), textFitHeight);
+
+          return {
+            ...object,
+            x: nextBounds.x,
+            y: nextBounds.y,
+            width,
+            height,
+          };
+        }),
       getUpdateBoardObjectSyncOptions(objects, id)
     );
   };
@@ -1996,6 +2080,64 @@ export default function BoardStage({
   }, [editingTextCardId]);
 
   useEffect(() => {
+    const transformer = textCardTransformerRef.current;
+
+    if (!transformer) {
+      return;
+    }
+
+    const selectedTextCardNode =
+      selectedObjectId &&
+      !editingTextCardId &&
+      objects.find(
+        (object) => object.id === selectedObjectId && object.kind === "text-card"
+      )
+        ? textCardRefs.current[selectedObjectId] ?? null
+        : null;
+
+    if (selectedTextCardNode) {
+      transformer.nodes([selectedTextCardNode]);
+    } else {
+      transformer.nodes([]);
+    }
+
+    transformer.getLayer()?.batchDraw();
+  }, [editingTextCardId, objects, selectedObjectId]);
+
+  useEffect(() => {
+    if (!selectedObjectId || editingTextCardId) {
+      liveTextCardResizePreviewRef.current = null;
+      if (liveTextCardResizeFrameRef.current !== null) {
+        window.cancelAnimationFrame(liveTextCardResizeFrameRef.current);
+        liveTextCardResizeFrameRef.current = null;
+      }
+      setLiveTextCardResizePreview(null);
+      return;
+    }
+
+    if (
+      !objects.find(
+        (object) => object.id === selectedObjectId && object.kind === "text-card"
+      )
+    ) {
+      liveTextCardResizePreviewRef.current = null;
+      if (liveTextCardResizeFrameRef.current !== null) {
+        window.cancelAnimationFrame(liveTextCardResizeFrameRef.current);
+        liveTextCardResizeFrameRef.current = null;
+      }
+      setLiveTextCardResizePreview(null);
+    }
+  }, [editingTextCardId, objects, selectedObjectId]);
+
+  useEffect(() => {
+    return () => {
+      if (liveTextCardResizeFrameRef.current !== null) {
+        window.cancelAnimationFrame(liveTextCardResizeFrameRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
     const transformer = imageTransformerRef.current;
 
     if (!transformer) {
@@ -2082,6 +2224,31 @@ export default function BoardStage({
 
   const editingTextCard = editingTextCardId
     ? objects.find((object) => object.id === editingTextCardId && object.kind === "text-card") ?? null
+    : null;
+  const getTextCardPreviewBounds = (object: BoardObject) => {
+    if (
+      liveTextCardResizePreview &&
+      liveTextCardResizePreview.textCardId === object.id
+    ) {
+      return liveTextCardResizePreview;
+    }
+
+    return {
+      textCardId: object.id,
+      x: object.x,
+      y: object.y,
+      width: object.width,
+      height: object.height,
+    };
+  };
+  const editingTextCardDisplayHeight = editingTextCard
+    ? Math.max(
+        getTextCardPreviewBounds(editingTextCard).height,
+        getTextCardHeightForLabel(
+          editingDraft,
+          getTextCardPreviewBounds(editingTextCard).width
+        )
+      )
     : null;
   const selectedImageObject =
     selectedObjectId && !editingTextCardId
@@ -2274,7 +2441,7 @@ export default function BoardStage({
     );
     const height = Math.max(
       (
-        editingTextCard.height -
+        (editingTextCardDisplayHeight ?? editingTextCard.height) -
         TEXT_CARD_HEADER_HEIGHT -
         TEXT_CARD_BODY_INSET_Y * 2
       ) * stageScale,
@@ -2291,7 +2458,14 @@ export default function BoardStage({
       fontFamily: TEXT_CARD_BODY_FONT_FAMILY,
       color: editingTextCard.textColor ?? "#0f172a",
     };
-  }, [editingTextCard, stagePosition.x, stagePosition.y, stageScale]);
+  }, [
+    editingDraft,
+    editingTextCard,
+    editingTextCardDisplayHeight,
+    stagePosition.x,
+    stagePosition.y,
+    stageScale,
+  ]);
 
   const updateLocalCursorPresence = (clientX: number, clientY: number) => {
     const containerRect = containerRef.current?.getBoundingClientRect();
@@ -2789,7 +2963,6 @@ export default function BoardStage({
           />
 
           {sortedObjects.map((object) => {
-            const isSelected = object.id === selectedObjectId;
             const isImage = object.kind === "image";
             const isTextCard = object.kind === "text-card";
 
@@ -3075,7 +3248,9 @@ export default function BoardStage({
 
             if (isTextCard) {
               const isEditing = object.id === editingTextCardId;
+              const textCardPreviewBounds = getTextCardPreviewBounds(object);
               const remoteEditingState = remoteTextCardEditingStates[object.id];
+              const remoteResizeState = remoteTextCardResizeStates[object.id];
               const remoteEditingIndicator =
                 remoteEditingState &&
                 remoteEditingState.participantId !== participantSession.id
@@ -3084,16 +3259,33 @@ export default function BoardStage({
                       participantColor: remoteEditingState.participantColor,
                     }
                   : null;
+              const remoteResizeIndicator =
+                remoteResizeState &&
+                remoteResizeState.participantId !== participantSession.id
+                  ? {
+                      participantName: remoteResizeState.participantName,
+                      participantColor: remoteResizeState.participantColor,
+                    }
+                  : null;
 
               return (
                 <TextCardRenderer
                   key={object.id}
                   object={object}
-                  isSelected={isSelected}
+                  displayX={textCardPreviewBounds.x}
+                  displayY={textCardPreviewBounds.y}
+                  displayWidth={textCardPreviewBounds.width}
+                  displayHeight={
+                    object.id === editingTextCardId
+                      ? editingTextCardDisplayHeight ?? undefined
+                      : textCardPreviewBounds.height
+                  }
+                  isSelected={false}
                   isEditing={isEditing}
                   selectionColor={currentUserColor}
                   accentColor={getTextCardAccentColor(object)}
                   remoteEditingIndicator={remoteEditingIndicator}
+                  remoteResizeIndicator={remoteResizeIndicator}
                   onHoverStart={(event) => {
                     updateObjectSemanticsHover(object, event);
                   }}
@@ -3121,6 +3313,83 @@ export default function BoardStage({
                   onDragEnd={(event) => {
                     event.cancelBubble = true;
                     updateObjectPosition(object.id, event.target.x(), event.target.y());
+                  }}
+                  onTransformStart={(event) => {
+                    event.cancelBubble = true;
+                    setSelectedObjectId(object.id);
+                    roomTextCardConnectionRef.current?.setActiveResizingTextCard({
+                      textCardId: object.id,
+                      participantId: participantSession.id,
+                      participantName: participantSession.name,
+                      participantColor: participantSession.color,
+                    });
+                    liveTextCardResizePreviewRef.current = {
+                      textCardId: object.id,
+                      x: object.x,
+                      y: object.y,
+                      width: object.width,
+                      height: object.height,
+                    };
+                    setLiveTextCardResizePreview(
+                      liveTextCardResizePreviewRef.current
+                    );
+                  }}
+                  onTransform={(event) => {
+                    event.cancelBubble = true;
+
+                    const node = event.target as Konva.Group;
+                    const nextWidth = clampTextCardWidth(
+                      Math.abs(node.width() * node.scaleX())
+                    );
+                    const nextHeight = Math.max(
+                      Math.round(Math.abs(node.height() * node.scaleY())),
+                      MIN_TEXT_CARD_HEIGHT
+                    );
+
+                    liveTextCardResizePreviewRef.current = {
+                      textCardId: object.id,
+                      x: node.x(),
+                      y: node.y(),
+                      width: nextWidth,
+                      height: nextHeight,
+                    };
+                    scheduleTextCardResizePreviewRender();
+
+                    node.scaleX(1);
+                    node.scaleY(1);
+                  }}
+                  onTransformEnd={(event) => {
+                    event.cancelBubble = true;
+
+                    const node = event.target as Konva.Group;
+                    const nextBounds =
+                      liveTextCardResizePreviewRef.current?.textCardId === object.id
+                        ? liveTextCardResizePreviewRef.current
+                        : {
+                            textCardId: object.id,
+                            x: node.x(),
+                            y: node.y(),
+                            width: clampTextCardWidth(
+                              Math.abs(node.width() * node.scaleX())
+                            ),
+                            height: Math.max(
+                              Math.round(Math.abs(node.height() * node.scaleY())),
+                              MIN_TEXT_CARD_HEIGHT
+                            ),
+                          };
+
+                    node.scaleX(1);
+                    node.scaleY(1);
+                    resizeTextCardBounds(object.id, nextBounds);
+                    roomTextCardConnectionRef.current?.setActiveResizingTextCard(
+                      null
+                    );
+                    liveTextCardResizePreviewRef.current = null;
+                    if (liveTextCardResizeFrameRef.current !== null) {
+                      window.cancelAnimationFrame(liveTextCardResizeFrameRef.current);
+                      liveTextCardResizeFrameRef.current = null;
+                    }
+                    setLiveTextCardResizePreview(null);
                   }}
                   onHandleMouseDown={(event) => {
                     event.cancelBubble = true;
@@ -3250,6 +3519,34 @@ export default function BoardStage({
                 })}
               </Group>
             )}
+
+          <Transformer
+            ref={textCardTransformerRef}
+            rotateEnabled={false}
+            flipEnabled={false}
+            keepRatio={false}
+            borderStroke={currentUserColor}
+            borderStrokeWidth={3}
+            anchorStroke={currentUserColor}
+            anchorFill="#f8fafc"
+            anchorCornerRadius={999}
+            enabledAnchors={[
+              "top-left",
+              "top-right",
+              "bottom-left",
+              "bottom-right",
+            ]}
+            boundBoxFunc={(oldBox, newBox) => {
+              if (
+                Math.abs(newBox.width) < MIN_TEXT_CARD_WIDTH ||
+                Math.abs(newBox.height) < MIN_TEXT_CARD_HEIGHT
+              ) {
+                return oldBox;
+              }
+
+              return newBox;
+            }}
+          />
 
           <Transformer
             ref={imageTransformerRef}

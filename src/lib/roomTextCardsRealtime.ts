@@ -2,8 +2,16 @@ import * as Y from "yjs";
 import { WebsocketProvider } from "y-websocket";
 import type { BoardObject } from "../types/board";
 import { getRealtimeServerWsUrl } from "./runtimeConfig";
+import { normalizeTextCardObject } from "../board/objects/textCard/sizing";
 
 export type TextCardEditingPresence = {
+  textCardId: string;
+  participantId: string;
+  participantName: string;
+  participantColor: string;
+};
+
+export type TextCardResizePresence = {
   textCardId: string;
   participantId: string;
   participantName: string;
@@ -15,6 +23,7 @@ export type RoomTextCardConnection = {
   replaceTextCards: (textCards: BoardObject[]) => void;
   upsertTextCards: (textCards: BoardObject[]) => void;
   setActiveEditingTextCard: (editingPresence: TextCardEditingPresence | null) => void;
+  setActiveResizingTextCard: (resizePresence: TextCardResizePresence | null) => void;
   removeTextCards: (textCardIds: string[]) => void;
   seedTextCards: (textCards: BoardObject[]) => void;
 };
@@ -25,6 +34,9 @@ export function createRoomTextCardConnection(params: {
   onInitialSyncComplete?: () => void;
   onTextCardEditingStatesChange?: (
     editingStates: Record<string, TextCardEditingPresence>
+  ) => void;
+  onTextCardResizeStatesChange?: (
+    resizeStates: Record<string, TextCardResizePresence>
   ) => void;
   serverUrl?: string;
 }): RoomTextCardConnection {
@@ -47,6 +59,12 @@ export function createRoomTextCardConnection(params: {
   const publishTextCardEditingStates = () => {
     params.onTextCardEditingStatesChange?.(
       getTextCardEditingStatesFromAwareness(provider.awareness.getStates())
+    );
+  };
+
+  const publishTextCardResizeStates = () => {
+    params.onTextCardResizeStatesChange?.(
+      getTextCardResizeStatesFromAwareness(provider.awareness.getStates())
     );
   };
 
@@ -84,16 +102,20 @@ export function createRoomTextCardConnection(params: {
   provider.on("status", handleStatus);
   provider.on("sync", handleSync);
   provider.awareness.on("change", publishTextCardEditingStates);
+  provider.awareness.on("change", publishTextCardResizeStates);
   publishTextCards();
   publishTextCardEditingStates();
+  publishTextCardResizeStates();
 
   return {
     destroy: () => {
       provider.awareness.setLocalStateField("textCardEditing", null);
+      provider.awareness.setLocalStateField("textCardResize", null);
       textCardMap.unobserve(publishTextCards);
       provider.off("status", handleStatus);
       provider.off("sync", handleSync);
       provider.awareness.off("change", publishTextCardEditingStates);
+      provider.awareness.off("change", publishTextCardResizeStates);
       provider.destroy();
       doc.destroy();
     },
@@ -123,6 +145,10 @@ export function createRoomTextCardConnection(params: {
     setActiveEditingTextCard: (editingPresence) => {
       provider.awareness.setLocalStateField("textCardEditing", editingPresence);
       publishTextCardEditingStates();
+    },
+    setActiveResizingTextCard: (resizePresence) => {
+      provider.awareness.setLocalStateField("textCardResize", resizePresence);
+      publishTextCardResizeStates();
     },
     removeTextCards: (textCardIds) => {
       textCardIds.forEach((textCardId) => {
@@ -162,7 +188,7 @@ function getTextCardsFromMap(textCardMap: Y.Map<string>) {
       const textCard = JSON.parse(value) as BoardObject;
 
       if (textCard.kind === "text-card") {
-        textCards.push(textCard);
+        textCards.push(normalizeTextCardObject(textCard));
       }
     } catch {
       return;
@@ -177,6 +203,7 @@ function getTextCardEditingStatesFromAwareness(
     number,
     {
       textCardEditing?: TextCardEditingPresence | null;
+      textCardResize?: TextCardResizePresence | null;
     }
   >
 ) {
@@ -199,4 +226,34 @@ function getTextCardEditingStatesFromAwareness(
   });
 
   return editingStates;
+}
+
+function getTextCardResizeStatesFromAwareness(
+  states: Map<
+    number,
+    {
+      textCardEditing?: TextCardEditingPresence | null;
+      textCardResize?: TextCardResizePresence | null;
+    }
+  >
+) {
+  const resizeStates: Record<string, TextCardResizePresence> = {};
+
+  states.forEach((state) => {
+    const resizeState = state.textCardResize;
+
+    if (
+      !resizeState ||
+      !resizeState.textCardId ||
+      !resizeState.participantId ||
+      !resizeState.participantName ||
+      !resizeState.participantColor
+    ) {
+      return;
+    }
+
+    resizeStates[resizeState.textCardId] = resizeState;
+  });
+
+  return resizeStates;
 }

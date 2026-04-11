@@ -15,6 +15,10 @@ import type { BoardObject } from "../../../types/board";
 
 type TextCardRendererProps = {
   object: BoardObject;
+  displayX?: number;
+  displayY?: number;
+  displayWidth?: number;
+  displayHeight?: number;
   isSelected: boolean;
   isEditing: boolean;
   selectionColor: string;
@@ -23,11 +27,18 @@ type TextCardRendererProps = {
     participantName: string;
     participantColor: string;
   } | null;
+  remoteResizeIndicator?: {
+    participantName: string;
+    participantColor: string;
+  } | null;
   onGroupRef: (node: Konva.Group | null) => void;
   onSelect: (event: KonvaEventObject<MouseEvent>) => void;
   onDragStart: (event: KonvaEventObject<DragEvent>) => void;
   onDragMove: (event: KonvaEventObject<DragEvent>) => void;
   onDragEnd: (event: KonvaEventObject<DragEvent>) => void;
+  onTransformStart: (event: KonvaEventObject<Event>) => void;
+  onTransform: (event: KonvaEventObject<Event>) => void;
+  onTransformEnd: (event: KonvaEventObject<Event>) => void;
   onHandleMouseDown: (event: KonvaEventObject<MouseEvent>) => void;
   onBodyMouseDown: () => void;
   onBodyDoubleClick: (event: KonvaEventObject<MouseEvent>) => void;
@@ -38,16 +49,24 @@ type TextCardRendererProps = {
 
 export function TextCardRenderer({
   object,
+  displayX,
+  displayY,
+  displayWidth,
+  displayHeight,
   isSelected,
   isEditing,
   selectionColor,
   accentColor,
   remoteEditingIndicator,
+  remoteResizeIndicator,
   onGroupRef,
   onSelect,
   onDragStart,
   onDragMove,
   onDragEnd,
+  onTransformStart,
+  onTransform,
+  onTransformEnd,
   onHandleMouseDown,
   onBodyMouseDown,
   onBodyDoubleClick,
@@ -55,16 +74,26 @@ export function TextCardRenderer({
   onHoverMove,
   onHoverEnd,
 }: TextCardRendererProps) {
+  const cardX = displayX ?? object.x;
+  const cardY = displayY ?? object.y;
+  const cardWidth = displayWidth ?? object.width;
+  const cardHeight = displayHeight ?? object.height;
+
   return (
     <Group
       ref={onGroupRef}
-      x={object.x}
-      y={object.y}
+      x={cardX}
+      y={cardY}
+      width={cardWidth}
+      height={cardHeight}
       draggable={!isEditing}
       onMouseDown={onSelect}
       onDragStart={onDragStart}
       onDragMove={onDragMove}
       onDragEnd={onDragEnd}
+      onTransformStart={onTransformStart}
+      onTransform={onTransform}
+      onTransformEnd={onTransformEnd}
       onMouseEnter={onHoverStart}
       onMouseMove={onHoverMove}
       onMouseLeave={onHoverEnd}
@@ -73,33 +102,43 @@ export function TextCardRenderer({
         <Rect
           x={-4}
           y={-4}
-          width={object.width + 8}
-          height={object.height + 8}
+          width={cardWidth + 8}
+          height={cardHeight + 8}
           stroke={selectionColor}
           strokeWidth={3}
           listening={false}
         />
       )}
 
-      {remoteEditingIndicator && (
+      {remoteResizeIndicator && (
         <RemoteInteractionIndicator
           x={0}
           y={0}
-          width={object.width}
-          height={object.height}
+          width={cardWidth}
+          height={cardHeight}
+          participantColor={remoteResizeIndicator.participantColor}
+        />
+      )}
+
+      {!remoteResizeIndicator && remoteEditingIndicator && (
+        <RemoteInteractionIndicator
+          x={0}
+          y={0}
+          width={cardWidth}
+          height={cardHeight}
           participantColor={remoteEditingIndicator.participantColor}
         />
       )}
 
       <Rect
-        width={object.width}
-        height={object.height}
+        width={cardWidth}
+        height={cardHeight}
         fill={object.fill}
         shadowBlur={8}
       />
 
       <Rect
-        width={object.width}
+        width={cardWidth}
         height={TEXT_CARD_HEADER_HEIGHT}
         fill="#e2e8f0"
       />
@@ -126,8 +165,8 @@ export function TextCardRenderer({
 
       <Rect
         y={TEXT_CARD_HEADER_HEIGHT}
-        width={object.width}
-        height={object.height - TEXT_CARD_HEADER_HEIGHT}
+        width={cardWidth}
+        height={cardHeight - TEXT_CARD_HEADER_HEIGHT}
         fill={object.fill}
         onMouseDown={onBodyMouseDown}
         onDblClick={onBodyDoubleClick}
@@ -137,7 +176,7 @@ export function TextCardRenderer({
         <Text
           x={TEXT_CARD_BODY_INSET_X}
           y={TEXT_CARD_HEADER_HEIGHT + TEXT_CARD_BODY_INSET_Y}
-          width={object.width - TEXT_CARD_BODY_INSET_X * 2}
+          width={cardWidth - TEXT_CARD_BODY_INSET_X * 2}
           text={object.label}
           fontSize={TEXT_CARD_BODY_FONT_SIZE}
           lineHeight={TEXT_CARD_BODY_LINE_HEIGHT}

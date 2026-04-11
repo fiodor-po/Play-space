@@ -1,4 +1,8 @@
 import type { BoardObject } from "../../../types/board";
+import {
+  getTextCardHeightForLabel,
+  normalizeTextCardObject,
+} from "./sizing";
 
 type CreateTextCardObjectParams = {
   id: string;
@@ -13,17 +17,19 @@ export function createTextCardObject({
   creatorId,
   position,
 }: CreateTextCardObjectParams): BoardObject {
-  return {
+  const width = 260;
+
+  return normalizeTextCardObject({
     id,
     kind: "text-card",
     creatorId,
-    x: position.x - 130,
+    x: position.x - width / 2,
     y: position.y - 90,
-    width: 260,
-    height: 180,
+    width,
+    height: getTextCardHeightForLabel("New note", width),
     fill: "#f8fafc",
     label: "New note",
     authorColor: color,
     textColor: "#0f172a",
-  };
+  });
 }

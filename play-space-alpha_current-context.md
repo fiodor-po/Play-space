@@ -291,6 +291,21 @@ Important backlog note:
 - ideal local feel still points toward near-zero visible catch-up between parent object and attached dependents during local interaction;
 - that later polish likely needs a deeper local interaction-loop / dependent-follow pass, not just more helper tweaks.
 
+### 3.21. Text-card sizing direction is now explicit
+Text-card chapter now has a clearer near-term sizing rule as well.
+
+Current intended direction:
+
+- text-cards remain free board context cards;
+- text-card should resize like a normal text box;
+- manual resize may change width and height;
+- text should reflow to the current box;
+- while typing, card height should auto-grow if text no longer fits vertically;
+- normal note text should auto-fit rather than clip in the ordinary note flow;
+- text-cards should stay lightweight readable cards, not document-editor objects.
+
+This is a design checkpoint for later implementation, not a runtime slice yet.
+
 ## 4. Current preferred next step
 
 Следующие правильные шаги сейчас split into two tracks:

@@ -1,5 +1,6 @@
 import type { BoardObject, ViewportState } from "../types/board";
 import { normalizeTokenObject } from "../board/objects/token/createTokenObject";
+import { normalizeTextCardObject } from "../board/objects/textCard/sizing";
 
 export const BOARD_STORAGE_KEY = "play-space-alpha-board-v1";
 export const VIEWPORT_STORAGE_KEY = "play-space-alpha-viewport-v1";
@@ -24,7 +25,7 @@ export function loadBoardObjects(roomId: string, fallback: BoardObject[]) {
   }
 
   try {
-    return normalizeTokenObjects(JSON.parse(raw) as BoardObject[]);
+    return normalizeBoardObjects(JSON.parse(raw) as BoardObject[]);
   } catch {
     return fallback;
   }
@@ -108,7 +109,9 @@ export function loadRoomSnapshot(roomId: string): RoomSnapshot | null {
         ? parsed.images.filter((object) => object?.kind === "image")
         : [],
       textCards: Array.isArray(parsed.textCards)
-        ? parsed.textCards.filter((object) => object?.kind === "text-card")
+        ? normalizeTextCardObjects(
+            parsed.textCards.filter((object) => object?.kind === "text-card")
+          )
         : [],
     };
   } catch {
@@ -154,6 +157,26 @@ function normalizeTokenObjects(objects: BoardObject[]) {
   return objects.map((object) =>
     object.kind === "token" ? normalizeTokenObject(object) : object
   );
+}
+
+function normalizeTextCardObjects(objects: BoardObject[]) {
+  return objects.map((object) =>
+    object.kind === "text-card" ? normalizeTextCardObject(object) : object
+  );
+}
+
+function normalizeBoardObjects(objects: BoardObject[]) {
+  return objects.map((object) => {
+    if (object.kind === "token") {
+      return normalizeTokenObject(object);
+    }
+
+    if (object.kind === "text-card") {
+      return normalizeTextCardObject(object);
+    }
+
+    return object;
+  });
 }
 
 export function saveRoomTokenObjects(roomId: string, objects: BoardObject[]) {
@@ -261,15 +284,21 @@ export function loadRoomTextCardObjects(
   const raw = localStorage.getItem(getRoomTextCardStorageKey(roomId));
 
   if (!raw) {
-    return fallback.filter((object) => object.kind === "text-card");
+    return normalizeTextCardObjects(
+      fallback.filter((object) => object.kind === "text-card")
+    );
   }
 
   try {
-    return (JSON.parse(raw) as BoardObject[]).filter(
-      (object) => object.kind === "text-card"
+    return normalizeTextCardObjects(
+      (JSON.parse(raw) as BoardObject[]).filter(
+        (object) => object.kind === "text-card"
+      )
     );
   } catch {
-    return fallback.filter((object) => object.kind === "text-card");
+    return normalizeTextCardObjects(
+      fallback.filter((object) => object.kind === "text-card")
+    );
   }
 }
 

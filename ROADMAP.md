@@ -217,6 +217,18 @@ Core hosted signal уже получен.
   - no token-only conflict model
   - no broad transport consolidation yet.
 
+Дополнительная заметка к текущему text-card direction:
+
+- text-cards should remain free board context cards rather than becoming token-like pins;
+- current immediate text-card need is sizing, not attachment;
+- canonical sizing rule should be:
+  - text-card should resize like a normal text box;
+  - manual resize may change width and height;
+  - text should reflow to the current box;
+  - while typing, card height should auto-grow if text no longer fits vertically;
+  - normal note text should not clip in ordinary note flow;
+- first implementation slice should focus on standard text-box resize plus no-clipping auto-grow behavior, not on document-editor behavior.
+
 ## 9. Open questions
 
 - Какие rough edges проявятся только после hosted playable-session checks?
