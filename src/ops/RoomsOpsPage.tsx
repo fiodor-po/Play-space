@@ -16,19 +16,22 @@ function getInitialSelectedRoomId() {
 }
 
 export function RoomsOpsPage() {
-  const [opsKey, setOpsKey] = useState(() => sessionStorage.getItem(OPS_KEY_STORAGE_KEY) ?? "");
-  const [opsKeyDraft, setOpsKeyDraft] = useState(opsKey);
+  const [authenticatedOpsKey, setAuthenticatedOpsKey] = useState("");
+  const [opsKeyDraft, setOpsKeyDraft] = useState(
+    () => sessionStorage.getItem(OPS_KEY_STORAGE_KEY) ?? ""
+  );
   const [authError, setAuthError] = useState<string | null>(null);
   const [rooms, setRooms] = useState<RoomOpsSummary[]>([]);
   const [selectedRoomId, setSelectedRoomId] = useState(getInitialSelectedRoomId);
   const [selectedRoom, setSelectedRoom] = useState<RoomOpsDetail | null>(null);
   const [isLoadingRooms, setIsLoadingRooms] = useState(false);
+  const [isUnlocking, setIsUnlocking] = useState(false);
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
   const [isDeletingSnapshot, setIsDeletingSnapshot] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
   const [refreshNonce, setRefreshNonce] = useState(0);
 
-  const hasOpsKey = opsKey.trim().length > 0;
+  const hasAuthenticatedOpsKey = authenticatedOpsKey.trim().length > 0;
 
   useEffect(() => {
     const nextUrl = new URL(window.location.href);
@@ -43,7 +46,7 @@ export function RoomsOpsPage() {
   }, [selectedRoomId]);
 
   useEffect(() => {
-    if (!hasOpsKey) {
+    if (!hasAuthenticatedOpsKey) {
       setRooms([]);
       setSelectedRoom(null);
       return;
@@ -53,7 +56,7 @@ export function RoomsOpsPage() {
     setIsLoadingRooms(true);
     setAuthError(null);
 
-    void fetchRoomOpsSummaries({ opsKey })
+    void fetchRoomOpsSummaries({ opsKey: authenticatedOpsKey })
       .then((nextRooms) => {
         if (cancelled) {
           return;
@@ -74,8 +77,8 @@ export function RoomsOpsPage() {
 
         if (error.message === "unauthorized") {
           sessionStorage.removeItem(OPS_KEY_STORAGE_KEY);
-          setOpsKey("");
           setOpsKeyDraft("");
+          setAuthenticatedOpsKey("");
           setAuthError("Ops key rejected by backend.");
           setRooms([]);
           setSelectedRoomId("");
@@ -94,10 +97,10 @@ export function RoomsOpsPage() {
     return () => {
       cancelled = true;
     };
-  }, [hasOpsKey, opsKey, selectedRoomId, refreshNonce]);
+  }, [authenticatedOpsKey, hasAuthenticatedOpsKey, selectedRoomId, refreshNonce]);
 
   useEffect(() => {
-    if (!hasOpsKey || !selectedRoomId) {
+    if (!hasAuthenticatedOpsKey || !selectedRoomId) {
       setSelectedRoom(null);
       return;
     }
@@ -106,7 +109,7 @@ export function RoomsOpsPage() {
     setIsLoadingDetail(true);
     setDetailError(null);
 
-    void fetchRoomOpsDetail(selectedRoomId, { opsKey })
+    void fetchRoomOpsDetail(selectedRoomId, { opsKey: authenticatedOpsKey })
       .then((room) => {
         if (!cancelled) {
           setSelectedRoom(room);
@@ -119,8 +122,8 @@ export function RoomsOpsPage() {
 
         if (error.message === "unauthorized") {
           sessionStorage.removeItem(OPS_KEY_STORAGE_KEY);
-          setOpsKey("");
           setOpsKeyDraft("");
+          setAuthenticatedOpsKey("");
           setAuthError("Ops key rejected by backend.");
           setRooms([]);
           setSelectedRoomId("");
@@ -139,7 +142,61 @@ export function RoomsOpsPage() {
     return () => {
       cancelled = true;
     };
-  }, [hasOpsKey, opsKey, selectedRoomId]);
+  }, [authenticatedOpsKey, hasAuthenticatedOpsKey, selectedRoomId]);
+
+  useEffect(() => {
+    const storedOpsKey = sessionStorage.getItem(OPS_KEY_STORAGE_KEY)?.trim() ?? "";
+
+    if (!storedOpsKey || authenticatedOpsKey) {
+      return;
+    }
+
+    let cancelled = false;
+    setIsUnlocking(true);
+    setAuthError(null);
+
+    void fetchRoomOpsSummaries({ opsKey: storedOpsKey })
+      .then((nextRooms) => {
+        if (cancelled) {
+          return;
+        }
+
+        setAuthenticatedOpsKey(storedOpsKey);
+        setRooms(nextRooms);
+
+        if (selectedRoomId && !nextRooms.some((room) => room.roomId === selectedRoomId)) {
+          setSelectedRoomId("");
+        } else if (!selectedRoomId && nextRooms[0]) {
+          setSelectedRoomId(nextRooms[0].roomId);
+        }
+      })
+      .catch((error: Error) => {
+        if (cancelled) {
+          return;
+        }
+
+        sessionStorage.removeItem(OPS_KEY_STORAGE_KEY);
+        setAuthenticatedOpsKey("");
+        setOpsKeyDraft("");
+        setRooms([]);
+        setSelectedRoom(null);
+        setSelectedRoomId("");
+        setAuthError(
+          error.message === "unauthorized"
+            ? "Ops key rejected by backend."
+            : "Failed to validate ops key."
+        );
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setIsUnlocking(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [authenticatedOpsKey, selectedRoomId]);
 
   const selectedRoomSummary = useMemo(
     () => rooms.find((room) => room.roomId === selectedRoomId) ?? null,
@@ -155,13 +212,39 @@ export function RoomsOpsPage() {
       return;
     }
 
-    sessionStorage.setItem(OPS_KEY_STORAGE_KEY, trimmedKey);
-    setOpsKey(trimmedKey);
+    setIsUnlocking(true);
     setAuthError(null);
+
+    try {
+      const nextRooms = await fetchRoomOpsSummaries({ opsKey: trimmedKey });
+
+      sessionStorage.setItem(OPS_KEY_STORAGE_KEY, trimmedKey);
+      setAuthenticatedOpsKey(trimmedKey);
+      setRooms(nextRooms);
+
+      if (selectedRoomId && !nextRooms.some((room) => room.roomId === selectedRoomId)) {
+        setSelectedRoomId("");
+      } else if (!selectedRoomId && nextRooms[0]) {
+        setSelectedRoomId(nextRooms[0].roomId);
+      }
+    } catch (error) {
+      sessionStorage.removeItem(OPS_KEY_STORAGE_KEY);
+      setAuthenticatedOpsKey("");
+      setRooms([]);
+      setSelectedRoom(null);
+      setSelectedRoomId("");
+      setAuthError(
+        error instanceof Error && error.message === "unauthorized"
+          ? "Ops key rejected by backend."
+          : "Failed to validate ops key."
+      );
+    } finally {
+      setIsUnlocking(false);
+    }
   };
 
   const handleDeleteSnapshot = async () => {
-    if (!selectedRoomId || !opsKey) {
+    if (!selectedRoomId || !authenticatedOpsKey) {
       return;
     }
 
@@ -177,7 +260,9 @@ export function RoomsOpsPage() {
     setDetailError(null);
 
     try {
-      const result = await deleteRoomOpsSnapshot(selectedRoomId, { opsKey });
+      const result = await deleteRoomOpsSnapshot(selectedRoomId, {
+        opsKey: authenticatedOpsKey,
+      });
 
       setRooms((currentRooms) =>
         currentRooms.map((room) =>
@@ -236,7 +321,7 @@ export function RoomsOpsPage() {
     }
   };
 
-  if (!hasOpsKey) {
+  if (!hasAuthenticatedOpsKey) {
     return (
       <div
         style={{
@@ -277,8 +362,8 @@ export function RoomsOpsPage() {
           {authError ? (
             <div style={{ fontSize: 12, color: "#fca5a5" }}>{authError}</div>
           ) : null}
-          <button type="submit" style={primaryButtonStyle}>
-            Unlock
+          <button type="submit" style={primaryButtonStyle} disabled={isUnlocking}>
+            {isUnlocking ? "Unlocking..." : "Unlock"}
           </button>
         </form>
       </div>
@@ -307,7 +392,7 @@ export function RoomsOpsPage() {
             type="button"
             onClick={() => {
               sessionStorage.removeItem(OPS_KEY_STORAGE_KEY);
-              setOpsKey("");
+              setAuthenticatedOpsKey("");
               setOpsKeyDraft("");
               setRooms([]);
               setSelectedRoom(null);
