@@ -1,117 +1,520 @@
 # Indication Design
 
+Status: canonical behavior indication source  
+Scope: board/UI behavior signals, multiplayer readability, room/system indication hierarchy
+
 ## Purpose
 
-This document is the canonical source for the project's indication language.
+This document is the canonical source for the project's behavior indication model.
 
-Its job is to keep multiplayer, remote-state, occupied-state, and interaction-preview indications from drifting into one-off local variants.
+Its job is to prevent room states, events, and actions from growing into unrelated local indicators.
 
-This is not a broad design-system document.
-It is a focused source for:
+It defines:
 
-- what indication families currently exist;
-- what visual language they use;
-- which current surface acts as the reference precedent;
-- what future implementation extraction should unify.
+- what deserves explicit indication;
+- what each signal should communicate;
+- how signals should be encoded;
+- who should see them;
+- how long they should live;
+- how loud they should feel in the product hierarchy.
 
-## Scope
+This is not:
 
-This doc covers lightweight board/UI indications such as:
-
-- remote editing indication;
-- occupied/blocked interaction indication;
-- remote drag/transform preview indication.
-
-It does not define:
-
-- general object styling;
-- product branding;
-- full control/button systems;
+- a broad design-system document;
+- a general branding/style guide;
+- an object-by-object implementation checklist;
 - governance policy itself.
 
-## Canonical indication families
+## Core rule
 
-### 1. Remote interaction frame
+Indicate only what affects:
 
-Use when another participant is actively interacting with an object and that state should be legible directly on the object.
+- coordination;
+- actionability;
+- room trust.
+
+Do not indicate everything that is technically knowable.
+
+The project should prefer:
+
+- fewer signals;
+- clearer meaning;
+- stronger hierarchy;
+- lower noise.
+
+## 1. What deserves explicit indication
+
+These states/events/actions deserve explicit indication by default:
+
+- another participant is actively acting on an object and that affects local readability or local actionability;
+- an object is occupied or temporarily blocked;
+- a remote preview materially changes spatial understanding;
+- a room/session state changes what the local participant can do right now;
+- a destructive or consequential action is available, blocked, or has just completed;
+- a runtime/system state materially changes trust in what the participant is seeing.
+
+These do not deserve explicit indication by default:
+
+- every background process;
+- every stored room/member/history fact;
+- every implementation detail;
+- every local draft state;
+- every governance rule at all times;
+- every inspect/debug fact for normal users.
+
+## 2. What each indication should communicate
+
+Each indication should answer one primary question:
+
+- `Who is acting?`
+- `What is happening right now?`
+- `Can I act here?`
+- `Is this temporary or persistent?`
+- `How much should I care right now?`
+
+If an indication does not answer one of those clearly, it should usually not exist yet.
+
+## 3. Signal families
+
+The project should think in signal families rather than one-off indicators.
+
+### A. Object interaction signals
+
+Use when another participant is actively interacting with an object or when the object is currently unavailable because of that interaction.
+
+Examples:
+
+- remote text-card editing;
+- occupied image during remote drawing lock;
+- blocked interaction on the currently selected object.
+
+Primary meaning:
+
+- who is acting now;
+- whether the object is occupied/blocked;
+- whether the state lasts only during the action.
+
+### B. Object preview signals
+
+Use when another participant is previewing a possible committed result, but that result is not yet committed room content.
+
+Examples:
+
+- remote image drag preview;
+- remote image transform preview.
+
+Primary meaning:
+
+- this is transient;
+- this is spatially relevant;
+- this is not committed room state yet.
+
+### C. Room/session status signals
+
+Use when a room-level or session-level condition changes the participant's next available action or the meaning of the current room state.
+
+Examples:
+
+- room full;
+- joining pending;
+- join claim lost;
+- leave-room transition;
+- room tools available;
+- debug tools enabled.
+
+Primary meaning:
+
+- what the room/session currently allows;
+- whether the state is blocking, temporary, or persistent.
+
+### D. Consequence signals
+
+Use when an action has meaningful consequence and the participant needs lightweight confirmation or warning.
+
+Examples:
+
+- reset board completed;
+- blocked destructive action;
+- join failed because a color became unavailable.
+
+Primary meaning:
+
+- something consequential just happened;
+- the participant may need to adjust the next action.
+
+### E. Dev/runtime inspection signals
+
+Use for development-only or debugging-only observability.
+
+Examples:
+
+- governance inspection entries;
+- runtime resolution summaries;
+- internal diagnostics blocks.
+
+Primary meaning:
+
+- make internal/system behavior inspectable;
+- do not treat inspectability as default end-user indication.
+
+## 4. Encoding vocabulary
+
+The same semantic family should reuse the same encoding language where practical.
+
+### Color
+
+Use color to communicate:
+
+- actor identity;
+- participant affiliation of live multiplayer signals;
+- system vs participant distinction.
+
+Rules:
+
+- participant color should encode actor identity for multiplayer interaction signals;
+- neutral/system color should encode room or system status when the signal is not about a specific participant;
+- do not rely on color alone for high-stakes meaning.
+
+### Outline / frame
+
+Primary encoding for:
+
+- object-scoped live interaction;
+- occupied/blocked object state;
+- remote preview bounds.
+
+This is the default board-first multiplayer indication surface.
+
+### Fill / highlight
+
+Use sparingly.
+
+Best for:
+
+- local emphasis;
+- limited selection/focus treatment.
+
+Avoid using large fills as the default multiplayer-state language.
+
+### Label / text
+
+Use only when the state is ambiguous without words.
+
+Text should be:
+
+- short;
+- specific;
+- secondary to the main visual signal.
+
+Many object-scoped signals should remain frame-first rather than label-heavy.
+
+### Icon
+
+Best for:
+
+- room/session/tool status;
+- compact panel/header signals;
+- non-spatial states.
+
+Icons should not become the primary board-object multiplayer language by default.
+
+### Motion / animation
+
+Use only for:
+
+- urgency;
+- transition;
+- temporal emphasis.
+
+Animation should remain subtle and rare.
+
+Persistent states should not depend on constant motion to be legible.
+
+### Temporary overlay
+
+Use for:
+
+- previews;
+- short confirmations;
+- transient warnings;
+- momentary room/session state transitions.
+
+These should expire quickly.
+
+### System message
+
+Use for consequential states that are:
+
+- not naturally tied to one object;
+- important enough to deserve explicit acknowledgment;
+- too important to hide inside dev-only surfaces.
+
+Examples:
+
+- room full;
+- join failed;
+- reset completed;
+- degraded runtime trust condition.
+
+## 5. Audience model
+
+Every indication should have an explicit audience.
+
+### Local only
+
+Examples:
+
+- local draft guidance;
+- hover affordances;
+- pending local action state;
+- local validation.
+
+### All participants
+
+Examples:
+
+- active participant presence/cursors;
+- remote interaction frames;
+- occupied object cues;
+- remote previews;
+- room-wide consequential state after it happens.
+
+### Involved participants only
+
+Examples:
+
+- local join claim race failure;
+- local blocked retry guidance;
+- participant-specific action denial detail.
+
+### Host only
+
+Examples:
+
+- room tools availability;
+- future host-only room actions.
+
+### Dev-only
+
+Examples:
+
+- governance inspection;
+- runtime/internal diagnostics;
+- debug-only resolution detail.
+
+Rule:
+
+- dev-only inspectability must not silently become default end-user indication.
+
+## 6. Lifetime model
+
+Every indication should have an intended lifetime.
+
+### Instant
+
+Examples:
+
+- tiny acknowledgments;
+- one-shot confirmations;
+- short validation flashes.
+
+### During action
+
+Examples:
+
+- editing;
+- drawing;
+- dragging;
+- previewing;
+- occupied state while the condition lasts.
+
+### Short afterglow
+
+Examples:
+
+- claim lost;
+- reset completed;
+- save applied;
+- recently blocked consequential action.
+
+### Persistent state
+
+Examples:
+
+- room full;
+- debug tools enabled;
+- room tools available;
+- current room/session mode.
+
+Persistent indication should be used only when the state meaningfully persists.
+
+## 7. Signal hierarchy / loudness model
+
+The project should use four loudness levels.
+
+### 1. Ambient
+
+Low-noise, always-available context.
+
+Examples:
+
+- participant color chip;
+- room creator line;
+- debug toggle presence.
+
+Should not compete with board work.
+
+### 2. Contextual
+
+Visible when relevant to the current object, action, or nearby room context.
+
+Examples:
+
+- remote interaction frame;
+- occupied object cue;
+- remote preview frame.
+
+This should be the default multiplayer indication layer.
+
+### 3. Blocking
+
+Use when the indication changes the participant's next action directly.
+
+Examples:
+
+- occupied color swatch;
+- blocked action;
+- room full;
+- cannot edit because another participant is active.
+
+Blocking signals should be clear, but still compact.
+
+### 4. System-critical
+
+Use rarely.
+
+Examples:
+
+- runtime trust problem;
+- destructive room-wide effect confirmation;
+- serious connection/system error.
+
+These should usually use room/system surfaces rather than object chrome.
+
+## 8. Object-scoped vs room-scoped vs dev-only signals
+
+### Object-scoped
+
+Object-scoped indication should answer:
+
+- who is acting on this object;
+- whether this object is occupied;
+- whether this object is showing a transient preview.
+
+Default encoding:
+
+- frame/outline first;
+- participant color when actor identity matters;
+- text only when needed.
+
+### Room-scoped
+
+Room-scoped indication should answer:
+
+- what the room/session currently allows;
+- whether a room-level state is blocking;
+- whether a consequential room-level event occurred.
+
+Default encoding:
+
+- panel/header status;
+- compact system text;
+- occasional system message for consequential events.
+
+Room-scoped signals should not usually be rendered as board-object chrome.
+
+### Dev-only
+
+Dev-only indication should answer:
+
+- how the runtime is behaving internally;
+- how governance/runtime resolution is being computed;
+- what internal debug state needs inspection.
+
+Default encoding:
+
+- dedicated debug/dev surfaces;
+- never assume these are product-facing by default.
+
+## 9. Current canonical visual precedents
+
+The project already has useful visual precedents that should remain aligned with this behavior model.
+
+### Remote interaction frame
 
 Current reference precedent:
 
 - `src/board/objects/textCard/TextCardRenderer.tsx`
 
-Current known uses:
+Current shared implementation source:
 
-- remote text-card editing indication;
-- occupied-image indication while another participant holds the image drawing lock.
+- `src/board/components/RemoteInteractionIndicator.tsx`
 
-Current visual language:
-
-- dashed colored frame around the object;
-- small dark pill label near the object edge;
-- participant color reused for the frame and label border;
-- short participant-state label such as:
-  - `<name> editing`
-  - `<name> drawing`
-
-Current shared geometry source in code:
+Current geometry/stroke tokens:
 
 - `REMOTE_INTERACTION_FRAME_OUTSET`
 - `REMOTE_INTERACTION_FRAME_STROKE_WIDTH`
 
-Design intent:
+Known uses:
 
-- these should read as the same multiplayer-state family, not as separate custom widgets.
-
-### 2. Remote preview frame
-
-Use when another participant is actively previewing a position or transform and the local client should show the transient projected result.
-
-Current known use:
-
-- image drag/transform preview in `src/components/BoardStage.tsx`
-
-Current visual language:
-
-- dashed frame at preview bounds;
-- participant color reused where available;
-- transient/preview treatment remains distinct from the occupied/locked family.
+- remote text-card editing indication;
+- occupied-image indication;
+- remote preview indication through the preview variant.
 
 Design intent:
 
-- preview frames may differ from occupied-state frames, but they should still evolve from this canonical source rather than as isolated local inventions.
+- same semantic family should not drift into one-off local variants.
 
-## Current canonical precedent
+## 10. What should explicitly not become an indication by default
 
-The strongest current precedent for multiplayer-state indication language is:
+Do not indicate by default:
 
-- `src/board/objects/textCard/TextCardRenderer.tsx`
+- every governance rule continuously;
+- every remote participant fact on every object;
+- every local mode in multiple places at once;
+- every room-memory detail;
+- every background runtime transition;
+- every inspect/debug fact for normal users.
 
-When a new indication is needed for another object family, start from that precedent unless this doc explicitly says otherwise.
+The project should not become a "signal everything" interface.
 
-If the new indication belongs to the same semantic family, it should reuse:
-
-- the same geometry/stroke language;
-- the same label treatment;
-- the same participant-color semantics;
-- the same level of visual weight.
-
-## Rules for future indication work
+## 11. Rules for future indication work
 
 When adding or changing an indication:
 
-1. identify which indication family it belongs to;
-2. consult this doc before inventing any local visual treatment;
-3. reuse the current canonical precedent where the semantic family matches;
-4. if a new variant is truly needed, record why here instead of only in the implementation file.
+1. decide whether it belongs to an existing signal family;
+2. define its audience before choosing its rendering;
+3. define its lifetime before choosing its weight;
+4. choose the quietest encoding that still communicates the needed state;
+5. prefer ambient/contextual over blocking/system-critical unless the product meaning truly requires more;
+6. keep dev-only inspectability separate from normal end-user indication.
 
-Do not treat "looks close enough" as sufficient when a matching indication family already exists.
+Do not treat:
 
-## Intended later implementation extraction
+- "we can technically surface this"
 
-This doc is meant to support a later narrow shared implementation pass such as:
+as equivalent to:
 
-- shared indication constants;
-- shared indication label sizing/treatment;
-- a small shared renderer/helper for remote interaction indications.
+- "this deserves a product indication."
 
-That extraction should follow this doc rather than invent the shared shape ad hoc.
+## 12. What is intentionally left for later
+
+Left for later:
+
+- a fuller room/session status catalog;
+- exact copy/text standards for system messages;
+- a complete icon vocabulary;
+- object-by-object cleanup passes;
+- broader shared implementation extraction beyond the current remote interaction family.
+
+This document should guide those later passes.
