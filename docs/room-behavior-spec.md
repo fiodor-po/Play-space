@@ -79,11 +79,19 @@ Dice не входят в durable room content.
 
 Refresh в той же комнате должен:
 
+- сначала проверить server-controlled client reset policy, если такой policy exists;
+- при changed policy сначала очистить scoped browser-local room memory;
 - если пользователь был в active joined room, refresh может сохранить active in-room state;
 - сохранять participant session в том же браузере для этой комнаты;
 - восстанавливать локальный viewport этой комнаты;
 - заново подключать клиента к current live room state;
 - при необходимости использовать текущий bootstrap priority без ложного seed/reset behavior.
+
+Важно:
+
+- client reset check должен происходить **до** normal restore from local room memory;
+- first reset slice should preserve browser participant identity;
+- этот механизм нужен для stale local room-memory invalidation, а не для broad migration behavior.
 
 ## 6. Что должно происходить на rejoin?
 
@@ -118,6 +126,33 @@ Rejoin нужно трактовать так:
 - reset не должен неожиданно менять viewport/camera state;
 - viewport semantics отделены от zero-state semantics.
 
+Отдельно от этого теперь есть ещё один intended reset family:
+
+- server-controlled client reset policy for stale browser-local room memory;
+- это не room-content reset;
+- это не board reset;
+- это operational cleanup mechanism before normal restore.
+
+## 7.1. Room creator semantics
+
+Для текущего alpha room creator semantics должны пониматься узко и конкретно:
+
+- room creator identity must come from shared room-level truth;
+- browser-local room metadata is not authoritative creator truth;
+- local room metadata may mirror the current known creator id, but must not originate it independently per browser.
+
+Practical consequence:
+
+- two different browser-local contexts must not be able to independently declare themselves creator of the same room;
+- creator-facing room UI should read from shared creator truth;
+- creator-based room governance should read from the same shared creator truth.
+
+Near-term fix direction:
+
+- add one shared room-level creator id;
+- route creator UI and creator-based governance to that shared value;
+- do not broaden this into a full ownership / account / role system in the first fix.
+
 ## 8. Что сейчас считается intentional / temporary / bug
 
 ### Intentional for current alpha
@@ -147,6 +182,7 @@ Rejoin нужно трактовать так:
 - durable snapshot path hangs or silently fails in normal alpha scenarios;
 - presence/cursors ведут себя некорректно;
 - shared tokens / images / text-cards перестают синхронизироваться;
+- two separate browser contexts can both show `Creator: You` for the same room;
 - `Draw / Save / Clear` или awareness lock перестают соответствовать текущему UX;
 - ломается manual empty-space panning;
 - ломается wheel zoom.

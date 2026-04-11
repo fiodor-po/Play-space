@@ -26,6 +26,13 @@
 - это не merge-aware room document;
 - это не причина переусложнять persistence architecture раньше времени.
 
+Hosted-status caveat that is now explicitly known:
+
+- в текущем hosted setup snapshot store переживает обычный process restart;
+- но в текущем Railway-hosted path snapshot store **не переживает redeploy**;
+- поэтому current hosted durability should be treated as restart-stable but not deploy-stable;
+- until this is fixed, durable room snapshots remain operationally useful but not fully reliable as hosted deployment-persistent room memory.
+
 Текущая рабочая модель такая:
 
 - у комнаты есть **live shared state**;
@@ -158,6 +165,58 @@
 - initial seed не должен автоматически определять содержимое новой комнаты;
 - starter content может существовать только как отдельный UX mechanism, не как hidden memory contract.
 
+## I. Server-controlled client reset policy
+
+Для текущего alpha нужен ещё один **operational layer**, который не является ни room memory,
+ни migration framework:
+
+- backend-controlled client reset policy;
+- он нужен для intentional invalidation stale browser-local room memory;
+- он не является final persistence redesign;
+- он не является broad migration engine.
+
+Его purpose:
+
+- после deploy/runtime cleanup intentionally сбросить stale local room memory;
+- убрать harmful legacy browser-local state;
+- дать ops-controlled путь к clean client bootstrap without relying on manual user cleanup.
+
+Canonical first-pass rule:
+
+- backend publishes explicit reset policy marker;
+- client checks it early during boot;
+- if policy changed, client wipes browser-local room-memory state before normal restore continues;
+- browser participant identity stays preserved in the first slice.
+
+Recommended first-pass policy shape:
+
+```ts
+type ClientResetPolicy = {
+  policyId: string;
+  issuedAt: string;
+  reason?: string;
+  scope: "all-browser-local-room-state";
+  mode: "once-per-browser";
+};
+```
+
+Client keeps a local acknowledgement marker for the last applied policy id.
+
+First-slice wipe scope should include browser-local room-memory categories such as:
+
+- active room restore markers;
+- room-scoped participant sessions;
+- room-scoped participant presence cache;
+- room metadata;
+- room viewport state;
+- local per-room board/object caches;
+- local per-room room snapshot caches.
+
+First-slice preserve rule:
+
+- browser participant id should remain preserved;
+- this is room-memory invalidation, not browser-identity destruction.
+
 ## 4. Source-of-truth interpretation
 
 Для текущего alpha source of truth нужно понимать так:
@@ -167,6 +226,21 @@
 - local snapshot = fallback-only layer;
 - awareness = ephemeral collaboration layer;
 - local UI / interaction state = client-local only.
+- server-controlled client reset policy = operational invalidation layer for stale client-local room memory.
+
+Room creator truth should be interpreted under the same rule:
+
+- room creator identity must come from shared room-level truth;
+- browser-local room metadata is non-authoritative for creator identity;
+- local room metadata may cache or mirror creator information for convenience;
+- local room metadata must not independently originate room creator identity per browser profile.
+
+This distinction matters because room creator identity is currently used for:
+
+- creator-facing room UI;
+- creator-based room governance overrides.
+
+Those behaviors should read from one shared room-level creator id, not from per-browser remembered metadata.
 
 ## 5. Bootstrap / recovery priority
 
@@ -179,6 +253,16 @@
 
 Эта priority chain важнее старого упрощённого тезиса "durable memory ещё не существует".
 
+Client reset boot-order rule:
+
+1. client checks server-controlled reset policy
+2. if policy changed, client wipes scoped local room-memory state and records local acknowledgement
+3. only after that normal room/session restore may continue
+4. then normal bootstrap priority applies: live -> durable -> local -> empty
+
+This ordering is important.
+Client reset must happen before stale local restore gets a chance to win.
+
 ## 6. Room lifecycle rules в текущей модели
 
 ### New room
@@ -188,6 +272,28 @@
 ### Refresh
 - refresh в той же комнате должен:
   - сохранять participant session для этой комнаты;
+
+## 7. Narrow room creator fix direction
+
+The first room creator fix should stay intentionally narrow:
+
+- introduce one shared room-level creator id;
+- use that shared creator id for creator UI and creator-based governance;
+- stop treating browser-local room metadata as authoritative creator truth.
+
+What local room metadata may still do:
+
+- mirror the current known creator id;
+- cache room-level hints for convenience;
+- keep non-authoritative room bootstrap bookkeeping.
+
+What local room metadata must not do:
+
+- independently decide who the room creator is for a given room;
+- overwrite shared creator truth based on local browser initialization.
+
+This is not a full room ownership platform.
+It is a narrow source-of-truth correction.
   - восстанавливать local viewport;
   - переподключать клиента к current live room state.
 
@@ -209,3 +315,9 @@
 2. проверить её технически через pre-deploy audit;
 3. не overbuild persistence layer до реального hosted-alpha signal;
 4. держать broad architecture cleanup отдельно от room-memory correctness.
+
+Additional narrow operational sequence now recommended:
+
+5. add server-controlled client reset policy as a separate operational hygiene mechanism;
+6. keep it explicit, global, and once-per-browser in the first slice;
+7. do not let it grow into a migration framework prematurely.

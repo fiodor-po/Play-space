@@ -23,7 +23,7 @@ export type RoomRecord = {
   members: RoomMemberRegistry;
 };
 
-const ROOM_METADATA_STORAGE_KEY = "play-space-alpha-room-metadata-v1";
+export const ROOM_METADATA_STORAGE_KEY = "play-space-alpha-room-metadata-v1";
 
 type StoredRoomMemberRecord = {
   participantId?: string;
@@ -254,13 +254,13 @@ export function saveRoomRecord(room: RoomRecord) {
 
 export function ensureRoomRecordInitialized(params: {
   roomId: string;
-  creatorId: string;
+  creatorId?: string | null;
   baseline: RoomBaselineDescriptor;
 }): RoomRecord {
   const existingRecord = loadRoomRecord(params.roomId);
   const nextRecord = createRoomRecord({
     roomId: params.roomId,
-    creatorId: existingRecord?.creatorId ?? params.creatorId,
+    creatorId: existingRecord?.creatorId ?? params.creatorId ?? null,
     initializedBaselineId:
       existingRecord?.initializedBaselineId ?? params.baseline.baselineId,
     appliedBaselineId:
@@ -271,6 +271,57 @@ export function ensureRoomRecordInitialized(params: {
 
   if (
     existingRecord &&
+    existingRecord.creatorId === nextRecord.creatorId &&
+    existingRecord.initializedBaselineId === nextRecord.initializedBaselineId &&
+    existingRecord.appliedBaselineId === nextRecord.appliedBaselineId &&
+    areRoomMemberRegistriesEqual(existingRecord.members, nextRecord.members)
+  ) {
+    return existingRecord;
+  }
+
+  saveRoomRecord(nextRecord);
+  return nextRecord;
+}
+
+export function mirrorRoomCreatorId(params: {
+  roomId: string;
+  creatorId?: string | null;
+}): RoomRecord | null {
+  const existingRecord = loadRoomRecord(params.roomId);
+
+  if (!existingRecord) {
+    return null;
+  }
+
+  const nextCreatorId =
+    typeof params.creatorId === "string" && params.creatorId.trim().length > 0
+      ? params.creatorId.trim()
+      : null;
+
+  const nextMembers = Object.fromEntries(
+    Object.entries(existingRecord.members).map(([participantId, member]) => [
+      participantId,
+      createRoomMemberRecord({
+        participantId: member.participantId,
+        displayName: member.displayName,
+        assignedColor: member.assignedColor,
+        joinedAt: member.joinedAt,
+        lastSeenAt: member.lastSeenAt,
+        isRoomCreator:
+          !!nextCreatorId && member.participantId === nextCreatorId,
+      }),
+    ])
+  );
+
+  const nextRecord = createRoomRecord({
+    roomId: existingRecord.id,
+    creatorId: nextCreatorId,
+    initializedBaselineId: existingRecord.initializedBaselineId,
+    appliedBaselineId: existingRecord.appliedBaselineId,
+    members: nextMembers,
+  });
+
+  if (
     existingRecord.creatorId === nextRecord.creatorId &&
     existingRecord.initializedBaselineId === nextRecord.initializedBaselineId &&
     existingRecord.appliedBaselineId === nextRecord.appliedBaselineId &&
@@ -309,7 +360,10 @@ export function markRoomBaselineApplied(params: {
   return nextRecord;
 }
 
-export function ensureRoomRecord(roomId: string, creatorId: string): RoomRecord {
+export function ensureRoomRecord(
+  roomId: string,
+  creatorId?: string | null
+): RoomRecord {
   return ensureRoomRecordInitialized({
     roomId,
     creatorId,
@@ -322,6 +376,20 @@ export type RoomMetadata = RoomRecord;
 export const loadRoomMetadata = loadRoomRecord;
 export const saveRoomMetadata = saveRoomRecord;
 export const ensureRoomMetadata = ensureRoomRecord;
+
+export function clearAllRoomMetadataStorage() {
+  const keysToRemove: string[] = [];
+
+  for (let index = 0; index < localStorage.length; index += 1) {
+    const key = localStorage.key(index);
+
+    if (key && key.startsWith(`${ROOM_METADATA_STORAGE_KEY}:`)) {
+      keysToRemove.push(key);
+    }
+  }
+
+  keysToRemove.forEach((key) => localStorage.removeItem(key));
+}
 
 function getRoomMetadataStorageKey(roomId: string) {
   return `${ROOM_METADATA_STORAGE_KEY}:${roomId}`;

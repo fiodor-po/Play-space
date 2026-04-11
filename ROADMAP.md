@@ -52,7 +52,8 @@
 - room lifecycle уже отделяет draft room selection от active participation, но broader room UX ещё intentionally rough;
 - participant identity still needs a narrow browser-local stabilization pass so same-browser repeat join and multi-tab behavior become explicit instead of accidental;
 - `BoardStage` всё ещё остаётся тяжёлым integration surface;
-- durable room memory остаётся best-effort, а не final collaborative durable platform.
+- durable room memory остаётся best-effort, а не final collaborative durable platform;
+- current hosted snapshot persistence is now known to survive restart but not redeploy, so hosted room durability is not yet deploy-stable.
 
 ### Что важно держать в голове
 
@@ -138,6 +139,17 @@ Core hosted signal уже получен.
   - list existing rooms on the server
   - inspect room contents / snapshot state
   - reset / delete / repair problematic rooms
+- [ ] add server-controlled client reset policy for stale browser-local room memory:
+  - backend-published reset marker
+  - early boot check before local restore
+  - wipe scoped browser-local room-memory state
+  - preserve browser participant id in phase 1
+- [ ] correct room creator truth so it comes from shared room-level state rather than browser-local room metadata:
+  - one shared room-level creator id
+  - creator UI reads from shared truth
+  - creator-based governance reads from shared truth
+  - local room metadata becomes non-authoritative for creator identity
+- [ ] determine and fix why hosted durable room snapshots survive restart but do not survive redeploy
 - [ ] media dock simplification / stabilization pass
 - [ ] dice tray / dice UX cleanup pass
 - [ ] board shell coherence pass
@@ -245,6 +257,24 @@ Core hosted signal уже получен.
 - first replacement slice should not migrate existing objects;
 - future note creation flow should later target `note-card`;
 - media association, attachment, and document-editor behavior remain out of scope for the first replacement slice.
+
+Дополнительная заметка к current browser-local room-memory direction:
+
+- browser-local room memory now needs an explicit server-controlled invalidation path;
+- this should be a narrow operational reset policy, not a migration framework;
+- backend should publish an explicit reset marker;
+
+Дополнительная заметка к current room creator direction:
+
+- room creator identity should now be treated as shared room-level truth, not browser-local metadata truth;
+- current browser-local `roomRecord.creatorId` behavior is a bug-prone temporary path, not the intended model;
+- the first fix should stay narrow:
+  - one shared room-level creator id
+  - creator UI and creator-based governance read from it
+  - no broad ownership / roles / auth system
+- client should check it before normal room/session restore;
+- if the marker changed, scoped browser-local room-memory state should be wiped before restore continues;
+- browser participant identity should remain preserved in the first slice.
 
 ## 9. Open questions
 

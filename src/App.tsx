@@ -4,10 +4,12 @@ import { DiceSpikeOverlay } from "./dice/DiceSpikeOverlay";
 import { LiveKitMediaDock } from "./media/LiveKitMediaDock";
 import { RoomsOpsPage } from "./ops/RoomsOpsPage";
 import { HTML_UI_FONT_FAMILY } from "./board/constants";
+import { applyClientResetPolicyIfNeeded } from "./lib/clientResetPolicy";
 import {
   createRoomGovernedEntityRef,
   resolveGovernedEntityAccess,
 } from "./lib/governance";
+import { createRoomCreatorConnection } from "./lib/roomCreatorRealtime";
 import {
   clearActiveParticipantRoomSession,
   clearActiveRoomId,
@@ -31,6 +33,7 @@ import {
   getRoomMemberRecord,
   loadRoomRecord,
   markRoomBaselineApplied,
+  mirrorRoomCreatorId,
 } from "./lib/roomMetadata";
 import { createRoomPresenceConnection } from "./lib/roomPresenceRealtime";
 import { isLiveKitMediaEnabled, logClientRuntimeConfig } from "./lib/runtimeConfig";
@@ -72,6 +75,36 @@ function getIsForegroundPresenceCarrier() {
   return !document.hidden && document.hasFocus();
 }
 
+function AppBootScreen() {
+  return (
+    <div
+      style={{
+        minHeight: "100vh",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        background: "#f8fafc",
+        color: "#0f172a",
+        fontFamily: HTML_UI_FONT_FAMILY,
+      }}
+    >
+      <div
+        style={{
+          padding: "24px 28px",
+          borderRadius: 16,
+          background: "rgba(255, 255, 255, 0.92)",
+          border: "1px solid rgba(15, 23, 42, 0.08)",
+          boxShadow: "0 18px 40px rgba(15, 23, 42, 0.08)",
+          fontSize: 14,
+          letterSpacing: "0.01em",
+        }}
+      >
+        Preparing room…
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   const isOpsRoute = window.location.pathname.startsWith("/ops/rooms");
 
@@ -79,6 +112,30 @@ export default function App() {
     return <RoomsOpsPage />;
   }
 
+  const [isBootReady, setIsBootReady] = useState(false);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    void applyClientResetPolicyIfNeeded().finally(() => {
+      if (isMounted) {
+        setIsBootReady(true);
+      }
+    });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  if (!isBootReady) {
+    return <AppBootScreen />;
+  }
+
+  return <BootstrappedApp />;
+}
+
+function BootstrappedApp() {
   const liveKitMediaEnabled = isLiveKitMediaEnabled();
   const browserParticipantId = getOrCreateBrowserParticipantId();
   const initialSharedActiveRoomSession =
@@ -113,6 +170,7 @@ export default function App() {
   const [roomRecord, setRoomRecord] = useState<RoomRecord | null>(() =>
     shouldRestoreJoinedRoom ? loadRoomRecord(initialDraftRoomId) : null
   );
+  const [roomCreatorId, setRoomCreatorId] = useState<string | null>(null);
   const [draftName, setDraftName] = useState(initialParticipantDraft.draftName);
   const [draftColor, setDraftColor] = useState(initialParticipantDraft.draftColor);
   const [entryRoomOccupancies, setEntryRoomOccupancies] = useState<RoomOccupancyMap>(
@@ -134,14 +192,16 @@ export default function App() {
   );
   const entryPresenceConnectionRef = useRef<RoomPresenceConnection | null>(null);
   const roomPresenceConnectionRef = useRef<RoomPresenceConnection | null>(null);
+  const roomCreatorConnectionRef = useRef<ReturnType<
+    typeof createRoomCreatorConnection
+  > | null>(null);
   const entryRoomOccupanciesRef = useRef<RoomOccupancyMap>({});
   const entryParticipantPresencesRef = useRef<ParticipantPresenceMap>({});
   const entryJoinClaimsRef = useRef<JoinClaimMap>({});
 
-  const ensureInitializedRoomRecord = (roomId: string, creatorId: string) => {
+  const ensureInitializedRoomRecord = (roomId: string) => {
     return ensureRoomRecordInitialized({
       roomId,
-      creatorId,
       baseline: DEFAULT_ROOM_BASELINE_DESCRIPTOR,
     });
   };
@@ -150,7 +210,7 @@ export default function App() {
     roomId: string,
     session: LocalParticipantSession
   ) => {
-    const initializedRoomRecord = ensureInitializedRoomRecord(roomId, session.id);
+    const initializedRoomRecord = ensureInitializedRoomRecord(roomId);
     return (
       ensureRoomMemberRegistered({
         roomId,
@@ -271,6 +331,8 @@ export default function App() {
   const collapseToEntryScreen = (nextDraftRoomId: string) => {
     roomPresenceConnectionRef.current?.destroy();
     roomPresenceConnectionRef.current = null;
+    roomCreatorConnectionRef.current?.destroy();
+    roomCreatorConnectionRef.current = null;
 
     clearActiveRoomId();
     setDraftRoomId(nextDraftRoomId);
@@ -283,6 +345,7 @@ export default function App() {
     setRoomOccupancies({});
     setParticipantPresences({});
     setRoomRecord(null);
+    setRoomCreatorId(null);
   };
 
   useEffect(() => {
@@ -396,6 +459,7 @@ export default function App() {
   useEffect(() => {
     if (!isInRoom || !activeRoomId) {
       setRoomRecord(null);
+      setRoomCreatorId(null);
       setRoomOccupancies({});
       setParticipantPresences({});
       return;
@@ -405,6 +469,7 @@ export default function App() {
     if (!nextSession) {
       setParticipantSession(null);
       setRoomRecord(loadRoomRecord(activeRoomId));
+      setRoomCreatorId(null);
       setLocalParticipantPresence(null);
       setRoomOccupancies({});
       setParticipantPresences({});
@@ -419,12 +484,48 @@ export default function App() {
     setDraftColor(nextSession.color);
     setParticipantSession(nextSession);
     setRoomRecord(rememberRoomMemberState(activeRoomId, nextSession));
+    setRoomCreatorId(null);
     setLocalParticipantPresence(
       createLocalParticipantPresence(nextSession)
     );
     setRoomOccupancies({});
     setParticipantPresences({});
   }, [activeRoomId, isInRoom]);
+
+  useEffect(() => {
+    if (!isInRoom || !activeRoomId || !participantSession?.id) {
+      roomCreatorConnectionRef.current?.destroy();
+      roomCreatorConnectionRef.current = null;
+      setRoomCreatorId(null);
+      return;
+    }
+
+    const connection = createRoomCreatorConnection({
+      roomId: activeRoomId,
+      participantId: participantSession.id,
+      onCreatorIdChange: (nextCreatorId) => {
+        setRoomCreatorId(nextCreatorId);
+        const nextRoomRecord = mirrorRoomCreatorId({
+          roomId: activeRoomId,
+          creatorId: nextCreatorId,
+        });
+
+        if (nextRoomRecord) {
+          setRoomRecord(nextRoomRecord);
+        }
+      },
+    });
+
+    roomCreatorConnectionRef.current = connection;
+
+    return () => {
+      if (roomCreatorConnectionRef.current === connection) {
+        roomCreatorConnectionRef.current = null;
+      }
+
+      connection.destroy();
+    };
+  }, [activeRoomId, isInRoom, participantSession?.id]);
 
   useEffect(() => {
     return subscribeToActiveParticipantRoomSession(
@@ -683,7 +784,7 @@ export default function App() {
   const joinedRoomId = activeRoomId ?? draftRoomId;
   const roomGovernedEntity = createRoomGovernedEntityRef({
     roomId: joinedRoomId,
-    creatorId: roomRecord?.creatorId ?? null,
+    creatorId: roomCreatorId,
   });
   const roomEffectiveAccess = resolveGovernedEntityAccess({
     entity: roomGovernedEntity,
@@ -691,7 +792,6 @@ export default function App() {
     defaultAccessLevel: "full",
   });
   const roomEffectiveAccessLevel = roomEffectiveAccess?.accessLevel ?? "none";
-  const roomCreatorId = roomRecord?.creatorId ?? null;
   const isCurrentParticipantRoomCreator =
     !!roomCreatorId && roomCreatorId === participantSession?.id;
   const roomCreatorName =

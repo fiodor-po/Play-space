@@ -253,6 +253,40 @@ Starter/demo content теперь уже реально живёт как explic
 
 ---
 
+## Phase 0X — Hosted durable snapshots were found to survive restart but not redeploy
+
+### Type
+- finding
+
+### Context
+После появления room ops panel стало возможно уже не только теоретически рассуждать о hosted snapshot persistence, а проверить её practically against real hosted behavior.
+
+### Goal or problem
+Нужно было понять, насколько current hosted durable room snapshots реально переживают operational events:
+- обычный restart;
+- redeploy.
+
+### What happened
+Практическая проверка показала:
+- текущий hosted snapshot store переживает обычный restart backend process;
+- но current hosted snapshot store не переживает redeploy.
+
+### Decision / change
+Этот факт теперь должен считаться explicit hosted limitation, а не предположением.
+
+### Why
+Иначе легко переоценить current hosted room durability и mistakenly treat snapshot persistence as deploy-stable when it is not.
+
+### Result
+Current hosted durability is now better understood as:
+- restart-stable;
+but not:
+- redeploy-stable.
+
+Это сохраняет честную operational framing для дальнейшего deploy/debug work и future persistence hardening.
+
+---
+
 ## Phase 0X — Object interaction UI standardization was recognized as a future chapter
 
 ### Type

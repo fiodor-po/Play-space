@@ -42,12 +42,12 @@ export const PARTICIPANT_COLOR_OPTIONS = [
   "#16a34a",
 ];
 
-const ROOM_SESSION_STORAGE_PREFIX = "play-space-alpha-room-session-v1";
-const ACTIVE_ROOM_STORAGE_KEY = "play-space-alpha-active-room-v1";
-const ROOM_PRESENCE_STORAGE_PREFIX = "play-space-alpha-room-presence-v1";
-const BROWSER_PARTICIPANT_ID_STORAGE_KEY =
+export const ROOM_SESSION_STORAGE_PREFIX = "play-space-alpha-room-session-v1";
+export const ACTIVE_ROOM_STORAGE_KEY = "play-space-alpha-active-room-v1";
+export const ROOM_PRESENCE_STORAGE_PREFIX = "play-space-alpha-room-presence-v1";
+export const BROWSER_PARTICIPANT_ID_STORAGE_KEY =
   "play-space-alpha-browser-participant-id-v1";
-const ACTIVE_PARTICIPANT_ROOM_SESSION_STORAGE_KEY =
+export const ACTIVE_PARTICIPANT_ROOM_SESSION_STORAGE_KEY =
   "play-space-alpha-active-room-session-v1";
 const PARTICIPANT_PRESENCE_STALE_MS = 30000;
 
@@ -229,6 +229,15 @@ export function subscribeToActiveParticipantRoomSession(
   };
 }
 
+export function clearBrowserLocalRoomSessionState() {
+  clearStorageKeysByPrefix(localStorage, ROOM_SESSION_STORAGE_PREFIX);
+  clearStorageKeysByPrefix(localStorage, ROOM_PRESENCE_STORAGE_PREFIX);
+  clearStorageKeysByPrefix(sessionStorage, ROOM_SESSION_STORAGE_PREFIX);
+  clearStorageKeysByPrefix(sessionStorage, ROOM_PRESENCE_STORAGE_PREFIX);
+  sessionStorage.removeItem(ACTIVE_ROOM_STORAGE_KEY);
+  localStorage.removeItem(ACTIVE_PARTICIPANT_ROOM_SESSION_STORAGE_KEY);
+}
+
 export function createLocalParticipantPresence(
   session: LocalParticipantSession
 ): ParticipantPresence {
@@ -391,4 +400,18 @@ function getRoomSessionStorageKey(roomId: string) {
 
 function getRoomPresenceStorageKey(roomId: string) {
   return `${ROOM_PRESENCE_STORAGE_PREFIX}:${roomId}`;
+}
+
+function clearStorageKeysByPrefix(storage: Storage, prefix: string) {
+  const keysToRemove: string[] = [];
+
+  for (let index = 0; index < storage.length; index += 1) {
+    const key = storage.key(index);
+
+    if (key && key.startsWith(`${prefix}:`)) {
+      keysToRemove.push(key);
+    }
+  }
+
+  keysToRemove.forEach((key) => storage.removeItem(key));
 }

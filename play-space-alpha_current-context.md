@@ -332,7 +332,18 @@ This should be framed as:
 not as:
 - a broad admin product.
 
-### 3.24. Object interaction UI standardization is now a separate future chapter
+### 3.24. Hosted durable snapshot persistence is now known to be restart-stable but not redeploy-stable
+A practical hosted persistence fact is now verified:
+
+- current hosted durable room snapshots survive ordinary backend restart;
+- current hosted durable room snapshots do not survive redeploy.
+
+So the current hosted snapshot layer should be treated as:
+- operationally useful recovery between restarts;
+but not yet:
+- trustworthy deploy-persistent room durability.
+
+### 3.25. Object interaction UI standardization is now a separate future chapter
 After image, token, legacy text-card, and new note-card passes, another future consistency need is now explicit:
 
 - object interaction UI should be brought to a clearer shared standard;
@@ -344,6 +355,42 @@ After image, token, legacy text-card, and new note-card passes, another future c
   - preview / active-manipulation states.
 
 This is a future consistency/readability chapter, not an immediate broad rewrite.
+
+### 3.26. Server-controlled client reset is now the intended stale-local-memory cleanup path
+Another operational need is now explicit:
+
+- browser-local room memory is useful, but stale local state can survive product and deploy changes;
+- backend should publish an explicit client reset policy marker;
+- client should check that marker early during boot;
+- if the policy changed, client should wipe scoped browser-local room-memory state before normal restore continues;
+- browser participant identity should remain preserved in the first slice.
+
+This is intentionally:
+
+- a narrow operational invalidation mechanism;
+- not a migration engine;
+- not a broad persistence redesign;
+- not an auth/admin-system chapter by itself.
+
+### 3.27. Room creator truth is now intended as shared room-level truth, not browser-local metadata
+A read-only audit clarified the current creator bug and the intended correction.
+
+Current bug:
+
+- room creator label and creator-based room governance are currently sourced from browser-local `roomRecord.creatorId`;
+- separate browser contexts can therefore each initialize the same room with themselves as creator;
+- this is why normal browser and incognito can both show `Creator: You` for the same room.
+
+Intended direction:
+
+- room creator identity must come from one shared room-level source of truth;
+- browser-local room metadata becomes non-authoritative for creator identity;
+- local room metadata may cache or mirror creator information, but must not originate it independently per browser;
+- first fix should stay narrow:
+  - one shared room-level creator id
+  - creator UI reads from it
+  - creator-based governance reads from it
+  - no broad ownership / roles / account system
 
 ## 4. Current preferred next step
 

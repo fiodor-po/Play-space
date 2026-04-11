@@ -63,6 +63,12 @@ This service should own:
 - room snapshot routes
 - other long-running server-side logic
 
+Important currently verified hosted limitation:
+
+- current hosted snapshot storage survives ordinary backend restart;
+- current hosted snapshot storage does **not** survive redeploy;
+- so the current Railway-hosted snapshot layer is not yet deploy-stable persistence.
+
 ### LiveKit
 If built-in video remains enabled in hosted alpha, keep LiveKit as its own separate service / endpoint.
 
@@ -132,6 +138,12 @@ Before first hosted alpha, make these runtime assumptions explicit:
 - websocket host/bind configuration
 - durable room snapshot store path or equivalent persistent storage path
 - `LIVEKIT_API_KEY` and `LIVEKIT_API_SECRET` if token minting stays on this service
+
+Important hosted persistence rule:
+
+- do not assume `ROOM_SNAPSHOT_STORE_FILE` is truly deploy-persistent just because it survives restart;
+- current hosted reality has already shown restart persistence without redeploy persistence;
+- this must be explicitly validated, not inferred.
 
 ### Vercel Function fallback
 - `LIVEKIT_API_KEY`

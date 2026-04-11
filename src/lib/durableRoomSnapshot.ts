@@ -10,6 +10,7 @@ export type DurableRoomSnapshot = {
   roomId: string;
   revision: number;
   savedAt: string;
+  roomCreatorId: string | null;
   tokens: BoardObject[];
   images: BoardObject[];
   textCards: BoardObject[];
@@ -17,6 +18,7 @@ export type DurableRoomSnapshot = {
 
 type DurableRoomSnapshotWritePayload = {
   baseRevision: number | null;
+  roomCreatorId?: string | null;
   tokens: BoardObject[];
   images: BoardObject[];
   textCards: BoardObject[];
@@ -80,11 +82,15 @@ export async function loadDurableRoomSnapshot(
 export async function saveDurableRoomSnapshot(
   roomId: string,
   objects: BoardObject[],
-  baseRevision: number | null
+  baseRevision: number | null,
+  options?: {
+    roomCreatorId?: string | null;
+  }
 ): Promise<DurableRoomSnapshotSaveResult> {
   const snapshotUrl = getDurableRoomSnapshotUrl(roomId);
   const payload: DurableRoomSnapshotWritePayload = {
     baseRevision,
+    roomCreatorId: options?.roomCreatorId ?? null,
     tokens: objects.filter((object) => object.kind === "token"),
     images: objects.filter((object) => object.kind === "image"),
     textCards: objects.filter((object) => isNoteLikeObject(object)),
@@ -168,6 +174,11 @@ function normalizeDurableRoomSnapshot(
       typeof snapshot.savedAt === "string"
         ? snapshot.savedAt
         : new Date(0).toISOString(),
+    roomCreatorId:
+      typeof snapshot.roomCreatorId === "string" &&
+      snapshot.roomCreatorId.trim().length > 0
+        ? snapshot.roomCreatorId
+        : null,
     tokens: Array.isArray(snapshot.tokens)
       ? snapshot.tokens
           .filter((object) => object?.kind === "token")

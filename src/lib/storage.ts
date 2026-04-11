@@ -138,6 +138,32 @@ export function clearBoardContentStorage(roomId: string) {
   localStorage.removeItem(getRoomSnapshotStorageKey(roomId));
 }
 
+export function clearAllBrowserLocalRoomStorage() {
+  const storagePrefixes = [
+    BOARD_STORAGE_KEY,
+    VIEWPORT_STORAGE_KEY,
+    ROOM_TOKEN_STORAGE_KEY,
+    ROOM_IMAGE_STORAGE_KEY,
+    ROOM_TEXT_CARD_STORAGE_KEY,
+    ROOM_SNAPSHOT_STORAGE_KEY,
+  ];
+
+  const keysToRemove: string[] = [];
+
+  for (let index = 0; index < localStorage.length; index += 1) {
+    const key = localStorage.key(index);
+
+    if (
+      key &&
+      storagePrefixes.some((prefix) => key.startsWith(`${prefix}:`))
+    ) {
+      keysToRemove.push(key);
+    }
+  }
+
+  keysToRemove.forEach((key) => localStorage.removeItem(key));
+}
+
 export function loadRoomTokenObjects(
   roomId: string,
   fallback: BoardObject[] = []

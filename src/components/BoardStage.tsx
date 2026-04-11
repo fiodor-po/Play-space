@@ -1147,6 +1147,7 @@ export default function BoardStage({
 
     const durableSnapshotKey = JSON.stringify({
       roomId,
+      roomCreatorId,
       tokens: objects.filter((object) => object.kind === "token"),
       images: objects.filter((object) => object.kind === "image"),
       textCards: objects.filter((object) => isNoteLikeObject(object)),
@@ -1166,7 +1167,10 @@ export default function BoardStage({
       const result = await saveDurableRoomSnapshot(
         roomId,
         objects,
-        durableSnapshotRevisionRef.current
+        durableSnapshotRevisionRef.current,
+        {
+          roomCreatorId,
+        }
       );
 
       if (isCancelled) {

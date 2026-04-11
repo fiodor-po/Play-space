@@ -238,6 +238,8 @@ async function handleHttpRequest(req, res) {
   const roomSnapshotDeleteRouteMatch = requestUrl.pathname.match(
     /^\/api\/rooms\/([^/]+)\/durable-snapshot$/
   );
+  const clientResetPolicyRouteMatch =
+    requestUrl.pathname === "/api/client-reset-policy";
   const liveKitTokenRouteMatch =
     requestUrl.pathname === "/api/livekit/token";
   const healthRouteMatch = requestUrl.pathname === "/api/health";
@@ -246,6 +248,7 @@ async function handleHttpRequest(req, res) {
     !snapshotRouteMatch &&
     !liveKitTokenRouteMatch &&
     !healthRouteMatch &&
+    !clientResetPolicyRouteMatch &&
     !roomsRouteMatch &&
     !roomDetailRouteMatch &&
     !roomSnapshotDeleteRouteMatch
@@ -302,6 +305,22 @@ async function handleHttpRequest(req, res) {
 
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ rooms }));
+    return;
+  }
+
+  if (clientResetPolicyRouteMatch) {
+    if (req.method !== "GET") {
+      res.writeHead(405, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Method not allowed" }));
+      return;
+    }
+
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(
+      JSON.stringify({
+        policy: getClientResetPolicy(),
+      })
+    );
     return;
   }
 
@@ -561,6 +580,10 @@ function createDurableRoomSnapshot(roomId, body) {
     roomId,
     revision: 0,
     savedAt: new Date(0).toISOString(),
+    roomCreatorId:
+      typeof body.roomCreatorId === "string" && body.roomCreatorId.trim().length > 0
+        ? body.roomCreatorId.trim()
+        : null,
     tokens: normalizeRoomObjects(body.tokens, "token"),
     images: normalizeRoomObjects(body.images, "image"),
     textCards: normalizeRoomObjects(body.textCards, ["text-card", "note-card"]),
@@ -579,6 +602,11 @@ function normalizeDurableRoomSnapshot(roomId, snapshot) {
       typeof snapshot.savedAt === "string"
         ? snapshot.savedAt
         : new Date(0).toISOString(),
+    roomCreatorId:
+      typeof snapshot.roomCreatorId === "string" &&
+      snapshot.roomCreatorId.trim().length > 0
+        ? snapshot.roomCreatorId.trim()
+        : null,
     tokens: normalizeRoomObjects(snapshot.tokens, "token"),
     images: normalizeRoomObjects(snapshot.images, "image"),
     textCards: normalizeRoomObjects(snapshot.textCards, ["text-card", "note-card"]),
@@ -842,6 +870,27 @@ function getLiveKitDisabledReason(liveKitConfig) {
   }
 
   return "LiveKit credentials are not configured";
+}
+
+function getClientResetPolicy() {
+  const policyId = readEnvString("PLAY_SPACE_CLIENT_RESET_POLICY_ID");
+
+  if (!policyId) {
+    return null;
+  }
+
+  const issuedAt =
+    readEnvString("PLAY_SPACE_CLIENT_RESET_POLICY_ISSUED_AT") ||
+    new Date(0).toISOString();
+  const reason = readEnvString("PLAY_SPACE_CLIENT_RESET_POLICY_REASON");
+
+  return {
+    policyId,
+    issuedAt,
+    reason: reason || undefined,
+    scope: "all-browser-local-room-state",
+    mode: "once-per-browser",
+  };
 }
 
 function readEnvString(name) {
