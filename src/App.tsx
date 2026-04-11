@@ -330,13 +330,14 @@ function BootstrappedApp() {
   };
 
   const collapseToEntryScreen = (nextDraftRoomId: string) => {
+    const normalizedNextDraftRoomId = normalizeRoomId(nextDraftRoomId);
     roomPresenceConnectionRef.current?.destroy();
     roomPresenceConnectionRef.current = null;
     roomCreatorConnectionRef.current?.destroy();
     roomCreatorConnectionRef.current = null;
 
     clearActiveRoomId();
-    setDraftRoomId(nextDraftRoomId);
+    setDraftRoomId(normalizedNextDraftRoomId);
     setDraftName(participantSession?.name ?? draftName);
     setDraftColor(participantSession?.color ?? draftColor);
     setActiveRoomId(null);
@@ -420,7 +421,9 @@ function BootstrappedApp() {
   }, [entryJoinFailureMessage]);
 
   useEffect(() => {
-    if (participantSession || !draftRoomId.trim()) {
+    const entryRoomId = normalizeRoomId(draftRoomId);
+
+    if (participantSession || !entryRoomId) {
       entryPresenceConnectionRef.current?.destroy();
       entryPresenceConnectionRef.current = null;
       setEntryRoomOccupancies({});
@@ -431,7 +434,6 @@ function BootstrappedApp() {
       return;
     }
 
-    const entryRoomId = draftRoomId.trim();
     const connection = createRoomPresenceConnection({
       onOccupanciesChange: setEntryRoomOccupancies,
       onPresencesChange: setEntryParticipantPresences,
@@ -450,7 +452,7 @@ function BootstrappedApp() {
   }, [draftRoomId, participantSession]);
 
   useEffect(() => {
-    if (participantSession || !draftRoomId.trim()) {
+    if (participantSession || !normalizeRoomId(draftRoomId)) {
       return;
     }
     setHasManualEntryColorChoice(false);
@@ -809,7 +811,7 @@ function BootstrappedApp() {
           baselineId: roomRecord.initializedBaselineId,
         })
       : null;
-  const entryRoomId = draftRoomId.trim();
+  const entryRoomId = normalizeRoomId(draftRoomId);
   const entrySavedSession = !participantSession && entryRoomId
     ? loadLocalParticipantSession(entryRoomId)
     : null;
@@ -948,7 +950,7 @@ function BootstrappedApp() {
                   const nextRoomId = event.target.value;
                   setDraftRoomId(nextRoomId);
 
-                  const trimmedRoomId = nextRoomId.trim();
+                  const trimmedRoomId = normalizeRoomId(nextRoomId);
 
                   if (!trimmedRoomId) {
                     return;
@@ -1226,7 +1228,7 @@ function BootstrappedApp() {
             <button
               type="submit"
               disabled={
-                !draftRoomId.trim() ||
+                !normalizeRoomId(draftRoomId) ||
                 !draftName.trim() ||
                 !entryHasFreeColor ||
                 isDraftColorOccupied ||
@@ -1241,7 +1243,7 @@ function BootstrappedApp() {
                 fontSize: 16,
                 fontWeight: 700,
                 cursor:
-                  draftRoomId.trim() &&
+                  normalizeRoomId(draftRoomId) &&
                   draftName.trim() &&
                   entryHasFreeColor &&
                   !isDraftColorOccupied &&
@@ -1249,7 +1251,7 @@ function BootstrappedApp() {
                     ? "pointer"
                     : "not-allowed",
                 opacity:
-                  draftRoomId.trim() &&
+                  normalizeRoomId(draftRoomId) &&
                   draftName.trim() &&
                   entryHasFreeColor &&
                   !isDraftColorOccupied &&
