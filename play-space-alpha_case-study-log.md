@@ -224,6 +224,70 @@ Starter/demo content теперь уже реально живёт как explic
 
 ---
 
+## Phase 0X — Minimal room ops panel became an explicit alpha need
+
+### Type
+- decision
+
+### Context
+После hosted alpha и накопления реальных server-side rooms стало ясно, что проекту уже нужен не только room runtime, но и минимальная operational surface для room hygiene и debugging.
+
+### Goal or problem
+Нужно было не потерять новый practical need:
+- видеть, какие комнаты существуют на сервере;
+- смотреть, что в них лежит;
+- и уметь удалять / сбрасывать / чинить проблемные комнаты.
+
+### What happened
+Это было зафиксировано как отдельный near-term chapter:
+- minimal hosted-alpha room operations panel.
+
+### Decision / change
+Новая задача должна мыслиться как narrow room operations surface, а не как broad admin product.
+
+### Why
+На текущей стадии проекту важнее practical operational control over rooms, чем heavy backoffice/admin system.
+
+### Result
+В roadmap и current-context теперь зафиксировано, что room ops panel — это отдельная ближайшая operational need.
+
+---
+
+## Phase 0X — Object interaction UI standardization was recognized as a future chapter
+
+### Type
+- decision
+
+### Context
+После нескольких object chapters стало видно, что interaction UI evolved case-by-case:
+- images;
+- tokens;
+- legacy text-cards;
+- new note-card.
+
+### Goal or problem
+Нужно было сохранить следующее направление:
+- позже привести object interaction UI к одному более coherent standard;
+- явно зафиксировать visual language, rules, and logic вместо продолжения purely local convergence.
+
+### What happened
+Было принято считать это отдельным future consistency chapter.
+
+### Decision / change
+Будущий chapter должен опираться на уже существующие object families и фиксировать общий interaction language для:
+- selection;
+- resize;
+- occupied / blocked indication;
+- preview / active-manipulation states.
+
+### Why
+Это повышает multiplayer readability и interaction consistency без необходимости немедленного broad rewrite.
+
+### Result
+Direction toward explicit object interaction standardization is now preserved in project docs instead of remaining only in chat context.
+
+---
+
 ## Phase 0X — First governance scaffold code slice
 
 ### Type

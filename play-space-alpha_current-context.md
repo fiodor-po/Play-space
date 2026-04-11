@@ -320,6 +320,31 @@ Current intended direction:
 
 This is a replacement-direction checkpoint, not an immediate migration plan.
 
+### 3.23. A minimal hosted-alpha room ops surface is now an explicit near-term need
+Hosted alpha now has another practical operational need:
+
+- we need a minimal place to see which rooms exist on the server;
+- inspect what is currently stored in them;
+- and reset / delete / repair problematic rooms when necessary.
+
+This should be framed as:
+- a narrow hosted-alpha room operations surface;
+not as:
+- a broad admin product.
+
+### 3.24. Object interaction UI standardization is now a separate future chapter
+After image, token, legacy text-card, and new note-card passes, another future consistency need is now explicit:
+
+- object interaction UI should be brought to a clearer shared standard;
+- this should be grounded in already implemented object families rather than abstract system design;
+- the chapter should explicitly define the visual language / rules / interaction logic for:
+  - selection;
+  - resize;
+  - occupied / blocked indication;
+  - preview / active-manipulation states.
+
+This is a future consistency/readability chapter, not an immediate broad rewrite.
+
 ## 4. Current preferred next step
 
 Следующие правильные шаги сейчас split into two tracks:

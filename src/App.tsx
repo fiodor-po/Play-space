@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import BoardStage from "./components/BoardStage";
 import { DiceSpikeOverlay } from "./dice/DiceSpikeOverlay";
 import { LiveKitMediaDock } from "./media/LiveKitMediaDock";
+import { RoomsOpsPage } from "./ops/RoomsOpsPage";
 import { HTML_UI_FONT_FAMILY } from "./board/constants";
 import {
   createRoomGovernedEntityRef,
@@ -72,6 +73,12 @@ function getIsForegroundPresenceCarrier() {
 }
 
 export default function App() {
+  const isOpsRoute = window.location.pathname.startsWith("/ops/rooms");
+
+  if (isOpsRoute) {
+    return <RoomsOpsPage />;
+  }
+
   const liveKitMediaEnabled = isLiveKitMediaEnabled();
   const browserParticipantId = getOrCreateBrowserParticipantId();
   const initialSharedActiveRoomSession =

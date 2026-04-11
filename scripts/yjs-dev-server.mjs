@@ -23,6 +23,13 @@ const docs = new Map();
 const durableSnapshotStorePath =
   process.env.ROOM_SNAPSHOT_STORE_FILE ||
   path.join(process.cwd(), "data", "room-snapshots.json");
+const opsKey = readEnvString("PLAY_SPACE_OPS_KEY");
+const ROOM_DOC_PREFIXES = {
+  tokens: "play-space-alpha-tokens:",
+  images: "play-space-alpha-images:",
+  textCards: "play-space-alpha-text-cards:",
+  presence: "play-space-alpha-presence:",
+} ;
 
 class WSSharedDoc extends Y.Doc {
   constructor(name) {
@@ -226,11 +233,23 @@ async function handleHttpRequest(req, res) {
   const snapshotRouteMatch = requestUrl.pathname.match(
     /^\/api\/room-snapshots\/([^/]+)$/
   );
+  const roomsRouteMatch = requestUrl.pathname === "/api/rooms";
+  const roomDetailRouteMatch = requestUrl.pathname.match(/^\/api\/rooms\/([^/]+)$/);
+  const roomSnapshotDeleteRouteMatch = requestUrl.pathname.match(
+    /^\/api\/rooms\/([^/]+)\/durable-snapshot$/
+  );
   const liveKitTokenRouteMatch =
     requestUrl.pathname === "/api/livekit/token";
   const healthRouteMatch = requestUrl.pathname === "/api/health";
 
-  if (!snapshotRouteMatch && !liveKitTokenRouteMatch && !healthRouteMatch) {
+  if (
+    !snapshotRouteMatch &&
+    !liveKitTokenRouteMatch &&
+    !healthRouteMatch &&
+    !roomsRouteMatch &&
+    !roomDetailRouteMatch &&
+    !roomSnapshotDeleteRouteMatch
+  ) {
     res.writeHead(404, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ error: "Not found" }));
     return;
@@ -262,6 +281,78 @@ async function handleHttpRequest(req, res) {
           apiSecretPresent: liveKitConfig.apiSecretPresent,
         },
         durableSnapshotStorePath,
+      })
+    );
+    return;
+  }
+
+  if (roomsRouteMatch) {
+    if (!requireOpsAuthorization(req, res)) {
+      return;
+    }
+
+    if (req.method !== "GET") {
+      res.writeHead(405, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Method not allowed" }));
+      return;
+    }
+
+    const store = await readDurableSnapshotStore();
+    const rooms = getRoomOpsSummaries(store);
+
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ rooms }));
+    return;
+  }
+
+  if (roomDetailRouteMatch) {
+    if (!requireOpsAuthorization(req, res)) {
+      return;
+    }
+
+    if (req.method !== "GET") {
+      res.writeHead(405, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Method not allowed" }));
+      return;
+    }
+
+    const roomId = decodeURIComponent(roomDetailRouteMatch[1]);
+    const store = await readDurableSnapshotStore();
+    const room = getRoomOpsDetail(roomId, store);
+
+    if (!room) {
+      res.writeHead(404, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Room not found" }));
+      return;
+    }
+
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ room }));
+    return;
+  }
+
+  if (roomSnapshotDeleteRouteMatch) {
+    if (!requireOpsAuthorization(req, res)) {
+      return;
+    }
+
+    if (req.method !== "DELETE") {
+      res.writeHead(405, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Method not allowed" }));
+      return;
+    }
+
+    const roomId = decodeURIComponent(roomSnapshotDeleteRouteMatch[1]);
+    const result = await deleteDurableRoomSnapshot(roomId);
+    const store = await readDurableSnapshotStore();
+    const room = getRoomOpsDetail(roomId, store);
+
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(
+      JSON.stringify({
+        deleted: result.deleted,
+        roomId,
+        room,
       })
     );
     return;
@@ -424,6 +515,18 @@ async function writeDurableRoomSnapshot(snapshot, baseRevision) {
   };
 }
 
+async function deleteDurableRoomSnapshot(roomId) {
+  const store = await readDurableSnapshotStore();
+
+  if (!(roomId in store)) {
+    return { deleted: false };
+  }
+
+  delete store[roomId];
+  await writeDurableSnapshotStore(store);
+  return { deleted: true };
+}
+
 async function readDurableSnapshotStore() {
   try {
     const raw = await fs.readFile(durableSnapshotStorePath, "utf8");
@@ -460,7 +563,7 @@ function createDurableRoomSnapshot(roomId, body) {
     savedAt: new Date(0).toISOString(),
     tokens: normalizeRoomObjects(body.tokens, "token"),
     images: normalizeRoomObjects(body.images, "image"),
-    textCards: normalizeRoomObjects(body.textCards, "text-card"),
+    textCards: normalizeRoomObjects(body.textCards, ["text-card", "note-card"]),
   };
 }
 
@@ -478,24 +581,216 @@ function normalizeDurableRoomSnapshot(roomId, snapshot) {
         : new Date(0).toISOString(),
     tokens: normalizeRoomObjects(snapshot.tokens, "token"),
     images: normalizeRoomObjects(snapshot.images, "image"),
-    textCards: normalizeRoomObjects(snapshot.textCards, "text-card"),
+    textCards: normalizeRoomObjects(snapshot.textCards, ["text-card", "note-card"]),
   };
 }
 
-function normalizeRoomObjects(objects, kind) {
+function normalizeRoomObjects(objects, kinds) {
   if (!Array.isArray(objects)) {
     return [];
   }
 
+  const allowedKinds = Array.isArray(kinds) ? kinds : [kinds];
+
   return objects.filter(
-    (object) => object && typeof object === "object" && object.kind === kind
+    (object) =>
+      object &&
+      typeof object === "object" &&
+      allowedKinds.includes(object.kind)
   );
+}
+
+function requireOpsAuthorization(req, res) {
+  if (!opsKey) {
+    res.writeHead(404, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ error: "Not found" }));
+    return false;
+  }
+
+  const providedKey = readHeaderString(req, "x-play-space-ops-key");
+
+  if (!providedKey || providedKey !== opsKey) {
+    res.writeHead(401, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ error: "Unauthorized" }));
+    return false;
+  }
+
+  return true;
+}
+
+function readHeaderString(req, name) {
+  const value = req.headers[name];
+
+  if (typeof value === "string") {
+    return value.trim();
+  }
+
+  if (Array.isArray(value) && typeof value[0] === "string") {
+    return value[0].trim();
+  }
+
+  return "";
+}
+
+function getRoomOpsSummaries(snapshotStore) {
+  return getBackendKnownRoomIds(snapshotStore).map((roomId) =>
+    buildRoomOpsSummary(roomId, snapshotStore)
+  );
+}
+
+function getRoomOpsDetail(roomId, snapshotStore) {
+  const knownRoomIds = getBackendKnownRoomIds(snapshotStore);
+
+  if (!knownRoomIds.includes(roomId)) {
+    return null;
+  }
+
+  const summary = buildRoomOpsSummary(roomId, snapshotStore);
+  const liveSlices = getLiveRoomSlices(roomId);
+  const snapshot = normalizeDurableRoomSnapshot(roomId, snapshotStore[roomId] ?? null);
+
+  return {
+    ...summary,
+    live: {
+      ...summary.live,
+      slices: liveSlices,
+    },
+    snapshot: {
+      ...summary.snapshot,
+      data: snapshot,
+    },
+  };
+}
+
+function getBackendKnownRoomIds(snapshotStore) {
+  const roomIds = new Set(Object.keys(snapshotStore));
+
+  docs.forEach((_, docName) => {
+    const parsed = parseRoomDocName(docName);
+
+    if (parsed) {
+      roomIds.add(parsed.roomId);
+    }
+  });
+
+  return Array.from(roomIds).sort((left, right) => left.localeCompare(right));
+}
+
+function buildRoomOpsSummary(roomId, snapshotStore) {
+  const liveSlices = getLiveRoomSlices(roomId);
+  const snapshot = normalizeDurableRoomSnapshot(roomId, snapshotStore[roomId] ?? null);
+  const presenceSlice =
+    liveSlices.find((slice) => slice.kind === "presence") ?? null;
+  const fallbackConnectionCount = liveSlices.reduce(
+    (maxCount, slice) => Math.max(maxCount, slice.connectionCount),
+    0
+  );
+  const activeConnectionCount =
+    presenceSlice?.connectionCount ?? fallbackConnectionCount;
+
+  return {
+    roomId,
+    status: getRoomOpsStatus({
+      hasLive: liveSlices.length > 0,
+      hasSnapshot: !!snapshot,
+    }),
+    live: {
+      isActive: liveSlices.length > 0,
+      activeConnectionCount,
+      sliceCount: liveSlices.length,
+    },
+    snapshot: {
+      exists: !!snapshot,
+      revision: snapshot?.revision ?? null,
+      savedAt: snapshot?.savedAt ?? null,
+      objectCounts: snapshot
+        ? {
+            tokens: snapshot.tokens.length,
+            images: snapshot.images.length,
+            textCards: snapshot.textCards.length,
+            total:
+              snapshot.tokens.length +
+              snapshot.images.length +
+              snapshot.textCards.length,
+          }
+        : {
+            tokens: 0,
+            images: 0,
+            textCards: 0,
+            total: 0,
+          },
+    },
+  };
+}
+
+function getRoomOpsStatus({ hasLive, hasSnapshot }) {
+  if (hasLive && hasSnapshot) {
+    return "live-and-snapshot";
+  }
+
+  if (hasLive) {
+    return "live-only";
+  }
+
+  if (hasSnapshot) {
+    return "snapshot-only";
+  }
+
+  return "unknown";
+}
+
+function getLiveRoomSlices(roomId) {
+  const slices = [];
+
+  docs.forEach((doc, docName) => {
+    const parsed = parseRoomDocName(docName);
+
+    if (!parsed || parsed.roomId !== roomId) {
+      return;
+    }
+
+    slices.push({
+      kind: parsed.kind,
+      docName,
+      connectionCount: doc.conns.size,
+      sharedObjectCount: getLiveDocSharedObjectCount(doc, parsed.kind),
+      awarenessStateCount: doc.awareness.getStates().size,
+    });
+  });
+
+  return slices.sort((left, right) => left.kind.localeCompare(right.kind));
+}
+
+function parseRoomDocName(docName) {
+  for (const [kind, prefix] of Object.entries(ROOM_DOC_PREFIXES)) {
+    if (docName.startsWith(prefix)) {
+      return {
+        kind,
+        roomId: docName.slice(prefix.length),
+      };
+    }
+  }
+
+  return null;
+}
+
+function getLiveDocSharedObjectCount(doc, kind) {
+  switch (kind) {
+    case "tokens":
+      return doc.getMap("tokens").size;
+    case "images":
+      return doc.getMap("images").size;
+    case "textCards":
+      return doc.getMap("text-cards").size;
+    default:
+      return 0;
+  }
 }
 
 function setCorsHeaders(res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET,PUT,POST,OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  res.setHeader("Access-Control-Allow-Methods", "GET,PUT,POST,DELETE,OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, X-Play-Space-Ops-Key");
 }
 
 async function createLiveKitToken({

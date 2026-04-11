@@ -134,6 +134,10 @@ Core hosted signal уже получен.
 - [ ] продолжить playable-session validation в hosted environment
 - [ ] зафиксировать реальные rough edges после hosted use
 - [ ] implement browser-local participant identity pass with foreground-tab-only active presence behavior
+- [ ] minimal hosted-alpha room operations panel:
+  - list existing rooms on the server
+  - inspect room contents / snapshot state
+  - reset / delete / repair problematic rooms
 - [ ] media dock simplification / stabilization pass
 - [ ] dice tray / dice UX cleanup pass
 - [ ] board shell coherence pass
@@ -144,6 +148,10 @@ Core hosted signal уже получен.
 - [ ] targeted architecture hygiene slices
 - [ ] stronger room lifecycle clarity
 - [ ] better observability / support ergonomics
+- [ ] object interaction UI standardization chapter:
+  - use already implemented object families as reference
+  - make visual language / rules / interaction logic explicit
+  - unify expectations for selection, resize, occupied / blocked indication, and preview / active-manipulation states
 - [ ] hosted deploy hardening only if product validation justifies it
 - [ ] behavior indication model chapter
 - [ ] cross-user action visibility model chapter
