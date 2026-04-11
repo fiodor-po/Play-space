@@ -149,6 +149,12 @@ Core hosted signal уже получен.
   - creator UI reads from shared truth
   - creator-based governance reads from shared truth
   - local room metadata becomes non-authoritative for creator identity
+- [ ] add a durable room identity layer separate from room content snapshot:
+  - room identity stores room-level facts such as `roomId`, `creatorId`, `createdAt`
+  - room identity is resolved before live/shared content restore
+  - durable room snapshot remains content-recovery layer, not room identity authority
+  - local room state remains convenience-only and does not define room existence or creator truth
+  - first implementation can use a second backend JSON store in the same pragmatic style as current alpha
 - [ ] determine and fix why hosted durable room snapshots survive restart but do not survive redeploy
 - [ ] media dock simplification / stabilization pass
 - [ ] dice tray / dice UX cleanup pass
@@ -161,6 +167,12 @@ Core hosted signal уже получен.
 - [ ] stronger room lifecycle clarity
 - [ ] better observability / support ergonomics
 - [ ] object interaction UI standardization chapter:
+  - first explicitly separate the app into:
+    - object layer
+    - interaction layer
+    - control layer
+    - presence layer
+    - special interaction systems
   - use already implemented object families as reference
   - make visual language / rules / interaction logic explicit
   - unify expectations for selection, resize, occupied / blocked indication, and preview / active-manipulation states
@@ -175,6 +187,11 @@ Core hosted signal уже получен.
 
 ## Parked / later
 
+- [ ] add an alternative persistent room-creation / access flow with email:
+  - keep the current lightweight room entry flow as a demo path
+  - remove room-creator semantics and beyond-local-memory persistence expectations from that demo path
+  - add a separate email-based persistent path for durable session/account-like continuity
+  - future persistent path may later carry room invites / guest access / stronger long-lived room ownership semantics
 - [ ] shared music / ambient audio chapter
 - [ ] scenes / scene management
 - [ ] permissions / roles
@@ -257,6 +274,17 @@ Core hosted signal уже получен.
 - first replacement slice should not migrate existing objects;
 - future note creation flow should later target `note-card`;
 - media association, attachment, and document-editor behavior remain out of scope for the first replacement slice.
+
+Дополнительная заметка к будущему object interaction standardization chapter:
+
+- first the product should be explicitly separated into:
+  - object layer
+  - interaction layer
+  - control layer
+  - presence layer
+  - special interaction systems
+- interaction standardization should then focus primarily on the interaction layer, not on flattening all layers into one system;
+- `dice` should continue to be treated as a special interaction system rather than forced into ordinary object or control semantics by default.
 
 Дополнительная заметка к current browser-local room-memory direction:
 

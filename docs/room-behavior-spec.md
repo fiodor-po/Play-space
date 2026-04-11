@@ -59,19 +59,21 @@ Dice не входят в durable room content.
 
 Текущая alpha model такая:
 
-- если live shared room state ещё существует, именно оно главнее всего;
+- сначала комната должна резолвиться как durable room identity;
+- если live shared room state ещё существует, именно оно главнее всего для current content;
 - если live shared room state уже исчезло, система может восстанавливаться через **durable room snapshot**;
-- local per-room snapshot остаётся fallback-only layer;
+- local per-room state остаётся convenience-only layer;
 - это best-effort alpha recovery, а не final persistence guarantee.
 
 ## 4. Bootstrap priority
 
 Для room recovery при текущем alpha practical priority такая:
 
-1. live shared room state
-2. durable room snapshot
-3. local personal room snapshot
-4. empty room / zero state
+1. durable room identity
+2. live shared room state
+3. durable room snapshot
+4. local personal room state
+5. empty room / zero state
 
 Именно так нужно мыслить текущий room bootstrap/recovery path.
 
@@ -137,7 +139,7 @@ Rejoin нужно трактовать так:
 
 Для текущего alpha room creator semantics должны пониматься узко и конкретно:
 
-- room creator identity must come from shared room-level truth;
+- room creator identity must come from durable/shared room-level truth;
 - browser-local room metadata is not authoritative creator truth;
 - local room metadata may mirror the current known creator id, but must not originate it independently per browser.
 
@@ -149,9 +151,20 @@ Practical consequence:
 
 Near-term fix direction:
 
-- add one shared room-level creator id;
-- route creator UI and creator-based governance to that shared value;
+- add one durable room identity anchor for creator truth;
+- route creator UI and creator-based governance to that durable/shared value;
+- live room-state may mirror creator for active-room convenience but must not own it;
 - do not broaden this into a full ownership / account / role system in the first fix.
+
+Recommended narrow durable-identity implementation shape:
+
+- add a backend durable room identity store separate from durable content snapshots;
+- keep first-pass identity shape very small:
+  - `roomId`
+  - `creatorId`
+  - `createdAt`
+- resolve room identity before content restore;
+- treat durable snapshot as content-recovery only, not room identity authority.
 
 ## 8. Что сейчас считается intentional / temporary / bug
 
@@ -161,7 +174,7 @@ Near-term fix direction:
 - новая комната empty by default;
 - explicit image draw mode с `Draw / Save / Clear`;
 - awareness-based per-image lock;
-- current bootstrap priority: live -> durable -> local -> empty;
+- current bootstrap priority: identity -> live -> durable -> local -> empty;
 - best-effort durable room snapshot layer как часть alpha.
 
 ### Temporary but acceptable

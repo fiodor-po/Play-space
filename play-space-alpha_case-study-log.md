@@ -352,6 +352,61 @@ Governance в проекте теперь существует не только
 
 ---
 
+## Phase 0X — Room identity, room content, and local convenience state were explicitly separated
+
+### Type
+- decision
+
+### Context
+После fixes around room creator truth стало видно, что проблема не сводится только к browser-local metadata.
+
+Даже shared live room-state оказалось недостаточно высоким уровнем истины для creator semantics, потому что live docs исчезают, когда комната перестаёт быть активной.
+
+### Goal or problem
+Нужно было явно развести:
+- durable room identity;
+- durable room content recovery;
+- local browser convenience state.
+
+### What happened
+Был принят explicit room-memory priority order:
+
+1. durable room identity
+2. live shared room state
+3. durable room snapshot
+4. local convenience state
+5. empty room
+
+И отдельно зафиксировано, что local browser state нужен для UX convenience, а не для room truth.
+
+### Decision / change
+Комната теперь должна мыслиться не только как live room плюс snapshot, а как сущность с отдельным identity layer.
+
+Это означает:
+- room creator should ultimately anchor to durable room identity;
+- durable snapshot remains content-recovery layer;
+- local room metadata and future recent-room history remain convenience-only.
+
+### Why
+Без этого room creator, room history, и room recovery снова начинают смешиваться в один неустойчивый layer, где browser-local state и ephemeral live docs accidentally pretend to be canonical room truth.
+
+### Result
+Появилась более чистая architectural target model:
+- room identity facts live separately;
+- room content recovery remains snapshot-based;
+- local browser memory explicitly demoted to convenience-only status.
+
+Следующий clean architectural step из этой модели:
+
+- room creator should move from live/snapshot-coupled truth to a separate durable room identity store;
+- first-pass identity store should stay intentionally tiny:
+  - `roomId`
+  - `creatorId`
+  - `createdAt`
+- durable snapshot should remain content-only and stop carrying creator as identity authority.
+
+---
+
 ## Phase 0X — Governance runtime path landed while policy stayed permissive
 
 ### Type
@@ -2196,3 +2251,120 @@ The project now has a clearer current-direction lens:
 ### Workflow notes
 - this was useful to record as a current-direction insight, not as a final platform doctrine;
 - it supports continuing image-first attachment/runtime work without pretending the project has already become a generalized media platform.
+
+---
+
+## 2026-04-11 — Push workflow was tightened around coherent checkpoints and explicit verification
+
+### Type
+- workflow lesson
+
+### Context
+As more runtime, hosted, and object-layer work accumulated, it became increasingly costly either to push every micro-fix separately or to push larger changes without a clear verification plan.
+
+### Goal or problem
+Нужно было зафиксировать более disciplined push rhythm:
+- changes should be grouped into coherent checkpoints;
+- and each push should have a compact post-push verification surface.
+
+### What happened
+A new preferred workflow was made explicit:
+
+- push in coherent chapter-sized or tightly related checkpoints;
+- after each such push, keep a short verification list split into:
+  - local checks;
+  - hosted/deploy checks.
+
+### Decision / change
+Project workflow now prefers:
+- fewer but more coherent pushes;
+- plus explicit post-push verification expectations.
+
+### Why
+This reduces confusion between:
+- what code changed;
+- what was validated only locally;
+- what still needs hosted/deploy confirmation.
+
+### Result
+The project now has a clearer expectation that a push is not only a code event but also a validation checkpoint with a named local/hosted verification surface.
+
+---
+
+## 2026-04-11 — Object interaction work was reframed around explicit UI layers
+
+### Type
+- decision
+
+### Context
+As interaction work accumulated across images, tokens, legacy text-cards, note-cards, cursors, controls, and dice, it became increasingly unclear what exactly should be standardized together versus what should remain intentionally separate.
+
+### Goal or problem
+Нужно было сначала разложить the app into interaction-relevant layers before attempting a broader object interaction standardization chapter.
+
+### What happened
+A clearer layer model was chosen:
+
+- object layer
+- interaction layer
+- control layer
+- presence layer
+- special interaction systems
+
+### Decision / change
+Future standardization should focus primarily on the **interaction layer**:
+- selection;
+- resize;
+- occupied / blocked indication;
+- preview / active-manipulation states;
+- object-scoped attached controls and similar interaction chrome.
+
+At the same time:
+- objects keep their own semantics in the object layer;
+- fixed panels/buttons remain in the control layer;
+- cursors and similar signals remain in the presence layer;
+- dice remain a special interaction system rather than being forced into ordinary object/control rules by default.
+
+### Why
+This makes it easier to standardize the right things together without flattening the entire product into one generic interaction system.
+
+### Result
+The project now has a clearer conceptual boundary:
+- first separate the layers;
+- then standardize the interaction layer explicitly against that model.
+
+---
+
+## Phase 0X — Future split between demo room flow and persistent email-based room flow
+
+### Type
+- decision
+
+### Context
+As room identity, creator semantics, durable persistence, and room return behavior became more important, it became clear that one single room-entry model would likely force the product into awkward tradeoffs.
+
+### Goal or problem
+Нужно было не потерять будущую product direction:
+- сохранить current lightweight room entry as a low-friction demo path;
+- but avoid letting that same path silently grow into the full long-lived room/account model.
+
+### What happened
+A future split was explicitly accepted:
+
+- the current lightweight room-entry flow should remain as a demo-oriented path;
+- that demo path should eventually stop implying strong room-creator authority and should not promise durable persistence beyond browser-local memory;
+- a separate future persistent path should later be added for stronger continuity;
+- that persistent path is expected to require email and later support durable session continuity, invites, and guest access.
+
+### Decision / change
+The project should not force the same room flow to satisfy both:
+- lightweight instant demo access;
+- and durable long-lived persistent room semantics.
+
+### Why
+That separation keeps the current alpha path simple and honest while preserving room for a later stronger persistent product model without overloading the demo flow.
+
+### Result
+The future direction is now explicit:
+- current room entry can stay lightweight and demo-friendly;
+- a later email-based persistent room flow can carry the heavier long-lived semantics.

@@ -35,14 +35,48 @@ Hosted-status caveat that is now explicitly known:
 
 Текущая рабочая модель такая:
 
+- у комнаты есть **durable room identity layer** для room-level identity facts;
 - у комнаты есть **live shared state**;
-- у комнаты есть **durable room snapshot layer** для recovery;
-- у клиента есть **локальный per-room fallback state**;
+- у комнаты есть **durable room snapshot layer** для content recovery;
+- у клиента есть **локальный per-room convenience state**;
 - есть **awareness-only signals** для ephemeral collaboration.
 
 ## 3. State categories
 
-## A. Shared realtime room state
+## A. Durable room identity state
+
+Это долговременный room-level layer для identity facts комнаты.
+
+Сюда должны относиться вещи вроде:
+
+- `roomId`;
+- `creatorId`;
+- `createdAt`;
+- later small room-level metadata if it is truly identity-level.
+
+Правило:
+
+- этот слой не должен зависеть от того, жива ли сейчас live room;
+- этот слой не должен жить только в browser-local metadata;
+- этот слой не должен смешиваться с board content snapshot.
+
+Recommended first-pass shape:
+
+```ts
+type DurableRoomIdentity = {
+  roomId: string;
+  creatorId: string | null;
+  createdAt: string;
+};
+```
+
+Important first-pass rule:
+
+- durable room identity should be its own backend store;
+- not browser-local metadata;
+- not embedded inside the durable content snapshot as a sidecar.
+
+## B. Shared realtime room state
 
 Это состояние комнаты, которое должно быть общим между активными участниками в live session.
 
@@ -58,7 +92,7 @@ Hosted-status caveat that is now explicitly known:
 - если два клиента одновременно находятся в одной комнате, они должны видеть один и тот же committed room content;
 - для живой активной комнаты именно этот слой ближе всего к primary source of truth.
 
-## B. Durable room snapshot state
+## C. Durable room snapshot state
 
 Это best-effort room-level recovery layer, который переживает исчезновение live room state.
 
@@ -69,23 +103,39 @@ Hosted-status caveat that is now explicitly known:
 - `savedAt`
 - committed tokens / images / textCards
 
+Практический смысл:
+
+- durable room snapshot отвечает на вопрос, какое последнее сохранённое содержимое было у комнаты;
+- durable room snapshot не должен в одиночку определять, существовала ли комната как сущность.
+- durable room snapshot should not be the long-term home of room creator identity.
+
 Правило:
 
 - durable snapshot используется для recovery;
 - он не отменяет приоритет live shared room state;
-- это alpha recovery base, а не final collaborative storage platform.
+- это alpha recovery base, а не final collaborative storage platform;
+- snapshot layer должен оставаться content-recovery layer, а не room identity authority.
 
-## C. Local fallback room state
+## D. Local convenience room state
 
-Это локальный per-room fallback слой клиента.
+Это локальный per-room convenience слой клиента.
 
-Он может быть полезен для resilience, но:
+Он может быть полезен для personal UX, но:
 
 - он не считается главным room source of truth;
+- он не должен побеждать durable room identity;
 - он не должен побеждать более новый durable room snapshot;
 - он не должен диктовать shared room truth после исчезновения live state.
 
-## D. Awareness-only state
+Сейчас сюда относятся вещи вроде:
+
+- remembered participant name/color;
+- local room metadata for convenience;
+- local viewport;
+- local room restore markers;
+- future recent-room history.
+
+## E. Awareness-only state
 
 Это collaboration signals, которые существуют только как ephemeral layer и не должны трактоваться как память комнаты.
 
@@ -102,7 +152,7 @@ Hosted-status caveat that is now explicitly known:
 - awareness не считается room memory;
 - исчезновение awareness state после disconnect — нормальное поведение.
 
-## E. Shared transient sync state
+## F. Shared transient sync state
 
 Это состояние, которое синхронизируется между клиентами, но не считается долговременной памятью комнаты.
 
@@ -118,7 +168,7 @@ Hosted-status caveat that is now explicitly known:
 - но не считаются durable room content;
 - при room switch или TTL expiry должны очищаться как transient state.
 
-## F. Local UI state
+## G. Local UI state
 
 Это клиентское состояние, которое не является room content.
 
@@ -136,7 +186,7 @@ Hosted-status caveat that is now explicitly known:
 - local UI state может сохраняться локально per-room, если это не меняет product contract комнаты;
 - local UI state не должен трактоваться как shared room memory.
 
-## G. Local interaction state
+## H. Local interaction state
 
 Это локальное состояние текущего действия пользователя.
 
@@ -155,7 +205,7 @@ Hosted-status caveat that is now explicitly known:
 - оно не считается room memory;
 - оно должно сбрасываться на appropriate boundaries, например при room switch.
 
-## H. Seed / bootstrap state
+## I. Seed / bootstrap state
 
 `initialBoard` не является канонической room memory model.
 
@@ -165,7 +215,7 @@ Hosted-status caveat that is now explicitly known:
 - initial seed не должен автоматически определять содержимое новой комнаты;
 - starter content может существовать только как отдельный UX mechanism, не как hidden memory contract.
 
-## I. Server-controlled client reset policy
+## J. Server-controlled client reset policy
 
 Для текущего alpha нужен ещё один **operational layer**, который не является ни room memory,
 ни migration framework:
@@ -221,19 +271,22 @@ First-slice preserve rule:
 
 Для текущего alpha source of truth нужно понимать так:
 
-- для **живой активной комнаты** primary source of truth = current live shared room state;
-- для **recovery after live state disappearance** next source = durable room snapshot;
-- local snapshot = fallback-only layer;
+- сначала определяется **durable room identity**:
+  существует ли эта комната как долговременная сущность и какие у неё identity-level facts;
+- для **живой активной комнаты** primary content source of truth = current live shared room state;
+- для **recovery after live state disappearance** next content source = durable room snapshot;
+- local room state = convenience-only layer;
 - awareness = ephemeral collaboration layer;
 - local UI / interaction state = client-local only.
 - server-controlled client reset policy = operational invalidation layer for stale client-local room memory.
 
 Room creator truth should be interpreted under the same rule:
 
-- room creator identity must come from shared room-level truth;
+- room creator identity must come from durable/shared room-level truth;
 - browser-local room metadata is non-authoritative for creator identity;
 - local room metadata may cache or mirror creator information for convenience;
 - local room metadata must not independently originate room creator identity per browser profile.
+- live room-state may mirror creator truth for active-room convenience, but should not own it.
 
 This distinction matters because room creator identity is currently used for:
 
@@ -246,12 +299,27 @@ Those behaviors should read from one shared room-level creator id, not from per-
 
 Практический bootstrap order:
 
-1. live shared room state
-2. durable room snapshot
-3. local personal room snapshot
-4. empty room / zero state
+1. durable room identity
+2. live shared room state
+3. durable room snapshot
+4. local personal room state
+5. empty room / zero state
 
 Эта priority chain важнее старого упрощённого тезиса "durable memory ещё не существует".
+
+Практический смысл этого порядка:
+
+- сначала нужно понять, это новая комната или уже существующая;
+- потом нужно проверить, есть ли у неё живое shared state;
+- потом нужно проверить, есть ли у неё durable content recovery;
+- только после этого local memory может использоваться как convenience layer, а не как identity/content truth.
+
+Recommended durable creator resolution path:
+
+1. durable room identity resolves `creatorId`
+2. live room-state mirrors that creator while the room is active
+3. UI and creator-based governance read the resolved creator from durable/shared identity truth
+4. durable room snapshot no longer acts as creator authority
 
 Client reset boot-order rule:
 

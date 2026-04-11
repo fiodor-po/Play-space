@@ -33,6 +33,15 @@
 - in-room lifecycle now uses `Leave room` instead of direct room switching;
 - hosted core checkpoint remains valid and has now expanded into a practical hosted core + video checkpoint.
 
+## 1.1. Future room-flow split to remember
+
+This is not current implementation work, but it is now an explicit future product direction:
+
+- the current lightweight room-entry flow should remain as a demo-oriented path;
+- that demo path should eventually stop carrying strong room-creator semantics and should not imply durable persistence beyond browser-local memory;
+- a separate future persistent path should be introduced for rooms that require stronger continuity;
+- that persistent path is expected to require email and later support durable session continuity, invites, and guest access.
+
 ## 2. What was completed before this chat
 
 ### 2.1. Durable room snapshot base was implemented
@@ -346,7 +355,13 @@ but not yet:
 ### 3.25. Object interaction UI standardization is now a separate future chapter
 After image, token, legacy text-card, and new note-card passes, another future consistency need is now explicit:
 
-- object interaction UI should be brought to a clearer shared standard;
+- before standardizing interaction UI, the app should be explicitly separated into layers:
+  - object layer
+  - interaction layer
+  - control layer
+  - presence layer
+  - special interaction systems
+- interaction standardization should then focus primarily on the interaction layer;
 - this should be grounded in already implemented object families rather than abstract system design;
 - the chapter should explicitly define the visual language / rules / interaction logic for:
   - selection;
@@ -355,6 +370,14 @@ After image, token, legacy text-card, and new note-card passes, another future c
   - preview / active-manipulation states.
 
 This is a future consistency/readability chapter, not an immediate broad rewrite.
+
+Layer framing currently intended:
+
+- object layer = images, note-cards, legacy text-cards, tokens, and future board objects;
+- interaction layer = object-scoped interaction chrome and mechanics such as selection, resize, occupied/blocked indication, preview, and attached controls;
+- control layer = fixed app/room command surfaces and panels;
+- presence layer = cursors and other participant-awareness signals;
+- special interaction systems = systems like dice that currently should not be forced into ordinary object/control semantics.
 
 ### 3.26. Server-controlled client reset is now the intended stale-local-memory cleanup path
 Another operational need is now explicit:
@@ -389,8 +412,62 @@ Intended direction:
 - first fix should stay narrow:
   - one shared room-level creator id
   - creator UI reads from it
-  - creator-based governance reads from it
-  - no broad ownership / roles / account system
+- creator-based governance reads from it
+- no broad ownership / roles / account system
+
+### 3.28. Room identity should now be treated separately from room content and local convenience memory
+Another room-semantics clarification is now explicit.
+
+It is no longer enough to think only in terms of:
+
+- live shared room state
+- durable room snapshot
+- local room memory
+
+The intended priority is now:
+
+1. durable room identity
+2. live shared room state
+3. durable room snapshot
+4. local convenience state
+5. empty room
+
+This means:
+
+- durable room identity answers whether the room already exists as a durable room and what its room-level identity facts are;
+- live shared room state answers what active participants are currently seeing;
+- durable room snapshot answers what last saved board content can be recovered if live state is gone;
+- local browser state is convenience-only and must not define room existence, creator truth, or canonical room content.
+
+Practical consequence:
+
+- room creator truth should ultimately anchor to durable room identity, not only to a live room-state doc;
+- room history / recent-room UX should later be treated as local convenience state, not as room truth.
+
+Current preferred clean fix:
+
+- introduce a separate backend durable room identity store;
+- keep its first-pass shape narrow:
+  - `roomId`
+  - `creatorId`
+  - `createdAt`
+- bootstrap creator from durable identity, not from snapshot;
+- let live room-state mirror creator while the room is active;
+- keep durable snapshot as content-recovery layer only.
+
+### 3.28. Pushes should now prefer coherent checkpoints plus explicit post-push verification
+Another workflow preference is now explicit:
+
+- do not default to pushing every micro-fix separately;
+- prefer pushing coherent checkpoints that represent one clear chapter or one tightly related cluster of fixes;
+- each such push should carry an explicit verification surface:
+  - what to verify locally;
+  - what to verify on hosted/deployed surfaces.
+
+This should help reduce drift between:
+- what changed;
+- what was actually validated;
+- and what still needs post-push checking.
 
 ## 4. Current preferred next step
 
@@ -415,6 +492,15 @@ Intended direction:
 - Какие rough edges проявятся только после hosted playable-session checks?
 - Какие rough edges станут видны только после hosted use with working video enabled?
 - насколько unified entry / leave-room flow feels right in real playable-session use without broader room UX work?
+
+## 6.1. Current post-push verification preference
+
+For the next larger checkpoints, verification should be recorded in two compact groups:
+
+- local checks
+- hosted/deploy checks
+
+This should live in current context as a short next-verification list, while confirmed findings should move into the case-study log.
 
 ## 7. Relevant recent checkpoints
 
