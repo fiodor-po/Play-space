@@ -267,6 +267,39 @@ token chapter went through its next larger image-first attachment phase.
 - token may be `free` or `attached`;
 - attached position uses normalized parent-local coordinates;
 - attached token repositions from current parent bounds while remaining viewport-stable in size;
+
+### 3.20. Interaction layer should now be treated as an explicit canonical layer
+
+The project has now reached a point where the interaction layer should be named
+explicitly rather than inferred only from local implementation patches.
+
+Current canonical framing:
+
+- interaction layer = object-adjacent live manipulation/readability layer;
+- distinct from object semantics;
+- distinct from fixed control surfaces;
+- distinct from presence layer;
+- distinct from dice/special systems.
+- interaction-layer elements should be object-anchored but viewport-stable by default rather than scaling like ordinary board content.
+
+Current reference object families for this chapter:
+
+- image = canonical box/media interaction object;
+- note-card = canonical text-box interaction object;
+- token = canonical pin interaction exception.
+
+Current canonical interaction-state matrix should now include:
+
+- selection;
+- local move/drag;
+- local resize/transform;
+- local active mode;
+- remote preview;
+- remote occupied/blocked state;
+- object-adjacent live controls;
+- interaction gating.
+
+Legacy `text-card` should not define the future interaction model.
 - local token follow during image move/resize now uses the best available local live geometry path;
 - remote attached-dependent behavior is now intentionally consistent with remote image preview semantics.
 

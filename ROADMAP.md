@@ -166,6 +166,33 @@ Core hosted signal уже получен.
 - [ ] targeted architecture hygiene slices
 - [ ] stronger room lifecycle clarity
 - [ ] better observability / support ergonomics
+- [ ] design system chapter:
+  - first do a whole-project token audit using three layers:
+    - primitive
+    - semantic
+    - component
+  - then do a base component audit:
+    - where component families already exist
+    - where the same patterns repeat ad hoc
+    - what variants already exist in runtime
+  - then do a system-layer audit:
+    - interaction layer
+    - control layer
+    - room shell / entry flow
+    - ops surface
+    - other meaningful UI systems
+  - then do an explicit audit-synthesis / decision pass:
+    - decide what is candidate canon
+    - decide what is drift
+    - decide what is intentional exception
+    - decide what should change first
+    - decide what should stay untouched for now
+  - then build an explicit dependency map:
+    - primitive tokens -> semantic tokens -> component tokens
+    - components -> systems
+    - identify mixed / skipped / ad hoc dependency edges
+  - only after that define the canonical design-system model
+  - and only then do a narrow rollout plan
 - [ ] object interaction UI standardization chapter:
   - first explicitly separate the app into:
     - object layer
@@ -176,6 +203,10 @@ Core hosted signal уже получен.
   - use already implemented object families as reference
   - make visual language / rules / interaction logic explicit
   - unify expectations for selection, resize, occupied / blocked indication, and preview / active-manipulation states
+  - use the canonical current-alpha interaction matrix:
+    - image = canonical box/media interaction object
+    - note-card = canonical text-box interaction object
+    - token = canonical pin exception
 - [ ] hosted deploy hardening only if product validation justifies it
 - [ ] behavior indication model chapter
 - [ ] cross-user action visibility model chapter
@@ -205,6 +236,14 @@ Core hosted signal уже получен.
 После текущего hosted-first validation цикла и связанных narrow stabilization passes
 следующий большой backlog now groups into three families:
 
+- **Design system**
+  - whole-project token audit
+  - base component audit
+  - system-layer audit
+  - audit-synthesis / decision pass
+  - dependency map
+  - canonical design-system model
+  - narrow rollout plan
 - **System models**
   - behavior indication model
   - cross-user action visibility model
@@ -216,14 +255,16 @@ Core hosted signal уже получен.
 
 Рекомендуемый порядок сейчас такой:
 
-1. behavior indication model
-2. cross-user action visibility model
-3. object-by-object review
-4. video / media layer review
-5. video presentation / frame composition
+1. design system chapter
+2. behavior indication model
+3. cross-user action visibility model
+4. object-by-object review
+5. video / media layer review
+6. video presentation / frame composition
 
 Смысл этого порядка:
 
+- сначала явно собрать token/component/system vocabulary for the whole project;
 - сначала собрать coherent signaling/readability system for the room;
 - потом проходить object layer уже against that clearer system model;
 - video layer разбирать после этого как отдельный room layer, а не как ещё один object family.
@@ -284,6 +325,7 @@ Core hosted signal уже получен.
   - presence layer
   - special interaction systems
 - interaction standardization should then focus primarily on the interaction layer, not on flattening all layers into one system;
+- interaction-layer elements should be treated as object-anchored but viewport-stable by default;
 - `dice` should continue to be treated as a special interaction system rather than forced into ordinary object or control semantics by default.
 
 Дополнительная заметка к current browser-local room-memory direction:

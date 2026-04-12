@@ -2333,6 +2333,13 @@ The project now has a clearer conceptual boundary:
 - first separate the layers;
 - then standardize the interaction layer explicitly against that model.
 
+One stronger normative rule was then accepted for future interaction work:
+
+- interaction-layer elements should be object-anchored but viewport-stable;
+- they should not scale like ordinary board content during zoom;
+- if current runtime behavior diverges from that rule, it should be treated as
+  drift to fix rather than as the source of truth for the rule itself.
+
 ---
 
 ## Phase 0X — Future split between demo room flow and persistent email-based room flow
