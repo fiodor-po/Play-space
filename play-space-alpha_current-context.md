@@ -33,6 +33,13 @@
 - in-room lifecycle now uses `Leave room` instead of direct room switching;
 - hosted core checkpoint remains valid and has now expanded into a practical hosted core + video checkpoint.
 
+Current workflow rule for hosted validation:
+
+- hosted validation is no longer treated as a mandatory blocking linear phase
+  before further meaningful product work;
+- instead, it should be treated as a recurring checkpoint after large product
+  steps and after new demo snapshots.
+
 ## 1.1. Future room-flow split to remember
 
 This is not current implementation work, but it is now an explicit future product direction:
@@ -614,10 +621,10 @@ This should live in current context as a short next-verification list, while con
 
 ## 8. Safe intended framing for the next pass
 
-- не новый большой capability spike;
+- не новый capability spike;
 - не broad architecture cleanup;
-- не immediate long polish cycle;
-- а continued hosted validation from a now-working practical hosted stack.
+- не hosted validation как обязательная линейная фаза;
+- а continued migration на новую design system крупными meaningful chapters.
 
 ## 8.1. Design-system migration follow-up rule
 
@@ -702,10 +709,100 @@ What this means:
 
 - the remaining work is no longer a continuation of the same easy board-surface
   / board-control chapter;
-- the next larger boundary is now either object-adjacent controls or explicit
-  interaction-layer standardization;
+- the post-first-wave review already clarified the main residual
+  design-system gaps and exception boundaries;
+- the next two design-system chapters are now explicitly split into:
+  - missing families and variants
+  - design-system visual polishing
+- the first chapter should:
+  - add the missing control families or control variants that now look real
+  - add the missing control states where those families need them
+  - keep an explicit standalone-exceptions list
+- the second chapter should:
+  - align current look and feel through token and family changes
+  - avoid creating new local overrides as the main solution
+- the next larger boundary should be chosen after those two chapters rather
+  than assumed in advance;
 - object shells still remain intentionally out of scope for the current
   design-system rollout.
+
+Open design-system review questions to keep explicit:
+
+- whether image-attached drawing controls should later become a dedicated
+  compact / pill-like board-control class
+- whether `pill` survives as a real long-term family branch or collapses into
+  `compact` button paths plus a reserved board-interaction class
+- which board-adjacent shells and controls need their own explicit subchapter
+  rather than more ad hoc extensions
+- the pill / round board-interaction control class is now a direct candidate
+  for the missing-families chapter rather than a later speculative option
+
+Standalone exceptions to keep explicit in design-system docs:
+
+- participant-name inline edit/display behavior
+- tooltip-local row grid and placement math for object-semantics tooltip
+- Konva-attached geometry and anchoring math for image-attached drawing controls
+- fixed placement and sizing for pinned board panels and subsystem docks
+- dice tray shell placement / pointer-events shell behavior
+- media tile internal video framing / overflow structure
+
+Accepted override / boundary decisions already made:
+
+- participant panel placement and size are acceptable local context, but blur
+  should not remain a free local override because it belongs to the material
+  layer
+- for shared floating board shells, material ownership now includes shell
+  geometry such as border radius rather than only color/shadow treatment
+- media dock shell and participant tile should move toward standard shared
+  material first; more detailed cleanup can wait until a dedicated media pass
+- the fixed add-image trigger should read as the same standard user-accent
+  button class as the dice buttons, only pinned to the top-right board corner
+- image-attached drawing-management controls should later be reviewed together
+  with compact / pill-like board controls as a likely reserved attached-control
+  style
+- round / pill-like buttons should be reserved for board-object interaction so
+  that classic interface controls and board-object interaction controls stay
+  visually separated
+- `compact button` is now accepted as a real ordinary button-family branch with
+  dense geometry, while remaining a button-local branch rather than a new
+  system-wide compact scale
+- `text button` is now accepted as a button-derived text-action path inside the
+  button system rather than a separate adjacent family
+- participant-name inline edit/display behavior remains an acceptable special
+  inline-editing exception for now
+
+Accepted cleanup decisions already made:
+
+- remove the remaining visual overrides from the entry main panel
+- remove the remaining visual overrides from the entry debug inset
+- for the participant panel shell:
+  - keep placement and size local
+  - move blur/material treatment under the accepted shared-material direction
+- remove the remaining shell/material overrides from the media dock shell
+- do not clean up participant video tile overrides in this pass
+- remove the remaining local mini-card overrides inside the governance inset
+- remove the remaining local shadow tuning on dice buttons
+- remove the remaining local visual overrides from the fixed add-image trigger
+  except for its placement
+- align the fixed add-image trigger look-and-feel with the dice-button class
+- remove the remaining local background/material override from the governance
+  inset itself
+
+## 8.6. Design-system migration is still the active big step, not a finished chapter
+
+Another explicit framing decision now applies:
+
+- ordinary-interface migration being paused does not mean the whole project has
+  already migrated onto the new design system;
+- the current active big step is still migration onto the new design system;
+- after the next large migration checkpoints, a series of read-only audits
+  should follow:
+  - project audit
+  - process/workflow audit
+  - architecture audit where useful
+- the completion criterion for the migration is not internal agent confidence;
+- the migration should count as complete only when the user explicitly decides
+  that the project now counts as having moved onto the new design system.
 
 ## 9. Last 3 messages (raw-ish)
 

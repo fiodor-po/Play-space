@@ -133,6 +133,7 @@ Common repeated steps:
 
 Rect-like radii:
 
+- `4`
 - `8`
 - `10`
 - `12`

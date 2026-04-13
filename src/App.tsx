@@ -12,7 +12,6 @@ import { createParticipantAccentButtonRecipeWithMode, buttonRecipes } from "./ui
 import { calloutRecipes } from "./ui/system/families/callout";
 import { fieldRecipes, getFieldShellProps } from "./ui/system/families/field";
 import {
-  getPillButtonProps,
   getSwatchButtonProps,
   swatchPillRecipes,
 } from "./ui/system/families/swatchPill";
@@ -74,6 +73,7 @@ const JOIN_CLAIM_TTL_MS = 5000;
 const JOIN_CLAIM_SETTLE_MS = 220;
 const ENTRY_JOIN_FAILURE_CUE_MS = 4000;
 const IS_DEV = import.meta.env.DEV;
+const entryDebugActionButtonRecipe = buttonRecipes.secondary.compact;
 
 function loadParticipantDraftForRoom(roomId: string) {
   const savedSession = loadLocalParticipantSession(roomId);
@@ -965,14 +965,7 @@ function BootstrappedApp() {
           <form
             onSubmit={joinRoom}
             className={surfaceRecipes.panel.default.className}
-            style={{
-              ...surfaceRecipes.panel.default.style,
-              gap: 16,
-              padding: 24,
-              borderRadius: 20,
-              border: "1px solid rgba(148, 163, 184, 0.25)",
-              boxShadow: "0 24px 80px rgba(2, 6, 23, 0.55)",
-            }}
+            style={surfaceRecipes.panel.default.style}
             {...getDesignSystemDebugAttrs(surfaceRecipes.panel.default.debug)}
           >
             <div style={{ display: "grid", gap: 6 }}>
@@ -1100,11 +1093,7 @@ function BootstrappedApp() {
                   setIsEntryDebugOpen((event.target as HTMLDetailsElement).open);
                 }}
                 className={surfaceRecipes.inset.default.className}
-                style={{
-                  ...surfaceRecipes.inset.default.style,
-                  borderColor: "rgba(96, 165, 250, 0.25)",
-                  background: "rgba(15, 23, 42, 0.55)",
-                }}
+                style={surfaceRecipes.inset.default.style}
                 {...getDesignSystemDebugAttrs(surfaceRecipes.inset.default.debug)}
               >
                 <summary
@@ -1204,10 +1193,9 @@ function BootstrappedApp() {
                         setEntryDebugOccupiedColors([...PARTICIPANT_COLOR_OPTIONS]);
                         setEntryDebugClaimColor(null);
                       }}
-                      {...getPillButtonProps(swatchPillRecipes.pill.small)}
-                      {...getDesignSystemDebugAttrs(
-                        swatchPillRecipes.pill.small.debug
-                      )}
+                      className={entryDebugActionButtonRecipe.className}
+                      style={entryDebugActionButtonRecipe.style}
+                      {...getDesignSystemDebugAttrs(entryDebugActionButtonRecipe.debug)}
                     >
                       Room full
                     </button>
@@ -1217,10 +1205,9 @@ function BootstrappedApp() {
                         setEntryDebugOccupiedColors([]);
                         setEntryDebugClaimColor(null);
                       }}
-                      {...getPillButtonProps(swatchPillRecipes.pill.small)}
-                      {...getDesignSystemDebugAttrs(
-                        swatchPillRecipes.pill.small.debug
-                      )}
+                      className={entryDebugActionButtonRecipe.className}
+                      style={entryDebugActionButtonRecipe.style}
+                      {...getDesignSystemDebugAttrs(entryDebugActionButtonRecipe.debug)}
                     >
                       Clear debug overrides
                     </button>

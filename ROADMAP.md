@@ -70,31 +70,39 @@
 
 ## 4. Текущий активный этап
 
-## Phase B — First hosted checkpoint and hosted validation follow-up
+## Phase B — Design-system migration continuation on top of the hosted checkpoint
 
 **Статус:** active
 
 ### Цель
-Зафиксировать, что hosted core и hosted video уже работают, сохранить узкий practical scope и перейти к real hosted validation без premature cleanup wave.
+Продолжать переезд проекта на новую дизайн-систему крупными осмысленными
+шагами, опираясь на уже подтверждённый hosted checkpoint, но не делая hosted
+validation обязательной линейной блокирующей фазой.
 
 ### Основная последовательность
-1. narrow stabilization для реальных hosted рисков;
-2. first hosted core deploy;
-3. базовая hosted validation core flow;
-4. narrow hosted video enablement;
-5. затем дальнейшая hosted playable-session validation и только потом более длинный UI/UX polish cycle.
+1. удерживать hosted core + optional video checkpoint как baseline;
+2. продолжать design-system migration крупными meaningful chapters;
+3. после этого провести серию read-only audits:
+   - project audit
+   - architecture/process audit
+   - workflow audit
+4. возвращаться к hosted validation как recurring checkpoint после крупных
+   шагов и новых demo snapshots.
 
 ### Почему это теперь главный фокус
-Core hosted signal уже получен.
-Следующая наибольшая ценность — не новый capability spike и не broad cleanup, а аккуратно расширить hosted stack ровно на один следующий слой.
+Hosted checkpoint уже получен, ordinary-interface migration chapter уже
+структурно доведён до pause, и сейчас основной high-signal шаг — продолжать
+именно migration на новую design system, а не откладывать её ради формального
+hosted-validation цикла.
 
 ## 5. Что входит в текущий этап
 
 - удержание core hosted stack в честном рабочем состоянии;
 - удержание working hosted video path как optional layer без лишнего scope creep;
-- narrow follow-up based on confirmed hosted checkpoint;
-- продолжение hosted playable-session validation уже после этого;
-- сбор product signal из реальной hosted-сессии без premature infra overbuild.
+- продолжение design-system migration крупными chapters;
+- затем серия project/process audits после больших migration checkpoints;
+- hosted validation как повторяемая проверка после крупных шагов, выкатываний и
+  новых demo snapshots.
 
 ## 6. Что сознательно не является главным фокусом сейчас
 
@@ -111,9 +119,10 @@ Core hosted signal уже получен.
 
 1. удерживать successful first hosted core checkpoint как current baseline;
 2. удерживать successful hosted video checkpoint как optional layer, а не новый broad media chapter;
-3. продолжить hosted playable-session validation;
-4. зафиксировать реальные rough edges;
-5. только потом идти в следующий validation/polish cycle.
+3. продолжать migration на новую design system как текущий главный step;
+4. после этого провести серию project/process audits;
+5. возвращаться к hosted validation как checkpoint после больших шагов и новых
+   demo snapshots.
 
 ## 8. Backlog
 
@@ -128,12 +137,15 @@ Core hosted signal уже получен.
 - [x] подтвердить базовый hosted core flow
 - [x] снять hosted video blocker и подтвердить working token path
 - [x] сделать narrow hosted video enable pass
-- [ ] продолжить hosted validation уже с working optional video layer
+- [ ] продолжать migration на новую design system как текущий главный chapter
+- [ ] использовать hosted validation как recurring checkpoint после крупных
+  продуктовых шагов и новых demo snapshots
 
 ## P1 — сразу после первого hosted alpha
 
-- [ ] продолжить playable-session validation в hosted environment
-- [ ] зафиксировать реальные rough edges после hosted use
+- [ ] прогонять hosted playable-session validation после крупных шагов и новых
+  demo snapshots
+- [ ] фиксировать реальные rough edges после таких hosted checkpoint'ов
 - [ ] implement browser-local participant identity pass with foreground-tab-only active presence behavior
 - [ ] minimal hosted-alpha room operations panel:
   - list existing rooms on the server
@@ -159,6 +171,10 @@ Core hosted signal уже получен.
 - [ ] media dock simplification / stabilization pass
 - [ ] dice tray / dice UX cleanup pass
 - [ ] board shell coherence pass
+- [ ] серия read-only audits после следующего крупного migration checkpoint:
+  - project audit
+  - process/workflow audit
+  - architecture audit where needed
 
 ## P2 — последующие улучшения
 
@@ -204,10 +220,79 @@ Core hosted signal уже получен.
     - object-semantics tooltip shell
     - dice tray shell
     - board drawing-management control ownership
-  - the next large boundary beyond that point is no longer ordinary/shared UI,
-    but either:
-    - object-adjacent controls
-    - or interaction-layer standardization
+  - the post-first-wave review already clarified the main residual
+    design-system gaps and exception boundaries
+  - the next two design-system chapters should now be split explicitly:
+    - missing families and variants
+    - design-system visual polishing
+  - the first of those chapters should explicitly include:
+    - add the missing control families or control variants that now look
+      genuinely required
+    - add the missing control states where those new or clarified families need
+      them
+    - keep an explicit standalone-exceptions list so true exceptions stay
+      protected instead of being forced into premature family work
+  - the second of those chapters should explicitly include:
+    - align look and feel across the current shared system through token and
+      family changes rather than new local overrides
+    - make visual corrections by improving the system itself instead of
+      layering more ad hoc consumer overrides
+  - explicit questions to keep inside the first chapter:
+    - whether image-attached drawing controls should later become a dedicated
+      compact / pill-like board-control class
+    - whether the temporary `text button` path should become its own adjacent
+      family instead of staying inside `button.ts`
+    - whether `pill` survives as a real long-term family branch or collapses
+      into `compact` button paths plus a reserved board-interaction class
+    - which board-adjacent shells and controls need their own explicit
+      subchapter rather than more ad hoc extensions
+  - accepted direction already established for the first chapter:
+    - the pill / round board-interaction control class is now a direct
+      candidate for inclusion rather than a later speculative option
+    - `compact button` is now an accepted ordinary button-family branch rather
+      than an open question
+  - accepted decisions already established inside that chapter:
+    - participant panel placement and size are acceptable local context, but
+      blur should move under shared material ownership rather than remain a free
+      local override
+    - for shared floating board shells, material ownership now includes shell
+      geometry such as border radius rather than only color/shadow treatment
+    - media dock shell and participant tiles should first converge on standard
+      shared material, with deeper cleanup deferred to a dedicated media pass
+    - the fixed add-image trigger should read as the same standard
+      user-accented button class as dice buttons, only pinned to the top-right
+      board corner
+    - image-attached drawing-management controls should later be reviewed as a
+      likely reserved compact / pill-like attached-control style
+    - round / pill-like buttons should be reserved for board-object
+      interaction so that classic interface controls and board-object
+      interaction controls stay visually separated
+    - participant-name inline edit/display behavior remains an acceptable local
+      special-case exception for now
+  - accepted cleanup decisions already established inside that chapter:
+    - remove the remaining visual overrides from the entry main panel
+    - remove the remaining visual overrides from the entry debug inset
+    - for the participant panel shell, keep placement/size local but move
+      blur/material treatment under shared material ownership
+    - remove the remaining shell/material overrides from the media dock shell
+    - defer participant video tile override cleanup to a later dedicated media
+      pass
+    - remove the remaining local mini-card overrides inside the governance
+      inset
+    - remove the remaining local shadow tuning on dice buttons
+    - remove the remaining local visual overrides from the fixed add-image
+      trigger except for placement
+    - align the fixed add-image trigger look-and-feel with the dice-button
+      class
+    - remove the remaining local background/material override from the
+      governance inset itself
+  - the next large boundary beyond that point should be chosen after this
+    review, not assumed in advance
+  - final completion criterion for the migration is not "enough structural
+    progress" by itself
+  - the migration should be considered complete only when the user explicitly
+    decides that the project now counts as having moved onto the new design
+    system
 - [ ] object interaction UI standardization chapter:
   - first explicitly separate the app into:
     - object layer
@@ -270,12 +355,13 @@ Core hosted signal уже получен.
 
 Рекомендуемый порядок сейчас такой:
 
-1. design system chapter
-2. behavior indication model
-3. cross-user action visibility model
-4. object-by-object review
-5. video / media layer review
-6. video presentation / frame composition
+1. design system migration continuation
+2. project / process audit series
+3. behavior indication model
+4. cross-user action visibility model
+5. object-by-object review
+6. video / media layer review
+7. video presentation / frame composition
 
 Смысл этого порядка:
 
@@ -363,8 +449,10 @@ Core hosted signal уже получен.
 
 ## 9. Open questions
 
-- Какие rough edges проявятся только после hosted playable-session checks?
-- Какие rough edges проявятся только после hosted use уже с working optional video layer?
+- Какие rough edges проявятся после следующего крупного шага или следующего demo
+  snapshot в hosted environment?
+- Какие rough edges проявятся только после очередного hosted checkpoint уже с
+  текущим optional video layer?
 - Когда именно hosted-alpha feedback оправдает более глубокий polish или infrastructure hardening?
 
 ## 10. Decision log

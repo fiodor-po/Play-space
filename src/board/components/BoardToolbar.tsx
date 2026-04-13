@@ -1,16 +1,20 @@
 import { buttonRecipes } from "../../ui/system/families/button";
 import { getDesignSystemDebugAttrs } from "../../ui/system/debug";
 
+type ButtonRecipe = (typeof buttonRecipes)["primary"]["default"];
+
 type BoardToolbarProps = {
   onAddImage: () => void;
   onAddNote: () => void;
   onResetBoard: () => void;
+  addImageRecipe?: ButtonRecipe;
 };
 
 export function BoardToolbar({
   onAddImage,
   onAddNote,
   onResetBoard,
+  addImageRecipe = buttonRecipes.primary.default,
 }: BoardToolbarProps) {
   return (
     <div
@@ -23,9 +27,9 @@ export function BoardToolbar({
       <button
         type="button"
         onClick={onAddImage}
-        className={buttonRecipes.primary.default.className}
-        style={buttonRecipes.primary.default.style}
-        {...getDesignSystemDebugAttrs(buttonRecipes.primary.default.debug)}
+        className={addImageRecipe.className}
+        style={addImageRecipe.style}
+        {...getDesignSystemDebugAttrs(addImageRecipe.debug)}
       >
         Add image
       </button>

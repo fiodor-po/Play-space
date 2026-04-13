@@ -2,6 +2,7 @@ import type { CSSProperties } from "react";
 import type { DesignSystemDebugMeta } from "../debug";
 import { border, radius, surface, text } from "../foundations";
 import { controlScale } from "../controlScale";
+import { uiTextStyleSmall } from "../typography";
 
 type CSSVariableProperties = CSSProperties & Record<`--${string}`, string | number>;
 
@@ -45,6 +46,17 @@ type ButtonVariantTone = {
   textDisabled: string;
 };
 
+const compactButtonScale = {
+  height: 24,
+  paddingY: 2,
+  paddingX: 6,
+  contentGap: 4,
+  bodyText: {
+    ...uiTextStyleSmall.body,
+    lineHeight: 1,
+  } satisfies CSSProperties,
+} as const;
+
 const buttonTones = {
   primary: {
     surfaceDefault: surface.accent,
@@ -85,7 +97,10 @@ const buttonTones = {
 } satisfies Record<string, ButtonVariantTone>;
 
 function createButtonRecipe(
-  size: (typeof controlScale)["default"] | (typeof controlScale)["small"],
+  size:
+    | (typeof controlScale)["default"]
+    | (typeof controlScale)["small"]
+    | typeof compactButtonScale,
   tone: ButtonVariantTone,
   debug: DesignSystemDebugMeta
 ): ButtonRecipe {
@@ -130,6 +145,11 @@ export const buttonRecipes = {
       variant: "primary",
       size: "small",
     }),
+    compact: createButtonRecipe(compactButtonScale, buttonTones.primary, {
+      family: "button",
+      variant: "primary",
+      size: "compact",
+    }),
   },
   secondary: {
     default: createButtonRecipe(controlScale.default, buttonTones.secondary, {
@@ -142,6 +162,11 @@ export const buttonRecipes = {
       variant: "secondary",
       size: "small",
     }),
+    compact: createButtonRecipe(compactButtonScale, buttonTones.secondary, {
+      family: "button",
+      variant: "secondary",
+      size: "compact",
+    }),
   },
   danger: {
     default: createButtonRecipe(controlScale.default, buttonTones.danger, {
@@ -153,6 +178,11 @@ export const buttonRecipes = {
       family: "button",
       variant: "danger",
       size: "small",
+    }),
+    compact: createButtonRecipe(compactButtonScale, buttonTones.danger, {
+      family: "button",
+      variant: "danger",
+      size: "compact",
     }),
   },
 } as const;

@@ -34,10 +34,15 @@
   --ui-space-compact: 6px;
   --ui-space-small: 8px;
   --ui-space-medium: 12px;
-  --ui-radius-control: 12px;
-  --ui-radius-surface: 16px;
-  --ui-radius-inset: 12px;
-  --ui-radius-pill: 999px;
+  --ui-radius-4: 4px;
+  --ui-radius-8: 8px;
+  --ui-radius-12: 12px;
+  --ui-radius-16: 16px;
+  --ui-radius-999: 999px;
+  --ui-radius-control: var(--ui-radius-8);
+  --ui-radius-surface: var(--ui-radius-16);
+  --ui-radius-inset: var(--ui-radius-8);
+  --ui-radius-pill: var(--ui-radius-999);
   --ui-transition-field: border-color 140ms ease, box-shadow 140ms ease,
     background-color 140ms ease;
   --ui-transition-button: border-color 140ms ease, box-shadow 140ms ease,

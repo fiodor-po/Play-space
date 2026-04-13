@@ -308,7 +308,6 @@ export function DiceSpikeOverlay({
               style={{
                 ...diceButtonRecipe.style,
                 pointerEvents: "auto",
-                boxShadow: "0 18px 40px rgba(2, 6, 23, 0.3)",
               }}
             >
               {die === "2d10" ? "d100" : die}

@@ -1,6 +1,6 @@
 import type { CSSProperties } from "react";
 import type { DesignSystemDebugMeta } from "./debug";
-import { radius, text } from "./foundations";
+import { border, radius, surface, text } from "./foundations";
 
 type BoardSurfaceRecipe = {
   style: CSSProperties;
@@ -62,9 +62,32 @@ function createDiceTrayStackRecipe(): BoardLayoutRecipe {
   };
 }
 
+function createFloatingShellRecipe(): BoardSurfaceRecipe {
+  return {
+    style: {
+      display: "grid",
+      gap: 8,
+      padding: 12,
+      borderRadius: radius.surface,
+      background: surface.panel,
+      border: `1px solid ${border.default}`,
+      color: text.secondary,
+      boxShadow: "0 18px 50px rgba(2, 6, 23, 0.35)",
+      backdropFilter: "blur(10px)",
+    },
+    debug: {
+      family: "board-surface",
+      variant: "floating-shell",
+    },
+  };
+}
+
 export const boardSurfaceRecipes = {
   objectSemanticsTooltip: {
     shell: createObjectSemanticsTooltipRecipe(),
+  },
+  floatingShell: {
+    shell: createFloatingShellRecipe(),
   },
   diceTray: {
     shell: createDiceTrayShellRecipe(),

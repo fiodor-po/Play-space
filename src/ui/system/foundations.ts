@@ -43,6 +43,14 @@ export const radius = {
   pill: "var(--ui-radius-pill)",
 } as const;
 
+export const radiusPrimitive = {
+  r4: "var(--ui-radius-4)",
+  r8: "var(--ui-radius-8)",
+  r12: "var(--ui-radius-12)",
+  r16: "var(--ui-radius-16)",
+  r999: "var(--ui-radius-999)",
+} as const;
+
 export const focusRing = {
   default: "var(--ui-color-focus-ring)",
 } as const;

@@ -2626,12 +2626,13 @@ export default function BoardStage({
           right: 20,
           zIndex: 30,
           pointerEvents: "auto",
-          width: 36,
-          height: 36,
+          width: 32,
+          minWidth: 32,
+          height: 32,
+          minHeight: 32,
           padding: 0,
           fontSize: 18,
           lineHeight: 1,
-          boxShadow: "0 18px 40px rgba(2, 6, 23, 0.3)",
         }}
       >
         +
@@ -2719,7 +2720,6 @@ export default function BoardStage({
               style={{
                 ...surfaceRecipes.inset.default.style,
                 gap: 8,
-                background: "rgba(15, 23, 42, 0.45)",
                 fontSize: 12,
               }}
               {...getDesignSystemDebugAttrs(surfaceRecipes.inset.default.debug)}
@@ -2779,13 +2779,11 @@ export default function BoardStage({
                   governanceInspectionEntries.map((entry) => (
                     <div
                       key={entry.id}
-                      style={{
-                        display: "grid",
-                        gap: 2,
-                        padding: "6px 8px",
-                        borderRadius: 8,
-                        background: "rgba(2, 6, 23, 0.28)",
-                      }}
+                      className={surfaceRecipes.infoCard.default.className}
+                      style={surfaceRecipes.infoCard.default.style}
+                      {...getDesignSystemDebugAttrs(
+                        surfaceRecipes.infoCard.default.debug
+                      )}
                     >
                       <div style={{ color: "#e2e8f0" }}>
                         {entry.resolution.action.actionKey}
@@ -2813,6 +2811,7 @@ export default function BoardStage({
               onAddImage={() => {
                 imageInputRef.current?.click();
               }}
+              addImageRecipe={buttonRecipes.secondary.default}
               onAddNote={createNote}
               onResetBoard={resetBoard}
             />

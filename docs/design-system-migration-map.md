@@ -67,6 +67,31 @@ Working rule:
 - they should be treated as second- or third-pass design-system work after the
   ordinary interface layer has a stable migration baseline
 
+## 1.1. Standalone exceptions list
+
+The design-system rollout now also keeps an explicit list of standalone
+exceptions.
+
+These are not treated as current family-creation debt by default.
+
+Current explicit standalone exceptions:
+
+- participant-name inline edit/display behavior
+- tooltip-local row grid and placement math for the object-semantics tooltip
+- Konva-attached geometry and anchoring math for image-attached drawing
+  controls
+- fixed placement and sizing for pinned board panels and subsystem docks
+- dice tray shell placement and pointer-events shell behavior
+- media tile internal video framing and overflow structure
+
+Working rule:
+
+- protect these as exceptions unless repeated evidence shows they now deserve a
+  dedicated family
+- do not force them into shared families just to reduce local code
+- if one of them starts repeating across multiple contexts, re-evaluate it as a
+  future family or subtype candidate
+
 ## 2. Dependency model
 
 The intended dependency order is:
@@ -220,7 +245,6 @@ Kept out of the ordinary button migration:
 
 - board add-image floating trigger
 - object-adjacent image controls
-- transparent text actions in the participant panel
 - session-panel destructive micro-action if it still reads as a surface-local
   subtype after visual review
 
@@ -256,8 +280,6 @@ Current ordinary-button rollout note:
 Button-like cases still intentionally left out for later return:
 
 - entry debug pills
-- participant-panel transparent text actions
-- participant-panel text buttons such as `Leave room`
 - participant-panel micro-actions
 - participant-panel creator-only destructive button such as `Reset board`
 - object-adjacent image controls
@@ -277,13 +299,9 @@ Working note:
 - these remaining cases should not be silently treated as already migrated just
   because the main shared button chapter is now largely in place
 - they remain explicit later-return items
-- the participant-panel text-button cases likely need a separate text-button
-  subtype or adjacent family decision rather than being silently folded into the
-  ordinary filled-button path
-- the current `text button` runtime helper may temporarily remain in
-  `src/ui/system/families/button.ts` during migration
-- this should be treated as a required later cleanup, not as the final chapter
-  boundary
+- the participant-panel text-button cases now read as valid button-derived
+  text-action cases inside the button system rather than as evidence for a
+  separate adjacent family
 
 Post-migration cleanup rule:
 
@@ -432,6 +450,9 @@ Current direction correction:
   `button.small`
 - if ordinary `small` button geometry proves too loose there, add a separate
   `compact button` path rather than preserving `pill` by default
+- round / pill-like buttons should be reserved primarily for board-object
+  interaction so that classic interface controls and board-object interaction
+  controls remain visually separated
 
 Primary migration targets:
 

@@ -14,6 +14,7 @@ import {
   getLiveKitUrl,
 } from "../lib/livekit";
 import { HTML_UI_FONT_FAMILY } from "../board/constants";
+import { boardSurfaceRecipes } from "../ui/system/boardSurfaces";
 import { getDesignSystemDebugAttrs } from "../ui/system/debug";
 import { buttonRecipes, createToggleButtonRecipe } from "../ui/system/families/button";
 import { calloutRecipes } from "../ui/system/families/callout";
@@ -482,21 +483,16 @@ export function LiveKitMediaDock({
     <div
       className={surfaceRecipes.panel.compact.className}
       style={{
-        ...surfaceRecipes.panel.compact.style,
+        ...boardSurfaceRecipes.floatingShell.shell.style,
         position: "fixed",
         right: 16,
         bottom: 16,
         width: 320,
         maxWidth: "calc(100vw - 32px)",
-        gap: 10,
-        borderRadius: 18,
-        border: "1px solid rgba(148, 163, 184, 0.22)",
-        boxShadow: "0 24px 60px rgba(2, 6, 23, 0.35)",
-        backdropFilter: "blur(10px)",
         zIndex: 20,
         fontFamily: HTML_UI_FONT_FAMILY,
       }}
-      {...getDesignSystemDebugAttrs(surfaceRecipes.panel.compact.debug)}
+      {...getDesignSystemDebugAttrs(boardSurfaceRecipes.floatingShell.shell.debug)}
     >
       <div
         style={{

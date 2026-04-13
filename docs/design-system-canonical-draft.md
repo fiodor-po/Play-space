@@ -1663,12 +1663,14 @@ Scale rule:
 
 - `button.default.height = control.default.height = 40`
 - `button.small.height = control.small.height = 32`
+- `button.compact.height = 24`
 
 Text-role rule:
 
 - button text should map through `bodyText`
 - `button.default.text -> control.default.bodyText`
 - `button.small.text -> control.small.bodyText`
+- `button.compact.text -> compact button body text = 12`
 
 Family rule:
 
@@ -1676,6 +1678,33 @@ Family rule:
   app/control layer
 - it should be the default home for standard primary, secondary, and danger
   actions before introducing more specialized action families
+- `button.compact` is now an accepted standard branch inside the same family
+  rather than a later speculative extension
+
+Compact branch rule:
+
+- `button.compact` remains an ordinary text button, but with denser geometry
+- it should use the same variant and state model as the rest of the button
+  family:
+  - `primary`
+  - `secondary`
+  - `danger`
+  - `default`
+  - `hover`
+  - `focus`
+  - `active`
+  - `disabled`
+- its current accepted geometry is:
+  - `height = 24`
+  - `paddingY = 2`
+  - `paddingX = 6`
+  - `contentGap = 4`
+  - `radius = radius.control`
+- its current accepted text treatment is:
+  - `font size = 12`
+  - `line height = 1`
+- this compact geometry is currently accepted as a button-local branch, not as
+  proof that the whole system needs a global `compact` control scale
 
 Current boundary exclusions:
 
@@ -1695,19 +1724,22 @@ Current note:
   - entry primary CTA
   - fixed add-image trigger
 - the main later-return button-like exceptions are:
-  - entry debug pills
-  - participant-panel transparent text actions
-  - participant-panel text buttons such as `Leave room`
+  - board-object interaction controls that later want their own pill / round
+    control class
   - participant-panel micro-actions
   - participant-panel creator-only destructive button such as `Reset board`
   - object-adjacent image controls
-- required follow-up:
-  - the current `text button` implementation may temporarily live in
-    `src/ui/system/families/button.ts` for migration speed
-  - this should not be treated as its final home
-  - after the main migration chapter stabilizes, `text button` should be
-    revisited and moved into a clearer subtype chapter or adjacent family
-    instead of remaining permanently embedded in the filled-button module
+
+Text-action rule:
+
+- `text button` remains inside the button system as a button-derived path
+- it should keep ordinary button semantics, states, and size branches
+- it should replace the filled shell with a transparent treatment rather than
+  becoming a separate adjacent family by default
+- current accepted direction:
+  - keep `text button` inside `src/ui/system/families/button.ts`
+  - treat it as a valid button-derived class rather than a temporary adjacent-
+    family bridge
 
 Subtype direction:
 
@@ -1851,8 +1883,8 @@ Current direction correction:
 
 - swatch remains a valid shared family branch
 - pill should not currently be treated as a required long-term family branch
-- the current entry debug pills are better treated as candidates for
-  `button.small`
+- the current entry debug pills are now better treated as
+  `button.compact`
 - if ordinary `small` button geometry proves too loose, add a separate
   `compact button` path rather than preserving `pill` as a required family by
   default

@@ -5,6 +5,7 @@ import {
   buttonRecipes,
   createTextButtonRecipe,
 } from "../../ui/system/families/button";
+import { boardSurfaceRecipes } from "../../ui/system/boardSurfaces";
 import { selectionControlRecipes } from "../../ui/system/families/selectionControls";
 import { surfaceRecipes } from "../../ui/system/surfaces";
 import {
@@ -85,20 +86,16 @@ export const ParticipantSessionPanel = forwardRef<
       ref={ref}
       className={surfaceRecipes.panel.compact.className}
       style={{
-        ...surfaceRecipes.panel.compact.style,
+        ...boardSurfaceRecipes.floatingShell.shell.style,
         position: "fixed",
         top: 20,
         left: 20,
         zIndex: 10,
         minWidth: 180,
-        borderRadius: 14,
-        border: "1px solid rgba(148, 163, 184, 0.22)",
-        boxShadow: "0 18px 50px rgba(2, 6, 23, 0.35)",
-        backdropFilter: "blur(10px)",
         fontFamily: HTML_UI_FONT_FAMILY,
         pointerEvents: "none",
       }}
-      {...getDesignSystemDebugAttrs(surfaceRecipes.panel.compact.debug)}
+      {...getDesignSystemDebugAttrs(boardSurfaceRecipes.floatingShell.shell.debug)}
     >
       <div
         style={{
@@ -122,9 +119,6 @@ export const ParticipantSessionPanel = forwardRef<
           onClick={onLeaveRoom}
           style={{
             ...leaveRoomButtonRecipe.style,
-            minHeight: "auto",
-            padding: 0,
-            borderRadius: 0,
             justifyContent: "flex-end",
             pointerEvents: "auto",
           }}
