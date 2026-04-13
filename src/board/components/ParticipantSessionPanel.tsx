@@ -8,30 +8,25 @@ import {
 import { boardSurfaceRecipes } from "../../ui/system/boardSurfaces";
 import { selectionControlRecipes } from "../../ui/system/families/selectionControls";
 import { surfaceRecipes } from "../../ui/system/surfaces";
-import {
-  getSwatchButtonProps,
-  swatchPillRecipes,
-} from "../../ui/system/families/swatchPill";
+import { fontSize } from "../../ui/system/typography";
 
 type ParticipantSessionPanelProps = {
   roomId: string;
   isCurrentParticipantRoomCreator: boolean;
   roomCreatorName: string | null;
+  roomCreatorColor: string | null;
   participantName: string;
   participantColor: string;
   participantNameDraft: string;
   isEditingParticipantName: boolean;
-  isColorPickerOpen: boolean;
+  isDebugToolsEnabled: boolean;
   isDevToolsOpen: boolean;
-  participantColorOptions: string[];
   onLeaveRoom: () => void;
   onResetBoard: () => void;
-  onToggleColorPicker: () => void;
   onToggleDevTools: () => void;
   onParticipantNameDraftChange: (value: string) => void;
   onParticipantNameSubmit: () => void;
   onStartEditingParticipantName: () => void;
-  onSelectParticipantColor: (color: string) => void;
   devToolsContent: ReactNode;
 };
 
@@ -43,21 +38,19 @@ export const ParticipantSessionPanel = forwardRef<
     roomId,
     isCurrentParticipantRoomCreator,
     roomCreatorName,
+    roomCreatorColor,
     participantName,
     participantColor,
     participantNameDraft,
     isEditingParticipantName,
-    isColorPickerOpen,
+    isDebugToolsEnabled,
     isDevToolsOpen,
-    participantColorOptions,
     onLeaveRoom,
     onResetBoard,
-    onToggleColorPicker,
     onToggleDevTools,
     onParticipantNameDraftChange,
     onParticipantNameSubmit,
     onStartEditingParticipantName,
-    onSelectParticipantColor,
     devToolsContent,
   },
   ref
@@ -68,19 +61,6 @@ export const ParticipantSessionPanel = forwardRef<
   );
   const resetBoardButtonRecipe = buttonRecipes.danger.small;
   const devToolsSelectionRecipe = selectionControlRecipes.checkbox.small;
-  const participantColorTriggerProps = getSwatchButtonProps(
-    swatchPillRecipes.swatch.trigger,
-    {
-      fillColor: participantColor,
-      selected: true,
-    }
-  );
-  const roomCreatorLine = isCurrentParticipantRoomCreator
-    ? "Creator: You"
-    : roomCreatorName
-      ? `Creator: ${roomCreatorName}`
-      : null;
-
   return (
     <div
       ref={ref}
@@ -92,6 +72,7 @@ export const ParticipantSessionPanel = forwardRef<
         left: 20,
         zIndex: 10,
         minWidth: 180,
+        paddingBottom: 14,
         fontFamily: HTML_UI_FONT_FAMILY,
         pointerEvents: "none",
       }}
@@ -129,7 +110,7 @@ export const ParticipantSessionPanel = forwardRef<
         </button>
       </div>
 
-      {roomCreatorLine ? (
+      {isCurrentParticipantRoomCreator || roomCreatorName ? (
         <div
           style={{
             fontSize: 12,
@@ -140,7 +121,16 @@ export const ParticipantSessionPanel = forwardRef<
             textOverflow: "ellipsis",
           }}
         >
-          {roomCreatorLine}
+          {isCurrentParticipantRoomCreator ? (
+            "Room Owner: You"
+          ) : (
+            <>
+              {"Room Owner: "}
+              <span style={{ color: roomCreatorColor ?? "#cbd5e1" }}>
+                {roomCreatorName}
+              </span>
+            </>
+          )}
         </div>
       ) : null}
 
@@ -148,18 +138,9 @@ export const ParticipantSessionPanel = forwardRef<
         style={{
           display: "flex",
           alignItems: "center",
-          gap: 10,
+          gap: 8,
         }}
       >
-        <button
-          type="button"
-          onClick={onToggleColorPicker}
-          aria-label="Edit participant color"
-          className={participantColorTriggerProps.className}
-          style={participantColorTriggerProps.style}
-          {...getDesignSystemDebugAttrs(swatchPillRecipes.swatch.trigger.debug)}
-        />
-
         {isEditingParticipantName ? (
           <input
             value={participantNameDraft}
@@ -181,8 +162,8 @@ export const ParticipantSessionPanel = forwardRef<
               border: "none",
               outline: "none",
               background: "transparent",
-              color: "#e2e8f0",
-              fontSize: 15,
+              color: participantColor,
+              fontSize: fontSize["2xl"],
               fontWeight: 700,
               fontFamily: HTML_UI_FONT_FAMILY,
               pointerEvents: "auto",
@@ -196,8 +177,8 @@ export const ParticipantSessionPanel = forwardRef<
               padding: 0,
               border: "none",
               background: "transparent",
-              color: "#e2e8f0",
-              fontSize: 15,
+              color: participantColor,
+              fontSize: fontSize["2xl"],
               fontWeight: 700,
               fontFamily: HTML_UI_FONT_FAMILY,
               cursor: "text",
@@ -208,42 +189,6 @@ export const ParticipantSessionPanel = forwardRef<
           </button>
         )}
       </div>
-
-      {isColorPickerOpen && (
-        <div
-          style={{
-            display: "flex",
-            gap: 8,
-            flexWrap: "wrap",
-            pointerEvents: "none",
-          }}
-        >
-          {participantColorOptions.map((color) => {
-            const isSelected = color === participantColor;
-            const participantPaletteSwatchProps = getSwatchButtonProps(
-              swatchPillRecipes.swatch.small,
-              {
-                fillColor: color,
-                selected: isSelected,
-              }
-            );
-
-            return (
-              <button
-                key={color}
-                type="button"
-                onClick={() => {
-                  onSelectParticipantColor(color);
-                }}
-                aria-label={`Select color ${color}`}
-                className={participantPaletteSwatchProps.className}
-                style={participantPaletteSwatchProps.style}
-                {...getDesignSystemDebugAttrs(swatchPillRecipes.swatch.small.debug)}
-              />
-            );
-          })}
-        </div>
-      )}
 
       {isCurrentParticipantRoomCreator && (
         <div
@@ -286,45 +231,47 @@ export const ParticipantSessionPanel = forwardRef<
         </div>
       )}
 
-      <div
-        style={{
-          display: "grid",
-          gap: 10,
-          marginTop: 2,
-          paddingTop: 10,
-          borderTop: "1px solid rgba(148, 163, 184, 0.16)",
-          pointerEvents: "none",
-        }}
-      >
-        <label
+      {isDebugToolsEnabled ? (
+        <div
           style={{
-            ...devToolsSelectionRecipe.row.style,
-            pointerEvents: "auto",
+            display: "grid",
+            gap: 10,
+            marginTop: 2,
+            paddingTop: 10,
+            borderTop: "1px solid rgba(148, 163, 184, 0.16)",
+            pointerEvents: "none",
           }}
-          className={devToolsSelectionRecipe.row.className}
-          {...getDesignSystemDebugAttrs(devToolsSelectionRecipe.row.debug)}
         >
-          <input
-            type="checkbox"
-            checked={isDevToolsOpen}
-            onChange={() => {
-              onToggleDevTools();
+          <label
+            style={{
+              ...devToolsSelectionRecipe.row.style,
+              pointerEvents: "auto",
             }}
-            style={devToolsSelectionRecipe.indicator.style}
-            className={devToolsSelectionRecipe.indicator.className}
-          />
-          <span
-            style={devToolsSelectionRecipe.label.style}
-            className={devToolsSelectionRecipe.label.className}
+            className={devToolsSelectionRecipe.row.className}
+            {...getDesignSystemDebugAttrs(devToolsSelectionRecipe.row.debug)}
           >
-            Debug tools
-          </span>
-        </label>
+            <input
+              type="checkbox"
+              checked={isDevToolsOpen}
+              onChange={() => {
+                onToggleDevTools();
+              }}
+              style={devToolsSelectionRecipe.indicator.style}
+              className={devToolsSelectionRecipe.indicator.className}
+            />
+            <span
+              style={devToolsSelectionRecipe.label.style}
+              className={devToolsSelectionRecipe.label.className}
+            >
+              Debug tools
+            </span>
+          </label>
 
-        {isDevToolsOpen && (
-          <div style={{ pointerEvents: "auto" }}>{devToolsContent}</div>
-        )}
-      </div>
+          {isDevToolsOpen && (
+            <div style={{ pointerEvents: "auto" }}>{devToolsContent}</div>
+          )}
+        </div>
+      ) : null}
     </div>
   );
 });

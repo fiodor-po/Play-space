@@ -35,9 +35,16 @@ import {
   type ButtonRecipe,
 } from "../ui/system/families/button";
 import { boardSurfaceRecipes } from "../ui/system/boardSurfaces";
-import { getDesignSystemDebugAttrs } from "../ui/system/debugMeta";
+import {
+  getDesignSystemDebugAttrs,
+  isDesignSystemHoverDebugEnabled,
+} from "../ui/system/debugMeta";
 import { rowRecipes } from "../ui/system/families/row";
 import { selectionControlRecipes } from "../ui/system/families/selectionControls";
+import {
+  getSwatchButtonProps,
+  swatchPillRecipes,
+} from "../ui/system/families/swatchPill";
 import {
   boardMaterials,
   resolveBoardCanvasMaterials,
@@ -291,6 +298,7 @@ export default function BoardStage({
   onUpdateParticipantSession,
   onUpdateLocalPresence,
 }: BoardStageProps) {
+  const isDebugControlsEnabled = isDesignSystemHoverDebugEnabled();
   const mergeSharedImages = (
     sharedImages: BoardObject[],
     localImages: BoardObject[]
@@ -405,7 +413,6 @@ export default function BoardStage({
   const [participantNameDraft, setParticipantNameDraft] = useState(
     participantSession.name
   );
-  const [isColorPickerOpen, setIsColorPickerOpen] = useState(false);
   const [isDevToolsOpen, setIsDevToolsOpen] = useState(false);
   const [isObjectInspectionEnabled, setIsObjectInspectionEnabled] = useState(false);
   const objectInspectionSelectionRecipe = selectionControlRecipes.checkbox.small;
@@ -1048,7 +1055,7 @@ export default function BoardStage({
   }, [participantSession.name]);
 
   useEffect(() => {
-    if (!isEditingParticipantName && !isColorPickerOpen) {
+    if (!isEditingParticipantName) {
       return;
     }
 
@@ -1071,10 +1078,6 @@ export default function BoardStage({
         setIsEditingParticipantName(false);
       }
 
-      if (isColorPickerOpen) {
-        setIsColorPickerOpen(false);
-      }
-
     };
 
     window.addEventListener("mousedown", handlePointerDown);
@@ -1086,7 +1089,6 @@ export default function BoardStage({
     };
   }, [
     isEditingParticipantName,
-    isColorPickerOpen,
     onUpdateParticipantSession,
     participantNameDraft,
     participantSession.name,
@@ -2676,18 +2678,24 @@ export default function BoardStage({
         roomId={roomId}
         isCurrentParticipantRoomCreator={isCurrentParticipantRoomCreator}
         roomCreatorName={roomCreatorName}
+        roomCreatorColor={
+          roomCreatorId && roomCreatorId !== participantSession.id
+            ? resolveCurrentParticipantColor({
+                participantId: roomCreatorId,
+                localParticipantSession: participantSession,
+                participantPresences,
+                roomOccupancies,
+              })
+            : null
+        }
         participantName={participantSession.name}
         participantColor={participantSession.color}
         participantNameDraft={participantNameDraft}
         isEditingParticipantName={isEditingParticipantName}
-        isColorPickerOpen={isColorPickerOpen}
+        isDebugToolsEnabled={isDebugControlsEnabled}
         isDevToolsOpen={isDevToolsOpen}
-        participantColorOptions={PARTICIPANT_COLOR_OPTIONS}
         onLeaveRoom={onLeaveRoom}
         onResetBoard={resetBoard}
-        onToggleColorPicker={() => {
-          setIsColorPickerOpen((current) => !current);
-        }}
         onToggleDevTools={() => {
           setIsDevToolsOpen((current) => !current);
         }}
@@ -2709,15 +2717,60 @@ export default function BoardStage({
           setParticipantNameDraft(participantSession.name);
           setIsEditingParticipantName(true);
         }}
-        onSelectParticipantColor={(color) => {
-          onUpdateParticipantSession((session) => ({
-            ...session,
-            color,
-          }));
-          setIsColorPickerOpen(false);
-        }}
         devToolsContent={
           <div style={{ display: "grid", gap: 12 }}>
+            <div
+              className={surfaceRecipes.inset.default.className}
+              style={{
+                ...surfaceRecipes.inset.default.style,
+                gap: 8,
+                fontSize: 12,
+              }}
+              {...getDesignSystemDebugAttrs(surfaceRecipes.inset.default.debug)}
+            >
+              <div
+                style={{
+                  fontSize: 11,
+                  fontWeight: 700,
+                  letterSpacing: "0.04em",
+                  textTransform: "uppercase",
+                  color: "#94a3b8",
+                }}
+              >
+                Participant color
+              </div>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                {PARTICIPANT_COLOR_OPTIONS.map((color) => {
+                  const swatchProps = getSwatchButtonProps(
+                    swatchPillRecipes.swatch.small,
+                    {
+                      fillColor: color,
+                      selected: color === participantSession.color,
+                    }
+                  );
+
+                  return (
+                    <button
+                      key={`participant-debug-color-${color}`}
+                      type="button"
+                      onClick={() => {
+                        onUpdateParticipantSession((session) => ({
+                          ...session,
+                          color,
+                        }));
+                      }}
+                      aria-label={`Set participant color ${color}`}
+                      className={swatchProps.className}
+                      style={swatchProps.style}
+                      {...getDesignSystemDebugAttrs(
+                        swatchPillRecipes.swatch.small.debug
+                      )}
+                    />
+                  );
+                })}
+              </div>
+            </div>
+
             <label
               style={{
                 ...objectInspectionSelectionRecipe.row.style,

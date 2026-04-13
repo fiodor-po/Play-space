@@ -7,6 +7,7 @@ import { HTML_UI_FONT_FAMILY } from "./board/constants";
 import {
   DesignSystemHoverInspector,
 } from "./ui/system/debug";
+import { isDesignSystemHoverDebugEnabled } from "./ui/system/debugMeta";
 import { getDesignSystemDebugAttrs } from "./ui/system/debugMeta";
 import { createParticipantAccentButtonRecipeWithMode, buttonRecipes } from "./ui/system/families/button";
 import { calloutRecipes } from "./ui/system/families/callout";
@@ -165,6 +166,7 @@ export default function App() {
 }
 
 function BootstrappedApp() {
+  const isDebugControlsEnabled = isDesignSystemHoverDebugEnabled();
   const liveKitMediaEnabled = isLiveKitMediaEnabled();
   const browserParticipantId = getOrCreateBrowserParticipantId();
   const initialSharedActiveRoomSession =
@@ -1086,7 +1088,7 @@ function BootstrappedApp() {
               </div>
             </div>
 
-            {IS_DEV ? (
+            {IS_DEV && isDebugControlsEnabled ? (
               <details
                 open={isEntryDebugOpen}
                 onToggle={(event) => {
