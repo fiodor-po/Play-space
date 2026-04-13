@@ -6,7 +6,7 @@ import { uiTextStyleSmall } from "../typography";
 
 type CSSVariableProperties = CSSProperties & Record<`--${string}`, string | number>;
 
-type ButtonRecipe = {
+export type ButtonRecipe = {
   className: string;
   style: CSSProperties;
   debug: DesignSystemDebugMeta;
@@ -16,6 +16,17 @@ type CanvasButtonTone = {
   fill: string;
   stroke: string;
   textColor: string;
+};
+
+type CanvasButtonMetrics = {
+  minHeight: number;
+  minWidth?: number;
+  paddingX: number;
+  borderRadius: number;
+  fontSize: number;
+  fontWeight: number | string;
+  fontFamily: string;
+  lineHeight: number;
 };
 
 type ButtonToneOverride = {
@@ -68,6 +79,18 @@ const buttonTones = {
     borderActive: border.accent,
     borderDisabled: border.disabled,
     textDefault: text.inverse,
+    textDisabled: text.disabled,
+  },
+  primaryNeutral: {
+    surfaceDefault: surface.accentNeutral,
+    surfaceHover: surface.accentNeutralHover,
+    surfaceActive: surface.accentNeutralActive,
+    surfaceDisabled: surface.insetDisabled,
+    borderDefault: border.accentNeutral,
+    borderHover: border.accentNeutral,
+    borderActive: border.accentNeutral,
+    borderDisabled: border.disabled,
+    textDefault: text.onAccentNeutral,
     textDisabled: text.disabled,
   },
   secondary: {
@@ -133,6 +156,44 @@ function createButtonRecipe(
   };
 }
 
+function createInteractionButtonRecipe(
+  tone: ButtonVariantTone,
+  shape: "pill" | "circle",
+  debug: DesignSystemDebugMeta
+): ButtonRecipe {
+  return {
+    className: "ui-button",
+    style: {
+      ...controlScale.small.bodyText,
+      minHeight: controlScale.small.height,
+      display: "inline-flex",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: controlScale.small.contentGap,
+      padding:
+        shape === "circle"
+          ? `${controlScale.small.paddingY}px 0`
+          : `${controlScale.small.paddingY}px ${controlScale.small.paddingX * 1.5}px`,
+      minWidth: shape === "circle" ? controlScale.small.height : undefined,
+      borderRadius: radius.pill,
+      border: `1px solid ${tone.borderDefault}`,
+      background: tone.surfaceDefault,
+      color: tone.textDefault,
+      cursor: "pointer",
+      textAlign: "center",
+      textDecoration: "none",
+      "--ui-button-surface-hover": tone.surfaceHover,
+      "--ui-button-surface-active": tone.surfaceActive,
+      "--ui-button-surface-disabled": tone.surfaceDisabled,
+      "--ui-button-border-hover": tone.borderHover,
+      "--ui-button-border-active": tone.borderActive,
+      "--ui-button-border-disabled": tone.borderDisabled,
+      "--ui-button-text-disabled": tone.textDisabled,
+    } as CSSVariableProperties,
+    debug,
+  };
+}
+
 export const buttonRecipes = {
   primary: {
     default: createButtonRecipe(controlScale.default, buttonTones.primary, {
@@ -148,6 +209,23 @@ export const buttonRecipes = {
     compact: createButtonRecipe(compactButtonScale, buttonTones.primary, {
       family: "button",
       variant: "primary",
+      size: "compact",
+    }),
+  },
+  primaryNeutral: {
+    default: createButtonRecipe(controlScale.default, buttonTones.primaryNeutral, {
+      family: "button",
+      variant: "primaryNeutral",
+      size: "default",
+    }),
+    small: createButtonRecipe(controlScale.small, buttonTones.primaryNeutral, {
+      family: "button",
+      variant: "primaryNeutral",
+      size: "small",
+    }),
+    compact: createButtonRecipe(compactButtonScale, buttonTones.primaryNeutral, {
+      family: "button",
+      variant: "primaryNeutral",
       size: "compact",
     }),
   },
@@ -183,6 +261,51 @@ export const buttonRecipes = {
       family: "button",
       variant: "danger",
       size: "compact",
+    }),
+  },
+} as const;
+
+export const interactionButtonRecipes = {
+  primary: {
+    pill: createInteractionButtonRecipe(buttonTones.primaryNeutral, "pill", {
+      family: "interactionButton",
+      variant: "primary",
+      size: "small",
+      subtype: "pill",
+    }),
+    circle: createInteractionButtonRecipe(buttonTones.primaryNeutral, "circle", {
+      family: "interactionButton",
+      variant: "primary",
+      size: "small",
+      subtype: "circle",
+    }),
+  },
+  secondary: {
+    pill: createInteractionButtonRecipe(buttonTones.secondary, "pill", {
+      family: "interactionButton",
+      variant: "secondary",
+      size: "small",
+      subtype: "pill",
+    }),
+    circle: createInteractionButtonRecipe(buttonTones.secondary, "circle", {
+      family: "interactionButton",
+      variant: "secondary",
+      size: "small",
+      subtype: "circle",
+    }),
+  },
+  danger: {
+    pill: createInteractionButtonRecipe(buttonTones.danger, "pill", {
+      family: "interactionButton",
+      variant: "danger",
+      size: "small",
+      subtype: "pill",
+    }),
+    circle: createInteractionButtonRecipe(buttonTones.danger, "circle", {
+      family: "interactionButton",
+      variant: "danger",
+      size: "small",
+      subtype: "circle",
     }),
   },
 } as const;
@@ -314,6 +437,33 @@ function resolveCssValue(value: unknown) {
     .trim() || trimmedValue;
 }
 
+function resolveNumberValue(value: unknown, fallback: number) {
+  if (typeof value === "number") {
+    return value;
+  }
+
+  const resolved = resolveCssValue(value);
+  const parsed = Number.parseFloat(resolved);
+
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function resolvePaddingXValue(value: unknown, fallback: number) {
+  if (typeof value !== "string") {
+    return fallback;
+  }
+
+  const parts = value.trim().split(/\s+/);
+
+  if (parts.length < 2) {
+    return fallback;
+  }
+
+  const parsed = Number.parseFloat(parts[1]);
+
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
 export function resolveCanvasButtonTone(recipe: ButtonRecipe): CanvasButtonTone {
   const style = recipe.style as CSSVariableProperties;
   const borderValue = typeof style.border === "string" ? style.border : "";
@@ -323,5 +473,28 @@ export function resolveCanvasButtonTone(recipe: ButtonRecipe): CanvasButtonTone 
     fill: resolveCssValue(style.background),
     stroke: resolveCssValue(strokeValue),
     textColor: resolveCssValue(style.color),
+  };
+}
+
+export function resolveCanvasButtonMetrics(recipe: ButtonRecipe): CanvasButtonMetrics {
+  const style = recipe.style as CSSVariableProperties;
+
+  return {
+    minHeight: resolveNumberValue(style.minHeight, 32),
+    minWidth:
+      style.minWidth === undefined ? undefined : resolveNumberValue(style.minWidth, 0),
+    paddingX: resolvePaddingXValue(style.padding, 8),
+    borderRadius: resolveNumberValue(style.borderRadius, 8),
+    fontSize: resolveNumberValue(style.fontSize, 12),
+    fontWeight:
+      typeof style.fontWeight === "number" || typeof style.fontWeight === "string"
+        ? style.fontWeight
+        : 400,
+    fontFamily:
+      typeof style.fontFamily === "string" ? style.fontFamily : "sans-serif",
+    lineHeight:
+      typeof style.lineHeight === "number"
+        ? style.lineHeight
+        : resolveNumberValue(style.lineHeight, 1),
   };
 }

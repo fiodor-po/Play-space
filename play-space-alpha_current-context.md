@@ -714,10 +714,11 @@ What this means:
 - the next two design-system chapters are now explicitly split into:
   - missing families and variants
   - design-system visual polishing
-- the first chapter should:
-  - add the missing control families or control variants that now look real
-  - add the missing control states where those families need them
-  - keep an explicit standalone-exceptions list
+- the first chapter is now landed enough to pause:
+  - `compact button` is accepted
+  - `text button` is clarified as a button-derived path
+  - `interactionButton.pill` / `interactionButton.circle` are accepted
+  - `interactionButton.pill` already has a first live runtime consumer
 - the second chapter should:
   - align current look and feel through token and family changes
   - avoid creating new local overrides as the main solution
@@ -730,12 +731,8 @@ Open design-system review questions to keep explicit:
 
 - whether image-attached drawing controls should later become a dedicated
   compact / pill-like board-control class
-- whether `pill` survives as a real long-term family branch or collapses into
-  `compact` button paths plus a reserved board-interaction class
 - which board-adjacent shells and controls need their own explicit subchapter
   rather than more ad hoc extensions
-- the pill / round board-interaction control class is now a direct candidate
-  for the missing-families chapter rather than a later speculative option
 
 Standalone exceptions to keep explicit in design-system docs:
 
@@ -768,6 +765,26 @@ Accepted override / boundary decisions already made:
   system-wide compact scale
 - `text button` is now accepted as a button-derived text-action path inside the
   button system rather than a separate adjacent family
+- a shared neutral-primary button tone path is now also accepted for
+  user/session-facing controls that should not default to the system blue
+  accent
+- the participant color palette should avoid a red slot that reads too close to
+  destructive semantics; the current 8-seat palette now uses a non-red
+  replacement set instead
+- the reserved board-interaction control branch is now accepted as:
+  - `interactionButton.pill`
+  - `interactionButton.circle`
+- the first live runtime consumer of `interactionButton.pill` is now the
+  image-attached drawing-management control set:
+  - `Draw`
+  - `Save`
+  - `Clear`
+  - `Clear all`
+- those controls now inherit their visual shell from the shared
+  interaction-button branch rather than from local canvas-only literals
+- the current image-attached controls may still continue visual experimentation
+  on top of that shared branch without invalidating the accepted neutral-
+  primary tone path itself
 - participant-name inline edit/display behavior remains an acceptable special
   inline-editing exception for now
 

@@ -447,12 +447,13 @@ Current direction correction:
 - the current entry debug pills should not be treated as proof that `pill`
   needs to remain a required long-term family branch
 - those two current debug actions are better treated as candidates for
-  `button.small`
-- if ordinary `small` button geometry proves too loose there, add a separate
-  `compact button` path rather than preserving `pill` by default
-- round / pill-like buttons should be reserved primarily for board-object
-  interaction so that classic interface controls and board-object interaction
-  controls remain visually separated
+  `button.compact`
+- round / pill-like button geometry is now reserved primarily for the derived
+  board-interaction branch:
+  - `interactionButton.pill`
+  - `interactionButton.circle`
+- that branch should remain derived from the ordinary button system while
+  staying visually separated from classic interface controls
 
 Primary migration targets:
 
@@ -465,7 +466,8 @@ Kept out:
 - cursor markers
 - cursor label pills
 - tiny accent dots
-- object-specific circular controls
+- object-specific circular controls that do not belong to the accepted
+  `interactionButton` branch
 
 ## 4. Ordinary interface state migration rule
 

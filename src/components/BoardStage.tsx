@@ -28,7 +28,11 @@ import { TokenRenderer } from "../board/objects/token/TokenRenderer";
 import {
   buttonRecipes,
   createParticipantAccentButtonRecipe,
+  createParticipantAccentButtonRecipeWithMode,
+  interactionButtonRecipes,
+  resolveCanvasButtonMetrics,
   resolveCanvasButtonTone,
+  type ButtonRecipe,
 } from "../ui/system/families/button";
 import { boardSurfaceRecipes } from "../ui/system/boardSurfaces";
 import { getDesignSystemDebugAttrs } from "../ui/system/debug";
@@ -148,17 +152,37 @@ type SmallFloatingActionButtonProps = {
   x: number;
   y: number;
   label: string;
-  recipe?: ReturnType<typeof createParticipantAccentButtonRecipe> | (typeof buttonRecipes)["primary"]["small"];
+  recipe?: ButtonRecipe;
   onClick: () => void;
 };
 
-const SMALL_FLOATING_ACTION_BUTTON_MIN_WIDTH = 44;
-const SMALL_FLOATING_ACTION_BUTTON_HEIGHT = 28;
 const IMAGE_ATTACHED_CONTROLS_GAP = 8;
 const IMAGE_ATTACHED_CONTROLS_OUTER_OFFSET_Y = 12;
 
-function getSmallFloatingActionButtonWidth(label: string) {
-  return Math.max(SMALL_FLOATING_ACTION_BUTTON_MIN_WIDTH, label.length * 7 + 18);
+function getSmallFloatingActionButtonWidth(
+  label: string,
+  metrics: ReturnType<typeof resolveCanvasButtonMetrics>
+) {
+  let measuredTextWidth = label.length * metrics.fontSize * 0.58;
+
+  if (typeof document !== "undefined") {
+    const canvas = document.createElement("canvas");
+    const context = canvas.getContext("2d");
+
+    if (context) {
+      const fontWeight =
+        typeof metrics.fontWeight === "number"
+          ? String(metrics.fontWeight)
+          : metrics.fontWeight;
+      context.font = `${fontWeight} ${metrics.fontSize}px ${metrics.fontFamily}`;
+      measuredTextWidth = context.measureText(label).width;
+    }
+  }
+
+  const contentWidth = measuredTextWidth + metrics.paddingX * 2;
+  const minimumWidth = metrics.minWidth ?? metrics.minHeight;
+
+  return Math.max(minimumWidth, Math.ceil(contentWidth));
 }
 
 function SmallFloatingActionButton({
@@ -168,9 +192,12 @@ function SmallFloatingActionButton({
   recipe = buttonRecipes.secondary.small,
   onClick,
 }: SmallFloatingActionButtonProps) {
-  const width = getSmallFloatingActionButtonWidth(label);
-  const height = SMALL_FLOATING_ACTION_BUTTON_HEIGHT;
+  const metrics = resolveCanvasButtonMetrics(recipe);
+  const width = getSmallFloatingActionButtonWidth(label, metrics);
+  const height = metrics.minHeight;
   const toneStyles = resolveCanvasButtonTone(recipe);
+  const textLineHeightPx = metrics.fontSize * metrics.lineHeight;
+  const textYOffset = Math.max(0, (height - textLineHeightPx) / 2);
 
   return (
     <Group
@@ -194,22 +221,20 @@ function SmallFloatingActionButton({
       <Rect
         width={width}
         height={height}
-        cornerRadius={999}
+        cornerRadius={metrics.borderRadius}
         fill={toneStyles.fill}
         stroke={toneStyles.stroke}
         strokeWidth={1}
-        shadowBlur={8}
-        shadowColor="rgba(2, 6, 23, 0.3)"
       />
       <Text
         x={0}
-        y={7}
+        y={textYOffset}
         width={width}
         align="center"
         text={label}
-        fontSize={12}
-        fontStyle="bold"
-        fontFamily={HTML_UI_FONT_FAMILY}
+        fontSize={metrics.fontSize}
+        fontStyle={String(metrics.fontWeight) === "600" || Number(metrics.fontWeight) >= 600 ? "bold" : "normal"}
+        fontFamily={metrics.fontFamily || HTML_UI_FONT_FAMILY}
         fill={toneStyles.textColor}
         listening={false}
       />
@@ -2360,7 +2385,7 @@ export default function BoardStage({
     const buttons: Array<{
       key: string;
       label: string;
-      recipe?: (typeof buttonRecipes)[keyof typeof buttonRecipes]["small"];
+      recipe?: ButtonRecipe;
       onClick: () => void;
     }> = [
       {
@@ -2368,8 +2393,16 @@ export default function BoardStage({
         label: drawingImageId === selectedImageObject.id ? "Save" : "Draw",
         recipe:
           drawingImageId === selectedImageObject.id
-            ? buttonRecipes.primary.small
-            : buttonRecipes.secondary.small,
+            ? createParticipantAccentButtonRecipeWithMode(
+                interactionButtonRecipes.primary.pill,
+                participantSession.color,
+                "fill"
+              )
+            : createParticipantAccentButtonRecipeWithMode(
+                interactionButtonRecipes.secondary.pill,
+                participantSession.color,
+                "border"
+              ),
         onClick: () => {
           if (drawingImageId === selectedImageObject.id) {
             finishImageDrawingMode();
@@ -2388,7 +2421,7 @@ export default function BoardStage({
       buttons.push({
         key: "clear-own",
         label: "Clear",
-        recipe: buttonRecipes.danger.small,
+        recipe: interactionButtonRecipes.danger.pill,
         onClick: () => {
           clearOwnImageDrawing(selectedImageObject.id);
         },
@@ -2403,7 +2436,7 @@ export default function BoardStage({
       buttons.push({
         key: "clear-all",
         label: "Clear all",
-        recipe: buttonRecipes.danger.small,
+        recipe: interactionButtonRecipes.danger.pill,
         onClick: () => {
           clearImageDrawing(selectedImageObject.id);
         },
@@ -3502,12 +3535,20 @@ export default function BoardStage({
                 scaleY={1 / stageScale}
               >
                 {selectedImageControlButtons.map((button, buttonIndex) => {
+                  const buttonMetrics = resolveCanvasButtonMetrics(
+                    button.recipe ?? buttonRecipes.secondary.small
+                  );
                   const x = selectedImageControlButtons
                     .slice(0, buttonIndex)
                     .reduce(
                       (offset, currentButton) =>
                         offset +
-                        getSmallFloatingActionButtonWidth(currentButton.label) +
+                        getSmallFloatingActionButtonWidth(
+                          currentButton.label,
+                          resolveCanvasButtonMetrics(
+                            currentButton.recipe ?? buttonRecipes.secondary.small
+                          )
+                        ) +
                         IMAGE_ATTACHED_CONTROLS_GAP,
                       0
                     );
@@ -3516,7 +3557,7 @@ export default function BoardStage({
                     <SmallFloatingActionButton
                       key={button.key}
                       x={x}
-                      y={-(SMALL_FLOATING_ACTION_BUTTON_HEIGHT + IMAGE_ATTACHED_CONTROLS_OUTER_OFFSET_Y)}
+                      y={-(buttonMetrics.minHeight + IMAGE_ATTACHED_CONTROLS_OUTER_OFFSET_Y)}
                       label={button.label}
                       recipe={button.recipe}
                       onClick={button.onClick}

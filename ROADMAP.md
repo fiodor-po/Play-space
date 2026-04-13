@@ -225,32 +225,35 @@ hosted-validation цикла.
   - the next two design-system chapters should now be split explicitly:
     - missing families and variants
     - design-system visual polishing
-  - the first of those chapters should explicitly include:
-    - add the missing control families or control variants that now look
-      genuinely required
-    - add the missing control states where those new or clarified families need
-      them
-    - keep an explicit standalone-exceptions list so true exceptions stay
-      protected instead of being forced into premature family work
+  - the first of those chapters is now landed enough to pause:
+    - missing families and variants
+  - that chapter established:
+    - `compact button` as an accepted ordinary button-family branch
+    - `text button` as an accepted button-derived path inside the button system
+    - `interactionButton.pill` / `interactionButton.circle` as the accepted
+      reserved board-interaction control branch
+    - the first live runtime consumer of `interactionButton.pill` in the
+      image-attached drawing-management controls
   - the second of those chapters should explicitly include:
     - align look and feel across the current shared system through token and
       family changes rather than new local overrides
     - make visual corrections by improving the system itself instead of
       layering more ad hoc consumer overrides
-  - explicit questions to keep inside the first chapter:
+  - explicit questions to carry forward after the first chapter:
     - whether image-attached drawing controls should later become a dedicated
       compact / pill-like board-control class
-    - whether the temporary `text button` path should become its own adjacent
-      family instead of staying inside `button.ts`
     - whether `pill` survives as a real long-term family branch or collapses
       into `compact` button paths plus a reserved board-interaction class
     - which board-adjacent shells and controls need their own explicit
       subchapter rather than more ad hoc extensions
   - accepted direction already established for the first chapter:
-    - the pill / round board-interaction control class is now a direct
-      candidate for inclusion rather than a later speculative option
+    - the reserved board-interaction control branch is now accepted as:
+      - `interactionButton.pill`
+      - `interactionButton.circle`
     - `compact button` is now an accepted ordinary button-family branch rather
       than an open question
+    - `text button` is now accepted as a button-derived path inside the button
+      system rather than an adjacent family question
   - accepted decisions already established inside that chapter:
     - participant panel placement and size are acceptable local context, but
       blur should move under shared material ownership rather than remain a free
@@ -262,8 +265,14 @@ hosted-validation цикла.
     - the fixed add-image trigger should read as the same standard
       user-accented button class as dice buttons, only pinned to the top-right
       board corner
-    - image-attached drawing-management controls should later be reviewed as a
-      likely reserved compact / pill-like attached-control style
+    - the first live runtime consumer of `interactionButton.pill` is now the
+      image-attached drawing-management control set:
+      - `Draw`
+      - `Save`
+      - `Clear`
+      - `Clear all`
+    - those controls now inherit their visual shell from the shared
+      interaction-button branch rather than from local canvas-only literals
     - round / pill-like buttons should be reserved for board-object
       interaction so that classic interface controls and board-object
       interaction controls stay visually separated

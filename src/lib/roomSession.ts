@@ -36,11 +36,11 @@ export const PARTICIPANT_COLOR_OPTIONS = [
   "#0f766e",
   "#0891b2",
   "#2563eb",
-  "#dc2626",
-  "#d97706",
+  "#16a34a",
+  "#ca8a04",
+  "#ea580c",
   "#7c3aed",
   "#db2777",
-  "#16a34a",
 ];
 
 export const ROOM_SESSION_STORAGE_PREFIX = "play-space-alpha-room-session-v1";

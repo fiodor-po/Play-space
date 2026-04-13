@@ -1706,6 +1706,17 @@ Compact branch rule:
 - this compact geometry is currently accepted as a button-local branch, not as
   proof that the whole system needs a global `compact` control scale
 
+Neutral-primary tone rule:
+
+- the system now also accepts a neutral primary tone path for cases where
+  user/session-facing controls should not read through the system blue accent
+- this path should remain available as a shared button tone rather than as a
+  one-off local override
+- current practical intent:
+  - ordinary system-facing primary actions may still use the blue accent path
+  - session-facing or board-interaction-facing primary actions may instead use
+    the neutral primary tone where that reads more honestly
+
 Current boundary exclusions:
 
 - Konva object-adjacent image controls
@@ -1724,8 +1735,8 @@ Current note:
   - entry primary CTA
   - fixed add-image trigger
 - the main later-return button-like exceptions are:
-  - board-object interaction controls that later want their own pill / round
-    control class
+  - board-object interaction controls that now want their own
+    `interactionButton` family branch
   - participant-panel micro-actions
   - participant-panel creator-only destructive button such as `Reset board`
   - object-adjacent image controls
@@ -1740,6 +1751,36 @@ Text-action rule:
   - keep `text button` inside `src/ui/system/families/button.ts`
   - treat it as a valid button-derived class rather than a temporary adjacent-
     family bridge
+
+Interaction-button rule:
+
+- board-object interaction controls now have an accepted derived family branch:
+  - `interactionButton.pill`
+  - `interactionButton.circle`
+- this branch should remain derived from the ordinary button system rather than
+  introducing a separate tone/state model
+- current accepted baseline:
+  - inherit the same variants as ordinary buttons:
+    - `primary`
+    - `secondary`
+    - `danger`
+  - inherit the same interaction states:
+    - `default`
+    - `hover`
+    - `focus`
+    - `active`
+    - `disabled`
+  - inherit the same text basis as `button.small`
+  - inherit the same size baseline as `button.small`
+  - use `radius.pill`
+- current shape rule:
+  - `interactionButton.pill` = default text-capable board-interaction shape
+  - `interactionButton.circle` = equal-width/equal-height variant, expected
+    mainly for icons, `+`, and similarly short content
+- current boundary rule:
+  - this branch is reserved for board-object / object-adjacent interaction
+    controls so that classic interface controls and board-interaction controls
+    remain visually separated
 
 Subtype direction:
 

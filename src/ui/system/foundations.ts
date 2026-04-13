@@ -8,6 +8,9 @@ export const surface = {
   accent: "var(--ui-color-surface-accent)",
   accentHover: "var(--ui-color-surface-accent-hover)",
   accentActive: "var(--ui-color-surface-accent-active)",
+  accentNeutral: "var(--ui-color-surface-accent-neutral)",
+  accentNeutralHover: "var(--ui-color-surface-accent-neutral-hover)",
+  accentNeutralActive: "var(--ui-color-surface-accent-neutral-active)",
   danger: "var(--ui-color-surface-danger)",
   dangerHover: "var(--ui-color-surface-danger-hover)",
   dangerActive: "var(--ui-color-surface-danger-active)",
@@ -22,6 +25,7 @@ export const text = {
   muted: "var(--ui-color-text-muted)",
   disabled: "var(--ui-color-text-disabled)",
   inverse: "var(--ui-color-text-inverse)",
+  onAccentNeutral: "var(--ui-color-text-on-accent-neutral)",
   danger: "var(--ui-color-text-danger)",
   warning: "var(--ui-color-text-warning)",
 } as const;
@@ -32,6 +36,7 @@ export const border = {
   focus: "var(--ui-color-border-focus)",
   disabled: "var(--ui-color-border-disabled)",
   accent: "var(--ui-color-border-accent)",
+  accentNeutral: "var(--ui-color-border-accent-neutral)",
   danger: "var(--ui-color-border-danger)",
   warning: "var(--ui-color-border-warning)",
 } as const;
