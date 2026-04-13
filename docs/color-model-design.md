@@ -77,6 +77,25 @@
 
 Это сознательно выбранная модель.
 
+### Rule 7 — Persisted objects should not store historical creator color as canonical truth
+Для creator-linked объектов persisted/shared object model не должен делать
+исторический `authorColor` канонической частью semantic truth.
+
+Правильная модель такая:
+
+- объект хранит `creatorId` / `authorId`
+- participant layer хранит текущее соответствие:
+  - `participantId -> current PlayerColor`
+- UI резолвит creator-linked color через текущий participant color этого id
+
+Это значит:
+
+- historical creator-color snapshot не должен считаться canonical object truth
+- object rendering не должен зависеть от "цвета автора в момент создания" как от
+  целевого steady state
+- если в рантайме ещё существует `authorColor`, его нужно трактовать как
+  transitional implementation residue, а не как каноническую semantic model
+
 ## 4. Категории объектов
 
 ## 4.1. Creator-linked objects
@@ -92,6 +111,7 @@ Token — creator-linked object.
 - токен визуально аффилирован с участником, который его создал
 - основной creator-linked цвет токена определяется через текущий `PlayerColor` создателя
 - если создатель меняет свой `PlayerColor`, creator-linked визуальный цвет токена тоже обновляется
+- persisted token truth должна хранить `creatorId`, а не baked-in historical color
 
 ### Text-card
 Text-card — creator-linked object, но не fully color-themed object.
@@ -101,6 +121,7 @@ Text-card — creator-linked object, но не fully color-themed object.
 - creator-linked color используется только как accent
 - accent определяется через текущий `PlayerColor` создателя
 - body карточки не должен автоматически становиться participant-colored
+- persisted text-card truth должна хранить `creatorId`, а не historical creator color
 
 Это значит:
 - visual affiliation есть
@@ -207,6 +228,7 @@ Neutral “ownerless” drawing color не является предпочтит
 - creator color = permission owner
 - object color = current actor color
 - historical author color snapshot = canonical creator semantics
+- persisted `authorColor` field = canonical creator-color truth
 - all object styling should derive from participant color
 - neutral shared objects should become participant-coded by accident
 
@@ -218,10 +240,12 @@ Neutral “ownerless” drawing color не является предпочтит
 
 ### Token
 - creator-linked
+- persist creator id, not creator color snapshot
 - main creator-linked visual color resolves from creator's current `PlayerColor`
 
 ### Text-card
 - creator-linked
+- persist creator id, not creator color snapshot
 - only accent resolves from creator's current `PlayerColor`
 - card body remains neutral
 
@@ -237,6 +261,18 @@ Neutral “ownerless” drawing color не является предпочтит
 ### Drawing
 - target semantic direction: creator-linked and live-colored by current participant identity
 - temporary historical-color fallback is acceptable only as implementation transition
+
+## 9.1 Explicit object-color source-of-truth rule
+
+For creator-linked objects, the semantic source of truth should be:
+
+1. persisted/shared `creatorId`
+2. current participant-color resolution for that id
+
+Not:
+
+1. persisted/shared historical `authorColor`
+2. ephemeral presence color as the canonical creator-color source
 
 ## 10. Change control
 

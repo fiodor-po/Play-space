@@ -130,8 +130,10 @@ import {
   type LocalParticipantSession,
   type ParticipantPresence,
   type ParticipantPresenceMap,
+  type RoomOccupancyMap,
 } from "../lib/roomSession";
 import { getRoomBaselinePayload } from "../lib/roomBaseline";
+import { resolveCurrentParticipantColor } from "../lib/participantColors";
 import {
   createBoardObjectGovernedEntityRef,
   createRoomGovernedEntityRef,
@@ -245,6 +247,7 @@ function SmallFloatingActionButton({
 type BoardStageProps = {
   participantSession: LocalParticipantSession;
   participantPresences: ParticipantPresenceMap;
+  roomOccupancies: RoomOccupancyMap;
   roomId: string;
   isCurrentParticipantRoomCreator: boolean;
   roomCreatorName: string | null;
@@ -276,6 +279,7 @@ type GovernanceInspectionEntry = {
 export default function BoardStage({
   participantSession,
   participantPresences,
+  roomOccupancies,
   roomId,
   isCurrentParticipantRoomCreator,
   roomCreatorName,
@@ -447,19 +451,16 @@ export default function BoardStage({
   >(null);
   const currentUserColor = participantSession.color;
   const getLiveCreatorColor = (object: BoardObject) => {
-    if (!object.creatorId) {
-      return null;
-    }
-
-    if (object.creatorId === participantSession.id) {
-      return participantSession.color;
-    }
-
-    return participantPresences[object.creatorId]?.color ?? null;
+    return resolveCurrentParticipantColor({
+      participantId: object.creatorId,
+      localParticipantSession: participantSession,
+      participantPresences,
+      roomOccupancies,
+    });
   };
 
   const getTokenFillColor = (object: BoardObject) => {
-    return getLiveCreatorColor(object) ?? object.authorColor ?? object.fill;
+    return getLiveCreatorColor(object) ?? object.fill;
   };
 
   const getParticipantMarkerTokens = (
@@ -586,15 +587,14 @@ export default function BoardStage({
     color: string;
     creatorId?: string;
   }) => {
-    if (!stroke.creatorId) {
-      return stroke.color;
-    }
-
-    if (stroke.creatorId === participantSession.id) {
-      return participantSession.color;
-    }
-
-    return participantPresences[stroke.creatorId]?.color ?? stroke.color;
+    return (
+      resolveCurrentParticipantColor({
+        participantId: stroke.creatorId,
+        localParticipantSession: participantSession,
+        participantPresences,
+        roomOccupancies,
+      }) ?? stroke.color
+    );
   };
 
   const updateObjectSemanticsHover = (

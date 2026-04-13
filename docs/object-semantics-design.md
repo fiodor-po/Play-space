@@ -190,24 +190,35 @@ Before adding a new persisted/shared object type, answer all of these explicitly
 
 ## 7. Transitional note about `authorColor`
 
-`authorColor` currently exists in the repo and should be treated as transitional/fallback metadata.
+`authorColor` currently exists in parts of the repo, but it should be treated
+as transitional implementation residue rather than as canonical object
+semantics.
 
-Important rule:
+Important rules:
 
-- `authorColor` must not silently stand in for canonical creator identity.
+- `authorColor` must not silently stand in for canonical creator identity
+- `authorColor` must not silently stand in for canonical creator-color truth
+
+Canonical semantic model:
+
+- persisted/shared object truth should store `creatorId`
+- current creator-linked color should resolve from the participant currently
+  assigned to that id
 
 Allowed transitional role:
 
-- historical creator-linked color fallback;
-- visual fallback when live creator color cannot be resolved.
+- temporary migration residue while old object fields still exist in runtime
 
-Disallowed semantic shortcut:
+Disallowed semantic shortcuts:
 
 - treating `authorColor` as if it answers “who created this object?”
+- treating `authorColor` as if it answers “what color should this creator-linked
+  object canonically be right now?”
 
-That question belongs to:
+Those answers belong to:
 
 - `creatorId`
+- current participant-color resolution for that id
 
 ## 8. What this document does not decide
 

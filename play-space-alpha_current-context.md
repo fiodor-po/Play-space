@@ -204,6 +204,16 @@ Room color chapter больше не должен мыслиться как perm
 - returning participants should get their previous room color preselected if it is free, not hard-restored as locked ownership;
 - room members are now better framed as room history / remembered defaults, not authoritative color owners.
 
+Another explicit color-model clarification now applies:
+
+- creator-linked object rendering should resolve creator color from the
+  participant currently assigned to that creator id;
+- creator-linked persisted/shared objects should not use historical
+  `authorColor` snapshot fields as canonical truth;
+- the intended long-term object truth is:
+  - persist `creatorId`
+  - resolve current creator-linked color separately
+
 ### 3.15. Participant identity direction is now explicitly browser-local, not tab-local
 Participant identity chapter теперь должен мыслиться не как name-based label и не как tab-scoped accident.
 
@@ -624,7 +634,9 @@ This should live in current context as a short next-verification list, while con
 - не новый capability spike;
 - не broad architecture cleanup;
 - не hosted validation как обязательная линейная фаза;
-- а continued migration на новую design system крупными meaningful chapters.
+- и не немедленное продолжение design-system visual polishing;
+- а analysis-first structural pass по `src/App.tsx` после current
+  design-system checkpoint.
 
 ## 8.1. Design-system migration follow-up rule
 
@@ -778,6 +790,53 @@ Accepted override / boundary decisions already made:
   image-attached drawing-management control set:
   - `Draw`
   - `Save`
+
+## 8.6. Design-system work is now paused after a good checkpoint
+
+The current design-system wave should now be treated as paused at a good
+checkpoint rather than as the immediate next active chapter.
+
+What is already true:
+
+- ordinary-interface migration is structurally landed enough to pause
+- the first safe board-layer continuation is landed enough to pause
+- the missing families and variants chapter is landed enough to pause
+- the shared system is now coherent enough that further work would move from
+  structural migration into visual polishing rather than core family discovery
+
+What this means:
+
+- current design-system work should not keep expanding automatically just
+  because the next chapter already exists on paper
+- the next design-system chapter remains:
+  - design-system visual polishing
+- but it is intentionally not the immediate active focus anymore
+
+## 8.7. Repo/runtime health is now the active focus before the next design-system chapter
+
+After the hygiene and repeat health-audit passes, the main remaining engineering
+debt is concentrated in two structural hotspots:
+
+- `src/App.tsx`
+- `src/components/BoardStage.tsx`
+
+The next safer high-signal target is now `src/App.tsx`.
+
+Why `App.tsx` first:
+
+- its lint/structure debt is now the clearest remaining non-BoardStage
+  validation hotspot
+- its semantic blast radius is lower than `BoardStage.tsx`
+- improving it should make the repo’s validation story more trustworthy before
+  further design-system polishing or riskier board/runtime cleanup
+
+Working order from here:
+
+1. analysis-first pass for `src/App.tsx`
+2. decide whether a narrow `App.tsx` implementation pass is justified
+3. only then choose between:
+   - `BoardStage.tsx` analysis-first work
+   - return to design-system visual polishing
   - `Clear`
   - `Clear all`
 - those controls now inherit their visual shell from the shared

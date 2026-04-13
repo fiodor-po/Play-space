@@ -1257,6 +1257,7 @@ function BootstrappedApp() {
         key={joinedRoomId}
         participantSession={participantSession}
         participantPresences={participantPresences}
+        roomOccupancies={roomOccupancies}
         roomId={joinedRoomId}
         isCurrentParticipantRoomCreator={isCurrentParticipantRoomCreator}
         roomCreatorName={roomCreatorName}
