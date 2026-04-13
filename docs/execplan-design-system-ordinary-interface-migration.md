@@ -392,7 +392,6 @@ Scope:
 
 Must not change:
 
-- floating add-image trigger
 - object-adjacent image controls
 - transparent text actions
 - subsystem shells
@@ -401,6 +400,32 @@ Open design decision to resolve before or during this phase:
 
 - whether toolbar/media/dice stay one button family with variants or become
   narrower subfamilies on top of shared button tokens
+
+Current accepted direction:
+
+- participant-colored dice-style actions should be treated first as shared
+  `secondary` button subtypes, not as a separate family
+- participant-colored title/hero actions should be treated first as shared
+  `primary` button subtypes, not as a separate family
+- media buttons should be treated first as shared `secondary.small` button
+  subtypes with toggle tone override, not as a separate family
+- the fixed add-image trigger should be treated as the same shared button class
+  as dice buttons in a different placement/context, not as a separate family
+
+Current rollout checkpoint:
+
+- the shared ordinary button chapter now already covers:
+  - ops buttons
+  - board toolbar buttons
+  - dice tray buttons
+  - media buttons
+  - entry primary CTA
+  - fixed add-image trigger
+- the remaining later-return button-like exceptions are:
+  - entry debug pills
+  - participant-panel transparent text actions
+  - participant-panel micro-actions
+  - object-adjacent image controls
 
 ### Phase 3. Boxed callout family
 

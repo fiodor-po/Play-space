@@ -4,6 +4,19 @@ import { DiceSpikeOverlay } from "./dice/DiceSpikeOverlay";
 import { LiveKitMediaDock } from "./media/LiveKitMediaDock";
 import { RoomsOpsPage } from "./ops/RoomsOpsPage";
 import { HTML_UI_FONT_FAMILY } from "./board/constants";
+import {
+  DesignSystemHoverInspector,
+  getDesignSystemDebugAttrs,
+} from "./ui/system/debug";
+import { createParticipantAccentButtonRecipeWithMode, buttonRecipes } from "./ui/system/families/button";
+import { calloutRecipes } from "./ui/system/families/callout";
+import { fieldRecipes, getFieldShellProps } from "./ui/system/families/field";
+import {
+  getPillButtonProps,
+  getSwatchButtonProps,
+  swatchPillRecipes,
+} from "./ui/system/families/swatchPill";
+import { surfaceRecipes } from "./ui/system/surfaces";
 import { applyClientResetPolicyIfNeeded } from "./lib/clientResetPolicy";
 import {
   createRoomGovernedEntityRef,
@@ -110,7 +123,12 @@ export default function App() {
   const isOpsRoute = window.location.pathname.startsWith("/ops/rooms");
 
   if (isOpsRoute) {
-    return <RoomsOpsPage />;
+    return (
+      <>
+        <RoomsOpsPage />
+        <DesignSystemHoverInspector />
+      </>
+    );
   }
 
   const [isBootReady, setIsBootReady] = useState(false);
@@ -130,10 +148,20 @@ export default function App() {
   }, []);
 
   if (!isBootReady) {
-    return <AppBootScreen />;
+    return (
+      <>
+        <AppBootScreen />
+        <DesignSystemHoverInspector />
+      </>
+    );
   }
 
-  return <BootstrappedApp />;
+  return (
+    <>
+      <BootstrappedApp />
+      <DesignSystemHoverInspector />
+    </>
+  );
 }
 
 function BootstrappedApp() {
@@ -190,6 +218,11 @@ function BootstrappedApp() {
   const [entryDebugClaimColor, setEntryDebugClaimColor] = useState<string | null>(null);
   const [isForegroundPresenceCarrier, setIsForegroundPresenceCarrier] = useState(() =>
     getIsForegroundPresenceCarrier()
+  );
+  const entryPrimaryButtonRecipe = createParticipantAccentButtonRecipeWithMode(
+    buttonRecipes.primary.default,
+    draftColor,
+    "fill"
   );
   const entryPresenceConnectionRef = useRef<RoomPresenceConnection | null>(null);
   const roomPresenceConnectionRef = useRef<RoomPresenceConnection | null>(null);
@@ -931,74 +964,71 @@ function BootstrappedApp() {
 
           <form
             onSubmit={joinRoom}
+            className={surfaceRecipes.panel.default.className}
             style={{
-              display: "grid",
+              ...surfaceRecipes.panel.default.style,
               gap: 16,
               padding: 24,
               borderRadius: 20,
-              background: "rgba(15, 23, 42, 0.88)",
               border: "1px solid rgba(148, 163, 184, 0.25)",
-              color: "#e2e8f0",
               boxShadow: "0 24px 80px rgba(2, 6, 23, 0.55)",
             }}
+            {...getDesignSystemDebugAttrs(surfaceRecipes.panel.default.debug)}
           >
             <div style={{ display: "grid", gap: 6 }}>
               <div style={{ fontSize: 14, color: "#94a3b8" }}>Room</div>
-              <input
-                value={draftRoomId}
-                onChange={(event) => {
-                  const nextRoomId = event.target.value;
-                  setDraftRoomId(nextRoomId);
+              <div
+                {...getFieldShellProps(fieldRecipes.default.shell)}
+                {...getDesignSystemDebugAttrs(fieldRecipes.default.shell.debug)}
+              >
+                <input
+                  value={draftRoomId}
+                  onChange={(event) => {
+                    const nextRoomId = event.target.value;
+                    setDraftRoomId(nextRoomId);
 
-                  const trimmedRoomId = normalizeRoomId(nextRoomId);
+                    const trimmedRoomId = normalizeRoomId(nextRoomId);
 
-                  if (!trimmedRoomId) {
-                    return;
-                  }
+                    if (!trimmedRoomId) {
+                      return;
+                    }
 
-                  setHasManualEntryColorChoice(false);
+                    setHasManualEntryColorChoice(false);
 
-                  const nextParticipantDraft =
-                    loadParticipantDraftForRoom(trimmedRoomId);
+                    const nextParticipantDraft =
+                      loadParticipantDraftForRoom(trimmedRoomId);
 
-                  if (!nextParticipantDraft.savedSession) {
-                    return;
-                  }
+                    if (!nextParticipantDraft.savedSession) {
+                      return;
+                    }
 
-                  setDraftName(nextParticipantDraft.draftName);
-                  setDraftColor(nextParticipantDraft.draftColor);
-                }}
-                placeholder="Room name"
-                style={{
-                  padding: "12px 14px",
-                  borderRadius: 12,
-                  border: "1px solid rgba(148, 163, 184, 0.3)",
-                  background: "rgba(15, 23, 42, 0.9)",
-                  color: "#f8fafc",
-                  fontSize: 16,
-                  fontWeight: 400,
-                }}
-              />
+                    setDraftName(nextParticipantDraft.draftName);
+                    setDraftColor(nextParticipantDraft.draftColor);
+                  }}
+                  placeholder="Room name"
+                  className={fieldRecipes.default.input.className}
+                  style={fieldRecipes.default.input.style}
+                />
+              </div>
             </div>
 
             <label style={{ display: "grid", gap: 8 }}>
               <span style={{ fontSize: 14, color: "#cbd5e1" }}>Player</span>
-              <input
-                value={draftName}
-                onChange={(event) => {
-                  setDraftName(event.target.value);
-                }}
-                placeholder="Your name"
-                autoFocus
-                style={{
-                  padding: "12px 14px",
-                  borderRadius: 12,
-                  border: "1px solid rgba(148, 163, 184, 0.3)",
-                  background: "rgba(15, 23, 42, 0.9)",
-                  color: "#f8fafc",
-                  fontSize: 16,
-                }}
-              />
+              <div
+                {...getFieldShellProps(fieldRecipes.default.shell)}
+                {...getDesignSystemDebugAttrs(fieldRecipes.default.shell.debug)}
+              >
+                <input
+                  value={draftName}
+                  onChange={(event) => {
+                    setDraftName(event.target.value);
+                  }}
+                  placeholder="Your name"
+                  autoFocus
+                  className={fieldRecipes.default.input.className}
+                  style={fieldRecipes.default.input.style}
+                />
+              </div>
             </label>
 
             <div style={{ display: "grid", gap: 8 }}>
@@ -1013,6 +1043,15 @@ function BootstrappedApp() {
                   {PARTICIPANT_COLOR_OPTIONS.map((color) => {
                     const isSelected = color === draftColor;
                     const isOccupied = effectiveEntryOccupiedColors.has(color);
+                    const entryColorSwatchProps = getSwatchButtonProps(
+                      swatchPillRecipes.swatch.default,
+                      {
+                        fillColor: color,
+                        selected: isSelected,
+                        occupied: isOccupied,
+                        pending: isJoinPending,
+                      }
+                    );
 
                     return (
                       <button
@@ -1027,20 +1066,11 @@ function BootstrappedApp() {
                         title={
                           isOccupied ? "Currently occupied by an active participant" : undefined
                         }
-                        style={{
-                          width: 36,
-                          height: 36,
-                          borderRadius: 999,
-                          border: isSelected
-                            ? "3px solid #f8fafc"
-                            : isOccupied
-                              ? "2px dashed rgba(148, 163, 184, 0.65)"
-                              : "2px solid rgba(255, 255, 255, 0.2)",
-                          background: color,
-                          cursor:
-                            isOccupied || isJoinPending ? "not-allowed" : "pointer",
-                          opacity: isOccupied ? 0.45 : isJoinPending ? 0.75 : 1,
-                        }}
+                        className={entryColorSwatchProps.className}
+                        style={entryColorSwatchProps.style}
+                        {...getDesignSystemDebugAttrs(
+                          swatchPillRecipes.swatch.default.debug
+                        )}
                       />
                     );
                   })}
@@ -1051,15 +1081,11 @@ function BootstrappedApp() {
                   </div>
                 ) : (
                   <div
-                    style={{
-                      padding: "10px 12px",
-                      borderRadius: 10,
-                      border: "1px solid rgba(251, 113, 133, 0.35)",
-                      background: "rgba(127, 29, 29, 0.2)",
-                      fontSize: 12,
-                      fontWeight: 600,
-                      color: "#fecdd3",
-                    }}
+                    style={calloutRecipes.warning.default.style}
+                    className={calloutRecipes.warning.default.className}
+                    {...getDesignSystemDebugAttrs(
+                      calloutRecipes.warning.default.debug
+                    )}
                   >
                     Room full right now: all 8 participant colors are currently occupied.
                   </div>
@@ -1073,12 +1099,13 @@ function BootstrappedApp() {
                 onToggle={(event) => {
                   setIsEntryDebugOpen((event.target as HTMLDetailsElement).open);
                 }}
+                className={surfaceRecipes.inset.default.className}
                 style={{
-                  borderRadius: 12,
-                  border: "1px solid rgba(96, 165, 250, 0.25)",
+                  ...surfaceRecipes.inset.default.style,
+                  borderColor: "rgba(96, 165, 250, 0.25)",
                   background: "rgba(15, 23, 42, 0.55)",
-                  padding: "10px 12px",
                 }}
+                {...getDesignSystemDebugAttrs(surfaceRecipes.inset.default.debug)}
               >
                 <summary
                   style={{
@@ -1108,6 +1135,13 @@ function BootstrappedApp() {
                     <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                       {PARTICIPANT_COLOR_OPTIONS.map((color) => {
                         const isDebugOccupied = entryDebugOccupiedColors.includes(color);
+                        const debugOccupiedSwatchProps = getSwatchButtonProps(
+                          swatchPillRecipes.swatch.small,
+                          {
+                            fillColor: color,
+                            selected: isDebugOccupied,
+                          }
+                        );
 
                         return (
                           <button
@@ -1120,19 +1154,18 @@ function BootstrappedApp() {
                                   : [...current, color]
                               );
                             }}
+                            className={debugOccupiedSwatchProps.className}
                             style={{
+                              ...debugOccupiedSwatchProps.style,
                               width: 24,
                               height: 24,
-                              borderRadius: 999,
-                              border: isDebugOccupied
-                                ? "3px solid #f8fafc"
-                                : "1px solid rgba(255, 255, 255, 0.22)",
-                              background: color,
-                              cursor: "pointer",
                               opacity: isDebugOccupied ? 1 : 0.7,
                             }}
                             aria-label={`Toggle debug occupied color ${color}`}
                             title="Toggle local debug occupied color"
+                            {...getDesignSystemDebugAttrs(
+                              swatchPillRecipes.swatch.small.debug
+                            )}
                           />
                         );
                       })}
@@ -1142,28 +1175,27 @@ function BootstrappedApp() {
                     <span style={{ fontSize: 12, color: "#cbd5e1" }}>
                       Simulated claimed color
                     </span>
-                    <select
-                      value={entryDebugClaimColor ?? ""}
-                      onChange={(event) => {
-                        const nextValue = event.target.value.trim();
-                        setEntryDebugClaimColor(nextValue ? nextValue : null);
-                      }}
-                      style={{
-                        padding: "8px 10px",
-                        borderRadius: 10,
-                        border: "1px solid rgba(148, 163, 184, 0.3)",
-                        background: "rgba(15, 23, 42, 0.9)",
-                        color: "#f8fafc",
-                        fontSize: 12,
-                      }}
+                    <div
+                      {...getFieldShellProps(fieldRecipes.small.shell)}
+                      {...getDesignSystemDebugAttrs(fieldRecipes.small.shell.debug)}
                     >
-                      <option value="">None</option>
-                      {PARTICIPANT_COLOR_OPTIONS.map((color) => (
-                        <option key={`entry-debug-claim-${color}`} value={color}>
-                          {color}
-                        </option>
-                      ))}
-                    </select>
+                      <select
+                        value={entryDebugClaimColor ?? ""}
+                        onChange={(event) => {
+                          const nextValue = event.target.value.trim();
+                          setEntryDebugClaimColor(nextValue ? nextValue : null);
+                        }}
+                        className={fieldRecipes.small.select.className}
+                        style={fieldRecipes.small.select.style}
+                      >
+                        <option value="">None</option>
+                        {PARTICIPANT_COLOR_OPTIONS.map((color) => (
+                          <option key={`entry-debug-claim-${color}`} value={color}>
+                            {color}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
                   </label>
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                     <button
@@ -1172,16 +1204,10 @@ function BootstrappedApp() {
                         setEntryDebugOccupiedColors([...PARTICIPANT_COLOR_OPTIONS]);
                         setEntryDebugClaimColor(null);
                       }}
-                      style={{
-                        padding: "7px 10px",
-                        borderRadius: 999,
-                        border: "1px solid rgba(148, 163, 184, 0.25)",
-                        background: "rgba(15, 23, 42, 0.92)",
-                        color: "#e2e8f0",
-                        fontSize: 12,
-                        fontWeight: 600,
-                        cursor: "pointer",
-                      }}
+                      {...getPillButtonProps(swatchPillRecipes.pill.small)}
+                      {...getDesignSystemDebugAttrs(
+                        swatchPillRecipes.pill.small.debug
+                      )}
                     >
                       Room full
                     </button>
@@ -1191,16 +1217,10 @@ function BootstrappedApp() {
                         setEntryDebugOccupiedColors([]);
                         setEntryDebugClaimColor(null);
                       }}
-                      style={{
-                        padding: "7px 10px",
-                        borderRadius: 999,
-                        border: "1px solid rgba(148, 163, 184, 0.25)",
-                        background: "rgba(15, 23, 42, 0.92)",
-                        color: "#e2e8f0",
-                        fontSize: 12,
-                        fontWeight: 600,
-                        cursor: "pointer",
-                      }}
+                      {...getPillButtonProps(swatchPillRecipes.pill.small)}
+                      {...getDesignSystemDebugAttrs(
+                        swatchPillRecipes.pill.small.debug
+                      )}
                     >
                       Clear debug overrides
                     </button>
@@ -1211,15 +1231,11 @@ function BootstrappedApp() {
 
             {entryJoinFailureMessage ? (
               <div
-                style={{
-                  padding: "10px 12px",
-                  borderRadius: 10,
-                  border: "1px solid rgba(251, 191, 36, 0.35)",
-                  background: "rgba(120, 53, 15, 0.2)",
-                  fontSize: 12,
-                  fontWeight: 600,
-                  color: "#fde68a",
-                }}
+                style={calloutRecipes.warning.default.style}
+                className={calloutRecipes.warning.default.className}
+                {...getDesignSystemDebugAttrs(
+                  calloutRecipes.warning.default.debug
+                )}
               >
                 {entryJoinFailureMessage}
               </div>
@@ -1235,30 +1251,10 @@ function BootstrappedApp() {
                 isJoinPending
               }
               style={{
-                padding: "12px 16px",
-                borderRadius: 12,
-                border: "none",
-                background: draftColor,
-                color: "#f8fafc",
-                fontSize: 16,
-                fontWeight: 700,
-                cursor:
-                  normalizeRoomId(draftRoomId) &&
-                  draftName.trim() &&
-                  entryHasFreeColor &&
-                  !isDraftColorOccupied &&
-                  !isJoinPending
-                    ? "pointer"
-                    : "not-allowed",
-                opacity:
-                  normalizeRoomId(draftRoomId) &&
-                  draftName.trim() &&
-                  entryHasFreeColor &&
-                  !isDraftColorOccupied &&
-                  !isJoinPending
-                    ? 1
-                    : 0.6,
+                ...entryPrimaryButtonRecipe.style,
               }}
+              className={entryPrimaryButtonRecipe.className}
+              {...getDesignSystemDebugAttrs(entryPrimaryButtonRecipe.debug)}
             >
               {isJoinPending ? "Joining..." : "Join room"}
             </button>

@@ -26,6 +26,19 @@ import {
 import { createTokenObject } from "../board/objects/token/createTokenObject";
 import { TokenRenderer } from "../board/objects/token/TokenRenderer";
 import {
+  buttonRecipes,
+  createParticipantAccentButtonRecipe,
+} from "../ui/system/families/button";
+import { boardSurfaceRecipes } from "../ui/system/boardSurfaces";
+import { getDesignSystemDebugAttrs } from "../ui/system/debug";
+import { rowRecipes } from "../ui/system/families/row";
+import { selectionControlRecipes } from "../ui/system/families/selectionControls";
+import {
+  boardMaterials,
+  resolveBoardCanvasMaterials,
+} from "../ui/system/boardMaterials";
+import { surfaceRecipes } from "../ui/system/surfaces";
+import {
   resolveEffectiveImageBounds,
   type ImageEffectiveBounds,
 } from "../board/images/effectiveBounds";
@@ -382,6 +395,7 @@ export default function BoardStage({
   const [isColorPickerOpen, setIsColorPickerOpen] = useState(false);
   const [isDevToolsOpen, setIsDevToolsOpen] = useState(false);
   const [isObjectInspectionEnabled, setIsObjectInspectionEnabled] = useState(false);
+  const objectInspectionSelectionRecipe = selectionControlRecipes.checkbox.small;
   const [objectSemanticsHoverState, setObjectSemanticsHoverState] =
     useState<ObjectSemanticsHoverState | null>(null);
   const [governanceInspectionEntries, setGovernanceInspectionEntries] = useState<
@@ -2516,6 +2530,8 @@ export default function BoardStage({
     stageScale,
   ]);
 
+  const canvasBoardMaterials = useMemo(() => resolveBoardCanvasMaterials(), []);
+
   return (
     <div
       ref={containerRef}
@@ -2525,7 +2541,7 @@ export default function BoardStage({
         height: "100vh",
         margin: 0,
         overflow: "hidden",
-        background: "#081226",
+        background: boardMaterials.backdrop,
       }}
       onMouseMove={(event) => {
         updateLocalCursorPresence(event.clientX, event.clientY);
@@ -2603,7 +2619,21 @@ export default function BoardStage({
           imageInputRef.current?.click();
         }}
         aria-label="Add image"
+        className={createParticipantAccentButtonRecipe(
+          buttonRecipes.secondary.small,
+          participantSession.color
+        ).className}
+        {...getDesignSystemDebugAttrs(
+          createParticipantAccentButtonRecipe(
+            buttonRecipes.secondary.small,
+            participantSession.color
+          ).debug
+        )}
         style={{
+          ...createParticipantAccentButtonRecipe(
+            buttonRecipes.secondary.small,
+            participantSession.color
+          ).style,
           position: "fixed",
           top: 20,
           right: 20,
@@ -2612,16 +2642,9 @@ export default function BoardStage({
           width: 36,
           height: 36,
           padding: 0,
-          borderRadius: 12,
-          border: `1px solid ${participantSession.color}`,
-          background: "rgba(15, 23, 42, 0.92)",
-          color: "#f8fafc",
           fontSize: 18,
-          fontWeight: 700,
-          fontFamily: HTML_UI_FONT_FAMILY,
           lineHeight: 1,
           boxShadow: "0 18px 40px rgba(2, 6, 23, 0.3)",
-          cursor: "pointer",
         }}
       >
         +
@@ -2676,12 +2699,11 @@ export default function BoardStage({
           <div style={{ display: "grid", gap: 12 }}>
             <label
               style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
+                ...objectInspectionSelectionRecipe.row.style,
                 color: "#cbd5e1",
-                fontSize: 12,
               }}
+              className={objectInspectionSelectionRecipe.row.className}
+              {...getDesignSystemDebugAttrs(objectInspectionSelectionRecipe.row.debug)}
             >
               <input
                 type="checkbox"
@@ -2694,21 +2716,26 @@ export default function BoardStage({
                     clearObjectSemanticsHover();
                   }
                 }}
+                style={objectInspectionSelectionRecipe.indicator.style}
+                className={objectInspectionSelectionRecipe.indicator.className}
               />
-              Inspect object semantics on hover
+              <span
+                style={objectInspectionSelectionRecipe.label.style}
+                className={objectInspectionSelectionRecipe.label.className}
+              >
+                Inspect object semantics on hover
+              </span>
             </label>
 
             <div
+              className={surfaceRecipes.inset.default.className}
               style={{
-                display: "grid",
+                ...surfaceRecipes.inset.default.style,
                 gap: 8,
-                padding: 10,
-                borderRadius: 12,
-                border: "1px solid rgba(148, 163, 184, 0.16)",
                 background: "rgba(15, 23, 42, 0.45)",
-                color: "#cbd5e1",
                 fontSize: 12,
               }}
+              {...getDesignSystemDebugAttrs(surfaceRecipes.inset.default.debug)}
             >
               <div
                 style={{
@@ -2952,8 +2979,8 @@ export default function BoardStage({
             y={0}
             width={BOARD_WIDTH}
             height={BOARD_HEIGHT}
-            fill="#1e293b"
-            cornerRadius={24}
+            fill={canvasBoardMaterials.surface}
+            cornerRadius={canvasBoardMaterials.surfaceRadius}
             onMouseDown={() => {
               if (drawingImageId) {
                 finishImageDrawingMode();
@@ -3641,20 +3668,12 @@ export default function BoardStage({
               window.innerHeight - 180
             ),
             zIndex: 40,
-            minWidth: 220,
-            maxWidth: 240,
-            display: "grid",
-            gap: 6,
-            padding: 10,
-            borderRadius: 12,
-            border: "1px solid rgba(148, 163, 184, 0.24)",
-            background: "rgba(15, 23, 42, 0.94)",
-            color: "#e2e8f0",
-            boxShadow: "0 20px 48px rgba(2, 6, 23, 0.34)",
-            pointerEvents: "none",
+            ...boardSurfaceRecipes.objectSemanticsTooltip.shell.style,
             fontFamily: HTML_UI_FONT_FAMILY,
-            fontSize: 12,
           }}
+          {...getDesignSystemDebugAttrs(
+            boardSurfaceRecipes.objectSemanticsTooltip.shell.debug
+          )}
         >
           <div
             style={{
@@ -3678,9 +3697,10 @@ export default function BoardStage({
                 alignItems: "start",
               }}
             >
-              <div style={{ color: "#94a3b8" }}>{row.label}</div>
+              <div style={rowRecipes.data.default.supportingText.style}>{row.label}</div>
               <div
                 style={{
+                  ...rowRecipes.data.default.title.style,
                   color: "#f8fafc",
                   wordBreak: "break-word",
                 }}

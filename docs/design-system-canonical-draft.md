@@ -1679,7 +1679,6 @@ Family rule:
 
 Current boundary exclusions:
 
-- floating add-image trigger
 - Konva object-adjacent image controls
 - swatch buttons
 - cursor/presence controls
@@ -1688,8 +1687,69 @@ Current note:
 
 - these exclusions should remain outside the standard button family until a
   later pass proves that they belong in a more general action-control family
-- dice and toolbar actions may still need later review to determine whether
-  they settle inside the standard button family or remain a narrower subtype
+- the shared ordinary button chapter now already covers:
+  - ops buttons
+  - board toolbar buttons
+  - dice tray buttons
+  - media buttons
+  - entry primary CTA
+  - fixed add-image trigger
+- the main later-return button-like exceptions are:
+  - entry debug pills
+  - participant-panel transparent text actions
+  - participant-panel text buttons such as `Leave room`
+  - participant-panel micro-actions
+  - participant-panel creator-only destructive button such as `Reset board`
+  - object-adjacent image controls
+- required follow-up:
+  - the current `text button` implementation may temporarily live in
+    `src/ui/system/families/button.ts` for migration speed
+  - this should not be treated as its final home
+  - after the main migration chapter stabilizes, `text button` should be
+    revisited and moved into a clearer subtype chapter or adjacent family
+    instead of remaining permanently embedded in the filled-button module
+
+Subtype direction:
+
+- participant-colored button cases should currently be treated as subtypes of
+  the ordinary button family rather than as separate button families
+- the current intended direction is:
+  - dice buttons = `secondary` button with participant-accent subtype
+  - title/hero-ish participant-accent action = `primary` button with selected-
+    participant accent subtype
+
+Working rule:
+
+- participant-accent button cases should inherit ordinary button-family
+  structure first
+- accent color should behave as an overlaying subtype dimension, not as proof
+  of a separate family
+- toggle behavior should also behave as a subtype dimension, not as proof of a
+  separate button family
+
+Subtype recipe rule:
+
+- participant-accent button subtypes should inherit the ordinary button-family
+  recipe completely and override only the tone layer
+- tone override may affect:
+  - surface
+  - border
+  - text contrast where required
+  - hover/active tonal states
+- tone override should not affect:
+  - geometry
+  - typography
+  - focus-ring structure
+  - disabled-state structure
+
+In practical terms:
+
+- `participantAccentSecondary` = shared `secondary` button recipe + participant-
+  accent tone override
+- `participantAccentPrimary` = shared `primary` button recipe + participant-
+  accent tone override
+- `toggleSecondarySmall` = shared `secondary.small` button recipe + toggle tone
+  override
 
 ### 6.5. Callout family
 
@@ -1786,6 +1846,16 @@ Current internal split:
   - circular or near-circular color-selection controls
 - `pill`
   - compact rounded text controls or compact chip-like actions
+
+Current direction correction:
+
+- swatch remains a valid shared family branch
+- pill should not currently be treated as a required long-term family branch
+- the current entry debug pills are better treated as candidates for
+  `button.small`
+- if ordinary `small` button geometry proves too loose, add a separate
+  `compact button` path rather than preserving `pill` as a required family by
+  default
 
 Scale rule:
 

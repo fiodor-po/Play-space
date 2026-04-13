@@ -218,6 +218,31 @@ The design-system chapter should respect the existing layer framing:
 - object layer
 - interaction layer
 - control layer
+
+## 6.1. CSS token consumption vs canvas consumption
+
+When design-system rollout touches Konva/canvas-rendered surfaces, the chapter
+must explicitly distinguish between:
+
+- semantic token ownership
+- runtime token resolution
+- final render consumption
+
+Practical rule:
+
+- CSS custom properties may be the semantic source of truth;
+- ordinary DOM surfaces may consume `var(--token)` directly;
+- Konva/canvas consumers should receive already resolved runtime values rather
+  than raw `var(--token)` strings unless that exact consumption path has been
+  verified in runtime.
+
+Why this rule exists:
+
+- a visually narrow tokenization pass can appear semantically correct while
+  still breaking runtime rendering if a canvas consumer stops receiving a real
+  color/material value;
+- therefore canvas-facing token rollout should include an explicit verification
+  step for the actual rendered result, not only source-level token ownership.
 - presence layer
 - special interaction systems
 

@@ -9,6 +9,56 @@
 
 ---
 
+## Phase 0X — Board-material tokenization exposed a CSS-vs-canvas token boundary
+
+### Type
+- finding
+- fix
+
+### Context
+Во время narrow design-system rollout для board material был сделан логически правильный на вид pass:
+
+- board backdrop and board surface were moved from scattered literals toward a shared board-material source;
+- semantic ownership became cleaner;
+- visual hierarchy unexpectedly regressed in runtime.
+
+### Goal or problem
+Нужно было понять, почему после tokenization board/backdrop relationship визуально инвертировался:
+
+- board itself looked almost black / too dark;
+- surrounding backdrop read lighter by comparison;
+- this contradicted the intended visual hierarchy.
+
+### What happened
+Root cause turned out to be a runtime boundary, not a semantic color-choice mistake.
+
+- DOM/CSS consumers can use `var(--token)` directly.
+- Konva canvas fills should not be assumed to consume raw CSS variable strings the same way.
+- The board backdrop stayed correct because it was still a normal DOM background.
+- The board surface regressed because the Konva `Rect fill` stopped receiving a normal resolved color string.
+
+### Decision / change
+The project now has an explicit rule for board materials:
+
+- CSS custom properties may remain the semantic source of truth;
+- DOM surfaces may consume them directly;
+- canvas/Konva consumers must use a small runtime resolver that returns a real color string.
+
+This keeps one semantic board-material source of truth without pretending that DOM and canvas consume tokens identically.
+
+### Why
+Without this rule, a “safe tokenization pass” can silently become a visual regression even when the chosen token values themselves are unchanged.
+
+### Result
+The board/backdrop hierarchy was restored through a narrow runtime fix rather than through a broader restyle.
+
+The more durable lesson is now explicit:
+
+- token semantics and token transport are different things;
+- when design-system work touches Konva/canvas rendering, verify how values are actually consumed at runtime before assuming CSS-token mechanics carry over unchanged.
+
+---
+
 ## Phase 0X — Snapshot-based public demo strategy
 
 ### Type
@@ -2339,6 +2389,44 @@ One stronger normative rule was then accepted for future interaction work:
 - they should not scale like ordinary board content during zoom;
 - if current runtime behavior diverges from that rule, it should be treated as
   drift to fix rather than as the source of truth for the rule itself.
+
+Another workflow lesson also became explicit during the design-system migration
+chapter:
+
+- executor-side manual QA is limited and should not be assumed just because a
+  task brief lists UI checks;
+- for this project, the executor is reliable for builds, narrow code-path
+  validation, and existing inspect/debug surfaces;
+- but visual acceptance, browser-heavy interaction verification, and broader
+  multi-client/session QA still need either:
+  - a practical runnable verification path,
+  - or explicit user-side confirmation.
+
+This should affect future briefs:
+
+- "manual QA" should usually be phrased as:
+  - if practical,
+  - or report whether it was actually run;
+- executor output should state clearly when manual QA was not actually
+  performed instead of implying that it happened automatically.
+
+Another important checkpoint was also reached:
+
+- the ordinary-interface design-system migration chapter is now good enough to
+  pause as structurally landed;
+- fields, buttons, selection controls, swatches, boxed callouts, surfaces,
+  rows, and the remaining ops inline helper/error text now all have shared
+  runtime ownership;
+- the remaining ordinary-interface work is now mostly later cleanup,
+  visual reconciliation, and explicit local exceptions rather than major shared
+  family migration debt.
+
+This changes the design-system framing going forward:
+
+- the next useful design-system work should not keep stretching the ordinary
+  interface chapter indefinitely;
+- the safer next step is the board-layer chapter, beginning with board material
+  tokenization and the now-explicit CSS-vs-canvas resolution rule.
 
 ---
 

@@ -1,5 +1,16 @@
 import { forwardRef, type ReactNode } from "react";
 import { HTML_UI_FONT_FAMILY } from "../constants";
+import { getDesignSystemDebugAttrs } from "../../ui/system/debug";
+import {
+  buttonRecipes,
+  createTextButtonRecipe,
+} from "../../ui/system/families/button";
+import { selectionControlRecipes } from "../../ui/system/families/selectionControls";
+import { surfaceRecipes } from "../../ui/system/surfaces";
+import {
+  getSwatchButtonProps,
+  swatchPillRecipes,
+} from "../../ui/system/families/swatchPill";
 
 type ParticipantSessionPanelProps = {
   roomId: string;
@@ -50,6 +61,19 @@ export const ParticipantSessionPanel = forwardRef<
   },
   ref
 ) {
+  const leaveRoomButtonRecipe = createTextButtonRecipe(
+    buttonRecipes.secondary.small,
+    "muted"
+  );
+  const resetBoardButtonRecipe = buttonRecipes.danger.small;
+  const devToolsSelectionRecipe = selectionControlRecipes.checkbox.small;
+  const participantColorTriggerProps = getSwatchButtonProps(
+    swatchPillRecipes.swatch.trigger,
+    {
+      fillColor: participantColor,
+      selected: true,
+    }
+  );
   const roomCreatorLine = isCurrentParticipantRoomCreator
     ? "Creator: You"
     : roomCreatorName
@@ -59,24 +83,22 @@ export const ParticipantSessionPanel = forwardRef<
   return (
     <div
       ref={ref}
+      className={surfaceRecipes.panel.compact.className}
       style={{
+        ...surfaceRecipes.panel.compact.style,
         position: "fixed",
         top: 20,
         left: 20,
         zIndex: 10,
-        display: "grid",
-        gap: 8,
         minWidth: 180,
-        padding: 12,
         borderRadius: 14,
         border: "1px solid rgba(148, 163, 184, 0.22)",
-        background: "rgba(15, 23, 42, 0.88)",
-        color: "#e2e8f0",
         boxShadow: "0 18px 50px rgba(2, 6, 23, 0.35)",
         backdropFilter: "blur(10px)",
         fontFamily: HTML_UI_FONT_FAMILY,
         pointerEvents: "none",
       }}
+      {...getDesignSystemDebugAttrs(surfaceRecipes.panel.compact.debug)}
     >
       <div
         style={{
@@ -99,16 +121,15 @@ export const ParticipantSessionPanel = forwardRef<
           type="button"
           onClick={onLeaveRoom}
           style={{
+            ...leaveRoomButtonRecipe.style,
+            minHeight: "auto",
             padding: 0,
-            border: "none",
-            background: "transparent",
-            color: "#94a3b8",
-            fontSize: 12,
-            fontWeight: 600,
-            fontFamily: HTML_UI_FONT_FAMILY,
-            cursor: "pointer",
+            borderRadius: 0,
+            justifyContent: "flex-end",
             pointerEvents: "auto",
           }}
+          className={leaveRoomButtonRecipe.className}
+          {...getDesignSystemDebugAttrs(leaveRoomButtonRecipe.debug)}
         >
           Leave room
         </button>
@@ -140,18 +161,9 @@ export const ParticipantSessionPanel = forwardRef<
           type="button"
           onClick={onToggleColorPicker}
           aria-label="Edit participant color"
-          style={{
-            width: 16,
-            height: 16,
-            borderRadius: 999,
-            background: participantColor,
-            border: "2px solid rgba(255, 255, 255, 0.85)",
-            boxShadow: "0 0 0 1px rgba(15, 23, 42, 0.4)",
-            flexShrink: 0,
-            padding: 0,
-            cursor: "pointer",
-            pointerEvents: "auto",
-          }}
+          className={participantColorTriggerProps.className}
+          style={participantColorTriggerProps.style}
+          {...getDesignSystemDebugAttrs(swatchPillRecipes.swatch.trigger.debug)}
         />
 
         {isEditingParticipantName ? (
@@ -214,6 +226,13 @@ export const ParticipantSessionPanel = forwardRef<
         >
           {participantColorOptions.map((color) => {
             const isSelected = color === participantColor;
+            const participantPaletteSwatchProps = getSwatchButtonProps(
+              swatchPillRecipes.swatch.small,
+              {
+                fillColor: color,
+                selected: isSelected,
+              }
+            );
 
             return (
               <button
@@ -223,18 +242,9 @@ export const ParticipantSessionPanel = forwardRef<
                   onSelectParticipantColor(color);
                 }}
                 aria-label={`Select color ${color}`}
-                style={{
-                  width: 20,
-                  height: 20,
-                  borderRadius: 999,
-                  border: isSelected
-                    ? "2px solid #f8fafc"
-                    : "1px solid rgba(255, 255, 255, 0.22)",
-                  background: color,
-                  padding: 0,
-                  cursor: "pointer",
-                  pointerEvents: "auto",
-                }}
+                className={participantPaletteSwatchProps.className}
+                style={participantPaletteSwatchProps.style}
+                {...getDesignSystemDebugAttrs(swatchPillRecipes.swatch.small.debug)}
               />
             );
           })}
@@ -269,18 +279,13 @@ export const ParticipantSessionPanel = forwardRef<
             type="button"
             onClick={onResetBoard}
             style={{
-              padding: "6px 10px",
-              borderRadius: 10,
-              border: "1px solid rgba(248, 113, 113, 0.32)",
-              background: "rgba(69, 10, 10, 0.9)",
-              color: "#fecaca",
-              fontSize: 12,
-              fontWeight: 700,
-              fontFamily: HTML_UI_FONT_FAMILY,
+              ...resetBoardButtonRecipe.style,
               textAlign: "left",
-              cursor: "pointer",
+              justifyContent: "flex-start",
               pointerEvents: "auto",
             }}
+            className={resetBoardButtonRecipe.className}
+            {...getDesignSystemDebugAttrs(resetBoardButtonRecipe.debug)}
           >
             Reset board
           </button>
@@ -299,15 +304,11 @@ export const ParticipantSessionPanel = forwardRef<
       >
         <label
           style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-            color: "#94a3b8",
-            fontSize: 12,
-            fontWeight: 700,
-            cursor: "pointer",
+            ...devToolsSelectionRecipe.row.style,
             pointerEvents: "auto",
           }}
+          className={devToolsSelectionRecipe.row.className}
+          {...getDesignSystemDebugAttrs(devToolsSelectionRecipe.row.debug)}
         >
           <input
             type="checkbox"
@@ -315,11 +316,15 @@ export const ParticipantSessionPanel = forwardRef<
             onChange={() => {
               onToggleDevTools();
             }}
-            style={{
-              margin: 0,
-            }}
+            style={devToolsSelectionRecipe.indicator.style}
+            className={devToolsSelectionRecipe.indicator.className}
           />
-          Debug tools
+          <span
+            style={devToolsSelectionRecipe.label.style}
+            className={devToolsSelectionRecipe.label.className}
+          >
+            Debug tools
+          </span>
         </label>
 
         {isDevToolsOpen && (

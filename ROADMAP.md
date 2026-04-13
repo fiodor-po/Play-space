@@ -193,6 +193,12 @@ Core hosted signal уже получен.
     - identify mixed / skipped / ad hoc dependency edges
   - only after that define the canonical design-system model
   - and only then do a narrow rollout plan
+  - ordinary-interface migration chapter is now structurally landed enough to
+    pause
+  - remaining ordinary-interface work is now mostly later cleanup, visual
+    reconciliation, and explicit local exceptions
+  - the next safe design-system direction is board-layer work, starting with
+    board material tokenization and its canvas-resolution rule
 - [ ] object interaction UI standardization chapter:
   - first explicitly separate the app into:
     - object layer

@@ -1,3 +1,6 @@
+import { buttonRecipes } from "../../ui/system/families/button";
+import { getDesignSystemDebugAttrs } from "../../ui/system/debug";
+
 type BoardToolbarProps = {
   onAddImage: () => void;
   onAddNote: () => void;
@@ -20,14 +23,9 @@ export function BoardToolbar({
       <button
         type="button"
         onClick={onAddImage}
-        style={{
-          padding: "10px 14px",
-          borderRadius: 10,
-          border: "1px solid #0f766e",
-          background: "#0f766e",
-          color: "#ecfeff",
-          cursor: "pointer",
-        }}
+        className={buttonRecipes.primary.default.className}
+        style={buttonRecipes.primary.default.style}
+        {...getDesignSystemDebugAttrs(buttonRecipes.primary.default.debug)}
       >
         Add image
       </button>
@@ -35,14 +33,9 @@ export function BoardToolbar({
       <button
         type="button"
         onClick={onAddNote}
-        style={{
-          padding: "10px 14px",
-          borderRadius: 10,
-          border: "1px solid #cbd5e1",
-          background: "#f8fafc",
-          color: "#0f172a",
-          cursor: "pointer",
-        }}
+        className={buttonRecipes.secondary.default.className}
+        style={buttonRecipes.secondary.default.style}
+        {...getDesignSystemDebugAttrs(buttonRecipes.secondary.default.debug)}
       >
         Add note
       </button>
@@ -50,14 +43,9 @@ export function BoardToolbar({
       <button
         type="button"
         onClick={onResetBoard}
-        style={{
-          padding: "10px 14px",
-          borderRadius: 10,
-          border: "1px solid #334155",
-          background: "#0f172a",
-          color: "#e2e8f0",
-          cursor: "pointer",
-        }}
+        className={buttonRecipes.danger.default.className}
+        style={buttonRecipes.danger.default.style}
+        {...getDesignSystemDebugAttrs(buttonRecipes.danger.default.debug)}
       >
         Reset board
       </button>

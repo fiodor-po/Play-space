@@ -1,3 +1,5 @@
+@import "./ui/system/tokens.css";
+
 html,
 body,
 #root {
@@ -9,7 +11,7 @@ body,
 
 body {
   overflow: hidden;
-  background: #081226;
+  background: var(--ui-board-backdrop);
 }
 
 * {

@@ -479,3 +479,19 @@ Stop and split the work if:
   export exists
 - the implementation begins to widen into a button/callout/surface migration at
   the same time
+
+### 9.12. Follow-up note after the first field slice
+
+Once the first `field` family rollout lands:
+
+- the shared disabled-shell path should be treated as real substrate behavior,
+  not just a theoretical capability
+- but it should also be considered only lightly exercised until more than one
+  migrated consumer uses it in a real runtime flow
+
+Working implication:
+
+- later family rollouts may safely reuse the same state-hook pattern
+- but the project should not overestimate how broadly this specific disabled
+  shell behavior has already been proven just because the first field slice
+  introduced it

@@ -1,6 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import type { CSSProperties, FormEvent } from "react";
 import { HTML_UI_FONT_FAMILY } from "../board/constants";
+import { getDesignSystemDebugAttrs } from "../ui/system/debug";
+import { buttonRecipes } from "../ui/system/families/button";
+import { fieldRecipes, getFieldShellProps } from "../ui/system/families/field";
+import { getSelectableRowProps, rowRecipes } from "../ui/system/families/row";
+import { inlineTextRecipes } from "../ui/system/inlineText";
+import { surfaceRecipes } from "../ui/system/surfaces";
 import {
   deleteRoomOpsSnapshot,
   fetchRoomOpsDetail,
@@ -369,18 +375,33 @@ export function RoomsOpsPage() {
           <div style={{ fontSize: 13, color: "#94a3b8" }}>
             Internal alpha room inspection and snapshot repair.
           </div>
-          <input
-            type="password"
-            value={opsKeyDraft}
-            onChange={(event) => setOpsKeyDraft(event.target.value)}
-            placeholder="Ops key"
-            autoFocus
-            style={inputStyle}
-          />
+          <div
+            {...getFieldShellProps(fieldRecipes.default.shell, {
+              disabled: isUnlocking,
+            })}
+            {...getDesignSystemDebugAttrs(fieldRecipes.default.shell.debug)}
+          >
+            <input
+              type="password"
+              value={opsKeyDraft}
+              onChange={(event) => setOpsKeyDraft(event.target.value)}
+              placeholder="Ops key"
+              autoFocus
+              disabled={isUnlocking}
+              className={fieldRecipes.default.input.className}
+              style={fieldRecipes.default.input.style}
+            />
+          </div>
           {authError ? (
-            <div style={{ fontSize: 12, color: "#fca5a5" }}>{authError}</div>
+            <div style={inlineTextRecipes.error.style}>{authError}</div>
           ) : null}
-          <button type="submit" style={primaryButtonStyle} disabled={isUnlocking}>
+          <button
+            type="submit"
+            className={buttonRecipes.primary.default.className}
+            style={buttonRecipes.primary.default.style}
+            disabled={isUnlocking}
+            {...getDesignSystemDebugAttrs(buttonRecipes.primary.default.debug)}
+          >
             {isUnlocking ? "Unlocking..." : "Unlock"}
           </button>
         </form>
@@ -416,7 +437,9 @@ export function RoomsOpsPage() {
               setSelectedRoom(null);
               setSelectedRoomId("");
             }}
-            style={secondaryButtonStyle}
+            className={buttonRecipes.secondary.small.className}
+            style={buttonRecipes.secondary.small.style}
+            {...getDesignSystemDebugAttrs(buttonRecipes.secondary.small.debug)}
           >
             Lock
           </button>
@@ -430,7 +453,11 @@ export function RoomsOpsPage() {
             alignItems: "start",
           }}
         >
-          <div style={panelStyle}>
+          <div
+            className={surfaceRecipes.panel.default.className}
+            style={surfaceRecipes.panel.default.style}
+            {...getDesignSystemDebugAttrs(surfaceRecipes.panel.default.debug)}
+          >
             <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
               <div style={{ fontSize: 16, fontWeight: 700 }}>Rooms</div>
               <button
@@ -438,16 +465,18 @@ export function RoomsOpsPage() {
                 onClick={() => {
                   setRefreshNonce((current) => current + 1);
                 }}
-                style={secondaryButtonStyle}
+                className={buttonRecipes.secondary.small.className}
+                style={buttonRecipes.secondary.small.style}
+                {...getDesignSystemDebugAttrs(buttonRecipes.secondary.small.debug)}
               >
                 Refresh
               </button>
             </div>
 
             {isLoadingRooms ? (
-              <div style={mutedTextStyle}>Loading rooms…</div>
+              <div style={inlineTextRecipes.muted.style}>Loading rooms…</div>
             ) : null}
-            {authError ? <div style={errorTextStyle}>{authError}</div> : null}
+            {authError ? <div style={inlineTextRecipes.error.style}>{authError}</div> : null}
 
             <div style={{ display: "grid", gap: 8 }}>
               {rooms.map((room) => {
@@ -458,22 +487,28 @@ export function RoomsOpsPage() {
                     key={room.roomId}
                     type="button"
                     onClick={() => setSelectedRoomId(room.roomId)}
-                    style={{
-                      ...roomRowStyle,
-                      borderColor: isSelected
-                        ? "rgba(96, 165, 250, 0.7)"
-                        : "rgba(148, 163, 184, 0.16)",
-                      background: isSelected
-                        ? "rgba(30, 41, 59, 0.95)"
-                        : "rgba(15, 23, 42, 0.72)",
-                    }}
+                    className={
+                      getSelectableRowProps(rowRecipes.selectable.default, {
+                        selected: isSelected,
+                      }).className
+                    }
+                    style={
+                      getSelectableRowProps(rowRecipes.selectable.default, {
+                        selected: isSelected,
+                      }).style
+                    }
+                    {...getDesignSystemDebugAttrs(
+                      rowRecipes.selectable.default.debug
+                    )}
                   >
-                    <div style={{ fontSize: 14, fontWeight: 700 }}>{room.roomId}</div>
-                    <div style={mutedTextStyle}>
+                    <div style={rowRecipes.selectable.default.title.style}>
+                      {room.roomId}
+                    </div>
+                    <div style={rowRecipes.selectable.default.supportingText.style}>
                       {room.status} · creator {room.identity.creatorId ?? "none"} · live{" "}
                       {room.live.activeConnectionCount}
                     </div>
-                    <div style={mutedTextStyle}>
+                    <div style={rowRecipes.selectable.default.supportingText.style}>
                       snapshot rev {room.snapshot.revision ?? "none"} · objects{" "}
                       {room.snapshot.objectCounts.total} · images{" "}
                       {room.snapshot.objectCounts.images} · notes{" "}
@@ -484,16 +519,20 @@ export function RoomsOpsPage() {
               })}
 
               {!isLoadingRooms && rooms.length === 0 ? (
-                <div style={mutedTextStyle}>No backend-known rooms.</div>
+                <div style={inlineTextRecipes.muted.style}>No backend-known rooms.</div>
               ) : null}
             </div>
           </div>
 
-          <div style={panelStyle}>
+          <div
+            className={surfaceRecipes.panel.default.className}
+            style={surfaceRecipes.panel.default.style}
+            {...getDesignSystemDebugAttrs(surfaceRecipes.panel.default.debug)}
+          >
             {!selectedRoomId ? (
-              <div style={mutedTextStyle}>Select a room.</div>
+              <div style={inlineTextRecipes.muted.style}>Select a room.</div>
             ) : isLoadingDetail ? (
-              <div style={mutedTextStyle}>Loading room detail…</div>
+              <div style={inlineTextRecipes.muted.style}>Loading room detail…</div>
             ) : selectedRoom ? (
               <div style={{ display: "grid", gap: 16 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
@@ -501,23 +540,21 @@ export function RoomsOpsPage() {
                     <div style={{ fontSize: 20, fontWeight: 800 }}>
                       {selectedRoom.roomId}
                     </div>
-                    <div style={mutedTextStyle}>{selectedRoom.status}</div>
+                    <div style={inlineTextRecipes.muted.style}>{selectedRoom.status}</div>
                   </div>
                   <button
                     type="button"
                     onClick={handleDeleteSnapshot}
                     disabled={!selectedRoom.snapshot.exists || isDeletingSnapshot}
-                    style={{
-                      ...dangerButtonStyle,
-                      opacity:
-                        !selectedRoom.snapshot.exists || isDeletingSnapshot ? 0.5 : 1,
-                    }}
+                    className={buttonRecipes.danger.default.className}
+                    style={buttonRecipes.danger.default.style}
+                    {...getDesignSystemDebugAttrs(buttonRecipes.danger.default.debug)}
                   >
                     {isDeletingSnapshot ? "Deleting…" : "Delete durable snapshot"}
                   </button>
                 </div>
 
-                {detailError ? <div style={errorTextStyle}>{detailError}</div> : null}
+                {detailError ? <div style={inlineTextRecipes.error.style}>{detailError}</div> : null}
 
                 <div style={statsGridStyle}>
                   <InfoCard
@@ -538,7 +575,7 @@ export function RoomsOpsPage() {
 
                 <div style={{ display: "grid", gap: 8 }}>
                   <div style={{ fontSize: 15, fontWeight: 700 }}>Durable identity</div>
-                  <div style={mutedTextStyle}>
+                  <div style={inlineTextRecipes.muted.style}>
                     {selectedRoom.identity.exists
                       ? `creator ${selectedRoom.identity.creatorId ?? "none"} · created ${selectedRoom.identity.createdAt ?? "unknown"}`
                       : "No durable room identity stored."}
@@ -548,14 +585,25 @@ export function RoomsOpsPage() {
                 <div style={{ display: "grid", gap: 8 }}>
                   <div style={{ fontSize: 15, fontWeight: 700 }}>Live slices</div>
                   {selectedRoom.live.slices.length === 0 ? (
-                    <div style={mutedTextStyle}>No live room docs currently in memory.</div>
+                    <div style={inlineTextRecipes.muted.style}>No live room docs currently in memory.</div>
                   ) : (
                     <div style={{ display: "grid", gap: 8 }}>
                       {selectedRoom.live.slices.map((slice) => (
-                        <div key={slice.docName} style={sliceRowStyle}>
-                          <div style={{ fontWeight: 700 }}>{slice.kind}</div>
-                          <div style={mutedTextStyle}>{slice.docName}</div>
-                          <div style={mutedTextStyle}>
+                        <div
+                          key={slice.docName}
+                          className={rowRecipes.data.default.container.className}
+                          style={rowRecipes.data.default.container.style}
+                          {...getDesignSystemDebugAttrs(
+                            rowRecipes.data.default.debug
+                          )}
+                        >
+                          <div style={rowRecipes.data.default.title.style}>
+                            {slice.kind}
+                          </div>
+                          <div style={rowRecipes.data.default.supportingText.style}>
+                            {slice.docName}
+                          </div>
+                          <div style={rowRecipes.data.default.supportingText.style}>
                             connections {slice.connectionCount} · shared objects{" "}
                             {slice.sharedObjectCount} · awareness states{" "}
                             {slice.awarenessStateCount}
@@ -568,13 +616,13 @@ export function RoomsOpsPage() {
 
                 <div style={{ display: "grid", gap: 8 }}>
                   <div style={{ fontSize: 15, fontWeight: 700 }}>Durable snapshot</div>
-                  <div style={mutedTextStyle}>
+                  <div style={inlineTextRecipes.muted.style}>
                     {selectedRoom.snapshot.exists
                       ? `saved ${selectedRoom.snapshot.savedAt ?? "unknown"}`
                       : "No durable snapshot stored."}
                   </div>
                   {selectedRoom.snapshot.exists ? (
-                    <div style={mutedTextStyle}>
+                    <div style={inlineTextRecipes.muted.style}>
                       tokens {selectedRoom.snapshot.objectCounts.tokens} · images{" "}
                       {selectedRoom.snapshot.objectCounts.images} · notes{" "}
                       {selectedRoom.snapshot.objectCounts.textCards}
@@ -586,7 +634,7 @@ export function RoomsOpsPage() {
                 </div>
               </div>
             ) : (
-              <div style={mutedTextStyle}>Room detail unavailable.</div>
+              <div style={inlineTextRecipes.muted.style}>Room detail unavailable.</div>
             )}
           </div>
         </div>
@@ -597,7 +645,11 @@ export function RoomsOpsPage() {
 
 function InfoCard(props: { label: string; value: string }) {
   return (
-    <div style={infoCardStyle}>
+    <div
+      className={surfaceRecipes.infoCard.default.className}
+      style={surfaceRecipes.infoCard.default.style}
+      {...getDesignSystemDebugAttrs(surfaceRecipes.infoCard.default.debug)}
+    >
       <div style={{ fontSize: 11, color: "#94a3b8", textTransform: "uppercase" }}>
         {props.label}
       </div>
@@ -606,98 +658,10 @@ function InfoCard(props: { label: string; value: string }) {
   );
 }
 
-const panelStyle: CSSProperties = {
-  display: "grid",
-  gap: 12,
-  padding: 16,
-  borderRadius: 16,
-  background: "#0f172a",
-  border: "1px solid rgba(148, 163, 184, 0.16)",
-};
-
-const inputStyle: CSSProperties = {
-  padding: "12px 14px",
-  borderRadius: 12,
-  border: "1px solid rgba(148, 163, 184, 0.28)",
-  background: "rgba(15, 23, 42, 0.9)",
-  color: "#f8fafc",
-  fontSize: 15,
-};
-
-const primaryButtonStyle: CSSProperties = {
-  padding: "10px 14px",
-  borderRadius: 12,
-  border: "none",
-  background: "#2563eb",
-  color: "#eff6ff",
-  cursor: "pointer",
-  fontWeight: 700,
-};
-
-const secondaryButtonStyle: CSSProperties = {
-  padding: "8px 12px",
-  borderRadius: 10,
-  border: "1px solid rgba(148, 163, 184, 0.22)",
-  background: "rgba(15, 23, 42, 0.72)",
-  color: "#e2e8f0",
-  cursor: "pointer",
-  fontSize: 12,
-  fontWeight: 700,
-};
-
-const dangerButtonStyle: CSSProperties = {
-  padding: "10px 14px",
-  borderRadius: 12,
-  border: "1px solid rgba(248, 113, 113, 0.28)",
-  background: "rgba(127, 29, 29, 0.3)",
-  color: "#fecaca",
-  cursor: "pointer",
-  fontWeight: 700,
-};
-
-const roomRowStyle: CSSProperties = {
-  display: "grid",
-  gap: 4,
-  textAlign: "left",
-  padding: 12,
-  borderRadius: 12,
-  border: "1px solid rgba(148, 163, 184, 0.16)",
-  color: "#e2e8f0",
-  cursor: "pointer",
-};
-
-const sliceRowStyle: CSSProperties = {
-  display: "grid",
-  gap: 2,
-  padding: 10,
-  borderRadius: 12,
-  background: "rgba(15, 23, 42, 0.72)",
-  border: "1px solid rgba(148, 163, 184, 0.14)",
-};
-
-const mutedTextStyle: CSSProperties = {
-  fontSize: 12,
-  color: "#94a3b8",
-};
-
-const errorTextStyle: CSSProperties = {
-  fontSize: 12,
-  color: "#fca5a5",
-};
-
 const statsGridStyle: CSSProperties = {
   display: "grid",
   gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
   gap: 10,
-};
-
-const infoCardStyle: CSSProperties = {
-  display: "grid",
-  gap: 4,
-  padding: 12,
-  borderRadius: 12,
-  background: "rgba(15, 23, 42, 0.72)",
-  border: "1px solid rgba(148, 163, 184, 0.14)",
 };
 
 const preStyle: CSSProperties = {

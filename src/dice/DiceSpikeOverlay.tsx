@@ -1,4 +1,8 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { createParticipantAccentButtonRecipe, buttonRecipes } from "../ui/system/families/button";
+import { calloutRecipes } from "../ui/system/families/callout";
+import { boardSurfaceRecipes } from "../ui/system/boardSurfaces";
+import { getDesignSystemDebugAttrs } from "../ui/system/debug";
 import { createClientId } from "../lib/id";
 import {
   createRoomDiceConnection,
@@ -33,6 +37,14 @@ export function DiceSpikeOverlay({
   participantSession,
   roomId,
 }: DiceSpikeOverlayProps) {
+  const diceButtonRecipe = useMemo(
+    () =>
+      createParticipantAccentButtonRecipe(
+        buttonRecipes.secondary.small,
+        participantSession.color
+      ),
+    [participantSession.color]
+  );
   const containerId = useId().replace(/:/g, "-");
   const diceBoxRef = useRef<DiceBoxInstance | null>(null);
   const diceConnectionRef = useRef<RoomDiceConnection | null>(null);
@@ -277,22 +289,11 @@ export function DiceSpikeOverlay({
       </div>
 
       <div
-        style={{
-          position: "fixed",
-          left: 20,
-          bottom: 20,
-          zIndex: 31,
-          display: "grid",
-          gap: 8,
-          pointerEvents: "none",
-        }}
+        style={boardSurfaceRecipes.diceTray.shell.style}
+        {...getDesignSystemDebugAttrs(boardSurfaceRecipes.diceTray.shell.debug)}
       >
         <div
-          style={{
-            display: "grid",
-            gap: 8,
-            pointerEvents: "none",
-          }}
+          style={boardSurfaceRecipes.diceTray.stack.style}
         >
           {DICE_TRAY_ITEMS.map((die) => (
             <button
@@ -302,19 +303,12 @@ export function DiceSpikeOverlay({
                 rollTestDie(die);
               }}
               disabled={!isReady || isPublishing}
+              className={diceButtonRecipe.className}
+              {...getDesignSystemDebugAttrs(diceButtonRecipe.debug)}
               style={{
+                ...diceButtonRecipe.style,
                 pointerEvents: "auto",
-                padding: "10px 14px",
-                minWidth: 52,
-                borderRadius: 12,
-                border: `1px solid ${participantSession.color}`,
-                background: "rgba(15, 23, 42, 0.92)",
-                color: "#f8fafc",
-                fontSize: 12,
-                fontWeight: 700,
                 boxShadow: "0 18px 40px rgba(2, 6, 23, 0.3)",
-                cursor: !isReady || isPublishing ? "not-allowed" : "pointer",
-                opacity: !isReady || isPublishing ? 0.65 : 1,
               }}
             >
               {die === "2d10" ? "d100" : die}
@@ -327,13 +321,10 @@ export function DiceSpikeOverlay({
             style={{
               pointerEvents: "none",
               maxWidth: 240,
-              padding: "8px 10px",
-              borderRadius: 12,
-              background: "rgba(69, 10, 10, 0.78)",
-              border: "1px solid rgba(248, 113, 113, 0.35)",
-              color: "#fecaca",
-              fontSize: 12,
+              ...calloutRecipes.danger.compact.style,
             }}
+            className={calloutRecipes.danger.compact.className}
+            {...getDesignSystemDebugAttrs(calloutRecipes.danger.compact.debug)}
           >
             {error}
           </div>

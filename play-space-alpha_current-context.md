@@ -258,6 +258,30 @@ Token chapter теперь уже получил первый runtime conflict/o
 
 ### 3.19. Token attachment and effective bounds reached a first coherent checkpoint
 После pin behavior, participant-marker flow, and first `activeMove` occupancy slice
+
+### 3.20. Board-material tokenization now has an explicit canvas-resolution rule
+Во время first board-material design-system slice был выявлен важный runtime distinction:
+
+- CSS custom properties can act as the semantic source of truth for board materials;
+- DOM surfaces may consume those values directly as `var(--...)`;
+- Konva/canvas surfaces must not rely on raw `var(--...)` strings as if they were ordinary CSS backgrounds.
+
+Практический итог:
+
+- board backdrop may keep using the semantic CSS-token path directly in DOM styles;
+- board surface inside Konva must receive a resolved color string, not an unresolved CSS variable reference;
+- current board-material layer therefore now needs a small runtime resolution step for canvas consumers.
+
+Why this matters:
+
+- a narrow tokenization pass can look semantically correct while still producing a visual regression if a canvas consumer stops receiving a real color;
+- in the observed regression, the board surface became effectively black/darker while the surrounding backdrop stayed correct, which made the board/backdrop relationship look inverted.
+
+Current intended rule:
+
+- keep one semantic source of truth for board materials;
+- resolve that source separately for canvas/Konva when needed;
+- do not fork the board palette into unrelated CSS-only and canvas-only canons unless a later design pass explicitly requires it.
 token chapter went through its next larger image-first attachment phase.
 
 Уже реализовано:
@@ -502,6 +526,40 @@ This should help reduce drift between:
 - what was actually validated;
 - and what still needs post-push checking.
 
+### 3.29. Executor-side manual QA should be treated as limited
+
+For current AI-assisted implementation work, manual QA should not be framed as
+something the executor can always perform directly.
+
+Current practical constraint:
+
+- executor-side validation is reliable for:
+  - build success
+  - static code review
+  - narrow runtime/code-path reasoning
+  - inspect/debug surfaces that already exist and are easy to exercise
+- executor-side manual QA is not automatically reliable for:
+  - visual acceptance
+  - subtle UI regressions
+  - gesture-heavy browser behavior
+  - multi-client real-session checks
+  - flows that require explicit live browser observation
+
+Working rule:
+
+- future implementation briefs should phrase manual QA as:
+  - "if practical"
+  - or "report whether it was actually run"
+- the executor should not claim manual QA unless there is a real path to run it
+- if a change needs true visual or interaction acceptance, that should either:
+  - be verified by the user
+  - or be postponed to a dedicated verification pass with a real runnable UI
+    path
+
+This is especially important for design-system migration work, where
+structural passes may land before visual tuning and where successful builds do
+not prove that the UI has been visually accepted.
+
 ## 4. Current preferred next step
 
 Следующие правильные шаги сейчас split into two tracks:
@@ -560,6 +618,48 @@ This should live in current context as a short next-verification list, while con
 - не broad architecture cleanup;
 - не immediate long polish cycle;
 - а continued hosted validation from a now-working practical hosted stack.
+
+## 8.1. Design-system migration follow-up rule
+
+The current design-system migration chapter is still running in
+`structural migration first, visual tuning later` mode.
+
+Because of that, one explicit follow-up rule now applies:
+
+- once the main ordinary-interface migration chapter is sufficiently landed,
+  run a dedicated cleanup pass for lingering local visual overrides that still
+  sit on top of shared family recipes;
+- do not treat those overrides as the final intended steady state just because
+  shared family ownership already exists;
+- do not try to normalize every such override opportunistically during
+  structural migration unless there is a clear usability or correctness reason.
+
+## 8.2. Ordinary-interface design-system chapter is now paused as structurally landed
+
+The ordinary-interface design-system migration chapter has now reached a good
+enough structural checkpoint to pause.
+
+What is already structurally landed:
+
+- fields
+- buttons
+- selection controls
+- swatches
+- boxed callouts
+- surfaces
+- rows
+- ops inline helper/error text
+
+What this means:
+
+- the remaining ordinary-interface work is now mostly later cleanup,
+  visual reconciliation, and explicit local exceptions rather than major shared
+  family migration debt;
+- the ordinary-interface chapter does not need to keep expanding before other
+  higher-signal work resumes;
+- the next safe design-system direction beyond this pause is the board-layer
+  chapter, starting with board material tokenization and its canvas-resolution
+  rule.
 
 ## 9. Last 3 messages (raw-ish)
 

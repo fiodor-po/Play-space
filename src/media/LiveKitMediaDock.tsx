@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ConnectionState,
   Room,
@@ -14,6 +14,10 @@ import {
   getLiveKitUrl,
 } from "../lib/livekit";
 import { HTML_UI_FONT_FAMILY } from "../board/constants";
+import { getDesignSystemDebugAttrs } from "../ui/system/debug";
+import { buttonRecipes, createToggleButtonRecipe } from "../ui/system/families/button";
+import { calloutRecipes } from "../ui/system/families/callout";
+import { surfaceRecipes } from "../ui/system/surfaces";
 
 type LiveKitMediaDockProps = {
   roomId: string;
@@ -76,16 +80,21 @@ function ParticipantTile({
 
   return (
     <div
+      className={surfaceRecipes.infoCard.default.className}
       style={{
+        ...surfaceRecipes.infoCard.default.style,
         width: 132,
         minHeight: 104,
         borderRadius: 14,
+        padding: 0,
+        gap: 0,
         overflow: "hidden",
         background: "rgba(15, 23, 42, 0.96)",
         border: "1px solid rgba(148, 163, 184, 0.2)",
         boxShadow: "0 14px 36px rgba(2, 6, 23, 0.3)",
         fontFamily: HTML_UI_FONT_FAMILY,
       }}
+      {...getDesignSystemDebugAttrs(surfaceRecipes.infoCard.default.debug)}
     >
       <div
         style={{
@@ -243,6 +252,17 @@ export function LiveKitMediaDock({
   const refreshRoom = () => {
     setRoomVersion((value) => value + 1);
   };
+
+  const mediaJoinButtonRecipe = buttonRecipes.secondary.small;
+  const mediaLeaveButtonRecipe = buttonRecipes.secondary.small;
+  const micToggleButtonRecipe = createToggleButtonRecipe(
+    buttonRecipes.secondary.small,
+    micEnabled
+  );
+  const cameraToggleButtonRecipe = createToggleButtonRecipe(
+    buttonRecipes.secondary.small,
+    cameraEnabled
+  );
 
   const joinMedia = async () => {
     if (isJoining || roomRef.current) {
@@ -460,23 +480,23 @@ export function LiveKitMediaDock({
 
   return (
     <div
+      className={surfaceRecipes.panel.compact.className}
       style={{
+        ...surfaceRecipes.panel.compact.style,
         position: "fixed",
         right: 16,
         bottom: 16,
         width: 320,
         maxWidth: "calc(100vw - 32px)",
-        display: "grid",
         gap: 10,
-        padding: 12,
         borderRadius: 18,
-        background: "rgba(15, 23, 42, 0.92)",
         border: "1px solid rgba(148, 163, 184, 0.22)",
         boxShadow: "0 24px 60px rgba(2, 6, 23, 0.35)",
         backdropFilter: "blur(10px)",
         zIndex: 20,
         fontFamily: HTML_UI_FONT_FAMILY,
       }}
+      {...getDesignSystemDebugAttrs(surfaceRecipes.panel.compact.debug)}
     >
       <div
         style={{
@@ -502,7 +522,9 @@ export function LiveKitMediaDock({
               void joinMedia();
             }}
             disabled={isJoining}
-            style={actionButtonStyle("#334155")}
+            className={mediaJoinButtonRecipe.className}
+            style={mediaJoinButtonRecipe.style}
+            {...getDesignSystemDebugAttrs(mediaJoinButtonRecipe.debug)}
           >
             {isJoining ? "Joining..." : "Join media"}
           </button>
@@ -512,7 +534,9 @@ export function LiveKitMediaDock({
             onClick={() => {
               void leaveMedia();
             }}
-            style={actionButtonStyle("#1e293b")}
+            className={mediaLeaveButtonRecipe.className}
+            style={mediaLeaveButtonRecipe.style}
+            {...getDesignSystemDebugAttrs(mediaLeaveButtonRecipe.debug)}
           >
             Leave
           </button>
@@ -522,13 +546,10 @@ export function LiveKitMediaDock({
       {errorLabel && (
         <div
           style={{
-            padding: "8px 10px",
-            borderRadius: 12,
-            background: "rgba(69, 10, 10, 0.75)",
-            border: "1px solid rgba(248, 113, 113, 0.35)",
-            color: "#fecaca",
-            fontSize: 12,
+            ...calloutRecipes.danger.compact.style,
           }}
+          className={calloutRecipes.danger.compact.className}
+          {...getDesignSystemDebugAttrs(calloutRecipes.danger.compact.debug)}
         >
           <div>{errorLabel}</div>
           {errorDetail && (
@@ -545,10 +566,9 @@ export function LiveKitMediaDock({
               onClick={() => {
                 void toggleMicrophone();
               }}
-              style={actionButtonStyle(
-                micEnabled ? "#334155" : "#1e293b",
-                "rgba(148, 163, 184, 0.28)"
-              )}
+              className={micToggleButtonRecipe.className}
+              style={micToggleButtonRecipe.style}
+              {...getDesignSystemDebugAttrs(micToggleButtonRecipe.debug)}
             >
               {micEnabled ? "Mute mic" : "Unmute mic"}
             </button>
@@ -557,10 +577,9 @@ export function LiveKitMediaDock({
               onClick={() => {
                 void toggleCamera();
               }}
-              style={actionButtonStyle(
-                cameraEnabled ? "#334155" : "#1e293b",
-                "rgba(148, 163, 184, 0.28)"
-              )}
+              className={cameraToggleButtonRecipe.className}
+              style={cameraToggleButtonRecipe.style}
+              {...getDesignSystemDebugAttrs(cameraToggleButtonRecipe.debug)}
             >
               {cameraEnabled ? "Camera off" : "Camera on"}
             </button>
@@ -591,21 +610,4 @@ export function LiveKitMediaDock({
       )}
     </div>
   );
-}
-
-function actionButtonStyle(
-  background: string,
-  border = "rgba(148, 163, 184, 0.28)"
-): CSSProperties {
-  return {
-    padding: "9px 12px",
-    borderRadius: 12,
-    border: `1px solid ${border}`,
-    background,
-    color: "#f8fafc",
-    fontSize: 12,
-    fontWeight: 700,
-    fontFamily: HTML_UI_FONT_FAMILY,
-    cursor: "pointer",
-  };
 }

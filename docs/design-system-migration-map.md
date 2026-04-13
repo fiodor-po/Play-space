@@ -216,6 +216,65 @@ Kept out of the ordinary button migration:
 - session-panel destructive micro-action if it still reads as a surface-local
   subtype after visual review
 
+Current subtype direction:
+
+- participant-colored action buttons should currently be treated as ordinary
+  button-family subtypes rather than separate families
+- current intended mapping:
+  - dice buttons = shared `secondary` button + participant-accent subtype
+  - participant-selected title/hero action = shared `primary` button +
+    selected-participant accent subtype
+
+Subtype recipe rule:
+
+- these subtypes should reuse the shared ordinary button recipe and override
+  only the tone layer
+- they should not introduce separate geometry, typography, focus, or disabled
+  behavior contracts
+- toggle-oriented button cases should follow the same rule:
+  - ordinary shared button recipe first
+  - toggle tone override second
+
+Current ordinary-button rollout note:
+
+- the shared ordinary button chapter now covers:
+  - ops buttons
+  - board toolbar buttons
+  - dice tray buttons
+  - media buttons
+  - entry primary CTA
+  - fixed add-image trigger
+
+Button-like cases still intentionally left out for later return:
+
+- entry debug pills
+- participant-panel transparent text actions
+- participant-panel text buttons such as `Leave room`
+- participant-panel micro-actions
+- participant-panel creator-only destructive button such as `Reset board`
+- object-adjacent image controls
+
+Working note:
+
+- these remaining cases should not be silently treated as already migrated just
+  because the main shared button chapter is now largely in place
+- they remain explicit later-return items
+- the participant-panel text-button cases likely need a separate text-button
+  subtype or adjacent family decision rather than being silently folded into the
+  ordinary filled-button path
+- the current `text button` runtime helper may temporarily remain in
+  `src/ui/system/families/button.ts` during migration
+- this should be treated as a required later cleanup, not as the final chapter
+  boundary
+
+Post-migration cleanup rule:
+
+- after the structural ordinary-interface migration chapter is sufficiently
+  landed, run a dedicated cleanup pass for lingering local visual overrides that
+  still sit on top of shared family recipes
+- do not silently normalize these piecemeal during structural migration unless
+  there is a clear correctness or usability reason
+
 ### 3.4. Selection controls family
 
 Current runtime cluster:
@@ -345,6 +404,16 @@ Canonical target:
 
 - `swatch`
 - `pill`
+
+Current direction correction:
+
+- swatch remains a valid migration target
+- the current entry debug pills should not be treated as proof that `pill`
+  needs to remain a required long-term family branch
+- those two current debug actions are better treated as candidates for
+  `button.small`
+- if ordinary `small` button geometry proves too loose there, add a separate
+  `compact button` path rather than preserving `pill` by default
 
 Primary migration targets:
 
