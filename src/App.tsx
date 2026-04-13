@@ -1,4 +1,9 @@
 import { useEffect, useRef, useState } from "react";
+import {
+  loadParticipantDraftForRoom,
+  useEntryAvailabilityState,
+} from "./app/useEntryAvailabilityState";
+import { useJoinedRoomPresenceTransport } from "./app/useJoinedRoomPresenceTransport";
 import BoardStage from "./components/BoardStage";
 import { DiceSpikeOverlay } from "./dice/DiceSpikeOverlay";
 import { LiveKitMediaDock } from "./media/LiveKitMediaDock";
@@ -28,7 +33,6 @@ import {
   clearActiveParticipantRoomSession,
   clearActiveRoomId,
   createLocalParticipantPresence,
-  createRoomOccupancy,
   getOrCreateBrowserParticipantId,
   getRoomIdFromLocation,
   loadActiveParticipantRoomSession,
@@ -50,7 +54,6 @@ import {
   markRoomBaselineApplied,
   mirrorRoomCreatorId,
 } from "./lib/roomMetadata";
-import { createRoomPresenceConnection } from "./lib/roomPresenceRealtime";
 import { isLiveKitMediaEnabled, logClientRuntimeConfig } from "./lib/runtimeConfig";
 import type { FormEvent } from "react";
 import type {
@@ -60,11 +63,7 @@ import type {
   RoomOccupancyMap,
 } from "./lib/roomSession";
 import type { RoomBaselineDescriptor, RoomRecord } from "./lib/roomMetadata";
-import type {
-  JoinClaim,
-  JoinClaimMap,
-  RoomPresenceConnection,
-} from "./lib/roomPresenceRealtime";
+import type { JoinClaim } from "./lib/roomPresenceRealtime";
 
 const ENTRY_SCREEN_VERSION_LABEL = "alpha v0.0.0";
 const DEFAULT_ROOM_BASELINE_DESCRIPTOR: RoomBaselineDescriptor =
@@ -73,19 +72,8 @@ const DEFAULT_ROOM_BASELINE_DESCRIPTOR: RoomBaselineDescriptor =
   });
 const JOIN_CLAIM_TTL_MS = 5000;
 const JOIN_CLAIM_SETTLE_MS = 220;
-const ENTRY_JOIN_FAILURE_CUE_MS = 4000;
 const IS_DEV = import.meta.env.DEV;
 const entryDebugActionButtonRecipe = buttonRecipes.secondary.compact;
-
-function loadParticipantDraftForRoom(roomId: string) {
-  const savedSession = loadLocalParticipantSession(roomId);
-
-  return {
-    savedSession,
-    draftName: savedSession?.name ?? "",
-    draftColor: savedSession?.color ?? PARTICIPANT_COLOR_OPTIONS[0],
-  };
-}
 
 function getIsForegroundPresenceCarrier() {
   return !document.hidden && document.hasFocus();
@@ -630,9 +618,6 @@ function BootstrappedApp() {
     useState<LocalParticipantSession | null>(() =>
       shouldRestoreJoinedRoom ? initialParticipantDraft.savedSession : null
     );
-  const [roomOccupancies, setRoomOccupancies] = useState<RoomOccupancyMap>({});
-  const [participantPresences, setParticipantPresences] =
-    useState<ParticipantPresenceMap>({});
   const [localParticipantPresence, setLocalParticipantPresence] =
     useState<ParticipantPresence | null>(() => {
       const session = shouldRestoreJoinedRoom
@@ -646,20 +631,7 @@ function BootstrappedApp() {
   const [roomCreatorId, setRoomCreatorId] = useState<string | null>(null);
   const [draftName, setDraftName] = useState(initialParticipantDraft.draftName);
   const [draftColor, setDraftColor] = useState(initialParticipantDraft.draftColor);
-  const [entryRoomOccupancies, setEntryRoomOccupancies] = useState<RoomOccupancyMap>(
-    {}
-  );
-  const [entryParticipantPresences, setEntryParticipantPresences] =
-    useState<ParticipantPresenceMap>({});
-  const [entryJoinClaims, setEntryJoinClaims] = useState<JoinClaimMap>({});
-  const [hasManualEntryColorChoice, setHasManualEntryColorChoice] = useState(false);
   const [isJoinPending, setIsJoinPending] = useState(false);
-  const [entryJoinFailureMessage, setEntryJoinFailureMessage] = useState<string | null>(null);
-  const [isEntryDebugOpen, setIsEntryDebugOpen] = useState(false);
-  const [entryDebugOccupiedColors, setEntryDebugOccupiedColors] = useState<string[]>(
-    []
-  );
-  const [entryDebugClaimColor, setEntryDebugClaimColor] = useState<string | null>(null);
   const [isForegroundPresenceCarrier, setIsForegroundPresenceCarrier] = useState(() =>
     getIsForegroundPresenceCarrier()
   );
@@ -668,14 +640,20 @@ function BootstrappedApp() {
     draftColor,
     "fill"
   );
-  const entryPresenceConnectionRef = useRef<RoomPresenceConnection | null>(null);
-  const roomPresenceConnectionRef = useRef<RoomPresenceConnection | null>(null);
   const roomCreatorConnectionRef = useRef<ReturnType<
     typeof createRoomCreatorConnection
   > | null>(null);
-  const entryRoomOccupanciesRef = useRef<RoomOccupancyMap>({});
-  const entryParticipantPresencesRef = useRef<ParticipantPresenceMap>({});
-  const entryJoinClaimsRef = useRef<JoinClaimMap>({});
+  const {
+    roomOccupancies,
+    participantPresences,
+    disconnectJoinedRoomPresence,
+  } = useJoinedRoomPresenceTransport({
+    activeRoomId,
+    isInRoom,
+    participantSession,
+    localParticipantPresence,
+    isForegroundPresenceCarrier,
+  });
 
   const ensureInitializedRoomRecord = (roomId: string) => {
     return ensureRoomRecordInitialized({
@@ -711,84 +689,6 @@ function BootstrappedApp() {
     );
   };
 
-  const getWinningJoinClaimsByColor = (
-    claims: JoinClaimMap,
-    occupancies: RoomOccupancyMap
-  ) => {
-    const occupiedParticipantIds = new Set(Object.keys(occupancies));
-    const winningClaims: Record<string, JoinClaim> = {};
-
-    Object.values(claims).forEach((claim) => {
-      if (occupiedParticipantIds.has(claim.participantId)) {
-        return;
-      }
-
-      const currentWinner = winningClaims[claim.color];
-
-      if (!currentWinner) {
-        winningClaims[claim.color] = claim;
-        return;
-      }
-
-      if (
-        claim.requestedAt < currentWinner.requestedAt ||
-        (claim.requestedAt === currentWinner.requestedAt &&
-          claim.participantId < currentWinner.participantId)
-      ) {
-        winningClaims[claim.color] = claim;
-      }
-    });
-
-    return winningClaims;
-  };
-
-  const getEntryBlockedColors = (
-    occupancies: RoomOccupancyMap,
-    claims: JoinClaimMap,
-    options?: {
-      excludeJoinClaim?: JoinClaim | null;
-    }
-  ) => {
-    const blockedColors = getOccupiedParticipantColors(occupancies);
-    const winningClaims = getWinningJoinClaimsByColor(claims, occupancies);
-
-    Object.entries(winningClaims).forEach(([color, claim]) => {
-      const excludedJoinClaim = options?.excludeJoinClaim;
-      const isExcludedJoinClaim =
-        !!excludedJoinClaim &&
-        claim.participantId === excludedJoinClaim.participantId &&
-        claim.roomId === excludedJoinClaim.roomId &&
-        claim.color === excludedJoinClaim.color &&
-        claim.requestedAt === excludedJoinClaim.requestedAt &&
-        claim.expiresAt === excludedJoinClaim.expiresAt;
-
-      if (!isExcludedJoinClaim) {
-        blockedColors.add(color);
-      }
-    });
-
-    return blockedColors;
-  };
-
-  const getFirstFreeParticipantColor = (
-    occupiedColors: Set<string>,
-    preferredColors: Array<string | null | undefined>
-  ) => {
-    for (const preferredColor of preferredColors) {
-      if (
-        preferredColor &&
-        PARTICIPANT_COLOR_OPTIONS.includes(preferredColor) &&
-        !occupiedColors.has(preferredColor)
-      ) {
-        return preferredColor;
-      }
-    }
-
-    return (
-      PARTICIPANT_COLOR_OPTIONS.find((color) => !occupiedColors.has(color)) ?? null
-    );
-  };
-
   const handleRoomBaselineApplied = (
     baselineId: RoomBaselineDescriptor["baselineId"]
   ) => {
@@ -808,8 +708,7 @@ function BootstrappedApp() {
 
   const collapseToEntryScreen = (nextDraftRoomId: string) => {
     const normalizedNextDraftRoomId = normalizeRoomId(nextDraftRoomId);
-    roomPresenceConnectionRef.current?.destroy();
-    roomPresenceConnectionRef.current = null;
+    disconnectJoinedRoomPresence();
     roomCreatorConnectionRef.current?.destroy();
     roomCreatorConnectionRef.current = null;
 
@@ -821,8 +720,6 @@ function BootstrappedApp() {
     setIsInRoom(false);
     setParticipantSession(null);
     setLocalParticipantPresence(null);
-    setRoomOccupancies({});
-    setParticipantPresences({});
     setRoomRecord(null);
     setRoomCreatorId(null);
   };
@@ -871,77 +768,20 @@ function BootstrappedApp() {
     };
   }, []);
 
-  useEffect(() => {
-    entryRoomOccupanciesRef.current = entryRoomOccupancies;
-  }, [entryRoomOccupancies]);
-
-  useEffect(() => {
-    entryParticipantPresencesRef.current = entryParticipantPresences;
-  }, [entryParticipantPresences]);
-
-  useEffect(() => {
-    entryJoinClaimsRef.current = entryJoinClaims;
-  }, [entryJoinClaims]);
-
-  useEffect(() => {
-    if (!entryJoinFailureMessage) {
-      return;
-    }
-
-    const timeoutId = window.setTimeout(() => {
-      setEntryJoinFailureMessage(null);
-    }, ENTRY_JOIN_FAILURE_CUE_MS);
-
-    return () => {
-      window.clearTimeout(timeoutId);
-    };
-  }, [entryJoinFailureMessage]);
-
-  useEffect(() => {
-    const entryRoomId = normalizeRoomId(draftRoomId);
-
-    if (participantSession || !entryRoomId) {
-      entryPresenceConnectionRef.current?.destroy();
-      entryPresenceConnectionRef.current = null;
-      setEntryRoomOccupancies({});
-      setEntryParticipantPresences({});
-      setEntryJoinClaims({});
-      setEntryJoinFailureMessage(null);
-      setIsJoinPending(false);
-      return;
-    }
-
-    const connection = createRoomPresenceConnection({
-      onOccupanciesChange: setEntryRoomOccupancies,
-      onPresencesChange: setEntryParticipantPresences,
-      onJoinClaimsChange: setEntryJoinClaims,
-      roomId: entryRoomId,
-    });
-    entryPresenceConnectionRef.current = connection;
-
-    return () => {
-      if (entryPresenceConnectionRef.current === connection) {
-        entryPresenceConnectionRef.current = null;
-      }
-
-      connection.destroy();
-    };
-  }, [draftRoomId, participantSession]);
-
-  useEffect(() => {
-    if (participantSession || !normalizeRoomId(draftRoomId)) {
-      return;
-    }
-    setHasManualEntryColorChoice(false);
-    setEntryJoinFailureMessage(null);
-  }, [draftRoomId, participantSession]);
+  const entryAvailability = useEntryAvailabilityState({
+    draftRoomId,
+    draftColor,
+    participantSession,
+    setIsJoinPending,
+    setDraftRoomId,
+    setDraftName,
+    setDraftColor,
+  });
 
   useEffect(() => {
     if (!isInRoom || !activeRoomId) {
       setRoomRecord(null);
       setRoomCreatorId(null);
-      setRoomOccupancies({});
-      setParticipantPresences({});
       return;
     }
 
@@ -951,8 +791,6 @@ function BootstrappedApp() {
       setRoomRecord(loadRoomRecord(activeRoomId));
       setRoomCreatorId(null);
       setLocalParticipantPresence(null);
-      setRoomOccupancies({});
-      setParticipantPresences({});
       return;
     }
 
@@ -968,8 +806,6 @@ function BootstrappedApp() {
     setLocalParticipantPresence(
       createLocalParticipantPresence(nextSession)
     );
-    setRoomOccupancies({});
-    setParticipantPresences({});
   }, [activeRoomId, isInRoom]);
 
   useEffect(() => {
@@ -1051,10 +887,7 @@ function BootstrappedApp() {
       name: trimmedName,
       color: draftColor,
     };
-    const blockedColors = getEntryBlockedColors(
-      entryRoomOccupanciesRef.current,
-      entryJoinClaimsRef.current
-    );
+    const blockedColors = entryAvailability.getCurrentBlockedColors();
 
     if (
       blockedColors.size >= PARTICIPANT_COLOR_OPTIONS.length ||
@@ -1073,33 +906,27 @@ function BootstrappedApp() {
 
     const finalizeJoin = async () => {
       setIsJoinPending(true);
-      setEntryJoinFailureMessage(null);
-      entryPresenceConnectionRef.current?.setLocalJoinClaim(joinClaim);
+      entryAvailability.setEntryJoinFailureMessage(null);
+      entryAvailability.setLocalJoinClaim(joinClaim);
 
       await new Promise((resolve) => {
         window.setTimeout(resolve, JOIN_CLAIM_SETTLE_MS);
       });
 
-      const latestOccupancies = entryRoomOccupanciesRef.current;
-      const latestClaims = entryJoinClaimsRef.current;
-      const latestBlockedColors = getEntryBlockedColors(
-        latestOccupancies,
-        latestClaims,
-        {
-          excludeJoinClaim: joinClaim,
-        }
+      const latestBlockedColors = entryAvailability.getCurrentBlockedColors({
+        excludeJoinClaim: joinClaim,
+      });
+      const winningClaim = entryAvailability.getWinningJoinClaimForColor(
+        draftColor
       );
-      const winningClaim =
-        getWinningJoinClaimsByColor(latestClaims, latestOccupancies)[draftColor] ??
-        null;
 
       if (
         latestBlockedColors.size >= PARTICIPANT_COLOR_OPTIONS.length ||
         latestBlockedColors.has(draftColor) ||
         (winningClaim && winningClaim.participantId !== nextSessionDraft.id)
       ) {
-        entryPresenceConnectionRef.current?.setLocalJoinClaim(null);
-        setEntryJoinFailureMessage(
+        entryAvailability.setLocalJoinClaim(null);
+        entryAvailability.setEntryJoinFailureMessage(
           "That color became unavailable while you were joining. Choose another free color and try again."
         );
         setIsJoinPending(false);
@@ -1111,9 +938,8 @@ function BootstrappedApp() {
         color: draftColor,
       };
 
-      entryPresenceConnectionRef.current?.setLocalJoinClaim(null);
-      entryPresenceConnectionRef.current?.destroy();
-      entryPresenceConnectionRef.current = null;
+      entryAvailability.setLocalJoinClaim(null);
+      entryAvailability.destroyEntryPresenceConnection();
 
       saveLocalParticipantSession(trimmedRoomId, nextSession);
       saveActiveRoomId(trimmedRoomId);
@@ -1204,63 +1030,6 @@ function BootstrappedApp() {
     collapseToEntryScreen(activeRoomId);
   };
 
-  useEffect(() => {
-    if (!isInRoom || !activeRoomId || !participantSession?.id) {
-      roomPresenceConnectionRef.current?.destroy();
-      roomPresenceConnectionRef.current = null;
-      setRoomOccupancies({});
-      setParticipantPresences({});
-      return;
-    }
-
-    const connection = createRoomPresenceConnection({
-      onOccupanciesChange: setRoomOccupancies,
-      onPresencesChange: setParticipantPresences,
-      roomId: activeRoomId,
-    });
-    roomPresenceConnectionRef.current = connection;
-
-    return () => {
-      if (roomPresenceConnectionRef.current === connection) {
-        roomPresenceConnectionRef.current = null;
-      }
-
-      connection.destroy();
-    };
-  }, [activeRoomId, isInRoom, participantSession?.id]);
-
-  useEffect(() => {
-    if (!isInRoom || !participantSession) {
-      return;
-    }
-
-    const connection = roomPresenceConnectionRef.current;
-
-    if (!connection) {
-      return;
-    }
-
-    connection.setLocalOccupancy(createRoomOccupancy(participantSession));
-  }, [isInRoom, participantSession]);
-
-  useEffect(() => {
-    if (!isInRoom || !participantSession) {
-      return;
-    }
-
-    const connection = roomPresenceConnectionRef.current;
-
-    if (!connection) {
-      return;
-    }
-
-    connection.setLocalPresence(
-      isForegroundPresenceCarrier
-        ? localParticipantPresence ?? createLocalParticipantPresence(participantSession)
-        : null
-    );
-  }, [isForegroundPresenceCarrier, localParticipantPresence, participantSession]);
-
   const joinedRoomId = activeRoomId ?? draftRoomId;
   const roomGovernedEntity = createRoomGovernedEntityRef({
     roomId: joinedRoomId,
@@ -1288,62 +1057,6 @@ function BootstrappedApp() {
           baselineId: roomRecord.initializedBaselineId,
         })
       : null;
-  const entryRoomId = normalizeRoomId(draftRoomId);
-  const entrySavedSession = !participantSession && entryRoomId
-    ? loadLocalParticipantSession(entryRoomId)
-    : null;
-  const entryRoomRecord = !participantSession && entryRoomId
-    ? loadRoomRecord(entryRoomId)
-    : null;
-  const returningRoomMember =
-    entrySavedSession && entryRoomRecord
-      ? getRoomMemberRecord(entryRoomRecord, entrySavedSession.id)
-      : null;
-  const entryOccupiedColors = getEntryBlockedColors(
-    entryRoomOccupancies,
-    entryJoinClaims
-  );
-  const effectiveEntryOccupiedColors = new Set(entryOccupiedColors);
-  entryDebugOccupiedColors.forEach((color) => {
-    if (PARTICIPANT_COLOR_OPTIONS.includes(color)) {
-      effectiveEntryOccupiedColors.add(color);
-    }
-  });
-  if (
-    entryDebugClaimColor &&
-    PARTICIPANT_COLOR_OPTIONS.includes(entryDebugClaimColor)
-  ) {
-    effectiveEntryOccupiedColors.add(entryDebugClaimColor);
-  }
-  const entryPreviousColor = returningRoomMember?.assignedColor ?? entrySavedSession?.color ?? null;
-  const entrySuggestedColor = getFirstFreeParticipantColor(effectiveEntryOccupiedColors, [
-    draftColor,
-    entryPreviousColor,
-    PARTICIPANT_COLOR_OPTIONS[0],
-  ]);
-  const entryHasFreeColor = entrySuggestedColor !== null;
-  const isDraftColorOccupied =
-    draftColor.length > 0 && effectiveEntryOccupiedColors.has(draftColor);
-
-  useEffect(() => {
-    if (participantSession) {
-      return;
-    }
-
-    if (!entrySuggestedColor) {
-      return;
-    }
-
-    if (!hasManualEntryColorChoice && (!draftColor || isDraftColorOccupied)) {
-      setDraftColor(entrySuggestedColor);
-    }
-  }, [
-    draftColor,
-    hasManualEntryColorChoice,
-    entrySuggestedColor,
-    isDraftColorOccupied,
-    participantSession,
-  ]);
 
   if (!participantSession) {
     return (
@@ -1351,60 +1064,30 @@ function BootstrappedApp() {
         draftRoomId={draftRoomId}
         draftName={draftName}
         draftColor={draftColor}
-        returningRoomMember={returningRoomMember}
-        effectiveEntryOccupiedColors={effectiveEntryOccupiedColors}
-        entryHasFreeColor={entryHasFreeColor}
+        returningRoomMember={entryAvailability.returningRoomMember}
+        effectiveEntryOccupiedColors={entryAvailability.effectiveEntryOccupiedColors}
+        entryHasFreeColor={entryAvailability.entryHasFreeColor}
         isJoinPending={isJoinPending}
-        isDraftColorOccupied={isDraftColorOccupied}
-        isEntryDebugOpen={isEntryDebugOpen}
+        isDraftColorOccupied={entryAvailability.isDraftColorOccupied}
+        isEntryDebugOpen={entryAvailability.isEntryDebugOpen}
         isDebugControlsEnabled={isDebugControlsEnabled}
-        entryDebugOccupiedColors={entryDebugOccupiedColors}
-        entryDebugClaimColor={entryDebugClaimColor}
-        entryJoinFailureMessage={entryJoinFailureMessage}
+        entryDebugOccupiedColors={entryAvailability.entryDebugOccupiedColors}
+        entryDebugClaimColor={entryAvailability.entryDebugClaimColor}
+        entryJoinFailureMessage={entryAvailability.entryJoinFailureMessage}
         entryPrimaryButtonRecipe={entryPrimaryButtonRecipe}
         onJoinRoom={joinRoom}
-        onDraftRoomIdChange={(nextRoomId) => {
-          setDraftRoomId(nextRoomId);
-
-          const trimmedRoomId = normalizeRoomId(nextRoomId);
-
-          if (!trimmedRoomId) {
-            return;
-          }
-
-          setHasManualEntryColorChoice(false);
-
-          const nextParticipantDraft = loadParticipantDraftForRoom(trimmedRoomId);
-
-          if (!nextParticipantDraft.savedSession) {
-            return;
-          }
-
-          setDraftName(nextParticipantDraft.draftName);
-          setDraftColor(nextParticipantDraft.draftColor);
-        }}
+        onDraftRoomIdChange={entryAvailability.handleDraftRoomIdChange}
         onDraftNameChange={setDraftName}
-        onDraftColorChange={(nextDraftColor) => {
-          setHasManualEntryColorChoice(true);
-          setDraftColor(nextDraftColor);
-        }}
-        onEntryDebugOpenChange={setIsEntryDebugOpen}
-        onToggleEntryDebugOccupiedColor={(color) => {
-          setEntryDebugOccupiedColors((current) =>
-            current.includes(color)
-              ? current.filter((currentColor) => currentColor !== color)
-              : [...current, color]
-          );
-        }}
-        onEntryDebugClaimColorChange={setEntryDebugClaimColor}
-        onFillEntryDebugOccupiedColors={() => {
-          setEntryDebugOccupiedColors([...PARTICIPANT_COLOR_OPTIONS]);
-          setEntryDebugClaimColor(null);
-        }}
-        onClearEntryDebugOverrides={() => {
-          setEntryDebugOccupiedColors([]);
-          setEntryDebugClaimColor(null);
-        }}
+        onDraftColorChange={entryAvailability.handleDraftColorChange}
+        onEntryDebugOpenChange={entryAvailability.setIsEntryDebugOpen}
+        onToggleEntryDebugOccupiedColor={
+          entryAvailability.toggleEntryDebugOccupiedColor
+        }
+        onEntryDebugClaimColorChange={entryAvailability.setEntryDebugClaimColor}
+        onFillEntryDebugOccupiedColors={
+          entryAvailability.fillEntryDebugOccupiedColors
+        }
+        onClearEntryDebugOverrides={entryAvailability.clearEntryDebugOverrides}
       />
     );
   }
