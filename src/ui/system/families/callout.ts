@@ -1,6 +1,6 @@
 import type { CSSProperties } from "react";
 import { border, radius, surface, text } from "../foundations";
-import type { DesignSystemDebugMeta } from "../debug";
+import type { DesignSystemDebugMeta } from "../debugMeta";
 
 type CalloutRecipe = {
   className: string;

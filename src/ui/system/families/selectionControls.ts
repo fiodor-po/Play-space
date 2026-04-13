@@ -1,5 +1,5 @@
 import type { CSSProperties } from "react";
-import type { DesignSystemDebugMeta } from "../debug";
+import type { DesignSystemDebugMeta } from "../debugMeta";
 import { controlScale } from "../controlScale";
 import { text } from "../foundations";
 

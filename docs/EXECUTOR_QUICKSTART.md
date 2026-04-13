@@ -77,8 +77,17 @@ As of 2026-04-13:
 - `npm run lint` fails with pre-existing issues in:
   - `src/App.tsx`
   - `src/components/BoardStage.tsx`
-  - `src/lib/roomSession.ts`
-  - `src/ui/system/debug.tsx`
+
+Current lint debt is narrower than before:
+
+- `src/App.tsx` holds the remaining hook-order / set-state-in-effect /
+  dependency findings.
+- `src/components/BoardStage.tsx` holds the remaining image-drawing helper /
+  ref-mutation / dependency findings.
+
+Low-risk hygiene lint issues in `src/lib/roomSession.ts`,
+`src/ui/system/debug.tsx`, and `src/media/LiveKitMediaDock.tsx` have already
+been cleaned up.
 
 Do not present those as newly introduced by your change unless you actually touched and worsened them.
 

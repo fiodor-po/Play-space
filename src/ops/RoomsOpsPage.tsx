@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { CSSProperties, FormEvent } from "react";
 import { HTML_UI_FONT_FAMILY } from "../board/constants";
-import { getDesignSystemDebugAttrs } from "../ui/system/debug";
+import { getDesignSystemDebugAttrs } from "../ui/system/debugMeta";
 import { buttonRecipes } from "../ui/system/families/button";
 import { fieldRecipes, getFieldShellProps } from "../ui/system/families/field";
 import { getSelectableRowProps, rowRecipes } from "../ui/system/families/row";

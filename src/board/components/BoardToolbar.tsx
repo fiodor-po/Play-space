@@ -1,5 +1,5 @@
 import { buttonRecipes } from "../../ui/system/families/button";
-import { getDesignSystemDebugAttrs } from "../../ui/system/debug";
+import { getDesignSystemDebugAttrs } from "../../ui/system/debugMeta";
 
 type ButtonRecipe = (typeof buttonRecipes)["primary"]["default"];
 

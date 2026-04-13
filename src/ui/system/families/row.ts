@@ -1,6 +1,6 @@
 import type { CSSProperties } from "react";
 import { controlScale } from "../controlScale";
-import type { DesignSystemDebugMeta } from "../debug";
+import type { DesignSystemDebugMeta } from "../debugMeta";
 import { border, radius, surface, text } from "../foundations";
 import { uiTextStyle, uiTextStyleSmall } from "../typography";
 

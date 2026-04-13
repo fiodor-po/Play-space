@@ -1,6 +1,6 @@
 import { forwardRef, type ReactNode } from "react";
 import { HTML_UI_FONT_FAMILY } from "../constants";
-import { getDesignSystemDebugAttrs } from "../../ui/system/debug";
+import { getDesignSystemDebugAttrs } from "../../ui/system/debugMeta";
 import {
   buttonRecipes,
   createTextButtonRecipe,

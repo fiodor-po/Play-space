@@ -285,8 +285,9 @@ export function updateParticipantPresenceMap(
   const nextPresence = updater(currentPresence);
 
   if (!nextPresence) {
-    const { [participantId]: _removed, ...rest } = presences;
-    return rest;
+    return Object.fromEntries(
+      Object.entries(presences).filter(([id]) => id !== participantId)
+    ) as ParticipantPresenceMap;
   }
 
   return {
@@ -364,7 +365,9 @@ export function saveRoomParticipantPresence(
 
 export function removeRoomParticipantPresence(roomId: string, participantId: string) {
   const currentPresences = loadRoomParticipantPresences(roomId);
-  const { [participantId]: _removed, ...rest } = currentPresences;
+  const rest = Object.fromEntries(
+    Object.entries(currentPresences).filter(([id]) => id !== participantId)
+  );
 
   localStorage.setItem(getRoomPresenceStorageKey(roomId), JSON.stringify(rest));
 }

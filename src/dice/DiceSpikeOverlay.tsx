@@ -2,7 +2,7 @@ import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { createParticipantAccentButtonRecipe, buttonRecipes } from "../ui/system/families/button";
 import { calloutRecipes } from "../ui/system/families/callout";
 import { boardSurfaceRecipes } from "../ui/system/boardSurfaces";
-import { getDesignSystemDebugAttrs } from "../ui/system/debug";
+import { getDesignSystemDebugAttrs } from "../ui/system/debugMeta";
 import { createClientId } from "../lib/id";
 import {
   createRoomDiceConnection,

@@ -15,7 +15,7 @@ import {
 } from "../lib/livekit";
 import { HTML_UI_FONT_FAMILY } from "../board/constants";
 import { boardSurfaceRecipes } from "../ui/system/boardSurfaces";
-import { getDesignSystemDebugAttrs } from "../ui/system/debug";
+import { getDesignSystemDebugAttrs } from "../ui/system/debugMeta";
 import { buttonRecipes, createToggleButtonRecipe } from "../ui/system/families/button";
 import { calloutRecipes } from "../ui/system/families/callout";
 import { surfaceRecipes } from "../ui/system/surfaces";
@@ -195,7 +195,7 @@ export function LiveKitMediaDock({
 }: LiveKitMediaDockProps) {
   const roomRef = useRef<Room | null>(null);
   const intentionalDisconnectRef = useRef(false);
-  const [roomVersion, setRoomVersion] = useState(0);
+  const [participantsVersion, setParticipantsVersion] = useState(0);
   const [isJoining, setIsJoining] = useState(false);
   const [error, setError] = useState<MediaDockError | null>(null);
   const [errorDetail, setErrorDetail] = useState<string | null>(null);
@@ -235,7 +235,7 @@ export function LiveKitMediaDock({
     intentionalDisconnectRef.current = true;
     void currentRoom.disconnect();
     roomRef.current = null;
-    setRoomVersion((value) => value + 1);
+    setParticipantsVersion((value) => value + 1);
     setError(null);
     setErrorDetail(null);
     setConnectionState(ConnectionState.Disconnected);
@@ -247,11 +247,12 @@ export function LiveKitMediaDock({
       return [] as Participant[];
     }
 
+    void participantsVersion;
     return [room.localParticipant, ...Array.from(room.remoteParticipants.values())];
-  }, [room, roomVersion]);
+  }, [room, participantsVersion]);
 
   const refreshRoom = () => {
-    setRoomVersion((value) => value + 1);
+    setParticipantsVersion((value) => value + 1);
   };
 
   const mediaJoinButtonRecipe = buttonRecipes.secondary.small;

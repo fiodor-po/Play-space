@@ -195,7 +195,7 @@ Use these commands deliberately:
 - `npm run typecheck` — TypeScript only
 - `npm run build` — typecheck + production frontend build
 - `npm run build:smoke` — build + built-artifact smoke check
-- `npm run lint` — currently expected to surface pre-existing failures; report them honestly instead of treating them as introduced by your change
+- `npm run lint` — currently expected to be red only because of known structural findings in `src/App.tsx` and `src/components/BoardStage.tsx`; report those honestly instead of treating them as introduced by your change
 
 ## 8.2 Deploy / Debug Order
 

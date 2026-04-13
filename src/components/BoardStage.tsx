@@ -35,7 +35,7 @@ import {
   type ButtonRecipe,
 } from "../ui/system/families/button";
 import { boardSurfaceRecipes } from "../ui/system/boardSurfaces";
-import { getDesignSystemDebugAttrs } from "../ui/system/debug";
+import { getDesignSystemDebugAttrs } from "../ui/system/debugMeta";
 import { rowRecipes } from "../ui/system/families/row";
 import { selectionControlRecipes } from "../ui/system/families/selectionControls";
 import {

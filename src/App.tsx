@@ -6,8 +6,8 @@ import { RoomsOpsPage } from "./ops/RoomsOpsPage";
 import { HTML_UI_FONT_FAMILY } from "./board/constants";
 import {
   DesignSystemHoverInspector,
-  getDesignSystemDebugAttrs,
 } from "./ui/system/debug";
+import { getDesignSystemDebugAttrs } from "./ui/system/debugMeta";
 import { createParticipantAccentButtonRecipeWithMode, buttonRecipes } from "./ui/system/families/button";
 import { calloutRecipes } from "./ui/system/families/callout";
 import { fieldRecipes, getFieldShellProps } from "./ui/system/families/field";
