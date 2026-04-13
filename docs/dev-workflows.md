@@ -19,16 +19,36 @@
 
 ## 2. Environment files
 
-Используются mode-specific env files:
+Используются tracked example files + machine-local copies:
 
-- localhost mode: `.env.localdev`
-- LAN HTTPS mode: `.env.landev`
+- localhost mode: `.env.localdev.example` -> `.env.localdev`
+- LAN HTTPS mode: `.env.landev.example` -> `.env.landev`
 - hosted-like prep: `.env.hosted.example` -> `.env.hosted`
 
 Root `.env` не нужен для стандартных repo-local workflows.
 
+Create local env files from the examples:
+
+```bash
+cp .env.localdev.example .env.localdev
+cp .env.landev.example .env.landev
+```
+
+Machine-local env files should stay untracked. Update the local copy when your machine or LAN values change; update the tracked example only when canonical repo expectations change.
+
 `VITE_ENABLE_LIVEKIT_MEDIA` can disable the media dock for the cheapest first hosted-alpha shape.
 For the hosted video enable pass, set `VITE_ENABLE_LIVEKIT_MEDIA=true` and provide valid `VITE_LIVEKIT_URL`, `LIVEKIT_API_KEY`, and `LIVEKIT_API_SECRET`.
+
+## 2.1 Local runtime data
+
+Normal local backend runtime writes durable snapshot and identity data to ignored repo-local files:
+
+- `.runtime-data/room-snapshots.json`
+- `.runtime-data/room-identities.json`
+
+This keeps ordinary local usage from dirtying tracked repo state.
+
+Hosted/container setups can still override `ROOM_SNAPSHOT_STORE_FILE` and `ROOM_IDENTITY_STORE_FILE` explicitly.
 
 ## 3. Main workflows
 
@@ -168,7 +188,16 @@ After startup, confirm:
 - if testing video, media join works
 - if testing LAN mode, browser is in secure context and `navigator.mediaDevices` exists
 
-## 8.1 Deploy / Debug Order
+## 8.1 Validation commands
+
+Use these commands deliberately:
+
+- `npm run typecheck` — TypeScript only
+- `npm run build` — typecheck + production frontend build
+- `npm run build:smoke` — build + built-artifact smoke check
+- `npm run lint` — currently expected to surface pre-existing failures; report them honestly instead of treating them as introduced by your change
+
+## 8.2 Deploy / Debug Order
 
 Before debugging live deploy behavior:
 

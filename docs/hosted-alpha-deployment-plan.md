@@ -270,6 +270,7 @@ If this adds disproportionate infra complexity, stop and treat video as a separa
 Backend:
 
 ```bash
+cp .env.hosted.example .env.hosted
 PLAY_SPACE_ENV_FILE=.env.hosted node ./scripts/yjs-dev-server.mjs
 ```
 

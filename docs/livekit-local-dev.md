@@ -14,12 +14,14 @@
 Для обычной разработки используй:
 
 ```bash
+cp .env.localdev.example .env.localdev
 npm run dev:local
 ```
 
 Или для multi-device secure-origin checks:
 
 ```bash
+cp .env.landev.example .env.landev
 npm run dev:lan
 ```
 
@@ -104,6 +106,7 @@ LIVEKIT_API_SECRET=secret
 ```
 
 LAN mode uses `.env.landev` values instead.
+Both machine-local env files should be created from the tracked `*.example` files and kept untracked.
 
 ## 7. Token routing in dev
 

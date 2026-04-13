@@ -20,12 +20,13 @@ const messageSync = 0;
 const messageAwareness = 1;
 const pingTimeoutMs = 30000;
 const docs = new Map();
+const defaultRuntimeDataDir = path.join(process.cwd(), ".runtime-data");
 const durableSnapshotStorePath =
   process.env.ROOM_SNAPSHOT_STORE_FILE ||
-  path.join(process.cwd(), "data", "room-snapshots.json");
+  path.join(defaultRuntimeDataDir, "room-snapshots.json");
 const durableIdentityStorePath =
   process.env.ROOM_IDENTITY_STORE_FILE ||
-  path.join(process.cwd(), "data", "room-identities.json");
+  path.join(defaultRuntimeDataDir, "room-identities.json");
 const opsKey = readEnvString("PLAY_SPACE_OPS_KEY");
 const ROOM_DOC_PREFIXES = {
   tokens: "play-space-alpha-tokens:",
@@ -168,6 +169,7 @@ server.listen(port, host, () => {
     envFile:
       process.env.PLAY_SPACE_ENV_FILE || path.join(process.cwd(), ".env.localdev"),
     durableSnapshotStorePath,
+    durableIdentityStorePath,
     liveKitTokenRouteEnabled: liveKitConfig.enabled,
     liveKitStatus: liveKitConfig.enabled ? "enabled" : "disabled",
     liveKitCredentials: {

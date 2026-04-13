@@ -18,6 +18,34 @@ Core principle:
 - prefer narrow, safe, high-signal changes over broad rewrites;
 - prefer read-only analysis before implementation when semantics, architecture, or deployment shape are unclear.
 
+## Fast start
+
+For a fresh narrow implementation thread:
+
+1. read `ROADMAP.md`
+2. read `AGENTS.md`
+3. read `play-space-alpha_current-context.md`
+4. open the focused doc for the touched area via `docs/README.md`
+
+For non-trivial or semantics-changing work, also read:
+
+- `PLANS.md`
+- `play-space-project-foundation.md`
+
+Core commands:
+
+- install: `npm install`
+- preferred local dev: `npm run dev:local`
+- LAN HTTPS dev: `npm run dev:lan`
+- default validation: `npm run build`
+- additional checks: `npm run typecheck`, `npm run build:smoke`, `npm run lint`
+
+Fast orientation docs:
+
+- `docs/EXECUTOR_QUICKSTART.md`
+- `docs/ARCHITECTURE.md`
+- `docs/README.md`
+
 ## Current project stage
 
 The project is no longer just an early board foundation.
@@ -41,6 +69,25 @@ Current preferred sequence:
 2. continue hosted playable-session validation in the real hosted stack;
 3. capture real rough edges before broad cleanup or polish;
 4. only then move into slower UI/UX polish afterwards.
+
+## Current validation truth
+
+Current checked baseline as of 2026-04-13:
+
+- `npm run typecheck` passes
+- `npm run build` passes
+- `npm run lint` is currently red with pre-existing failures in:
+  - `src/App.tsx`
+  - `src/components/BoardStage.tsx`
+  - `src/lib/roomSession.ts`
+  - `src/ui/system/debug.tsx`
+
+Working rule:
+
+- still run the relevant validation commands after meaningful work;
+- if a command fails for pre-existing reasons, report that explicitly;
+- do not silently treat pre-existing failures as introduced by the current task;
+- do not opportunistically expand a narrow task just to clean unrelated validation debt unless asked.
 
 ## Deployment-debugging discipline
 
@@ -80,6 +127,23 @@ Historical baseline docs:
 - `docs/refactor-plan.md`
 
 Treat those as historical architecture baseline, not as unquestioned current truth.
+
+## Quick repo map
+
+Top-level working areas:
+
+- `src/` — frontend app
+- `src/components/BoardStage.tsx` — main board interaction/rendering integration surface
+- `src/board/` — board-domain modules, object modules, sync helpers
+- `src/dice/` — shared dice layer
+- `src/media/` — optional LiveKit media layer
+- `src/ui/` and `src/ui/system/` — interface/system/debug surfaces
+- `scripts/yjs-dev-server.mjs` — long-running realtime/API backend
+- `api/livekit/token.ts` — narrow hosted LiveKit token fallback
+- `data/` — mutable room snapshot / room identity runtime data
+- `docs/` — design docs, runbooks, audits, templates, and task briefs
+
+Use `docs/ARCHITECTURE.md` for a compact runtime overview before reading deeper focused docs.
 
 ## Product guardrails
 
@@ -151,6 +215,39 @@ Unless a task explicitly requires it, do not:
 - change room bootstrap / recovery semantics casually;
 - combine product-scope changes with large architecture cleanup;
 - introduce heavy-VTT scene/entity architecture.
+
+## Environment and secret handling reminders
+
+- treat local env files as machine-local configuration, not stable project truth;
+- do not print secret values in reports, screenshots, or debug notes;
+- prefer env examples and docs over copying machine-specific values into code or prose;
+- when diagnosing runtime config, report which variables or endpoints matter without exposing secret contents.
+
+Current documented env/workflow sources:
+
+- `docs/dev-workflows.md`
+- `docs/livekit-local-dev.md`
+- `docs/hosted-alpha-deployment-plan.md`
+
+Default policy:
+
+- tracked `*.example` env files are canonical;
+- machine-local `.env.localdev`, `.env.landev`, `.env.hosted`, and root `.env` files should stay untracked.
+
+## Mutable runtime data reminders
+
+The local backend now defaults its mutable runtime JSON files to ignored repo-local paths under `.runtime-data/`, while hosted/container setups may override those paths explicitly.
+
+- `.runtime-data/room-snapshots.json`
+- `.runtime-data/room-identities.json`
+
+Treat these as operational state, not normal feature code.
+
+Rules:
+
+- do not treat ordinary runtime churn in those files as product behavior changes by itself;
+- do not hide when your validation changed runtime data;
+- do not bundle runtime-data noise into unrelated code changes if it can be avoided.
 
 ## Working model: strategist and executor
 
@@ -351,6 +448,8 @@ After any meaningful implementation pass:
 - list manual QA steps for the touched flow;
 - if the change touches board/runtime behavior, use `docs/manual-qa-runbook.md` and `docs/stabilization-checklist.md` as the baseline.
 
+For docs-only or guidance-only passes, say which commands were intentionally not run if you skipped them.
+
 ## Inspectability default
 
 When an important change is mostly architectural, runtime-level, semantic, or otherwise not reliably verifiable through ordinary visible UI behavior:
@@ -366,6 +465,25 @@ Scope this narrowly:
 - the goal is a small practical verification path, not a broad observability system.
 
 ## Canonical semantic / planning sources
+
+## Which doc to read for which task
+
+### Fast doc routing
+
+- onboarding / repo entry: `README.md`, `docs/README.md`, `docs/EXECUTOR_QUICKSTART.md`
+- architecture overview: `docs/ARCHITECTURE.md`
+- roadmap / current priorities: `ROADMAP.md`
+- current operational context: `play-space-alpha_current-context.md`
+- larger multi-step work planning: `PLANS.md`
+- stable product frame: `play-space-project-foundation.md`
+- room lifecycle / recovery: `docs/room-behavior-spec.md`, `docs/room-memory-model.md`
+- color / participant semantics: `docs/color-model-design.md`
+- indication / multiplayer cues: `docs/indication-design.md`
+- local startup and ops: `docs/dev-workflows.md`
+- LiveKit specifics: `docs/livekit-local-dev.md`
+- hosted deploy/runtime assumptions: `docs/hosted-alpha-deployment-plan.md`
+- manual regression checks: `docs/manual-qa-runbook.md`, `docs/stabilization-checklist.md`
+- task brief / executor report format: `docs/task-brief-template.md`, `docs/executor-report-template.md`
 
 ### Color
 `docs/color-model-design.md`

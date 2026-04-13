@@ -60,6 +60,7 @@ require_command livekit-server
 
 if [[ ! -f "$ENV_FILE" ]]; then
   echo "[dev-local] missing env file: $ENV_FILE"
+  echo "[dev-local] create it from .env.localdev.example"
   exit 1
 fi
 

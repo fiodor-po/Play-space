@@ -17,6 +17,12 @@ fi
 
 LAN_HOST="${LAN_HOST:-}"
 
+if [[ ! -f "$ENV_FILE" ]]; then
+  echo "[lan-proxy] missing env file: $ENV_FILE"
+  echo "[lan-proxy] create it from .env.landev.example"
+  exit 1
+fi
+
 if [[ -z "$LAN_HOST" ]]; then
   echo "[lan-proxy] missing LAN_HOST in $ENV_FILE"
   exit 1

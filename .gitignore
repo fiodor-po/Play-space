@@ -11,6 +11,14 @@ node_modules
 dist
 dist-ssr
 *.local
+.env*
+!.env.example
+!.env.hosted.example
+!.env.localdev.example
+!.env.landev.example
+/.runtime-data/
+/data/room-snapshots.json
+/data/room-identities.json
 
 # Editor directories and files
 .vscode/*

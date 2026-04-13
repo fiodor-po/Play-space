@@ -62,6 +62,7 @@ require_command caddy
 
 if [[ ! -f "$ENV_FILE" ]]; then
   echo "[dev-lan] missing env file: $ENV_FILE"
+  echo "[dev-lan] create it from .env.landev.example"
   exit 1
 fi
 
