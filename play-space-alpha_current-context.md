@@ -661,6 +661,52 @@ What this means:
   chapter, starting with board material tokenization and its canvas-resolution
   rule.
 
+## 8.3. Board-object shells are explicitly outside the current design-system rollout
+
+Another boundary is now explicit:
+
+- board-object shells such as note-card body rendering and token body rendering
+  should not currently be treated as direct design-system migration targets;
+- they belong to a separate future object-shell management layer;
+- current design-system work may still touch board-level controls, board-level
+  surfaces, and board-adjacent utility UI;
+- but the shell of the object itself is intentionally held out of the current
+  rollout.
+
+## 8.4. Image-attached drawing controls need later polish and may become their own compact class
+
+Another narrow board-controls conclusion is now explicit:
+
+- the image-attached `Draw` / `Save` / `Clear` / `Clear all` controls can use
+  shared button ownership structurally;
+- but they should still be treated as custom board-adjacent controls that need
+  later polish and special attention;
+- they may later want a dedicated compact / pill-like board-control class
+  rather than staying a plain long-term projection of ordinary button recipes.
+
+## 8.5. The first safe board-layer continuation is now landed enough to pause
+
+The first board-layer follow-up after the ordinary-interface chapter is now also
+at a reasonable structural checkpoint.
+
+What is already landed:
+
+- board material tokenization
+- explicit CSS-vs-canvas resolution rule for board materials
+- object-semantics tooltip shell
+- dice tray shell ownership
+- image-attached drawing-management controls mapped through shared button
+  ownership
+
+What this means:
+
+- the remaining work is no longer a continuation of the same easy board-surface
+  / board-control chapter;
+- the next larger boundary is now either object-adjacent controls or explicit
+  interaction-layer standardization;
+- object shells still remain intentionally out of scope for the current
+  design-system rollout.
+
 ## 9. Last 3 messages (raw-ish)
 
 ### Message 1

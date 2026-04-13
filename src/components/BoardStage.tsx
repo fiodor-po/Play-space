@@ -28,6 +28,7 @@ import { TokenRenderer } from "../board/objects/token/TokenRenderer";
 import {
   buttonRecipes,
   createParticipantAccentButtonRecipe,
+  resolveCanvasButtonTone,
 } from "../ui/system/families/button";
 import { boardSurfaceRecipes } from "../ui/system/boardSurfaces";
 import { getDesignSystemDebugAttrs } from "../ui/system/debug";
@@ -147,7 +148,7 @@ type SmallFloatingActionButtonProps = {
   x: number;
   y: number;
   label: string;
-  tone?: "default" | "danger" | "primary";
+  recipe?: ReturnType<typeof createParticipantAccentButtonRecipe> | (typeof buttonRecipes)["primary"]["small"];
   onClick: () => void;
 };
 
@@ -164,29 +165,12 @@ function SmallFloatingActionButton({
   x,
   y,
   label,
-  tone = "default",
+  recipe = buttonRecipes.secondary.small,
   onClick,
 }: SmallFloatingActionButtonProps) {
   const width = getSmallFloatingActionButtonWidth(label);
   const height = SMALL_FLOATING_ACTION_BUTTON_HEIGHT;
-  const toneStyles =
-    tone === "primary"
-      ? {
-          fill: "#2563eb",
-          stroke: "rgba(96, 165, 250, 0.6)",
-          textColor: "#f8fafc",
-        }
-      : tone === "danger"
-        ? {
-            fill: "#450a0a",
-            stroke: "rgba(248, 113, 113, 0.5)",
-            textColor: "#fecaca",
-          }
-        : {
-            fill: "#0f172a",
-            stroke: "rgba(148, 163, 184, 0.35)",
-            textColor: "#f8fafc",
-          };
+  const toneStyles = resolveCanvasButtonTone(recipe);
 
   return (
     <Group
@@ -2376,13 +2360,16 @@ export default function BoardStage({
     const buttons: Array<{
       key: string;
       label: string;
-      tone?: "default" | "danger" | "primary";
+      recipe?: (typeof buttonRecipes)[keyof typeof buttonRecipes]["small"];
       onClick: () => void;
     }> = [
       {
         key: "draw",
         label: drawingImageId === selectedImageObject.id ? "Save" : "Draw",
-        tone: drawingImageId === selectedImageObject.id ? "primary" : "default",
+        recipe:
+          drawingImageId === selectedImageObject.id
+            ? buttonRecipes.primary.small
+            : buttonRecipes.secondary.small,
         onClick: () => {
           if (drawingImageId === selectedImageObject.id) {
             finishImageDrawingMode();
@@ -2401,7 +2388,7 @@ export default function BoardStage({
       buttons.push({
         key: "clear-own",
         label: "Clear",
-        tone: "danger",
+        recipe: buttonRecipes.danger.small,
         onClick: () => {
           clearOwnImageDrawing(selectedImageObject.id);
         },
@@ -2416,7 +2403,7 @@ export default function BoardStage({
       buttons.push({
         key: "clear-all",
         label: "Clear all",
-        tone: "danger",
+        recipe: buttonRecipes.danger.small,
         onClick: () => {
           clearImageDrawing(selectedImageObject.id);
         },
@@ -3532,7 +3519,7 @@ export default function BoardStage({
                       x={x}
                       y={-(SMALL_FLOATING_ACTION_BUTTON_HEIGHT + IMAGE_ATTACHED_CONTROLS_OUTER_OFFSET_Y)}
                       label={button.label}
-                      tone={button.tone}
+                      recipe={button.recipe}
                       onClick={button.onClick}
                     />
                   );

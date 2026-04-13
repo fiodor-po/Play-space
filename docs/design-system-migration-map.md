@@ -48,6 +48,14 @@ Explicitly excluded from the main migration target:
 - cursor / presence controls
 - subsystem shells such as the media dock shell and dice tray shell
 
+Additional boundary clarification:
+
+- board-object shells such as note-card and token body rendering should not be
+  treated as direct continuation of the current design-system rollout
+- they belong to a separate future object-shell management layer
+- they may later consume shared primitives or semantic tokens, but they should
+  not currently be framed as ordinary design-system migration debt
+
 Working rule:
 
 - excluded systems may later consume shared primitives or semantic tokens
@@ -253,6 +261,16 @@ Button-like cases still intentionally left out for later return:
 - participant-panel micro-actions
 - participant-panel creator-only destructive button such as `Reset board`
 - object-adjacent image controls
+
+Board drawing-management note:
+
+- the image-attached `Draw` / `Save` / `Clear` / `Clear all` controls may
+  structurally map through shared button ownership now;
+- but they should still be treated as requiring later visual review and special
+  attention;
+- these controls are more custom than ordinary buttons and may later want a
+  distinct board-adjacent compact / pill-like button class rather than
+  remaining a plain projection of ordinary button recipes forever
 
 Working note:
 

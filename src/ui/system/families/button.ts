@@ -11,6 +11,12 @@ type ButtonRecipe = {
   debug: DesignSystemDebugMeta;
 };
 
+type CanvasButtonTone = {
+  fill: string;
+  stroke: string;
+  textColor: string;
+};
+
 type ButtonToneOverride = {
   surfaceDefault?: string;
   surfaceHover?: string;
@@ -253,4 +259,39 @@ export function createTextButtonRecipe(
     borderDisabled: "transparent",
     textDefault: textColor,
   }, "text");
+}
+
+function resolveCssValue(value: unknown) {
+  if (typeof value !== "string") {
+    return "";
+  }
+
+  const trimmedValue = value.trim();
+
+  if (!trimmedValue.startsWith("var(") || typeof window === "undefined") {
+    return trimmedValue;
+  }
+
+  const tokenName = trimmedValue.slice(4, -1).trim();
+
+  if (!tokenName.startsWith("--")) {
+    return trimmedValue;
+  }
+
+  return window
+    .getComputedStyle(document.documentElement)
+    .getPropertyValue(tokenName)
+    .trim() || trimmedValue;
+}
+
+export function resolveCanvasButtonTone(recipe: ButtonRecipe): CanvasButtonTone {
+  const style = recipe.style as CSSVariableProperties;
+  const borderValue = typeof style.border === "string" ? style.border : "";
+  const strokeValue = borderValue.split(" ").at(-1) ?? "";
+
+  return {
+    fill: resolveCssValue(style.background),
+    stroke: resolveCssValue(strokeValue),
+    textColor: resolveCssValue(style.color),
+  };
 }

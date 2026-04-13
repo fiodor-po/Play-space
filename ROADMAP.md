@@ -199,6 +199,15 @@ Core hosted signal уже получен.
     reconciliation, and explicit local exceptions
   - the next safe design-system direction is board-layer work, starting with
     board material tokenization and its canvas-resolution rule
+  - the first safe board-layer continuation is now also landed enough to pause:
+    - board material
+    - object-semantics tooltip shell
+    - dice tray shell
+    - board drawing-management control ownership
+  - the next large boundary beyond that point is no longer ordinary/shared UI,
+    but either:
+    - object-adjacent controls
+    - or interaction-layer standardization
 - [ ] object interaction UI standardization chapter:
   - first explicitly separate the app into:
     - object layer
