@@ -135,23 +135,17 @@ Current preferred sequence:
 
 ## Current validation truth
 
-Current checked baseline as of 2026-04-13:
+Current checked baseline as of 2026-04-14:
 
 - `npm run typecheck` passes
 - `npm run build` passes
-- `npm run lint` is currently red with pre-existing failures in:
-  - `src/App.tsx`
+- `npm run lint` is currently red with pre-existing failures only in:
   - `src/components/BoardStage.tsx`
 
 Current lint failure shape:
 
-- `src/App.tsx` still has structural React hook findings:
-  - conditional hook ordering
-  - synchronous `setState` calls inside effects
-  - several hook dependency warnings
 - `src/components/BoardStage.tsx` still has structural hook/compiler findings:
-  - function/use-before-declaration around image drawing helpers
-  - ref mutation findings from the React hooks/immutability rules
+  - one remaining `set-state-in-effect` finding in the participant-marker corridor
   - several hook dependency warnings
 
 Previously reported low-risk lint issues in `src/lib/roomSession.ts`,

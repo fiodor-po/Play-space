@@ -71,19 +71,16 @@ npm run lint
 
 ## 3. Current Validation Truth
 
-As of 2026-04-13:
+As of 2026-04-14:
 
 - `npm run build` passes
-- `npm run lint` fails with pre-existing issues in:
-  - `src/App.tsx`
+- `npm run lint` fails with pre-existing issues only in:
   - `src/components/BoardStage.tsx`
 
-Current lint debt is narrower than before:
+Current lint debt is now narrow:
 
-- `src/App.tsx` holds the remaining hook-order / set-state-in-effect /
-  dependency findings.
-- `src/components/BoardStage.tsx` holds the remaining image-drawing helper /
-  ref-mutation / dependency findings.
+- `src/components/BoardStage.tsx` holds one remaining participant-marker
+  `set-state-in-effect` finding plus several dependency warnings.
 
 Low-risk hygiene lint issues in `src/lib/roomSession.ts`,
 `src/ui/system/debug.tsx`, and `src/media/LiveKitMediaDock.tsx` have already
