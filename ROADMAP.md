@@ -70,51 +70,43 @@
 
 ## 4. Текущий активный этап
 
-## Phase B — Repo/runtime health pass after the current design-system checkpoint
+## Phase C — Room document persistence / recovery architecture
 
 **Статус:** active
 
 ### Цель
-После текущего design-system checkpoint временно поставить дальнейшую
-design-system работу на pause, закрыть `App.tsx` как structural hotspot,
-довести текущий narrow `BoardStage.tsx` cleanup chapter до checkpoint, завершить
-refreshed architecture/runtime audit и открыть `next runtime/object chapter`
-как следующий большой implementation step.
+Принять `room document replicas` как новый активный architecture chapter,
+перевести persistence/recovery от snapshot arbitration к replica model и начать
+с узкой `commit-boundary persistence` фазы.
 
 ### Основная последовательность
 1. удерживать hosted core + optional video checkpoint как baseline;
-2. удерживать design-system migration на pause after a good checkpoint rather
-   than widening into visual polishing immediately;
-3. считать `App.tsx` structural hotspot closed after the completed lifecycle /
-   ownership checkpoint;
-4. довести current `BoardStage.tsx` cleanup chapter до honest checkpoint;
-5. после этого сделать refreshed architecture/runtime audit;
-6. выбрать следующий chapter как `next runtime/object chapter`;
-7. затем держать `participant-marker / creator-color` как следующий отдельный
-   semantic/runtime chapter;
-8. возвращаться к hosted validation как recurring checkpoint после крупных
-   шагов и новых demo snapshots.
+2. считать `App.tsx` chapter closed;
+3. считать narrow `BoardStage.tsx` cleanup checkpoint closed;
+4. считать refreshed architecture/runtime audit completed;
+5. считать `next runtime/object chapter` временно blocked by persistence/recovery correctness;
+6. открыть новый active chapter: `room document persistence / recovery architecture`;
+7. принять `parallel replacement` как strategy:
+   - current product surface stays;
+   - new room-document replica model grows beside current snapshot-arbitration model;
+   - cutover happens by phases;
+8. взять первой implementation phase: `narrow commit-boundary persistence phase`;
+9. держать `participant-marker / creator-color` как later chapter после persistence/recovery stabilization;
+10. возвращаться к hosted validation как recurring checkpoint после крупных
+    шагов и новых demo snapshots.
 
 ### Почему это теперь главный фокус
-Последние stabilization и audit passes заметно улучшили onboarding, env/runtime
-hygiene и validation truth. После этого главный технический долг уже не в
-общей repo hygiene и не в следующем design-system chapter, а в двух оставшихся
-lint/structure hotspots:
+Последние runtime и audit passes закрыли старые structural decision points.
+Следующий главный риск теперь лежит в persistence/recovery correctness:
 
-- `src/App.tsx`
-- `src/components/BoardStage.tsx`
+- committed room content всё ещё может теряться или восстанавливаться неверно;
+- current model arbitrates between competing snapshots instead of converging replicas;
+- confirmed bugs уже затрагивают базовые product flows:
+  - quick leave / re-enter
+  - refresh
+  - image commit boundaries
 
-Из них `App.tsx` сначала выглядел как более безопасный и high-signal следующий
-target, чем немедленное продолжение design-system visual polishing или ранний
-заход в `BoardStage.tsx`.
-
-После нескольких успешных `App` passes это chapter now reads as completed
-enough for the current phase:
-
-- narrow split slices landed;
-- lifecycle / ownership follow-up landed;
-- live joined-room presence sync follow-up landed;
-- `App.tsx` no longer appears in current lint output.
+Это делает storage/recovery spine главным active architecture concern.
 
 ## 5. Что входит в текущий этап
 
@@ -124,7 +116,8 @@ enough for the current phase:
 - `App.tsx` checkpoint closure after lifecycle / ownership completion;
 - `BoardStage.tsx` cleanup chapter checkpoint closure;
 - refreshed architecture/runtime audit completion;
-- next active chapter: `next runtime/object chapter`;
+- new active chapter: `room document persistence / recovery architecture`;
+- next implementation phase: `narrow commit-boundary persistence phase`;
 - later follow-up chapter: `participant-marker / creator-color`;
 - hosted validation как повторяемая проверка после крупных шагов, выкатываний и
   новых demo snapshots.
@@ -148,9 +141,10 @@ enough for the current phase:
 4. считать `App.tsx` chapter structurally closed;
 5. считать current `BoardStage.tsx` cleanup chapter checkpoint-closed;
 6. считать refreshed architecture/runtime audit completed;
-7. открыть `next runtime/object chapter` как следующий implementation chapter;
-8. держать `participant-marker / creator-color` как следующий отдельный follow-up chapter;
-9. возвращаться к hosted validation как checkpoint после больших шагов и новых
+7. открыть `room document persistence / recovery architecture` как следующий implementation chapter;
+8. взять `narrow commit-boundary persistence phase` как первый implementation phase;
+9. держать `participant-marker / creator-color` как следующий отдельный follow-up chapter после persistence/recovery stabilization;
+10. возвращаться к hosted validation как checkpoint после больших шагов и новых
    demo snapshots.
 
 ## 8. Backlog
@@ -177,7 +171,11 @@ enough for the current phase:
 - [x] довести текущий narrow `BoardStage.tsx` cleanup chapter до honest checkpoint
 - [x] сделать refreshed architecture/runtime audit after the current `BoardStage` checkpoint
 - [x] выбрать следующий chapter как `next runtime/object chapter`
+- [x] принять `room document replicas` как новый persistence/recovery target model
+- [x] принять `parallel replacement` как strategy для migration к room-document replica model
 - [x] зафиксировать `participant-marker / creator-color` как следующий отдельный follow-up chapter
+- [ ] открыть `room document persistence / recovery architecture` как новый active chapter
+- [ ] сделать `narrow commit-boundary persistence phase` как первый implementation phase
 - [ ] использовать hosted validation как recurring checkpoint после крупных
   продуктовых шагов и новых demo snapshots
 

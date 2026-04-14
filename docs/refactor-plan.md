@@ -1,7 +1,7 @@
 # Refactor Plan
 
 Status: current target-oriented architecture plan  
-Last updated: 2026-04-14
+Last updated: 2026-04-15
 
 This document is the current architecture migration plan for the repo.
 
@@ -10,8 +10,12 @@ It now follows the accepted post-`App` / post-narrow-`BoardStage` checkpoint fra
 
 - `App.tsx` structural hotspot is closed for the current phase;
 - narrow `BoardStage.tsx` cleanup chapter is checkpoint-closed;
-- the next main chapter is `next runtime/object chapter`;
-- `participant-marker / creator-color` remains the required follow-up chapter after that;
+- the next main chapter is `room document persistence / recovery architecture`;
+- the chosen strategy is `parallel replacement`:
+  - keep the current product surface;
+  - build the target room-document replica model beside the current snapshot-arbitration model;
+  - cut over by phases;
+- `participant-marker / creator-color` remains a later follow-up chapter after persistence/recovery stabilization;
 - backend/runtime reshaping stays later unless it becomes the main blocker again.
 
 `ROADMAP.md` remains the live project-plan and priority source.
@@ -19,8 +23,8 @@ This file is the architecture-specific migration companion.
 
 ## 1. Goal
 
-Move the repo toward a board-runtime-centered architecture that preserves current
-product behavior while making ownership boundaries clearer.
+Move the repo toward a room-document-replica persistence model that preserves
+current product behavior while making recovery and durability correct.
 
 The target is not:
 
@@ -32,8 +36,14 @@ The target is:
 
 - `App` owns room/session lifecycle;
 - `src/app/*` owns room-level transport hooks;
-- board runtime owns room-scoped board state, bootstrap/recovery coordination,
-  board commands, sync routing, and persistence coordination;
+- board runtime still moves toward clearer ownership;
+- committed room content should be modeled as one logical room document;
+- that room document should have:
+  - a browser-local replica
+  - a live collaboration replica
+  - a durable server replica
+- persistence eligibility should be decided at commit boundary, not by broad
+  late effect windows;
 - `BoardStage` stays the Konva/Stage integration surface rather than becoming a
   second hidden board-runtime store;
 - object families and interaction families become clearer over phased passes;
@@ -65,15 +75,31 @@ Own:
 - client reset policy;
 - room ops API.
 
+### Room document replicas
+
+The accepted target model for committed board content is:
+
+- one logical room document;
+- browser-local persistent replica;
+- live replica through active collaboration transport;
+- durable server replica;
+- awareness separated from the room document.
+
+This is a logical model first.
+It does not require immediate transport unification into one physical Yjs
+document in phase 1.
+
 ### Board runtime
 
-Should become the explicit owner of:
+Should still become the explicit owner of:
 
 - room-scoped board object store;
-- bootstrap/recovery decisions for board runtime;
 - board commands;
 - sync composition/routing;
 - persistence coordination for board runtime state.
+
+The persistence side of that work now sits inside the room-document-replica
+chapter rather than as a separate later detail.
 
 ### Board integration surface
 
@@ -148,7 +174,7 @@ Stop conditions:
 
 - if the plan starts depending on a broad rewrite, stop and rescope.
 
-### Phase 1 — Explicit board runtime ownership
+### Phase 1 — Room document persistence / recovery architecture
 
 Status:
 
@@ -156,34 +182,73 @@ Status:
 
 Purpose:
 
-- make board runtime ownership more explicit around `BoardStage` without
-  changing behavior;
-- clarify who owns:
-  - room-scoped `objects`
-  - board bootstrap/recovery coordination
-  - sync composition/routing
-  - persistence coordination
-- keep `BoardStage` as Konva integration surface rather than a hidden all-in-one
-  runtime/store/renderer knot.
+- replace snapshot-arbitration thinking with room-document replica thinking;
+- keep the product surface stable while persistence and recovery move under it;
+- establish the phased bridge from the current model to the accepted target
+  model.
 
 Likely focus areas:
 
-- board runtime boundary around the current `BoardStage` object/runtime cluster;
-- explicit separation between runtime ownership and render branching;
-- safer command/sync ownership seams.
+- commit-boundary persistence policy;
+- local replica semantics;
+- durable write model;
+- recovery convergence model.
 
 Files likely touched:
 
 - `src/components/BoardStage.tsx`
-- new board-runtime-focused modules under `src/board/`
-- possibly `src/board/sync/*`
-- possibly selected helpers in `src/lib/*`
+- `src/board/runtime/*`
+- `src/lib/storage.ts`
+- `src/lib/durableRoomSnapshot.ts`
+- `scripts/yjs-dev-server.mjs`
+- focused room-memory / planning docs
 
 Must not change:
 
+- room identity semantics;
+- live-wins behavior for active rooms;
 - pan/zoom semantics;
 - image interaction semantics;
-- room bootstrap priority;
+- participant-marker semantics;
+- creator-color fallback semantics;
+- backend service topology.
+
+Validation:
+
+- `npm run build`
+- manual QA for:
+  - quick leave / re-enter
+  - refresh recovery
+  - same-browser reopen
+  - second-browser reopen
+  - image drag/resize/draw commit boundaries
+  - live room still staying live-wins
+
+Stop conditions:
+
+- if the work starts rewriting all live transport in one phase, stop;
+- if the work starts forcing backend service split, stop;
+- if the work starts mixing participant-marker logic into persistence work, stop.
+
+### Phase 1A — Narrow commit-boundary persistence phase
+
+Purpose:
+
+- define and honor commit boundaries for committed room content;
+- remove reliance on late effect windows for known loss corridors;
+- make committed mutations persistence-eligible immediately.
+
+Files likely touched:
+
+- `src/components/BoardStage.tsx`
+- `src/board/runtime/*`
+- selected persistence helpers
+
+Must not change:
+
+- room identity semantics;
+- live-wins priority;
+- image interaction behavior itself;
 - participant-marker semantics;
 - creator-color fallback semantics.
 
@@ -191,105 +256,121 @@ Validation:
 
 - `npm run build`
 - manual QA for:
-  - room switch/reset/bootstrap
-  - empty-space pan/zoom
-  - image drag/resize/draw/preview
-  - note-card edit/resize
-  - token drag/attachment
+  - image drag end + immediate leave/reload
+  - image transform end + immediate leave/reload
+  - draw commit + immediate leave/reload
+  - empty-room first committed mutation
+  - same-browser and second-browser recovery where applicable
 
 Stop conditions:
 
-- if the work starts forcing participant-marker logic into the same phase, stop;
-- if the work starts forcing broad `BoardStage` rewrite, stop;
-- if the work starts changing Stage event ordering, stop and narrow further.
+- if the work starts redesigning the whole persistence stack, stop;
+- if the work starts changing interaction semantics, stop;
+- if the work cannot be expressed as commit-boundary discipline, stop.
 
-### Phase 2 — Object-family ownership completion
+### Phase 2 — Local replica semantics
 
 Purpose:
 
-- complete the board-layer per-object ownership trend, especially the missing
-  `image` family boundary.
+- turn browser-local room snapshot into an explicit local replica of the room
+  document instead of a competing fallback snapshot.
 
 Files likely touched:
 
-- `src/board/objects/image/*` or equivalent
-- existing token/note-card object modules
-- board object helpers and selectors
+- `src/lib/storage.ts`
+- board runtime / persistence modules
 - `src/components/BoardStage.tsx`
 
 Must not change:
 
-- draw/transform/preview semantics;
-- attachment behavior;
-- realtime propagation semantics.
+- room identity semantics;
+- active-room live-wins behavior;
+- current transport contracts unless required narrowly.
 
 Validation:
 
 - `npm run build`
-- manual QA across all object families
+- manual QA for:
+  - refresh in the same browser
+  - reopen after short leave/offline gap
+  - correct preference of fresher local replica without changing shared truth
 
 Stop conditions:
 
-- if the work starts forcing a broad type-model rewrite all at once, stop.
+- if the work starts introducing broad merge logic, stop.
 
-### Phase 3 — Command and sync routing clarification
+### Phase 3 — Durable write model
 
 Purpose:
 
-- make board commands and sync routing explicit rather than incidental inside
-  `BoardStage` branching.
+- move durable persistence from whole-room ad hoc timing toward a clearer
+  update/checkpoint model.
 
 Files likely touched:
 
-- `src/board/sync/*`
-- board runtime modules
+- `src/lib/durableRoomSnapshot.ts`
+- `scripts/yjs-dev-server.mjs`
+- board runtime / persistence modules
+
+Must not change:
+
+- room identity layer;
+- awareness separation;
+- room interaction semantics.
+
+Validation:
+
+- `npm run build`
+- manual QA for:
+  - durable recovery after live room disappears
+  - conflict handling
+  - same-browser vs second-browser consistency
+
+Stop conditions:
+
+- if this begins forcing backend service split, stop.
+
+### Phase 4 — Recovery convergence
+
+Purpose:
+
+- remove snapshot winner-picking as the main model and move toward replica
+  convergence.
+
+Files likely touched:
+
+- board runtime / storage modules
 - `src/components/BoardStage.tsx`
 
 Must not change:
 
-- remote update timing expectations;
-- room-scoped reset semantics;
-- current transport contracts unless absolutely necessary.
+- live-wins for active rooms;
+- room identity precedence;
+- board interaction behavior.
 
 Validation:
 
 - `npm run build`
-- manual QA focused on shared object propagation and recovery
+- manual QA for:
+  - refresh
+  - quick leave / re-enter
+  - same-browser reopen
+  - second-browser reopen
+  - live room still beating durable/local state
 
 Stop conditions:
 
-- if this begins changing transport protocol rather than ownership boundaries,
-  stop and defer.
+- if this starts requiring a full live-transport rewrite in one pass, stop.
 
-### Phase 4 — Interaction-family clarification
+### Phase 5 — Board runtime ownership and object-family cleanup
 
 Purpose:
 
-- move safer generic interaction ownership out first while keeping the image
-  corridor intentionally integrated longer.
+- continue explicit board runtime ownership once the persistence spine is on the
+  accepted replica path;
+- continue object-family ownership work from a cleaner base.
 
-Files likely touched:
-
-- board interaction helpers/modules
-- `src/components/BoardStage.tsx`
-
-Must not change:
-
-- image corridor behavior;
-- Stage event ordering;
-- generic object drag/edit semantics.
-
-Validation:
-
-- `npm run build`
-- manual QA focused on selection, drag, edit, and viewport interactions
-
-Stop conditions:
-
-- if image-sensitive behavior becomes entangled, stop and keep it for a later
-  narrower step.
-
-### Phase 5 — Participant-marker / creator-color chapter
+### Phase 6 — Participant-marker / creator-color chapter
 
 Purpose:
 
@@ -329,7 +410,7 @@ Stop conditions:
 
 - if the phase starts drifting into full participant management or auth, stop.
 
-### Phase 6 — Backend/runtime maintainability work
+### Phase 7 — Backend/runtime maintainability work
 
 Purpose:
 
@@ -357,34 +438,32 @@ Stop conditions:
 
 - It follows the accepted current hotspot map:
   - `App` no longer dominates
-  - `BoardStage` runtime ownership does
-- It does not drag participant-marker semantics into the runtime/object phase too
-  early
-- It keeps creator-color work after the runtime/object chapter where the token
-  and board-runtime boundaries are clearer
-- It avoids spending the next major step on backend internals when the stronger
-  product/runtime signal is still in frontend board ownership
+  - persistence/recovery correctness now dominates
+- It treats local and durable room state as future replicas of one logical room
+  document instead of continuing to patch snapshot arbitration
+- It keeps creator-color work after persistence/recovery stabilization
+- It avoids spending the next major step on backend service internals when the
+  stronger product/runtime signal is still in room-content correctness
 
 ## 6. Recommended next phase only
 
 The next implementation chapter should be:
 
-- **Phase 1 — Explicit board runtime ownership**
+- **Phase 1A — Narrow commit-boundary persistence phase**
 
 Short reason:
 
-- it is the highest-signal structural hotspot now;
-- it prepares the repo for the later participant-marker / creator-color chapter;
-- it is reachable through narrow phased passes without committing to a broad
-  rewrite.
+- it directly addresses confirmed correctness bugs in the current product flow;
+- it is the first safe step toward the accepted room-document replica model;
+- it keeps scope narrow while moving toward the long-term target.
 
 ## 7. Relationship to current roadmap phase
 
 This plan supports the active `ROADMAP.md` phase by turning the completed
-refreshed architecture/runtime audit into a concrete migration sequence.
+architecture work into a concrete persistence/recovery migration sequence.
 
 Immediate roadmap-aligned result:
 
-- refreshed audit completed
-- next chapter chosen: `next runtime/object chapter`
+- room-document replica chapter chosen as the new active architecture track
+- next implementation phase chosen: `narrow commit-boundary persistence phase`
 - later follow-up chapter remains: `participant-marker / creator-color`

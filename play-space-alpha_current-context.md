@@ -32,6 +32,10 @@
 - unified room entry screen now exists and room name is editable before join;
 - in-room lifecycle now uses `Leave room` instead of direct room switching;
 - hosted core checkpoint remains valid and has now expanded into a practical hosted core + video checkpoint.
+- `App` structural hotspot is closed for the current phase;
+- narrow `BoardStage` cleanup chapter is checkpoint-closed;
+- refreshed architecture/runtime audit is completed;
+- current active architecture hotspot is now persistence/recovery correctness.
 
 Current workflow rule for hosted validation:
 
@@ -258,6 +262,39 @@ Required deferred follow-up is now explicit:
 - that stored `fill` can become stale after later participant color changes;
 - accepted target is snapshot-backed room-scoped last-known participant appearance as the non-live creator fallback by `creatorId`;
 - `creatorId` remains durable room identity truth, while participant appearance fallback belongs to durable room snapshot;
+
+### 3.18. Persistence/recovery is now the active architecture chapter
+
+The current active architecture chapter is now `room document persistence / recovery architecture`.
+
+Accepted direction:
+
+- committed board content should be modeled as one logical room document;
+- the room document should have:
+  - local replica
+  - live replica
+  - durable server replica
+- awareness stays separate from durable room content;
+- persistence eligibility should be decided at commit boundary;
+- the chosen migration strategy is `parallel replacement`:
+  - keep the current product surface;
+  - build the target room-document replica model beside the current snapshot-arbitration model;
+  - cut over by phases.
+
+Practical blocker behind this decision:
+
+- committed room content can still be lost or recovered incorrectly;
+- current model still arbitrates between local and durable snapshots as competing sources;
+- confirmed bug corridors include quick leave / re-enter, refresh, and image commit boundaries.
+
+Current implementation consequence:
+
+- the uncommitted `Phase 1` runtime seam should be reused later as groundwork where useful;
+- it should not be committed as-is, because it currently mixes useful runtime extraction with incomplete persistence semantics.
+
+Next implementation phase:
+
+- `narrow commit-boundary persistence phase`
 - this remains required participant-marker / creator-color chapter work rather than optional polish;
 - analysis note: [docs/creator-color-fallback-analysis-2026-04-14.md](docs/creator-color-fallback-analysis-2026-04-14.md)
 
