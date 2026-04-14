@@ -77,8 +77,9 @@
 ### Цель
 После текущего design-system checkpoint временно поставить дальнейшую
 design-system работу на pause, закрыть `App.tsx` как structural hotspot,
-довести текущий narrow `BoardStage.tsx` cleanup chapter до checkpoint и затем
-перейти к refreshed architecture/runtime audit before the next larger chapter.
+довести текущий narrow `BoardStage.tsx` cleanup chapter до checkpoint, завершить
+refreshed architecture/runtime audit и открыть `next runtime/object chapter`
+как следующий большой implementation step.
 
 ### Основная последовательность
 1. удерживать hosted core + optional video checkpoint как baseline;
@@ -122,8 +123,8 @@ enough for the current phase:
 - удержание design-system migration на pause after the current checkpoint;
 - `App.tsx` checkpoint closure after lifecycle / ownership completion;
 - `BoardStage.tsx` cleanup chapter checkpoint closure;
-- refreshed architecture/runtime audit after that checkpoint;
-- next chosen chapter: `next runtime/object chapter`;
+- refreshed architecture/runtime audit completion;
+- next active chapter: `next runtime/object chapter`;
 - later follow-up chapter: `participant-marker / creator-color`;
 - hosted validation как повторяемая проверка после крупных шагов, выкатываний и
   новых demo snapshots.
