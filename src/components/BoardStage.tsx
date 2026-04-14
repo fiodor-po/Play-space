@@ -586,6 +586,15 @@ export default function BoardStage({
     },
   });
 
+  const getSnapshotObjectCount = (snapshot: {
+    tokens: BoardObject[];
+    images: BoardObject[];
+    textCards: BoardObject[];
+  } | null) =>
+    snapshot
+      ? snapshot.tokens.length + snapshot.images.length + snapshot.textCards.length
+      : 0;
+
   const getObjectSemanticsRows = (object: BoardObject) => {
     const rows = [
       { label: "Kind", value: object.kind },
@@ -1353,12 +1362,23 @@ export default function BoardStage({
     let isCancelled = false;
 
     const resolveRoomBootstrap = async () => {
+      const composeSharedRoomObjects = (params: {
+        roomId: string;
+        tokens?: BoardObject[];
+        images?: BoardObject[];
+        textCards?: BoardObject[];
+      }) => [
+        ...getRoomScopedObjects(params.roomId),
+        ...(params.tokens ?? []),
+        ...(params.images ?? []),
+        ...(params.textCards ?? []),
+      ];
+      const composeBaselineRoomObjects = (
+        nextRoomId: string,
+        baselineObjects: BoardObject[]
+      ) => [...getRoomScopedObjects(nextRoomId), ...baselineObjects];
       const localSnapshot = loadRoomSnapshot(roomId);
-      const localSnapshotObjectCount = localSnapshot
-        ? localSnapshot.tokens.length +
-          localSnapshot.images.length +
-          localSnapshot.textCards.length
-        : 0;
+      const localSnapshotObjectCount = getSnapshotObjectCount(localSnapshot);
 
       let durableSnapshot = null;
 
@@ -1374,11 +1394,24 @@ export default function BoardStage({
 
       durableSnapshotRevisionRef.current = durableSnapshot?.revision ?? null;
 
-      const durableSnapshotObjectCount = durableSnapshot
-        ? durableSnapshot.tokens.length +
-          durableSnapshot.images.length +
-          durableSnapshot.textCards.length
-        : 0;
+      const durableSnapshotObjectCount = getSnapshotObjectCount(durableSnapshot);
+      const baselineObjects = roomBaselineToApply
+        ? getRoomBaselinePayload(roomBaselineToApply)
+        : [];
+      const shouldApplyBaseline =
+        durableSnapshotObjectCount === 0 &&
+        localSnapshotObjectCount === 0 &&
+        baselineObjects.length > 0;
+      const baselineIdToApply = shouldApplyBaseline
+        ? roomBaselineToApply?.baselineId ?? null
+        : null;
+      let nextObjects: BoardObject[] | null = null;
+      let terminalBranch:
+        | "durable-recovery"
+        | "local-recovery"
+        | "baseline-initialization"
+        | "empty-room" = "empty-room";
+      let terminalSource: "durable" | "local" | "baseline" | null = null;
 
       console.info("[room-recovery][board-stage][bootstrap-inputs]", {
         roomId,
@@ -1391,68 +1424,75 @@ export default function BoardStage({
       });
 
       if (durableSnapshot && durableSnapshotObjectCount > 0) {
-        console.info("[room-recovery][board-stage][bootstrap-terminal]", {
+        nextObjects = composeSharedRoomObjects({
           roomId,
-          bootstrapEntryId: roomBootstrapEntryIdRef.current,
-          branch: "durable-recovery",
-          source: "durable",
-          tokenCount: durableSnapshot.tokens.length,
-          imageCount: durableSnapshot.images.length,
-          textCardCount: durableSnapshot.textCards.length,
+          tokens: durableSnapshot.tokens,
+          images: durableSnapshot.images,
+          textCards: durableSnapshot.textCards,
         });
-        replaceBoardObjects(
-          [
-            ...getRoomScopedObjects(roomId),
-            ...durableSnapshot.tokens,
-            ...durableSnapshot.images,
-            ...durableSnapshot.textCards,
-          ],
-          {
-            syncSharedTokens: true,
-            syncSharedImages: true,
-            syncSharedTextCards: true,
-          }
-        );
-        snapshotRecoveryAttemptedRoomRef.current = roomBootstrapEntryIdRef.current;
-        setResolvedSnapshotBootstrapRoomId(roomId);
-        return;
-      }
-
-      if (!localSnapshot || localSnapshotObjectCount === 0) {
-        console.info("[room-recovery][board-stage][bootstrap-terminal]", {
+        terminalBranch = "durable-recovery";
+        terminalSource = "durable";
+      } else if (localSnapshotObjectCount > 0) {
+        nextObjects = composeSharedRoomObjects({
           roomId,
-          bootstrapEntryId: roomBootstrapEntryIdRef.current,
-          branch: "empty-room",
+          tokens: localSnapshot?.tokens,
+          images: localSnapshot?.images,
+          textCards: localSnapshot?.textCards,
         });
-        snapshotRecoveryAttemptedRoomRef.current = roomBootstrapEntryIdRef.current;
-        setResolvedSnapshotBootstrapRoomId(roomId);
-        return;
+        terminalBranch = "local-recovery";
+        terminalSource = "local";
+      } else if (shouldApplyBaseline) {
+        nextObjects = composeBaselineRoomObjects(roomId, baselineObjects);
+        terminalBranch = "baseline-initialization";
+        terminalSource = "baseline";
       }
 
       console.info("[room-recovery][board-stage][bootstrap-terminal]", {
         roomId,
         bootstrapEntryId: roomBootstrapEntryIdRef.current,
-        branch: "local-recovery",
-        source: "local",
-        tokenCount: localSnapshot.tokens.length,
-        imageCount: localSnapshot.images.length,
-        textCardCount: localSnapshot.textCards.length,
+        branch: terminalBranch,
+        source: terminalSource,
+        tokenCount:
+          terminalSource === "durable"
+            ? durableSnapshot?.tokens.length ?? 0
+            : terminalSource === "local"
+              ? localSnapshot?.tokens.length ?? 0
+              : terminalSource === "baseline"
+                ? baselineObjects.filter((object) => object.kind === "token").length
+                : 0,
+        imageCount:
+          terminalSource === "durable"
+            ? durableSnapshot?.images.length ?? 0
+            : terminalSource === "local"
+              ? localSnapshot?.images.length ?? 0
+              : terminalSource === "baseline"
+                ? baselineObjects.filter((object) => object.kind === "image").length
+                : 0,
+        textCardCount:
+          terminalSource === "durable"
+            ? durableSnapshot?.textCards.length ?? 0
+            : terminalSource === "local"
+              ? localSnapshot?.textCards.length ?? 0
+              : terminalSource === "baseline"
+                ? baselineObjects.filter((object) => isNoteCardObject(object)).length
+                : 0,
       });
-      replaceBoardObjects(
-        [
-          ...getRoomScopedObjects(roomId),
-          ...localSnapshot.tokens,
-          ...localSnapshot.images,
-          ...localSnapshot.textCards,
-        ],
-        {
+
+      snapshotRecoveryAttemptedRoomRef.current = roomBootstrapEntryIdRef.current;
+
+      if (nextObjects) {
+        replaceBoardObjects(nextObjects, {
           syncSharedTokens: true,
           syncSharedImages: true,
           syncSharedTextCards: true,
-        }
-      );
-      snapshotRecoveryAttemptedRoomRef.current = roomBootstrapEntryIdRef.current;
+        });
+      }
+
       setResolvedSnapshotBootstrapRoomId(roomId);
+
+      if (baselineIdToApply) {
+        onRoomBaselineApplied(baselineIdToApply);
+      }
     };
 
     void resolveRoomBootstrap();
@@ -1460,45 +1500,9 @@ export default function BoardStage({
     return () => {
       isCancelled = true;
     };
-  }, [hasSharedRoomContentLoaded, roomId, sharedRoomObjects.length]);
-
-  useEffect(() => {
-    if (!roomBaselineToApply) {
-      return;
-    }
-
-    if (!hasSharedRoomContentLoaded) {
-      return;
-    }
-
-    if (resolvedSnapshotBootstrapRoomId !== roomId) {
-      return;
-    }
-
-    if (sharedRoomObjects.length > 0) {
-      return;
-    }
-
-    const baselineObjects = getRoomBaselinePayload(roomBaselineToApply);
-
-    if (baselineObjects.length === 0) {
-      onRoomBaselineApplied(roomBaselineToApply.baselineId);
-      return;
-    }
-
-    replaceBoardObjects(
-      [...getRoomScopedObjects(roomId), ...baselineObjects],
-      {
-        syncSharedTokens: true,
-        syncSharedImages: true,
-        syncSharedTextCards: true,
-      }
-    );
-    onRoomBaselineApplied(roomBaselineToApply.baselineId);
   }, [
     hasSharedRoomContentLoaded,
     onRoomBaselineApplied,
-    resolvedSnapshotBootstrapRoomId,
     roomBaselineToApply,
     roomId,
     sharedRoomObjects.length,
