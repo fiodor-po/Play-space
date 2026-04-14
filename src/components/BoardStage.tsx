@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 import {
   Group,
   Image as KonvaImage,
@@ -492,6 +492,34 @@ export default function BoardStage({
     return object?.kind === "image" ? object : null;
   };
 
+  const selectBoardObject = (
+    object:
+      | BoardObject
+      | {
+          id: string;
+          kind: BoardObject["kind"];
+        }
+      | null
+  ) => {
+    if (!object || object.kind === "token") {
+      setSelectedObjectIdWithImageDrawingGuard(null);
+      return;
+    }
+
+    setSelectedObjectIdWithImageDrawingGuard(object.id);
+  };
+
+  const selectBoardObjectById = (objectId: string | null) => {
+    if (!objectId) {
+      setSelectedObjectIdWithImageDrawingGuard(null);
+      return;
+    }
+
+    selectBoardObject(
+      objects.find((candidate) => candidate.id === objectId) ?? null
+    );
+  };
+
   const getEffectiveImageBoundsForImageId = (
     objectId: string
   ): ImageEffectiveBounds | null => {
@@ -909,6 +937,19 @@ export default function BoardStage({
     setDrawingImageSessionImageId(null);
   };
 
+  const setSelectedObjectIdWithImageDrawingGuard = (
+    nextSelectedObjectId: string | null
+  ) => {
+    if (
+      drawingImageIdRef.current &&
+      drawingImageIdRef.current !== nextSelectedObjectId
+    ) {
+      finishImageDrawingMode();
+    }
+
+    setSelectedObjectId(nextSelectedObjectId);
+  };
+
   const isImageLockedByAnotherParticipant = (imageId: string) => {
     const lock = getImageDrawingLock(imageId);
 
@@ -926,7 +967,7 @@ export default function BoardStage({
       return;
     }
 
-    setSelectedObjectId(imageId);
+    selectBoardObjectById(imageId);
     setDrawingImageSessionImageId(imageId);
     roomImageConnectionRef.current?.setActiveDrawingImage({
       imageId,
@@ -984,6 +1025,25 @@ export default function BoardStage({
       )
     );
   };
+
+  const handleRemoteImageDrawingLocksChange = useEffectEvent(
+    (nextDrawingLocks: Record<string, ImageDrawingLock>) => {
+      const currentDrawingImageId = drawingImageIdRef.current;
+
+      if (currentDrawingImageId) {
+        const currentDrawingLock = nextDrawingLocks[currentDrawingImageId] ?? null;
+
+        if (
+          currentDrawingLock &&
+          currentDrawingLock.participantId !== participantSession.id
+        ) {
+          finishImageDrawingMode();
+        }
+      }
+
+      setRemoteImageDrawingLocks(nextDrawingLocks);
+    }
+  );
 
   const resizeImageObject = (
     id: string,
@@ -1100,10 +1160,6 @@ export default function BoardStage({
     setIsDevToolsOpen(false);
     setObjectSemanticsHoverState(null);
   }, [roomId]);
-
-  useEffect(() => {
-    setParticipantNameDraft(participantSession.name);
-  }, [participantSession.name]);
 
   useEffect(() => {
     if (!isEditingParticipantName) {
@@ -1517,7 +1573,7 @@ export default function BoardStage({
         setImageInitialSyncRoomId(roomId);
       },
       onImagePreviewPositionsChange: setRemoteImagePreviewPositions,
-      onImageDrawingLocksChange: setRemoteImageDrawingLocks,
+      onImageDrawingLocksChange: handleRemoteImageDrawingLocksChange,
     });
     roomImageConnectionRef.current = connection;
 
@@ -1657,6 +1713,10 @@ export default function BoardStage({
 
       if (!deleteAccess?.isAllowed) {
         return;
+      }
+
+      if (drawingImageId) {
+        finishImageDrawingMode();
       }
 
       removeBoardObject(selectedObjectId);
@@ -1966,18 +2026,6 @@ export default function BoardStage({
     tokenInitialSyncRoomId,
   ]);
 
-  useEffect(() => {
-    if (!selectedObjectId) {
-      return;
-    }
-
-    const selectedObject = objects.find((object) => object.id === selectedObjectId);
-
-    if (selectedObject?.kind === "token") {
-      setSelectedObjectId(null);
-    }
-  }, [objects, selectedObjectId]);
-
   const createNote = () => {
     const createNoteAccess = resolveRoomActionAccess("room.add-note");
 
@@ -2000,7 +2048,7 @@ export default function BoardStage({
     });
 
     addBoardObject(newNote);
-    setSelectedObjectId(newNote.id);
+    selectBoardObject(newNote);
   };
 
   const createImageFromFile = (
@@ -2080,7 +2128,7 @@ export default function BoardStage({
         });
 
         addBoardObject(newImage);
-        setSelectedObjectId(newImage.id);
+        selectBoardObject(newImage);
       };
 
       image.src = originalSrc;
@@ -2101,7 +2149,7 @@ export default function BoardStage({
       syncSharedImages: true,
       syncSharedTextCards: true,
     });
-    setSelectedObjectId(null);
+    setSelectedObjectIdWithImageDrawingGuard(null);
     clearBoardContentStorage(roomId);
   };
 
@@ -2116,7 +2164,7 @@ export default function BoardStage({
           }
         : null
     );
-    setSelectedObjectId(object.id);
+    selectBoardObject(object);
     setEditingTextCardId(object.id);
     setEditingDraft(object.label);
     setEditingOriginal(object.label);
@@ -2237,26 +2285,6 @@ export default function BoardStage({
     remoteImageDrawingLocks,
     selectedObjectId,
   ]);
-
-  useEffect(() => {
-    if (drawingImageId && drawingImageId !== selectedObjectId) {
-      finishImageDrawingMode();
-    }
-  }, [drawingImageId, selectedObjectId]);
-
-  useEffect(() => {
-    if (!drawingImageId) {
-      return;
-    }
-
-    const lock = getImageDrawingLock(drawingImageId);
-
-    if (!lock || lock.participantId === participantSession.id) {
-      return;
-    }
-
-    finishImageDrawingMode();
-  }, [drawingImageId, participantSession.id, remoteImageDrawingLocks]);
 
   useEffect(() => {
     if (!drawingImageId) {
@@ -3139,7 +3167,7 @@ export default function BoardStage({
                         return;
                       }
 
-                      setSelectedObjectId(object.id);
+                      selectBoardObject(object);
 
                       if (!isDrawing) {
                         return;
@@ -3181,7 +3209,7 @@ export default function BoardStage({
                         finishImageDrawingMode();
                       }
 
-                      setSelectedObjectId(object.id);
+                      selectBoardObject(object);
                       setDraggingImageId(object.id);
                       updateLiveSelectedImageControlAnchor(
                         object.id,
@@ -3235,7 +3263,7 @@ export default function BoardStage({
                         finishImageDrawingMode();
                       }
 
-                      setSelectedObjectId(object.id);
+                      selectBoardObject(object);
                       setTransformingImageId(object.id);
                       transformingImageSnapshotRef.current[object.id] = object;
                       event.target.draggable(false);
@@ -3400,11 +3428,11 @@ export default function BoardStage({
                   }}
                   onSelect={(event) => {
                     event.cancelBubble = true;
-                    setSelectedObjectId(object.id);
+                    selectBoardObject(object);
                   }}
                   onDragStart={(event) => {
                     event.cancelBubble = true;
-                    setSelectedObjectId(object.id);
+                    selectBoardObject(object);
                   }}
                   onDragMove={(event) => {
                     event.cancelBubble = true;
@@ -3416,7 +3444,7 @@ export default function BoardStage({
                   }}
                   onTransformStart={(event) => {
                     event.cancelBubble = true;
-                    setSelectedObjectId(object.id);
+                    selectBoardObject(object);
                     roomTextCardConnectionRef.current?.setActiveResizingTextCard({
                       textCardId: object.id,
                       participantId: participantSession.id,
