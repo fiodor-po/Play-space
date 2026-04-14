@@ -1,5 +1,20 @@
 # ExecPlan: Board Architecture Phase Plan
 
+> Status: historical baseline, not current execution plan.
+>
+> This document is materially outdated as of 2026-04-14.
+> It reflects an older architecture-planning snapshot and should not be treated
+> as the current phase plan for the repo.
+>
+> Use it only as an old reference for broad direction.
+> For current priorities, sequencing, and active chapters, use:
+> - `ROADMAP.md`
+> - `play-space-alpha_current-context.md`
+>
+> Practical rule:
+> - do not treat the phases in this file as the live migration order without
+>   re-checking the repo and current docs first.
+
 ## 1. Goal
 
 Reorganize the repo toward clearer boundaries between app shell, board domain, per-object ownership, and sync/presence/persistence, while preserving current multiplayer board behavior. The immediate target is to reduce `BoardStage.tsx` responsibility through small extractions rather than a broad rewrite.

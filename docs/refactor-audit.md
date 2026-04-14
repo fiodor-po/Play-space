@@ -1,5 +1,20 @@
 # Refactor Audit
 
+> Status: historical baseline, not current architecture truth.
+>
+> This document is materially outdated as of 2026-04-14.
+> It was written before the later `App.tsx` closure passes, the current
+> `BoardStage.tsx` chapter, and the newer hosted/runtime checkpoints.
+>
+> Use it only as an old high-level baseline.
+> For current sequencing and active architectural focus, use:
+> - `ROADMAP.md`
+> - `play-space-alpha_current-context.md`
+>
+> Practical rule:
+> - do not treat file ownership, line references, or active-phase guidance in
+>   this document as current without re-checking the repo.
+
 ## Scope and Method
 
 - This audit is read-only and based on the current repository state.
