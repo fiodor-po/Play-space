@@ -65,6 +65,12 @@ Dice не входят в durable room content.
 - local per-room state остаётся convenience-only layer;
 - это best-effort alpha recovery, а не final persistence guarantee.
 
+Important nuance:
+
+- durable room snapshot now should be thought of as recoverable durable room state except room identity facts;
+- that may include room-scoped last-known participant appearance for creator-linked fallback;
+- room creator identity still must stay in durable room identity, not inside snapshot.
+
 ## 4. Bootstrap priority
 
 Для room recovery при текущем alpha practical priority такая:
@@ -159,12 +165,13 @@ Near-term fix direction:
 Recommended narrow durable-identity implementation shape:
 
 - add a backend durable room identity store separate from durable content snapshots;
+- keep room creator identity separate even if durable snapshot later stores broader recoverable room state such as participant appearance fallback;
 - keep first-pass identity shape very small:
   - `roomId`
   - `creatorId`
   - `createdAt`
 - resolve room identity before content restore;
-- treat durable snapshot as content-recovery only, not room identity authority.
+- treat durable snapshot as recoverable room-state layer, not room identity authority.
 
 ## 8. Что сейчас считается intentional / temporary / bug
 

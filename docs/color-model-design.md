@@ -86,6 +86,9 @@
 - объект хранит `creatorId` / `authorId`
 - participant layer хранит текущее соответствие:
   - `participantId -> current PlayerColor`
+- room-scoped participant appearance layer хранит:
+  - `participantId -> lastKnownName / lastKnownColor / lastSeenAt`
+- target owner for that layer is durable room snapshot, not object-local color fields
 - UI резолвит creator-linked color через текущий participant color этого id
 
 Это значит:
@@ -116,7 +119,8 @@ Token — creator-linked object.
 Current implementation gap that remains explicitly deferred:
 - refresh/leave wrong-color behavior comes from fallback to token-local stored `fill` after live creator-color resolution disappears
 - this fallback path exposes a real semantic/runtime gap rather than a cosmetic rendering issue
-- the system still has no honest shared non-live current color source by `creatorId`
+- the target model is to use snapshot-backed room-scoped last-known participant appearance as the non-live fallback by `creatorId`
+- the system still does not implement that target layer yet
 - this follow-up belongs to a later participant-marker / creator-color chapter
 - analysis note: [creator-color-fallback-analysis-2026-04-14.md](./creator-color-fallback-analysis-2026-04-14.md)
 
@@ -275,6 +279,7 @@ For creator-linked objects, the semantic source of truth should be:
 
 1. persisted/shared `creatorId`
 2. current participant-color resolution for that id
+3. snapshot-backed room-scoped last-known participant appearance for that id
 
 Not:
 

@@ -37,7 +37,8 @@ Hosted-status caveat that is now explicitly known:
 
 - у комнаты есть **durable room identity layer** для room-level identity facts;
 - у комнаты есть **live shared state**;
-- у комнаты есть **durable room snapshot layer** для content recovery;
+- у комнаты должен быть **room-scoped last-known participant appearance layer** для creator-linked fallback semantics;
+- у комнаты есть **durable room snapshot layer** для recoverable room state other than room identity facts;
 - у клиента есть **локальный per-room convenience state**;
 - есть **awareness-only signals** для ephemeral collaboration.
 
@@ -102,10 +103,11 @@ Important first-pass rule:
 - `revision`
 - `savedAt`
 - committed tokens / images / textCards
+- room-scoped last-known participant appearance
 
 Практический смысл:
 
-- durable room snapshot отвечает на вопрос, какое последнее сохранённое содержимое было у комнаты;
+- durable room snapshot отвечает на вопрос, какое recoverable durable состояние комнаты было сохранено кроме room identity facts;
 - durable room snapshot не должен в одиночку определять, существовала ли комната как сущность.
 - durable room snapshot should not be the long-term home of room creator identity.
 
@@ -114,9 +116,54 @@ Important first-pass rule:
 - durable snapshot используется для recovery;
 - он не отменяет приоритет live shared room state;
 - это alpha recovery base, а не final collaborative storage platform;
-- snapshot layer должен оставаться content-recovery layer, а не room identity authority.
+- snapshot layer должен оставаться recoverable room-state layer, а не room identity authority.
+- creator-linked participant appearance fallback может жить в snapshot, если это room-scoped durable state и не претендует на room identity authority.
 
-## D. Local convenience room state
+## D. Room-scoped last-known participant appearance
+
+Это room-scoped слой последней известной creator appearance truth для этой комнаты.
+
+Recommended target shape:
+
+```ts
+type RoomParticipantAppearance = {
+  participantId: string;
+  lastKnownName: string;
+  lastKnownColor: string;
+  lastSeenAt: number;
+};
+```
+
+Purpose:
+
+- дать честный non-live fallback для creator-linked rendering;
+- сохранить last known name/color участника для этой комнаты;
+- не заставлять creator-linked objects падать обратно в baked-in object color.
+
+Important rules:
+
+- это не room identity layer;
+- это не authoritative participant roster;
+- это не auth/member-management system;
+- target owner for this layer is durable room snapshot, not browser-local-only convenience state.
+
+This layer should answer:
+
+- "какими были последние известные name/color этого `participantId` в этой комнате?"
+
+and should not answer:
+
+- "кто сейчас в комнате?"
+- "кто вообще состоит в комнате как в membership system?"
+
+Target rendering consequence:
+
+- creator-linked color/name should resolve by:
+  1. live participant state
+  2. room-scoped last-known participant appearance
+  3. only temporary legacy fallback after that
+
+## E. Local convenience room state
 
 Это локальный per-room convenience слой клиента.
 
@@ -135,7 +182,12 @@ Important first-pass rule:
 - local room restore markers;
 - future recent-room history.
 
-## E. Awareness-only state
+Important distinction:
+
+- local room-member history may remain useful as remembered defaults / convenience;
+- but it should not be treated as canonical shared creator fallback truth.
+
+## F. Awareness-only state
 
 Это collaboration signals, которые существуют только как ephemeral layer и не должны трактоваться как память комнаты.
 
@@ -152,7 +204,7 @@ Important first-pass rule:
 - awareness не считается room memory;
 - исчезновение awareness state после disconnect — нормальное поведение.
 
-## F. Shared transient sync state
+## G. Shared transient sync state
 
 Это состояние, которое синхронизируется между клиентами, но не считается долговременной памятью комнаты.
 
@@ -168,7 +220,7 @@ Important first-pass rule:
 - но не считаются durable room content;
 - при room switch или TTL expiry должны очищаться как transient state.
 
-## G. Local UI state
+## H. Local UI state
 
 Это клиентское состояние, которое не является room content.
 
@@ -186,7 +238,7 @@ Important first-pass rule:
 - local UI state может сохраняться локально per-room, если это не меняет product contract комнаты;
 - local UI state не должен трактоваться как shared room memory.
 
-## H. Local interaction state
+## I. Local interaction state
 
 Это локальное состояние текущего действия пользователя.
 
@@ -205,7 +257,7 @@ Important first-pass rule:
 - оно не считается room memory;
 - оно должно сбрасываться на appropriate boundaries, например при room switch.
 
-## I. Seed / bootstrap state
+## J. Seed / bootstrap state
 
 `initialBoard` не является канонической room memory model.
 
@@ -215,7 +267,7 @@ Important first-pass rule:
 - initial seed не должен автоматически определять содержимое новой комнаты;
 - starter content может существовать только как отдельный UX mechanism, не как hidden memory contract.
 
-## J. Server-controlled client reset policy
+## K. Server-controlled client reset policy
 
 Для текущего alpha нужен ещё один **operational layer**, который не является ни room memory,
 ни migration framework:

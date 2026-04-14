@@ -191,7 +191,8 @@ enough for the current phase:
 - [ ] implement browser-local participant identity pass with foreground-tab-only active presence behavior
 - [ ] resolve creator-color fallback gap for participant-marker tokens and creator-colored token rendering:
   - refresh/leave wrong-color behavior currently comes from fallback to stale token-local `fill` after live creator color disappears
-  - the system still has no honest shared non-live current color source by `creatorId`
+  - accepted target: use snapshot-backed room-scoped last-known participant appearance as the non-live fallback by `creatorId`
+  - `creatorId` stays in durable room identity; participant appearance fallback belongs to durable room snapshot
   - treat this as required participant-marker / creator-color chapter work, not polish
   - analysis note: [docs/creator-color-fallback-analysis-2026-04-14.md](docs/creator-color-fallback-analysis-2026-04-14.md)
 - [ ] minimal hosted-alpha room operations panel:
@@ -211,7 +212,7 @@ enough for the current phase:
 - [ ] add a durable room identity layer separate from room content snapshot:
   - room identity stores room-level facts such as `roomId`, `creatorId`, `createdAt`
   - room identity is resolved before live/shared content restore
-  - durable room snapshot remains content-recovery layer, not room identity authority
+  - durable room snapshot may hold broader recoverable room state such as room-scoped participant appearance fallback, but not room identity authority
   - local room state remains convenience-only and does not define room existence or creator truth
   - first implementation can use a second backend JSON store in the same pragmatic style as current alpha
 - [ ] make room knownness explicit for backend/ops discovery:

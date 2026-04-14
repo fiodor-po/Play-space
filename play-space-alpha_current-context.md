@@ -256,7 +256,8 @@ Required deferred follow-up is now explicit:
 - refresh/leave wrong-color behavior for participant-marker tokens comes from a real fallback path, not from incidental rendering noise;
 - current token color resolution still falls back from live creator color by `creatorId` to token-local stored `fill`;
 - that stored `fill` can become stale after later participant color changes;
-- the system still has no honest shared non-live current color source by `creatorId`;
+- accepted target is snapshot-backed room-scoped last-known participant appearance as the non-live creator fallback by `creatorId`;
+- `creatorId` remains durable room identity truth, while participant appearance fallback belongs to durable room snapshot;
 - this remains required participant-marker / creator-color chapter work rather than optional polish;
 - analysis note: [docs/creator-color-fallback-analysis-2026-04-14.md](docs/creator-color-fallback-analysis-2026-04-14.md)
 
@@ -537,7 +538,7 @@ Current preferred clean fix:
   - `createdAt`
 - bootstrap creator from durable identity, not from snapshot;
 - let live room-state mirror creator while the room is active;
-- keep durable snapshot as content-recovery layer only.
+- keep durable snapshot as recoverable room-state layer, but not as room identity authority.
 
 Additional near-term consequence now identified:
 
