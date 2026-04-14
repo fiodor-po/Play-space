@@ -1114,6 +1114,7 @@ export default function BoardStage({
   };
 
   useEffect(() => {
+    let isCancelled = false;
     const savedViewport = loadViewportState(roomId);
     const initialRoomViewport = getInitialRoomViewport(
       window.innerWidth,
@@ -1132,42 +1133,52 @@ export default function BoardStage({
       hasSavedViewport,
     });
 
-    replaceBoardObjects(getRoomScopedObjects(roomId));
-    setStagePosition(
-      hasSavedViewport
-        ? { x: savedViewport.x, y: savedViewport.y }
-        : { x: initialRoomViewport.x, y: initialRoomViewport.y }
-    );
-    setStageScale(
-      hasSavedViewport ? savedViewport.scale : initialRoomViewport.scale
-    );
-    setSelectedObjectId(null);
-    setEditingTextCardId(null);
-    setEditingDraft("");
-    setEditingOriginal("");
-    clearLiveNoteCardResizePreviewSession();
-    setLiveNoteCardResizePreview(null);
-    setDrawingImageSessionImageId(null);
-    clearActiveImageStrokeSession();
-    setTransformingImageId(null);
-    setDraggingImageId(null);
-    setRemoteImagePreviewPositions({});
-    setRemoteImageDrawingLocks({});
-    setRemoteTextCardEditingStates({});
-    setRemoteTextCardResizeStates({});
-    setLiveSelectedImageControlAnchor(null);
     roomBootstrapEntryIdRef.current = nextBootstrapEntryId;
-    setTokenInitialSyncRoomId(null);
-    setImageInitialSyncRoomId(null);
-    setTextCardInitialSyncRoomId(null);
     snapshotRecoveryAttemptedRoomRef.current = null;
-    setResolvedSnapshotBootstrapRoomId(null);
     durableSnapshotRevisionRef.current = null;
     pendingDurableSnapshotSaveKeyRef.current = null;
     lastSavedDurableSnapshotKeyRef.current = null;
     panStateRef.current = null;
-    setIsDevToolsOpen(false);
-    setObjectSemanticsHoverState(null);
+    clearLiveNoteCardResizePreviewSession();
+    clearActiveImageStrokeSession();
+    queueMicrotask(() => {
+      if (isCancelled) {
+        return;
+      }
+
+      replaceBoardObjects(getRoomScopedObjects(roomId));
+      setStagePosition(
+        hasSavedViewport
+          ? { x: savedViewport.x, y: savedViewport.y }
+          : { x: initialRoomViewport.x, y: initialRoomViewport.y }
+      );
+      setStageScale(
+        hasSavedViewport ? savedViewport.scale : initialRoomViewport.scale
+      );
+      setSelectedObjectId(null);
+      setEditingTextCardId(null);
+      setEditingDraft("");
+      setEditingOriginal("");
+      setLiveNoteCardResizePreview(null);
+      setDrawingImageSessionImageId(null);
+      setTransformingImageId(null);
+      setDraggingImageId(null);
+      setRemoteImagePreviewPositions({});
+      setRemoteImageDrawingLocks({});
+      setRemoteTextCardEditingStates({});
+      setRemoteTextCardResizeStates({});
+      setLiveSelectedImageControlAnchor(null);
+      setTokenInitialSyncRoomId(null);
+      setImageInitialSyncRoomId(null);
+      setTextCardInitialSyncRoomId(null);
+      setResolvedSnapshotBootstrapRoomId(null);
+      setIsDevToolsOpen(false);
+      setObjectSemanticsHoverState(null);
+    });
+
+    return () => {
+      isCancelled = true;
+    };
   }, [roomId]);
 
   useEffect(() => {
@@ -1339,7 +1350,18 @@ export default function BoardStage({
     if (sharedRoomObjects.length > 0) {
       let isCancelled = false;
 
-      void loadDurableRoomSnapshot(roomId).then((snapshot) => {
+      const resolveLiveBootstrap = async () => {
+        let snapshot = null;
+
+        try {
+          snapshot = await loadDurableRoomSnapshot(roomId);
+        } catch (error) {
+          console.error(
+            "Failed to resolve durable room snapshot during live bootstrap",
+            error
+          );
+        }
+
         if (isCancelled) {
           return;
         }
@@ -1350,10 +1372,12 @@ export default function BoardStage({
           branch: "live-wins",
           durableRevision: snapshot?.revision ?? null,
         });
-      });
+        snapshotRecoveryAttemptedRoomRef.current = roomBootstrapEntryIdRef.current;
+        setResolvedSnapshotBootstrapRoomId(roomId);
+      };
 
-      snapshotRecoveryAttemptedRoomRef.current = roomBootstrapEntryIdRef.current;
-      setResolvedSnapshotBootstrapRoomId(roomId);
+      void resolveLiveBootstrap();
+
       return () => {
         isCancelled = true;
       };
