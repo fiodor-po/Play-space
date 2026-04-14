@@ -251,6 +251,15 @@ Token chapter теперь уже не только design-only.
 - marker no longer behaves like a normal selectable/deletable board object;
 - current token flow is now much closer to a product-facing participant marker than to a debug-only generic token.
 
+Required deferred follow-up is now explicit:
+
+- refresh/leave wrong-color behavior for participant-marker tokens comes from a real fallback path, not from incidental rendering noise;
+- current token color resolution still falls back from live creator color by `creatorId` to token-local stored `fill`;
+- that stored `fill` can become stale after later participant color changes;
+- the system still has no honest shared non-live current color source by `creatorId`;
+- this remains required participant-marker / creator-color chapter work rather than optional polish;
+- analysis note: [docs/creator-color-fallback-analysis-2026-04-14.md](docs/creator-color-fallback-analysis-2026-04-14.md)
+
 Но attachment semantics deliberately remain later.
 
 ### 3.18. Reusable movable-object `activeMove` was added for tokens first
@@ -870,18 +879,20 @@ What landed after that framing:
 So the current framing is now:
 
 - the current `App.tsx` chapter is closed as a structural hotspot;
-- `BoardStage.tsx` is now the remaining major lint / structure hotspot;
+- the narrow `BoardStage.tsx` cleanup chapter has now also reached a real checkpoint;
+- one hard structural knot still remains around participant marker ownership, but it no longer reads as another safe micro-fix inside the same chapter;
 - design-system visual polishing remains paused, not abandoned.
 
 Working order from here:
 
 1. treat `App.tsx` as closed for the current phase
-2. open an analysis-first `BoardStage.tsx` chapter
-3. only then choose between:
-   - a narrow `BoardStage.tsx` implementation pass
+2. treat the current narrow `BoardStage.tsx` cleanup chapter as checkpoint-closed
+3. carry forward the required deferred participant-marker / creator-color follow-up as a separate later chapter, not as one more micro-fix here
+4. run a refreshed architecture/runtime audit against the current repo state
+5. only then choose between:
+   - the next runtime/object chapter
    - return to design-system visual polishing
-   - the next runtime/object chapter after `BoardStage` analysis
-  inline-editing exception for now
+   - opening the separate participant-marker / creator-color chapter
 
 Accepted cleanup decisions already made:
 

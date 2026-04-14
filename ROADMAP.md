@@ -76,8 +76,9 @@
 
 ### Цель
 После текущего design-system checkpoint временно поставить дальнейшую
-design-system работу на pause, закрыть `App.tsx` как structural hotspot и
-перейти к analysis-first `BoardStage.tsx` chapter.
+design-system работу на pause, закрыть `App.tsx` как structural hotspot,
+довести текущий narrow `BoardStage.tsx` cleanup chapter до checkpoint и затем
+перейти к refreshed architecture/runtime audit before the next larger chapter.
 
 ### Основная последовательность
 1. удерживать hosted core + optional video checkpoint как baseline;
@@ -85,11 +86,12 @@ design-system работу на pause, закрыть `App.tsx` как structura
    than widening into visual polishing immediately;
 3. считать `App.tsx` structural hotspot closed after the completed lifecycle /
    ownership checkpoint;
-4. открыть analysis-first `BoardStage.tsx` chapter;
-5. только после этого решать, идти ли в narrow `BoardStage` implementation,
-   возвращаться к design-system visual polishing, или открывать следующий
-   runtime/object chapter;
-6. возвращаться к hosted validation как recurring checkpoint после крупных
+4. довести current `BoardStage.tsx` cleanup chapter до honest checkpoint;
+5. после этого сделать refreshed architecture/runtime audit;
+6. только затем решать, идти ли в next runtime/object chapter, возвращаться к
+   design-system visual polishing, или открывать отдельный participant-marker /
+   creator-color chapter;
+7. возвращаться к hosted validation как recurring checkpoint после крупных
    шагов и новых demo snapshots.
 
 ### Почему это теперь главный фокус
@@ -119,10 +121,12 @@ enough for the current phase:
 - удержание working hosted video path как optional layer без лишнего scope creep;
 - удержание design-system migration на pause after the current checkpoint;
 - `App.tsx` checkpoint closure after lifecycle / ownership completion;
+- `BoardStage.tsx` cleanup chapter checkpoint closure;
+- refreshed architecture/runtime audit after that checkpoint;
 - затем следующая decision point между:
-  - `BoardStage.tsx` analysis-first pass
+  - next runtime/object chapter
   - return to design-system visual polishing
-  - later narrow `BoardStage` implementation pass if analysis supports it
+  - separate participant-marker / creator-color chapter
 - hosted validation как повторяемая проверка после крупных шагов, выкатываний и
   новых demo snapshots.
 
@@ -143,9 +147,10 @@ enough for the current phase:
 2. удерживать successful hosted video checkpoint как optional layer, а не новый broad media chapter;
 3. держать design-system work на pause after the current checkpoint;
 4. считать `App.tsx` chapter structurally closed;
-5. открыть analysis-first `BoardStage.tsx` chapter;
-6. после этого решить следующий chapter;
-7. возвращаться к hosted validation как checkpoint после больших шагов и новых
+5. считать current `BoardStage.tsx` cleanup chapter checkpoint-closed;
+6. после этого сделать refreshed architecture/runtime audit;
+7. затем решить следующий chapter;
+8. возвращаться к hosted validation как checkpoint после больших шагов и новых
    demo snapshots.
 
 ## 8. Backlog
@@ -168,11 +173,13 @@ enough for the current phase:
   more bookkeeping slice and reverting it after runtime regressions
 - [x] открыть analysis-first `App lifecycle / ownership` chapter
 - [x] закрыть `App.tsx` lifecycle / ownership checkpoint narrow implementation passes
-- [ ] открыть analysis-first `BoardStage.tsx` chapter
+- [x] открыть analysis-first `BoardStage.tsx` chapter
+- [x] довести текущий narrow `BoardStage.tsx` cleanup chapter до honest checkpoint
+- [ ] сделать refreshed architecture/runtime audit after the current `BoardStage` checkpoint
 - [ ] по результату выбрать следующий шаг между:
-  - narrow `BoardStage.tsx` implementation pass
-  - return to design-system visual polishing
   - next runtime/object chapter
+  - return to design-system visual polishing
+  - separate participant-marker / creator-color chapter
 - [ ] использовать hosted validation как recurring checkpoint после крупных
   продуктовых шагов и новых demo snapshots
 
@@ -182,6 +189,11 @@ enough for the current phase:
   demo snapshots
 - [ ] фиксировать реальные rough edges после таких hosted checkpoint'ов
 - [ ] implement browser-local participant identity pass with foreground-tab-only active presence behavior
+- [ ] resolve creator-color fallback gap for participant-marker tokens and creator-colored token rendering:
+  - refresh/leave wrong-color behavior currently comes from fallback to stale token-local `fill` after live creator color disappears
+  - the system still has no honest shared non-live current color source by `creatorId`
+  - treat this as required participant-marker / creator-color chapter work, not polish
+  - analysis note: [docs/creator-color-fallback-analysis-2026-04-14.md](docs/creator-color-fallback-analysis-2026-04-14.md)
 - [ ] minimal hosted-alpha room operations panel:
   - list existing rooms on the server
   - inspect room contents / snapshot state

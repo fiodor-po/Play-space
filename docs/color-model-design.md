@@ -113,6 +113,13 @@ Token — creator-linked object.
 - если создатель меняет свой `PlayerColor`, creator-linked визуальный цвет токена тоже обновляется
 - persisted token truth должна хранить `creatorId`, а не baked-in historical color
 
+Current implementation gap that remains explicitly deferred:
+- refresh/leave wrong-color behavior comes from fallback to token-local stored `fill` after live creator-color resolution disappears
+- this fallback path exposes a real semantic/runtime gap rather than a cosmetic rendering issue
+- the system still has no honest shared non-live current color source by `creatorId`
+- this follow-up belongs to a later participant-marker / creator-color chapter
+- analysis note: [creator-color-fallback-analysis-2026-04-14.md](./creator-color-fallback-analysis-2026-04-14.md)
+
 ### Text-card
 Text-card — creator-linked object, но не fully color-themed object.
 
