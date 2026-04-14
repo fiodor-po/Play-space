@@ -56,11 +56,7 @@ export function useJoinedRoomPresenceTransport({
         return;
       }
 
-      connection.setLocalOccupancy(
-        isForegroundPresenceCarrier
-          ? createRoomOccupancy(nextParticipantSession)
-          : null
-      );
+      connection.setLocalOccupancy(createRoomOccupancy(nextParticipantSession));
       connection.setLocalPresence(
         isForegroundPresenceCarrier
           ? nextLocalParticipantPresence ??
