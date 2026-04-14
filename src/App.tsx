@@ -43,6 +43,7 @@ import {
   saveActiveRoomId,
   saveLocalParticipantSession,
   subscribeToActiveParticipantRoomSession,
+  subscribeToLocalParticipantSession,
 } from "./lib/roomSession";
 import { normalizeRoomId } from "./lib/roomId";
 import {
@@ -942,12 +943,64 @@ function BootstrappedApp() {
     }
   );
 
+  const handleStoredParticipantSessionChange = useEffectEvent(
+    (nextStoredSession: LocalParticipantSession | null) => {
+      if (!activeRoomId || !participantSession || !nextStoredSession) {
+        return;
+      }
+
+      if (nextStoredSession.id !== participantSession.id) {
+        return;
+      }
+
+      if (
+        nextStoredSession.name === participantSession.name &&
+        nextStoredSession.color === participantSession.color
+      ) {
+        return;
+      }
+
+      const nextLocalParticipantPresence = localParticipantPresence
+        ? {
+            ...localParticipantPresence,
+            participantId: nextStoredSession.id,
+            name: nextStoredSession.name,
+            color: nextStoredSession.color,
+          }
+        : {
+            ...createLocalParticipantPresence(nextStoredSession),
+            participantId: nextStoredSession.id,
+          };
+
+      setRoomRecord(rememberRoomMemberState(activeRoomId, nextStoredSession));
+      setDraftName(nextStoredSession.name);
+      setDraftColor(nextStoredSession.color);
+      setParticipantSession(nextStoredSession);
+      setLocalParticipantPresence(nextLocalParticipantPresence);
+      syncJoinedRoomParticipantPresence(
+        nextStoredSession,
+        nextLocalParticipantPresence
+      );
+    }
+  );
+
   useEffect(() => {
     return subscribeToActiveParticipantRoomSession(
       browserParticipantId,
       handleActiveParticipantRoomSessionChange
     );
   }, [browserParticipantId]);
+
+  useEffect(() => {
+    if (!isInRoom || !activeRoomId || !participantSession?.id) {
+      return;
+    }
+
+    return subscribeToLocalParticipantSession(
+      activeRoomId,
+      handleStoredParticipantSessionChange
+    );
+  }, [activeRoomId, isInRoom, participantSession?.id]);
 
   const joinRoom = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();

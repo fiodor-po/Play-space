@@ -41,7 +41,7 @@ export function useJoinedRoomPresenceTransport({
     setParticipantPresences({});
   }, []);
 
-  const syncJoinedRoomParticipantPresence = useCallback(
+  const publishJoinedRoomParticipantState = useCallback(
     (
       nextParticipantSession: LocalParticipantSession,
       nextLocalParticipantPresence: ParticipantPresence | null
@@ -57,7 +57,9 @@ export function useJoinedRoomPresenceTransport({
       }
 
       connection.setLocalOccupancy(
-        createRoomOccupancy(nextParticipantSession)
+        isForegroundPresenceCarrier
+          ? createRoomOccupancy(nextParticipantSession)
+          : null
       );
       connection.setLocalPresence(
         isForegroundPresenceCarrier
@@ -67,6 +69,19 @@ export function useJoinedRoomPresenceTransport({
       );
     },
     [activeRoomId, isForegroundPresenceCarrier, isInRoom]
+  );
+
+  const syncJoinedRoomParticipantPresence = useCallback(
+    (
+      nextParticipantSession: LocalParticipantSession,
+      nextLocalParticipantPresence: ParticipantPresence | null
+    ) => {
+      publishJoinedRoomParticipantState(
+        nextParticipantSession,
+        nextLocalParticipantPresence
+      );
+    },
+    [publishJoinedRoomParticipantState]
   );
 
   useEffect(() => {
@@ -97,37 +112,12 @@ export function useJoinedRoomPresenceTransport({
       return;
     }
 
-    const connection = roomPresenceConnectionRef.current;
-
-    if (!connection) {
-      return;
-    }
-
-    connection.setLocalOccupancy(createRoomOccupancy(participantSession));
-  }, [isInRoom, participantSession]);
-
-  useEffect(() => {
-    if (!isInRoom || !participantSession) {
-      return;
-    }
-
-    const connection = roomPresenceConnectionRef.current;
-
-    if (!connection) {
-      return;
-    }
-
-    connection.setLocalPresence(
-      isForegroundPresenceCarrier
-        ? localParticipantPresence ??
-            createLocalParticipantPresence(participantSession)
-        : null
-    );
+    publishJoinedRoomParticipantState(participantSession, localParticipantPresence);
   }, [
-    isForegroundPresenceCarrier,
     isInRoom,
     localParticipantPresence,
     participantSession,
+    publishJoinedRoomParticipantState,
   ]);
 
   return {

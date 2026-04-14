@@ -235,6 +235,27 @@ export function subscribeToActiveParticipantRoomSession(
   };
 }
 
+export function subscribeToLocalParticipantSession(
+  roomId: string,
+  onChange: (session: LocalParticipantSession | null) => void
+) {
+  const storageKey = getRoomSessionStorageKey(roomId);
+
+  const handleStorage = (event: StorageEvent) => {
+    if (event.key !== storageKey) {
+      return;
+    }
+
+    onChange(loadLocalParticipantSession(roomId));
+  };
+
+  window.addEventListener("storage", handleStorage);
+
+  return () => {
+    window.removeEventListener("storage", handleStorage);
+  };
+}
+
 export function clearBrowserLocalRoomSessionState() {
   clearStorageKeysByPrefix(localStorage, ROOM_SESSION_STORAGE_PREFIX);
   clearStorageKeysByPrefix(localStorage, ROOM_PRESENCE_STORAGE_PREFIX);
