@@ -283,6 +283,27 @@ type GovernanceInspectionEntry = {
   timestamp: number;
 };
 
+type ActiveImageStrokeSession = {
+  imageId: string;
+  strokeIndex: number;
+};
+
+type EditingTextareaStyle = {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+  fontSize: number;
+  lineHeight: number;
+  fontFamily: string;
+  color: string;
+};
+
+type ContainerRect = {
+  left: number;
+  top: number;
+};
+
 export default function BoardStage({
   participantSession,
   participantPresences,
@@ -299,35 +320,6 @@ export default function BoardStage({
   onUpdateLocalPresence,
 }: BoardStageProps) {
   const isDebugControlsEnabled = isDesignSystemHoverDebugEnabled();
-  const mergeSharedImages = (
-    sharedImages: BoardObject[],
-    localImages: BoardObject[]
-  ) => {
-    return sharedImages.map((sharedImage) => {
-      const localImage = localImages.find(
-        (localObject) =>
-          localObject.id === sharedImage.id && localObject.kind === "image"
-      );
-
-      if (localImage && transformingImageSnapshotRef.current[sharedImage.id]) {
-        return localImage;
-      }
-
-      const hasLocalInProgressDrawing =
-        drawingImageId === sharedImage.id ||
-        activeImageStrokeRef.current?.imageId === sharedImage.id;
-
-      if (!hasLocalInProgressDrawing || !localImage?.imageStrokes?.length) {
-        return sharedImage;
-      }
-
-      return {
-        ...sharedImage,
-        imageStrokes: localImage.imageStrokes,
-      };
-    });
-  };
-
   const getRoomScopedObjects = (nextRoomId: string) => {
     const localObjects = loadBoardObjects(nextRoomId, EMPTY_BOARD_STATE);
 
@@ -445,6 +437,7 @@ export default function BoardStage({
   const [remoteActiveObjectMoves, setRemoteActiveObjectMoves] = useState<
     ActiveObjectMoveMap
   >({});
+  const [containerRect, setContainerRect] = useState<ContainerRect | null>(null);
   const [liveSelectedImageControlAnchor, setLiveSelectedImageControlAnchor] =
     useState<{ imageId: string; x: number; y: number } | null>(null);
   const [tokenInitialSyncRoomId, setTokenInitialSyncRoomId] = useState<
@@ -714,10 +707,8 @@ export default function BoardStage({
     startStageY: number;
   } | null>(null);
   const ignoreNextBlurRef = useRef(false);
-  const activeImageStrokeRef = useRef<{
-    imageId: string;
-    strokeIndex: number;
-  } | null>(null);
+  const drawingImageIdRef = useRef<string | null>(null);
+  const activeImageStrokeRef = useRef<ActiveImageStrokeSession | null>(null);
   const transformingImageSnapshotRef = useRef<Record<string, BoardObject>>({});
   const roomTokenConnectionRef = useRef<RoomTokenConnection | null>(null);
   const roomImageConnectionRef = useRef<RoomImageConnection | null>(null);
@@ -743,6 +734,15 @@ export default function BoardStage({
       liveNoteCardResizeFrameRef.current = null;
       setLiveNoteCardResizePreview(liveNoteCardResizePreviewRef.current);
     });
+  };
+
+  const clearLiveNoteCardResizePreviewSession = () => {
+    liveNoteCardResizePreviewRef.current = null;
+
+    if (liveNoteCardResizeFrameRef.current !== null) {
+      window.cancelAnimationFrame(liveNoteCardResizeFrameRef.current);
+      liveNoteCardResizeFrameRef.current = null;
+    }
   };
 
   const hasSharedRoomContentLoaded =
@@ -862,8 +862,51 @@ export default function BoardStage({
     roomImageConnectionRef.current?.setActiveDrawingImage(null);
   };
 
+  const setDrawingImageSessionImageId = (nextImageId: string | null) => {
+    drawingImageIdRef.current = nextImageId;
+    setDrawingImageId(nextImageId);
+  };
+
+  const clearActiveImageStrokeSession = () => {
+    activeImageStrokeRef.current = null;
+  };
+
   const getImageDrawingLock = (imageId: string) => {
     return remoteImageDrawingLocks[imageId] ?? null;
+  };
+
+  const isImageLocallyDrawingInProgress = (imageId: string) => {
+    return (
+      drawingImageIdRef.current === imageId ||
+      activeImageStrokeRef.current?.imageId === imageId
+    );
+  };
+
+  const endImageStroke = () => {
+    const activeStroke = activeImageStrokeRef.current;
+
+    if (activeStroke) {
+      setObjects((currentObjects) => {
+        const image = currentObjects.find(
+          (object) =>
+            object.id === activeStroke.imageId && object.kind === "image"
+        );
+
+        if (image) {
+          roomImageConnectionRef.current?.upsertImages([image]);
+        }
+
+        return currentObjects;
+      });
+    }
+
+    clearActiveImageStrokeSession();
+  };
+
+  const finishImageDrawingMode = () => {
+    endImageStroke();
+    releaseImageDrawingLock();
+    setDrawingImageSessionImageId(null);
   };
 
   const isImageLockedByAnotherParticipant = (imageId: string) => {
@@ -884,19 +927,13 @@ export default function BoardStage({
     }
 
     setSelectedObjectId(imageId);
-    setDrawingImageId(imageId);
+    setDrawingImageSessionImageId(imageId);
     roomImageConnectionRef.current?.setActiveDrawingImage({
       imageId,
       participantId: participantSession.id,
       participantName: participantSession.name,
       participantColor: participantSession.color,
     });
-  };
-
-  const finishImageDrawingMode = () => {
-    endImageStroke();
-    releaseImageDrawingLock();
-    setDrawingImageId(null);
   };
 
   const startImageStroke = (
@@ -929,6 +966,23 @@ export default function BoardStage({
         ],
       };
     });
+  };
+
+  const appendStrokePoint = (imageId: string, point: { x: number; y: number }) => {
+    const activeStroke = activeImageStrokeRef.current;
+
+    if (!activeStroke || activeStroke.imageId !== imageId) {
+      return;
+    }
+
+    applyBoardObjectsUpdate((currentObjects) =>
+      appendImageStrokePointInObjects(
+        currentObjects,
+        imageId,
+        activeStroke.strokeIndex,
+        point
+      )
+    );
   };
 
   const resizeImageObject = (
@@ -1022,13 +1076,10 @@ export default function BoardStage({
     setEditingTextCardId(null);
     setEditingDraft("");
     setEditingOriginal("");
-    liveNoteCardResizePreviewRef.current = null;
-    if (liveNoteCardResizeFrameRef.current !== null) {
-      window.cancelAnimationFrame(liveNoteCardResizeFrameRef.current);
-      liveNoteCardResizeFrameRef.current = null;
-    }
+    clearLiveNoteCardResizePreviewSession();
     setLiveNoteCardResizePreview(null);
-    setDrawingImageId(null);
+    setDrawingImageSessionImageId(null);
+    clearActiveImageStrokeSession();
     setTransformingImageId(null);
     setDraggingImageId(null);
     setRemoteImagePreviewPositions({});
@@ -1100,6 +1151,16 @@ export default function BoardStage({
         width: window.innerWidth,
         height: window.innerHeight,
       });
+      const nextContainerRect = containerRef.current?.getBoundingClientRect();
+
+      setContainerRect(
+        nextContainerRect
+          ? {
+              left: nextContainerRect.left,
+              top: nextContainerRect.top,
+            }
+          : null
+      );
     };
 
     window.addEventListener("resize", handleResize);
@@ -1416,13 +1477,41 @@ export default function BoardStage({
     const connection = createRoomImageConnection({
       roomId,
       onImagesChange: (sharedImages) => {
-        setObjects((currentObjects) => [
-          ...currentObjects.filter((object) => object.kind !== "image"),
-          ...mergeSharedImages(
-            sharedImages,
-            currentObjects.filter((object) => object.kind === "image")
-          ),
-        ]);
+        setObjects((currentObjects) => {
+          const localImages = currentObjects.filter(
+            (object) => object.kind === "image"
+          );
+
+          return [
+            ...currentObjects.filter((object) => object.kind !== "image"),
+            ...sharedImages.map((sharedImage) => {
+              const localImage = localImages.find(
+                (localObject) =>
+                  localObject.id === sharedImage.id &&
+                  localObject.kind === "image"
+              );
+
+              if (
+                localImage &&
+                transformingImageSnapshotRef.current[sharedImage.id]
+              ) {
+                return localImage;
+              }
+
+              if (
+                !isImageLocallyDrawingInProgress(sharedImage.id) ||
+                !localImage?.imageStrokes?.length
+              ) {
+                return sharedImage;
+              }
+
+              return {
+                ...sharedImage,
+                imageStrokes: localImage.imageStrokes,
+              };
+            }),
+          ];
+        });
       },
       onInitialSyncComplete: () => {
         setImageInitialSyncRoomId(roomId);
@@ -1734,44 +1823,6 @@ export default function BoardStage({
     );
   };
 
-  const appendStrokePoint = (imageId: string, point: { x: number; y: number }) => {
-    const activeStroke = activeImageStrokeRef.current;
-
-    if (!activeStroke || activeStroke.imageId !== imageId) {
-      return;
-    }
-
-    applyBoardObjectsUpdate((currentObjects) =>
-      appendImageStrokePointInObjects(
-        currentObjects,
-        imageId,
-        activeStroke.strokeIndex,
-        point
-      )
-    );
-  };
-
-  const endImageStroke = () => {
-    const activeStroke = activeImageStrokeRef.current;
-
-    if (activeStroke) {
-      setObjects((currentObjects) => {
-        const image = currentObjects.find(
-          (object) =>
-            object.id === activeStroke.imageId && object.kind === "image"
-        );
-
-        if (image) {
-          roomImageConnectionRef.current?.upsertImages([image]);
-        }
-
-        return currentObjects;
-      });
-    }
-
-    activeImageStrokeRef.current = null;
-  };
-
   const syncImageStrokeLayerPosition = (id: string, x: number, y: number) => {
     const strokeLayer = imageStrokeLayerRefs.current[id];
 
@@ -2055,6 +2106,16 @@ export default function BoardStage({
   };
 
   const startEditingTextCard = (object: BoardObject) => {
+    const nextContainerRect = containerRef.current?.getBoundingClientRect();
+
+    setContainerRect(
+      nextContainerRect
+        ? {
+            left: nextContainerRect.left,
+            top: nextContainerRect.top,
+          }
+        : null
+    );
     setSelectedObjectId(object.id);
     setEditingTextCardId(object.id);
     setEditingDraft(object.label);
@@ -2125,22 +2186,12 @@ export default function BoardStage({
 
   useEffect(() => {
     if (!selectedObjectId || editingTextCardId) {
-      liveNoteCardResizePreviewRef.current = null;
-      if (liveNoteCardResizeFrameRef.current !== null) {
-        window.cancelAnimationFrame(liveNoteCardResizeFrameRef.current);
-        liveNoteCardResizeFrameRef.current = null;
-      }
-      setLiveNoteCardResizePreview(null);
+      clearLiveNoteCardResizePreviewSession();
       return;
     }
 
     if (!noteCardRefs.current[selectedObjectId]) {
-      liveNoteCardResizePreviewRef.current = null;
-      if (liveNoteCardResizeFrameRef.current !== null) {
-        window.cancelAnimationFrame(liveNoteCardResizeFrameRef.current);
-        liveNoteCardResizeFrameRef.current = null;
-      }
-      setLiveNoteCardResizePreview(null);
+      clearLiveNoteCardResizePreviewSession();
     }
   }, [editingTextCardId, selectedObjectId]);
 
@@ -2154,12 +2205,7 @@ export default function BoardStage({
 
   useEffect(() => {
     if (editingTextCardId && !noteCardRefs.current[editingTextCardId]) {
-      liveNoteCardResizePreviewRef.current = null;
-      if (liveNoteCardResizeFrameRef.current !== null) {
-        window.cancelAnimationFrame(liveNoteCardResizeFrameRef.current);
-        liveNoteCardResizeFrameRef.current = null;
-      }
-      setLiveNoteCardResizePreview(null);
+      clearLiveNoteCardResizePreviewSession();
     }
   }, [editingTextCardId]);
 
@@ -2194,7 +2240,6 @@ export default function BoardStage({
 
   useEffect(() => {
     if (drawingImageId && drawingImageId !== selectedObjectId) {
-      activeImageStrokeRef.current = null;
       finishImageDrawingMode();
     }
   }, [drawingImageId, selectedObjectId]);
@@ -2252,12 +2297,23 @@ export default function BoardStage({
         (object) => object.id === editingTextCardId && isNoteCardObject(object)
       ) ?? null
     : null;
+  const visibleLiveNoteCardResizePreview =
+    liveNoteCardResizePreview &&
+    selectedObjectId === liveNoteCardResizePreview.noteCardId &&
+    !editingTextCardId &&
+    objects.some(
+      (object) =>
+        object.id === liveNoteCardResizePreview.noteCardId &&
+        isNoteCardObject(object)
+    )
+      ? liveNoteCardResizePreview
+      : null;
   const getNoteCardPreviewBounds = (object: BoardObject) => {
     if (
-      liveNoteCardResizePreview &&
-      liveNoteCardResizePreview.noteCardId === object.id
+      visibleLiveNoteCardResizePreview &&
+      visibleLiveNoteCardResizePreview.noteCardId === object.id
     ) {
-      return liveNoteCardResizePreview;
+      return visibleLiveNoteCardResizePreview;
     }
 
     return {
@@ -2289,40 +2345,24 @@ export default function BoardStage({
   const isSelectedImageLockedByAnotherParticipant =
     !!selectedImageLock &&
     selectedImageLock.participantId !== participantSession.id;
-  const selectedImageEffectiveBounds = useMemo(() => {
-    if (!selectedImageObject) {
-      return null;
-    }
-
-    return getEffectiveImageBoundsForImageId(selectedImageObject.id);
-  }, [
-    draggingImageId,
-    remoteImagePreviewPositions,
-    selectedImageObject,
-    transformingImageId,
-    liveSelectedImageControlAnchor,
-  ]);
-  const selectedImageControlAnchor =
-    selectedImageEffectiveBounds
-      ? getImageControlsAnchorFromBounds(selectedImageEffectiveBounds)
+  const isSelectedImageLocallyInteracting =
+    !!selectedImageObject &&
+    (draggingImageId === selectedImageObject.id ||
+      transformingImageId === selectedImageObject.id);
+  const selectedImageEffectiveBounds = selectedImageObject
+    ? getEffectiveImageBoundsForImageId(selectedImageObject.id)
+    : null;
+  const selectedImageLiveControlAnchor =
+    selectedImageObject &&
+    isSelectedImageLocallyInteracting &&
+    liveSelectedImageControlAnchor?.imageId === selectedImageObject.id
+      ? liveSelectedImageControlAnchor
       : null;
-  useEffect(() => {
-    if (!selectedImageObject) {
-      setLiveSelectedImageControlAnchor(null);
-      return;
-    }
-
-    if (
-      draggingImageId === selectedImageObject.id ||
-      transformingImageId === selectedImageObject.id
-    ) {
-      return;
-    }
-
-    setLiveSelectedImageControlAnchor((current) =>
-      current?.imageId === selectedImageObject.id ? null : current
-    );
-  }, [draggingImageId, selectedImageObject, transformingImageId]);
+  const selectedImageControlAnchor =
+    selectedImageLiveControlAnchor ??
+    (selectedImageEffectiveBounds
+      ? getImageControlsAnchorFromBounds(selectedImageEffectiveBounds)
+      : null);
 
   const inspectedObject = objectSemanticsHoverState
     ? objects.find((object) => object.id === objectSemanticsHoverState.objectId) ?? null
@@ -2379,54 +2419,38 @@ export default function BoardStage({
       participantId: participantSession.id,
     });
   }, [participantSession.id, selectedImageObject]);
-  const selectedImageControlButtons = useMemo(() => {
-    if (!selectedImageObject) {
-      return [];
-    }
+  const selectedImageControlButtons: Array<{
+    key: string;
+    label: string;
+    recipe?: ButtonRecipe;
+  }> = [];
 
-    const buttons: Array<{
-      key: string;
-      label: string;
-      recipe?: ButtonRecipe;
-      onClick: () => void;
-    }> = [
-      {
-        key: "draw",
-        label: drawingImageId === selectedImageObject.id ? "Save" : "Draw",
-        recipe:
-          drawingImageId === selectedImageObject.id
-            ? createParticipantAccentButtonRecipeWithMode(
-                interactionButtonRecipes.primary.pill,
-                participantSession.color,
-                "fill"
-              )
-            : createParticipantAccentButtonRecipeWithMode(
-                interactionButtonRecipes.secondary.pill,
-                participantSession.color,
-                "border"
-              ),
-        onClick: () => {
-          if (drawingImageId === selectedImageObject.id) {
-            finishImageDrawingMode();
-            return;
-          }
-
-          startImageDrawingMode(selectedImageObject.id);
-        },
-      },
-    ];
+  if (selectedImageObject) {
+    selectedImageControlButtons.push({
+      key: "draw",
+      label: drawingImageId === selectedImageObject.id ? "Save" : "Draw",
+      recipe:
+        drawingImageId === selectedImageObject.id
+          ? createParticipantAccentButtonRecipeWithMode(
+              interactionButtonRecipes.primary.pill,
+              participantSession.color,
+              "fill"
+            )
+          : createParticipantAccentButtonRecipeWithMode(
+              interactionButtonRecipes.secondary.pill,
+              participantSession.color,
+              "border"
+            ),
+    });
 
     if (
       drawingImageId !== selectedImageObject.id &&
       governanceSelectedImageClearOwnSummary?.isAllowed
     ) {
-      buttons.push({
+      selectedImageControlButtons.push({
         key: "clear-own",
         label: "Clear",
         recipe: interactionButtonRecipes.danger.pill,
-        onClick: () => {
-          clearOwnImageDrawing(selectedImageObject.id);
-        },
       });
     }
 
@@ -2435,30 +2459,18 @@ export default function BoardStage({
       governanceSelectedImageClearSummary?.isAllowed &&
       (selectedImageObject.imageStrokes?.length ?? 0) > 0
     ) {
-      buttons.push({
+      selectedImageControlButtons.push({
         key: "clear-all",
         label: "Clear all",
         recipe: interactionButtonRecipes.danger.pill,
-        onClick: () => {
-          clearImageDrawing(selectedImageObject.id);
-        },
       });
     }
+  }
 
-    return buttons;
-  }, [
-    drawingImageId,
-    governanceSelectedImageClearOwnSummary?.isAllowed,
-    governanceSelectedImageClearSummary?.isAllowed,
-    selectedImageObject,
-  ]);
-
-  const editingTextareaStyle = useMemo(() => {
+  const editingTextareaStyle = useMemo<EditingTextareaStyle | null>(() => {
     if (!editingTextCard) {
       return null;
     }
-
-    const containerRect = containerRef.current?.getBoundingClientRect();
 
     if (!containerRect) {
       return null;
@@ -2495,7 +2507,7 @@ export default function BoardStage({
       color: editingTextCard.textColor ?? "#0f172a",
     };
   }, [
-    editingDraft,
+    containerRect,
     editingTextCard,
     editingTextCardDisplayHeight,
     stagePosition.x,
@@ -3484,11 +3496,7 @@ export default function BoardStage({
                     roomTextCardConnectionRef.current?.setActiveResizingTextCard(
                       null
                     );
-                    liveNoteCardResizePreviewRef.current = null;
-                    if (liveNoteCardResizeFrameRef.current !== null) {
-                      window.cancelAnimationFrame(liveNoteCardResizeFrameRef.current);
-                      liveNoteCardResizeFrameRef.current = null;
-                    }
+                    clearLiveNoteCardResizePreviewSession();
                     setLiveNoteCardResizePreview(null);
                   }}
                   onDoubleClick={(event) => {
@@ -3613,7 +3621,30 @@ export default function BoardStage({
                       y={-(buttonMetrics.minHeight + IMAGE_ATTACHED_CONTROLS_OUTER_OFFSET_Y)}
                       label={button.label}
                       recipe={button.recipe}
-                      onClick={button.onClick}
+                      onClick={() => {
+                        if (!selectedImageObject) {
+                          return;
+                        }
+
+                        if (button.key === "draw") {
+                          if (drawingImageId === selectedImageObject.id) {
+                            finishImageDrawingMode();
+                            return;
+                          }
+
+                          startImageDrawingMode(selectedImageObject.id);
+                          return;
+                        }
+
+                        if (button.key === "clear-own") {
+                          clearOwnImageDrawing(selectedImageObject.id);
+                          return;
+                        }
+
+                        if (button.key === "clear-all") {
+                          clearImageDrawing(selectedImageObject.id);
+                        }
+                      }}
                     />
                   );
                 })}
