@@ -889,11 +889,9 @@ Working order from here:
 1. treat `App.tsx` as closed for the current phase
 2. treat the current narrow `BoardStage.tsx` cleanup chapter as checkpoint-closed
 3. carry forward the required deferred participant-marker / creator-color follow-up as a separate later chapter, not as one more micro-fix here
-4. run a refreshed architecture/runtime audit against the current repo state
-5. only then choose between:
-   - the next runtime/object chapter
-   - return to design-system visual polishing
-   - opening the separate participant-marker / creator-color chapter
+4. treat the refreshed architecture/runtime audit as completed
+5. open the next runtime/object chapter as the next implementation chapter
+6. keep participant-marker / creator-color as the following separate semantic/runtime chapter
 
 Accepted cleanup decisions already made:
 

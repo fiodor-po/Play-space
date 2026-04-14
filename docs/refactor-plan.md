@@ -1,338 +1,390 @@
-# ExecPlan: Board Architecture Phase Plan
+# Refactor Plan
 
-> Status: historical baseline, not current execution plan.
->
-> This document is materially outdated as of 2026-04-14.
-> It reflects an older architecture-planning snapshot and should not be treated
-> as the current phase plan for the repo.
->
-> Use it only as an old reference for broad direction.
-> For current priorities, sequencing, and active chapters, use:
-> - `ROADMAP.md`
-> - `play-space-alpha_current-context.md`
->
-> Practical rule:
-> - do not treat the phases in this file as the live migration order without
->   re-checking the repo and current docs first.
+Status: current target-oriented architecture plan  
+Last updated: 2026-04-14
+
+This document is the current architecture migration plan for the repo.
+
+It is no longer the older broad leaf-extraction-first ladder.
+It now follows the accepted post-`App` / post-narrow-`BoardStage` checkpoint framing:
+
+- `App.tsx` structural hotspot is closed for the current phase;
+- narrow `BoardStage.tsx` cleanup chapter is checkpoint-closed;
+- the next main chapter is `next runtime/object chapter`;
+- `participant-marker / creator-color` remains the required follow-up chapter after that;
+- backend/runtime reshaping stays later unless it becomes the main blocker again.
+
+`ROADMAP.md` remains the live project-plan and priority source.
+This file is the architecture-specific migration companion.
 
 ## 1. Goal
 
-Reorganize the repo toward clearer boundaries between app shell, board domain, per-object ownership, and sync/presence/persistence, while preserving current multiplayer board behavior. The immediate target is to reduce `BoardStage.tsx` responsibility through small extractions rather than a broad rewrite.
+Move the repo toward a board-runtime-centered architecture that preserves current
+product behavior while making ownership boundaries clearer.
 
-`ROADMAP.md` remains the live project-plan, backlog, and decision-log document; this file remains architecture-specific.
+The target is not:
 
-## 2. In Scope
+- a broad rewrite;
+- a heavy VTT scene/entity model;
+- a hook-splitting exercise for its own sake.
 
-- Architectural planning for:
-  - app/UI shell vs board domain split
-  - board object split by type
-  - interaction/tool logic separation from renderers
-  - sync/presence/persistence separation from rendering
-  - incremental reduction of `BoardStage` responsibility
-- Documentation outputs:
-  - `docs/refactor-audit.md`
-  - `docs/refactor-plan.md`
-- Recommended Phase 1 only, with no production code changes in this run.
+The target is:
 
-## 3. Out of Scope
+- `App` owns room/session lifecycle;
+- `src/app/*` owns room-level transport hooks;
+- board runtime owns room-scoped board state, bootstrap/recovery coordination,
+  board commands, sync routing, and persistence coordination;
+- `BoardStage` stays the Konva/Stage integration surface rather than becoming a
+  second hidden board-runtime store;
+- object families and interaction families become clearer over phased passes;
+- creator-linked fallback semantics later move to the accepted target model:
+  - `creatorId` in durable room identity
+  - snapshot-backed room-scoped last-known participant appearance
+  - only temporary legacy object-color fallback after that
 
-- Any production code changes in this run.
-- Broad rewrite of `src/components/BoardStage.tsx`.
-- Changes to current interaction semantics.
-- New product functionality.
-- Heavy-VTT style architecture changes.
+## 2. Current accepted target architecture
 
-## 4. Current Architecture Summary
+### App shell
 
-- `src/App.tsx` owns room selection, join flow, participant session bootstrap, and presence connection lifecycle.
-- `src/components/BoardStage.tsx` owns almost everything else:
-  - viewport state and Stage event handling
-  - board object state
-  - selection/edit/drawing/transform interaction state
-  - room object sync setup
-  - persistence writes
-  - image loading cache
-  - cursor overlay rendering
-  - participant panel and top toolbar shell UI
-  - per-object Konva render logic
-- Realtime sync is already split by object family in `src/lib/roomTokensRealtime.ts`, `src/lib/roomImagesRealtime.ts`, and `src/lib/roomTextCardsRealtime.ts`.
-- Presence is already a separate awareness transport in `src/lib/roomPresenceRealtime.ts`.
-- The main architectural problem is not missing modules; it is that `BoardStage` is currently orchestrating too many of them directly.
+Owns:
 
-## 5. Target Architecture
+- boot and reset-policy gate;
+- room route split;
+- draft vs joined-room lifecycle;
+- browser-local participant session lifecycle;
+- creator/governance/media/dice/ops composition.
 
-### Desired ownership split
+### Room/runtime adapters
 
-- App/UI shell
-  - join flow
-  - room routing
-  - participant shell controls
-  - top-level orchestration
-- Board domain
-  - board object state and commands
-  - viewport math
-  - selection state
-  - tool/interactions state
-  - board composition
-- Object modules by type
-  - image
-  - text-card
-  - token
-- Transport/persistence
-  - sync adapters per room object family
-  - presence awareness
-  - local persistence
+Own:
 
-### Practical target for `BoardStage`
+- entry availability and join-claim logic;
+- joined-room presence transport;
+- durable room identity;
+- durable room snapshot;
+- client reset policy;
+- room ops API.
 
-- Keep it as the integration surface during migration.
-- Shrink it into a coordinator that wires:
-  - board state
-  - interaction callbacks
-  - renderer components
-  - sync adapters
-- Avoid changing sensitive image/panning behavior until after safer extractions land.
+### Board runtime
 
-## 6. Migration Plan
+Should become the explicit owner of:
 
-### Phase 0: Audit and docs
+- room-scoped board object store;
+- bootstrap/recovery decisions for board runtime;
+- board commands;
+- sync composition/routing;
+- persistence coordination for board runtime state.
+
+### Board integration surface
+
+`BoardStage` should remain the sensitive Konva/Stage coordinator that owns:
+
+- Stage pointer/wheel event bridge;
+- empty-space pan/zoom ordering;
+- overlay composition;
+- mapping runtime output into render nodes.
+
+### Object families
+
+Object-family ownership should become more explicit for:
+
+- `token`
+- `note-card`
+- `image`
+
+### Interaction families
+
+Interaction ownership should gradually clarify around:
+
+- generic selection / move / edit;
+- viewport/navigation;
+- the intentionally sensitive image corridor.
+
+### Backend runtime
+
+The backend remains one practical alpha boundary for now:
+
+- websocket docs;
+- durable room identity;
+- durable room snapshot;
+- ops;
+- reset policy;
+- LiveKit token route.
+
+## 3. What must not change during this migration
+
+- no broad rewrite of `src/components/BoardStage.tsx`;
+- no casual change to empty-space pan/zoom semantics;
+- no casual change to image drag / resize / draw / preview behavior;
+- no room bootstrap priority changes without explicit design work;
+- no auth/account/member-management drift;
+- no backend service split as part of the next frontend runtime phase.
+
+## 4. Phase plan
+
+### Phase 0 — Audit and plan refresh
+
+Status:
+
+- completed
 
 Purpose:
-- Create a shared map before changing production code.
 
-Files likely touched:
+- replace the old historical planning baseline with the current target-oriented
+  architecture map and migration order.
+
+Files:
+
 - `docs/refactor-audit.md`
 - `docs/refactor-plan.md`
+- `ROADMAP.md`
+- `play-space-alpha_current-context.md`
 
 Validation:
-- Confirm docs match `AGENTS.md` and `PLANS.md`.
 
-Rollback / stop conditions:
-- None. Documentation only.
+- docs-only consistency check
 
-### Phase 1: Safe leaf extraction with no behavior change
+Stop conditions:
+
+- if the plan starts depending on a broad rewrite, stop and rescope.
+
+### Phase 1 — Explicit board runtime ownership
+
+Status:
+
+- next chapter
 
 Purpose:
-- Reduce `BoardStage` size and improve boundaries without moving sensitive behavior.
+
+- make board runtime ownership more explicit around `BoardStage` without
+  changing behavior;
+- clarify who owns:
+  - room-scoped `objects`
+  - board bootstrap/recovery coordination
+  - sync composition/routing
+  - persistence coordination
+- keep `BoardStage` as Konva integration surface rather than a hidden all-in-one
+  runtime/store/renderer knot.
+
+Likely focus areas:
+
+- board runtime boundary around the current `BoardStage` object/runtime cluster;
+- explicit separation between runtime ownership and render branching;
+- safer command/sync ownership seams.
 
 Files likely touched:
+
 - `src/components/BoardStage.tsx`
-- new board shell/render helper files under a new `src/board/` or `src/components/board/` slice
-- possible helper moves from `src/lib/` into board-specific modules
+- new board-runtime-focused modules under `src/board/`
+- possibly `src/board/sync/*`
+- possibly selected helpers in `src/lib/*`
 
-Recommended contents:
-- Extract pure board constants and viewport helpers.
-- Extract cursor overlay component.
-- Extract participant/session panel component.
-- Extract top toolbar component.
-- Extract token renderer component.
-- Extract text-card renderer component.
+Must not change:
 
-Explicitly not in Phase 1:
-- No change to Stage pan/zoom handlers.
-- No change to image renderer behavior.
-- No change to image draw/resize/preview flow.
-- No change to Yjs transport contracts.
-- No type-model redesign yet.
+- pan/zoom semantics;
+- image interaction semantics;
+- room bootstrap priority;
+- participant-marker semantics;
+- creator-color fallback semantics.
 
 Validation:
+
 - `npm run build`
-- Manual QA:
-  - empty-space mouse panning
-  - touch panning if supported now
-  - wheel zoom around pointer
-  - room switching
-  - presence cursor rendering
-  - token create/drag/delete
-  - text-card create/drag/edit via header handle
-  - image add/drag/resize/draw/clear
+- manual QA for:
+  - room switch/reset/bootstrap
+  - empty-space pan/zoom
+  - image drag/resize/draw/preview
+  - note-card edit/resize
+  - token drag/attachment
 
-Rollback / stop conditions:
-- If extraction forces event-order changes in Stage or image handlers, stop and split further.
-- If extracted components need direct access to transport refs, stop and keep them presentational-only.
-- If text-card handle drag behavior changes, roll back and reduce scope.
+Stop conditions:
 
-### Phase 2: Shell/UI split from board domain
+- if the work starts forcing participant-marker logic into the same phase, stop;
+- if the work starts forcing broad `BoardStage` rewrite, stop;
+- if the work starts changing Stage event ordering, stop and narrow further.
+
+### Phase 2 — Object-family ownership completion
 
 Purpose:
-- Move non-board shell UI out of `BoardStage` while keeping behavior stable.
+
+- complete the board-layer per-object ownership trend, especially the missing
+  `image` family boundary.
 
 Files likely touched:
-- `src/components/BoardStage.tsx`
-- new shell/overlay components
 
-Likely moves:
-- session panel
-- room change affordance
-- participant color/name controls
-- top-right creation toolbar
-- cursor overlay composition
-
-Validation:
-- `npm run build`
-- Manual QA for room switching, participant editing, and overlay interactions.
-
-Rollback / stop conditions:
-- If overlay extraction requires changing board state ownership, stop and keep extraction prop-driven.
-
-### Phase 3: Per-object module split
-
-Purpose:
-- Establish ownership boundaries by object type.
-
-Files likely touched:
-- `src/types/board.ts`
-- `src/lib/boardImage.ts`
-- `src/lib/boardObjects.ts`
-- new object-specific modules
+- `src/board/objects/image/*` or equivalent
+- existing token/note-card object modules
+- board object helpers and selectors
 - `src/components/BoardStage.tsx`
 
-Likely moves:
-- token creation/render helpers
-- text-card creation/render helpers
-- image render helpers and factory helpers
+Must not change:
+
+- draw/transform/preview semantics;
+- attachment behavior;
+- realtime propagation semantics.
 
 Validation:
+
 - `npm run build`
-- Manual QA for all object types.
+- manual QA across all object families
 
-Rollback / stop conditions:
-- If the change starts forcing a full data-model rewrite, stop and retain compatibility types.
+Stop conditions:
 
-### Phase 4: Board sync adapter layer
+- if the work starts forcing a broad type-model rewrite all at once, stop.
+
+### Phase 3 — Command and sync routing clarification
 
 Purpose:
-- Separate board-domain mutations from transport details.
+
+- make board commands and sync routing explicit rather than incidental inside
+  `BoardStage` branching.
 
 Files likely touched:
+
+- `src/board/sync/*`
+- board runtime modules
 - `src/components/BoardStage.tsx`
-- `src/lib/roomTokensRealtime.ts`
-- `src/lib/roomImagesRealtime.ts`
-- `src/lib/roomTextCardsRealtime.ts`
-- new `board sync` adapter module(s)
 
-Likely moves:
-- replace `applyBoardObjectsUpdate` transport branching with adapter calls
-- centralize object-kind routing for sync updates
+Must not change:
+
+- remote update timing expectations;
+- room-scoped reset semantics;
+- current transport contracts unless absolutely necessary.
 
 Validation:
+
 - `npm run build`
-- Manual QA focused on shared object propagation and room resets.
+- manual QA focused on shared object propagation and recovery
 
-Rollback / stop conditions:
-- If adapter extraction changes when remote updates appear during drag/transform, stop and split image handling into its own narrower step.
+Stop conditions:
 
-### Phase 5: Tool/interactions split
+- if this begins changing transport protocol rather than ownership boundaries,
+  stop and defer.
+
+### Phase 4 — Interaction-family clarification
 
 Purpose:
-- Move cross-object interaction logic out of render branches.
+
+- move safer generic interaction ownership out first while keeping the image
+  corridor intentionally integrated longer.
 
 Files likely touched:
+
+- board interaction helpers/modules
 - `src/components/BoardStage.tsx`
-- new interaction modules/hooks
 
-Likely moves:
-- keyboard shortcuts
-- viewport pan/zoom helpers
-- text-card edit controller
-- selection helpers
-- later, image interaction helpers
+Must not change:
+
+- image corridor behavior;
+- Stage event ordering;
+- generic object drag/edit semantics.
 
 Validation:
+
 - `npm run build`
-- Manual QA focused on event ordering and selection state transitions.
+- manual QA focused on selection, drag, edit, and viewport interactions
 
-Rollback / stop conditions:
-- If event propagation or Konva drag semantics change, stop and narrow to one interaction type at a time.
+Stop conditions:
 
-### Phase 6: Type model tightening
+- if image-sensitive behavior becomes entangled, stop and keep it for a later
+  narrower step.
+
+### Phase 5 — Participant-marker / creator-color chapter
 
 Purpose:
-- Move from one broad `BoardObject` shape toward per-kind domain types with compatibility mapping.
+
+- resolve participant-marker ownership and creator-linked fallback truth on top
+  of a clearer token/runtime boundary.
+
+Accepted target direction for this phase:
+
+- `creatorId` remains durable room identity truth;
+- live participant state remains the primary current name/color source;
+- snapshot-backed room-scoped last-known participant appearance becomes the
+  non-live fallback;
+- temporary legacy object-color fallback can remain only as migration residue.
 
 Files likely touched:
-- `src/types/board.ts`
-- object-specific modules
-- sync/persistence adapter code
+
+- creator-color resolution paths
+- participant-marker runtime
+- durable room snapshot shape and adapter
+- app-layer participant session update writers
+
+Must not change:
+
+- room identity semantics;
+- auth/member-platform scope;
+- board runtime chapter goals by pulling them back into this phase.
 
 Validation:
+
 - `npm run build`
-- Manual QA across all shared object flows.
+- manual QA for:
+  - creator-colored token fallback on refresh/leave/rejoin
+  - participant-marker behavior
+  - rename/recolor propagation
 
-Rollback / stop conditions:
-- If transport/storage compatibility becomes unclear, stop and add adapter types first.
+Stop conditions:
 
-## 7. Validation
+- if the phase starts drifting into full participant management or auth, stop.
 
-For every implementation phase after this planning run:
+### Phase 6 — Backend/runtime maintainability work
 
-- Run `npm run build`.
-- Verify:
-  - room switching still works
-  - presence/cursors still work
-  - tokens remain shared
-  - images remain shared
-  - text-cards remain shared
-  - manual empty-space panning still works
-  - image drag/resize/draw mode behavior is unchanged
+Purpose:
 
-Recommended manual QA checklist:
+- later cleanup for backend single-file maintainability or hosted durability
+  needs, only after frontend runtime and creator-fallback chapters are clearer.
 
-1. Join a room and confirm participant name/color still appear correctly.
-2. Switch to another room and confirm object set and presence reset correctly.
-3. Create, drag, and delete a token.
-4. Create, drag, and edit a text-card, including the header drag handle.
-5. Upload an image, drag it, resize it, enter draw mode, draw strokes, save, and clear.
-6. Verify a second client still sees presence and shared object updates.
-7. Pan on empty space and zoom with the wheel without object interaction regressions.
+Files likely touched:
 
-## 8. Risks
+- `scripts/yjs-dev-server.mjs`
+- related server/runtime adapters
 
-- `BoardStage.tsx` is the sensitive integration seam, especially around Stage event ordering.
-- Image interaction is the highest-regression area because it mixes:
-  - drawing state
-  - awareness locks
-  - preview transport
-  - local stroke buffering
-  - resize stroke rescaling
-- Text-card drag and edit behavior is easier than image work, but still depends on specific event behavior.
-- Room reset/switch logic touches both local state and remote transport setup.
+Must not change:
 
-## 9. Stop Conditions
+- current frontend runtime contracts unless this later chapter explicitly says so.
 
-- The change requires rewriting the Stage event surface instead of extracting leaf pieces.
-- The change modifies empty-space panning semantics.
-- The change modifies image drag, resize, preview, or draw-mode behavior.
-- The change requires changing transport contracts and renderer behavior in the same step.
-- The phase no longer leaves the repo buildable at each increment.
+Validation:
 
-## Recommended Phase 1
+- chapter-specific; not current priority
 
-Recommended Phase 1 is:
+Stop conditions:
 
-- extract board constants and viewport math helpers
-- extract cursor overlay UI
-- extract participant/session panel UI
-- extract top toolbar UI
-- extract token creation factory
-- extract text-card creation factory
-- extract token renderer
-- extract text-card renderer
+- if backend reshaping is not the current top blocker, keep this in backlog.
 
-Why this phase first:
+## 5. Why this phase order is the current preferred order
 
-- It reduces `BoardStage` responsibility immediately.
-- It improves the app-shell vs board-domain split without changing who owns state yet.
-- It creates object-by-type footholds for token and text-card work.
-- It avoids the repo’s most fragile areas:
-  - empty-space panning
-  - image drag/resize
-  - image draw mode
-  - realtime image preview/lock behavior
+- It follows the accepted current hotspot map:
+  - `App` no longer dominates
+  - `BoardStage` runtime ownership does
+- It does not drag participant-marker semantics into the runtime/object phase too
+  early
+- It keeps creator-color work after the runtime/object chapter where the token
+  and board-runtime boundaries are clearer
+- It avoids spending the next major step on backend internals when the stronger
+  product/runtime signal is still in frontend board ownership
 
-Success criteria for Phase 1:
+## 6. Recommended next phase only
 
-- `BoardStage.tsx` becomes smaller and more coordinator-like.
-- No behavior changes are introduced.
-- New modules are mostly presentational or pure-helper extractions.
-- The repo still builds and passes the manual QA flows above.
+The next implementation chapter should be:
+
+- **Phase 1 — Explicit board runtime ownership**
+
+Short reason:
+
+- it is the highest-signal structural hotspot now;
+- it prepares the repo for the later participant-marker / creator-color chapter;
+- it is reachable through narrow phased passes without committing to a broad
+  rewrite.
+
+## 7. Relationship to current roadmap phase
+
+This plan supports the active `ROADMAP.md` phase by turning the completed
+refreshed architecture/runtime audit into a concrete migration sequence.
+
+Immediate roadmap-aligned result:
+
+- refreshed audit completed
+- next chapter chosen: `next runtime/object chapter`
+- later follow-up chapter remains: `participant-marker / creator-color`

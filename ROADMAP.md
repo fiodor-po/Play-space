@@ -88,10 +88,10 @@ design-system работу на pause, закрыть `App.tsx` как structura
    ownership checkpoint;
 4. довести current `BoardStage.tsx` cleanup chapter до honest checkpoint;
 5. после этого сделать refreshed architecture/runtime audit;
-6. только затем решать, идти ли в next runtime/object chapter, возвращаться к
-   design-system visual polishing, или открывать отдельный participant-marker /
-   creator-color chapter;
-7. возвращаться к hosted validation как recurring checkpoint после крупных
+6. выбрать следующий chapter как `next runtime/object chapter`;
+7. затем держать `participant-marker / creator-color` как следующий отдельный
+   semantic/runtime chapter;
+8. возвращаться к hosted validation как recurring checkpoint после крупных
    шагов и новых demo snapshots.
 
 ### Почему это теперь главный фокус
@@ -123,10 +123,8 @@ enough for the current phase:
 - `App.tsx` checkpoint closure after lifecycle / ownership completion;
 - `BoardStage.tsx` cleanup chapter checkpoint closure;
 - refreshed architecture/runtime audit after that checkpoint;
-- затем следующая decision point между:
-  - next runtime/object chapter
-  - return to design-system visual polishing
-  - separate participant-marker / creator-color chapter
+- next chosen chapter: `next runtime/object chapter`;
+- later follow-up chapter: `participant-marker / creator-color`;
 - hosted validation как повторяемая проверка после крупных шагов, выкатываний и
   новых demo snapshots.
 
@@ -148,9 +146,10 @@ enough for the current phase:
 3. держать design-system work на pause after the current checkpoint;
 4. считать `App.tsx` chapter structurally closed;
 5. считать current `BoardStage.tsx` cleanup chapter checkpoint-closed;
-6. после этого сделать refreshed architecture/runtime audit;
-7. затем решить следующий chapter;
-8. возвращаться к hosted validation как checkpoint после больших шагов и новых
+6. считать refreshed architecture/runtime audit completed;
+7. открыть `next runtime/object chapter` как следующий implementation chapter;
+8. держать `participant-marker / creator-color` как следующий отдельный follow-up chapter;
+9. возвращаться к hosted validation как checkpoint после больших шагов и новых
    demo snapshots.
 
 ## 8. Backlog
@@ -175,11 +174,9 @@ enough for the current phase:
 - [x] закрыть `App.tsx` lifecycle / ownership checkpoint narrow implementation passes
 - [x] открыть analysis-first `BoardStage.tsx` chapter
 - [x] довести текущий narrow `BoardStage.tsx` cleanup chapter до honest checkpoint
-- [ ] сделать refreshed architecture/runtime audit after the current `BoardStage` checkpoint
-- [ ] по результату выбрать следующий шаг между:
-  - next runtime/object chapter
-  - return to design-system visual polishing
-  - separate participant-marker / creator-color chapter
+- [x] сделать refreshed architecture/runtime audit after the current `BoardStage` checkpoint
+- [x] выбрать следующий chapter как `next runtime/object chapter`
+- [x] зафиксировать `participant-marker / creator-color` как следующий отдельный follow-up chapter
 - [ ] использовать hosted validation как recurring checkpoint после крупных
   продуктовых шагов и новых demo snapshots
 
