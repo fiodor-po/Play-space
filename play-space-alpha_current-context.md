@@ -261,6 +261,12 @@ Required deferred follow-up is now explicit:
 - this remains required participant-marker / creator-color chapter work rather than optional polish;
 - analysis note: [docs/creator-color-fallback-analysis-2026-04-14.md](docs/creator-color-fallback-analysis-2026-04-14.md)
 
+Separate observed watch item:
+
+- entry availability readiness may still race on the entry screen;
+- observed symptom: occupied colors can appear with visible delay after opening the room entry screen, leaving a brief window where a blocked color looks free;
+- current handling decision: keep this as a deferred narrow hotfix unless the repro becomes stable enough to block the current runtime/object chapter.
+
 Но attachment semantics deliberately remain later.
 
 ### 3.18. Reusable movable-object `activeMove` was added for tokens first

@@ -187,6 +187,11 @@ enough for the current phase:
   demo snapshots
 - [ ] фиксировать реальные rough edges после таких hosted checkpoint'ов
 - [ ] implement browser-local participant identity pass with foreground-tab-only active presence behavior
+- [ ] entry availability readiness hotfix if repro is confirmed again:
+  - observed risk: entry-room occupancies / join claims can arrive late enough that occupied colors appear 1-2 seconds after the entry screen opens
+  - resulting risk: user can briefly choose a color that is actually occupied before room availability state settles
+  - preferred fix shape: gate final join on initial entry availability readiness instead of treating early empty awareness state as final truth
+  - keep this as a narrow hotfix outside the current runtime/object chapter unless the repro becomes a stable blocker
 - [ ] resolve creator-color fallback gap for participant-marker tokens and creator-colored token rendering:
   - refresh/leave wrong-color behavior currently comes from fallback to stale token-local `fill` after live creator color disappears
   - accepted target: use snapshot-backed room-scoped last-known participant appearance as the non-live fallback by `creatorId`
