@@ -517,6 +517,7 @@ Practical consequence:
 
 - room creator truth should ultimately anchor to durable room identity, not only to a live room-state doc;
 - room history / recent-room UX should later be treated as local convenience state, not as room truth.
+- backend room knownness for ops should also ultimately anchor to an explicit room-level registration path rather than incidental live-doc presence or later snapshot creation.
 
 Current preferred clean fix:
 
@@ -528,6 +529,16 @@ Current preferred clean fix:
 - bootstrap creator from durable identity, not from snapshot;
 - let live room-state mirror creator while the room is active;
 - keep durable snapshot as content-recovery layer only.
+
+Additional near-term consequence now identified:
+
+- `/ops/rooms` currently lists backend-known rooms only;
+- backend-knownness is currently inferred from live docs, durable identities, and durable snapshots;
+- this creates a room-lifecycle gap:
+  - a real room may disappear from ops if it never became durably known;
+  - a draft room may appear temporarily via entry/live presence side effects;
+- this should be treated as a postponed room-lifecycle/room-knownness decision point, not as an ops-only rendering bug;
+- preferred future direction is a narrow explicit registration step tied to real join/activation, likely through the durable room identity path rather than a new broad catalog system.
 
 ### 3.28. Pushes should now prefer coherent checkpoints plus explicit post-push verification
 Another workflow preference is now explicit:

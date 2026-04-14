@@ -202,6 +202,11 @@ enough for the current phase:
   - durable room snapshot remains content-recovery layer, not room identity authority
   - local room state remains convenience-only and does not define room existence or creator truth
   - first implementation can use a second backend JSON store in the same pragmatic style as current alpha
+- [ ] make room knownness explicit for backend/ops discovery:
+  - explicit join should make the room backend-known
+  - `/ops/rooms` should not depend on incidental side effects of live docs or later snapshot saves
+  - draft/entry presence should not be the main path by which a room temporarily appears in ops
+  - first slice should stay narrow and likely reuse the existing durable room identity path rather than introducing a new room-catalog system
 - [ ] determine and fix why hosted durable room snapshots survive restart but do not survive redeploy
 - [ ] media dock simplification / stabilization pass
 - [ ] dice tray / dice UX cleanup pass
