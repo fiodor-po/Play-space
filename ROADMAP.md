@@ -174,7 +174,7 @@
 - [x] принять `room document replicas` как новый persistence/recovery target model
 - [x] принять `parallel replacement` как strategy для migration к room-document replica model
 - [x] зафиксировать `participant-marker / creator-color` как следующий отдельный follow-up chapter
-- [ ] открыть `room document persistence / recovery architecture` как новый active chapter
+- [x] открыть `room document persistence / recovery architecture` как новый active chapter
 - [ ] сделать `narrow commit-boundary persistence phase` как первый implementation phase
 - [ ] использовать hosted validation как recurring checkpoint после крупных
   продуктовых шагов и новых demo snapshots

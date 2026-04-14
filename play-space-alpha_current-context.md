@@ -933,8 +933,10 @@ Working order from here:
 2. treat the current narrow `BoardStage.tsx` cleanup chapter as checkpoint-closed
 3. carry forward the required deferred participant-marker / creator-color follow-up as a separate later chapter, not as one more micro-fix here
 4. treat the refreshed architecture/runtime audit as completed
-5. open the next runtime/object chapter as the next implementation chapter
-6. keep participant-marker / creator-color as the following separate semantic/runtime chapter
+5. treat `next runtime/object chapter` as paused by persistence/recovery correctness
+6. open `room document persistence / recovery architecture` as the active chapter
+7. take `narrow commit-boundary persistence phase` as the next implementation phase
+8. keep participant-marker / creator-color as the following separate semantic/runtime chapter
 
 Accepted cleanup decisions already made:
 
@@ -953,13 +955,14 @@ Accepted cleanup decisions already made:
 - remove the remaining local background/material override from the governance
   inset itself
 
-## 8.6. Design-system migration is still the active big step, not a finished chapter
+## 8.6. Historical design-system framing
 
-Another explicit framing decision now applies:
+This section is historical context from an earlier phase.
+It is no longer the active big step.
 
 - ordinary-interface migration being paused does not mean the whole project has
   already migrated onto the new design system;
-- the current active big step is still migration onto the new design system;
+- the current active big step is now persistence/recovery architecture;
 - after the next large migration checkpoints, a series of read-only audits
   should follow:
   - project audit
