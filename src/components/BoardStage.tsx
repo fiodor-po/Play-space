@@ -2398,27 +2398,19 @@ export default function BoardStage({
       roomCreatorId,
     });
   }, [objects, participantSession.id, roomCreatorId, selectedObjectId]);
-  const governanceSelectedImageClearSummary = useMemo(() => {
-    if (!selectedImageObject) {
-      return null;
-    }
-
-    return resolveImageClearAllDrawingPolicyAccess({
-      object: selectedImageObject,
-      participantId: participantSession.id,
-      roomCreatorId,
-    });
-  }, [participantSession.id, roomCreatorId, selectedImageObject]);
-  const governanceSelectedImageClearOwnSummary = useMemo(() => {
-    if (!selectedImageObject) {
-      return null;
-    }
-
-    return resolveImageClearOwnDrawingPolicyAccess({
-      object: selectedImageObject,
-      participantId: participantSession.id,
-    });
-  }, [participantSession.id, selectedImageObject]);
+  const governanceSelectedImageClearSummary = selectedImageObject
+    ? resolveImageClearAllDrawingPolicyAccess({
+        object: selectedImageObject,
+        participantId: participantSession.id,
+        roomCreatorId,
+      })
+    : null;
+  const governanceSelectedImageClearOwnSummary = selectedImageObject
+    ? resolveImageClearOwnDrawingPolicyAccess({
+        object: selectedImageObject,
+        participantId: participantSession.id,
+      })
+    : null;
   const selectedImageControlButtons: Array<{
     key: string;
     label: string;
