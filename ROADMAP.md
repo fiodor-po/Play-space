@@ -70,37 +70,59 @@
 
 ## 4. Текущий активный этап
 
-## Phase B — Design-system migration continuation on top of the hosted checkpoint
+## Phase B — Repo/runtime health pass after the current design-system checkpoint
 
 **Статус:** active
 
 ### Цель
-Продолжать переезд проекта на новую дизайн-систему крупными осмысленными
-шагами, опираясь на уже подтверждённый hosted checkpoint, но не делая hosted
-validation обязательной линейной блокирующей фазой.
+После текущего design-system checkpoint временно поставить дальнейшую
+design-system работу на pause, довести `App.tsx` до честного structural
+checkpoint и затем перейти от narrow split cleanup к explicit
+`App lifecycle / ownership` chapter.
 
 ### Основная последовательность
 1. удерживать hosted core + optional video checkpoint как baseline;
-2. продолжать design-system migration крупными meaningful chapters;
-3. после этого провести серию read-only audits:
-   - project audit
-   - architecture/process audit
-   - workflow audit
-4. возвращаться к hosted validation как recurring checkpoint после крупных
+2. удерживать design-system migration на pause after a good checkpoint rather
+   than widening into visual polishing immediately;
+3. довести `App.tsx` through the safer narrow split slices that do not reopen
+   lifecycle semantics too early;
+4. после этого зафиксировать, что remaining `App` debt is now an explicit
+   lifecycle / ownership chapter rather than more generic split cleanup;
+5. только после этого решать, идти ли в `App lifecycle / ownership`,
+   `BoardStage.tsx` analysis, или возвращаться к design-system visual polishing;
+6. возвращаться к hosted validation как recurring checkpoint после крупных
    шагов и новых demo snapshots.
 
 ### Почему это теперь главный фокус
-Hosted checkpoint уже получен, ordinary-interface migration chapter уже
-структурно доведён до pause, и сейчас основной high-signal шаг — продолжать
-именно migration на новую design system, а не откладывать её ради формального
-hosted-validation цикла.
+Последние stabilization и audit passes заметно улучшили onboarding, env/runtime
+hygiene и validation truth. После этого главный технический долг уже не в
+общей repo hygiene и не в следующем design-system chapter, а в двух оставшихся
+lint/structure hotspots:
+
+- `src/App.tsx`
+- `src/components/BoardStage.tsx`
+
+Из них `App.tsx` сначала выглядел как более безопасный и high-signal следующий
+target, чем немедленное продолжение design-system visual polishing или ранний
+заход в `BoardStage.tsx`.
+
+После нескольких успешных `App` passes это remains true, but the framing has
+changed:
+
+- easy/high-signal split slices in `App` mostly landed already;
+- remaining `App` work is now better described as lifecycle / ownership work,
+  not as one more generic split cleanup pass.
 
 ## 5. Что входит в текущий этап
 
 - удержание core hosted stack в честном рабочем состоянии;
 - удержание working hosted video path как optional layer без лишнего scope creep;
-- продолжение design-system migration крупными chapters;
-- затем серия project/process audits после больших migration checkpoints;
+- удержание design-system migration на pause after the current checkpoint;
+- analysis-first `App lifecycle / ownership` framing pass;
+- затем следующая decision point между:
+  - narrow `App lifecycle / ownership` implementation pass
+  - `BoardStage.tsx` analysis-first pass
+  - return to design-system visual polishing
 - hosted validation как повторяемая проверка после крупных шагов, выкатываний и
   новых demo snapshots.
 
@@ -119,9 +141,11 @@ hosted-validation цикла.
 
 1. удерживать successful first hosted core checkpoint как current baseline;
 2. удерживать successful hosted video checkpoint как optional layer, а не новый broad media chapter;
-3. продолжать migration на новую design system как текущий главный step;
-4. после этого провести серию project/process audits;
-5. возвращаться к hosted validation как checkpoint после больших шагов и новых
+3. держать design-system work на pause after the current checkpoint;
+4. считать текущий narrow `App` split track landed enough to pause;
+5. открыть analysis-first `App lifecycle / ownership` chapter;
+6. после этого решить следующий chapter;
+7. возвращаться к hosted validation как checkpoint после больших шагов и новых
    demo snapshots.
 
 ## 8. Backlog
@@ -137,7 +161,16 @@ hosted-validation цикла.
 - [x] подтвердить базовый hosted core flow
 - [x] снять hosted video blocker и подтвердить working token path
 - [x] сделать narrow hosted video enable pass
-- [ ] продолжать migration на новую design system как текущий главный chapter
+- [x] довести current design-system migration checkpoint до good pause state
+- [x] провести analysis-first structural pass по `src/App.tsx`
+- [x] довести narrow `App` split track до good checkpoint pause
+- [x] verify the real boundary of the narrow `App` split track by attempting one
+  more bookkeeping slice and reverting it after runtime regressions
+- [ ] открыть analysis-first `App lifecycle / ownership` chapter
+- [ ] по результату выбрать следующий шаг между:
+  - narrow `App lifecycle / ownership` implementation pass
+  - `BoardStage.tsx` analysis-first pass
+  - return to design-system visual polishing
 - [ ] использовать hosted validation как recurring checkpoint после крупных
   продуктовых шагов и новых demo snapshots
 

@@ -812,29 +812,57 @@ What this means:
   - design-system visual polishing
 - but it is intentionally not the immediate active focus anymore
 
-## 8.7. Repo/runtime health is now the active focus before the next design-system chapter
+## 8.7. Repo/runtime health work moved `App` to a clearer boundary
 
-After the hygiene and repeat health-audit passes, the main remaining engineering
-debt is concentrated in two structural hotspots:
+After the hygiene passes, repeated project-health audits, and the recent
+successful `App.tsx` slices, the repo now reads more clearly:
 
-- `src/App.tsx`
-- `src/components/BoardStage.tsx`
+- `App.tsx` really was the right next structural target;
+- `BoardStage.tsx` still remains the other major hotspot and is still riskier;
+- the narrow `App` split track produced real structural progress.
 
-The next safer high-signal target is now `src/App.tsx`.
+What has already landed in `App`:
 
-Why `App.tsx` first:
+- render ownership split;
+- direct room URL bootstrap priority fix;
+- entry-only availability/color extraction;
+- joined-room awareness transport extraction.
 
-- its lint/structure debt is now the clearest remaining non-BoardStage
-  validation hotspot
-- its semantic blast radius is lower than `BoardStage.tsx`
-- improving it should make the repo’s validation story more trustworthy before
-  further design-system polishing or riskier board/runtime cleanup
+One additional attempted slice was intentionally **not** accepted:
+
+- extracting local room-record bookkeeping into a dedicated hook looked viable
+  in read-only analysis, but was reverted after real runtime regressions
+  appeared;
+- symptoms included broken leave behavior and heavy churn/heat during runtime;
+- this is now treated as evidence that the narrow split track has reached its
+  real safe boundary earlier than that attempted pass.
+
+This changed the meaning of the remaining `App` debt.
+
+It is no longer best described as generic split cleanup.
+
+The remaining cluster now reads more honestly as:
+
+- boot / restore ownership
+- join / leave / collapse transitions
+- participant session + room-record + creator synchronization
+- cross-tab active-room ownership
+- foreground presence-carrier coordination
+
+So the current framing is now:
+
+- `App.tsx` still remains the best next technical target;
+- but the next chapter there is now
+  **explicit App lifecycle / ownership**, not just one more narrow split slice;
+- `BoardStage.tsx` should still remain later;
+- design-system visual polishing remains paused, not abandoned.
 
 Working order from here:
 
-1. analysis-first pass for `src/App.tsx`
-2. decide whether a narrow `App.tsx` implementation pass is justified
+1. treat the current `App` split progress as a good checkpoint pause
+2. open an analysis-first `App lifecycle / ownership` chapter
 3. only then choose between:
+   - a narrow lifecycle/ownership implementation pass in `App`
    - `BoardStage.tsx` analysis-first work
    - return to design-system visual polishing
   - `Clear`

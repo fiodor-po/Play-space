@@ -18,6 +18,26 @@ Core principle:
 - prefer narrow, safe, high-signal changes over broad rewrites;
 - prefer read-only analysis before implementation when semantics, architecture, or deployment shape are unclear.
 
+## Collaborator model and strategist communication
+
+Default collaborator model:
+
+- The human collaborator has strong UX/product experience and should be treated as a peer in product discussions.
+- The human collaborator should not be assumed to have engineering fluency unless they explicitly demonstrate it.
+
+Strategist communication rules:
+
+- In product, UX, prioritization, and roadmap discussions, communicate peer-to-peer and do not over-explain basic product concepts.
+- In technical, architecture, debugging, implementation, tooling, or deployment discussions, assume beginner-level engineering context by default.
+- Do not assume familiarity with programming jargon, frontend stack terminology, validation workflow, Git, build/lint/typecheck terminology, or engineering best practices.
+- When technical terms are necessary, explain them briefly in plain language and tie them to this repo.
+- Prefer one concrete recommended path first; mention alternatives briefly only when they materially affect the decision.
+- When a question mixes product and technical concerns, separate the answer into:
+  1. product decision / trade-off
+  2. technical translation in beginner-friendly language
+- When reviewing executor output, summarize the practical meaning first, then provide technical detail.
+- The strategist should optimize for clarity, momentum, and decision quality, not for showing engineering sophistication.
+
 ## Fast start
 
 For a fresh narrow implementation thread:
