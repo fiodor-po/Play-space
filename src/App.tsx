@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 import {
   loadParticipantDraftForRoom,
   useEntryAvailabilityState,
@@ -75,8 +75,40 @@ const JOIN_CLAIM_SETTLE_MS = 220;
 const IS_DEV = import.meta.env.DEV;
 const entryDebugActionButtonRecipe = buttonRecipes.secondary.compact;
 
+type JoinedRoomActivationState = {
+  draftRoomId: string;
+  draftName: string;
+  draftColor: string;
+  activeRoomId: string;
+  isInRoom: true;
+  participantSession: LocalParticipantSession;
+  localParticipantPresence: ParticipantPresence;
+  roomRecord: RoomRecord | null;
+  roomCreatorId: string | null;
+};
+
 function getIsForegroundPresenceCarrier() {
   return !document.hidden && document.hasFocus();
+}
+
+function createJoinedRoomActivationState(params: {
+  roomId: string;
+  participantSession: LocalParticipantSession;
+  roomRecord: RoomRecord | null;
+}): JoinedRoomActivationState {
+  return {
+    draftRoomId: params.roomId,
+    draftName: params.participantSession.name,
+    draftColor: params.participantSession.color,
+    activeRoomId: params.roomId,
+    isInRoom: true,
+    participantSession: params.participantSession,
+    localParticipantPresence: createLocalParticipantPresence(
+      params.participantSession
+    ),
+    roomRecord: params.roomRecord,
+    roomCreatorId: null,
+  };
 }
 
 function AppBootScreen() {
@@ -608,29 +640,44 @@ function BootstrappedApp() {
     !!initialActiveRoomId &&
     initialDraftRoomId === initialActiveRoomId &&
     !!initialParticipantDraft.savedSession;
+  const initialJoinedRoomState =
+    shouldRestoreJoinedRoom && initialParticipantDraft.savedSession
+      ? createJoinedRoomActivationState({
+          roomId: initialDraftRoomId,
+          participantSession: initialParticipantDraft.savedSession,
+          roomRecord: loadRoomRecord(initialDraftRoomId),
+        })
+      : null;
 
-  const [draftRoomId, setDraftRoomId] = useState(initialDraftRoomId);
-  const [activeRoomId, setActiveRoomId] = useState<string | null>(() =>
-    shouldRestoreJoinedRoom ? initialDraftRoomId : null
+  const [draftRoomId, setDraftRoomId] = useState(
+    initialJoinedRoomState?.draftRoomId ?? initialDraftRoomId
   );
-  const [isInRoom, setIsInRoom] = useState(() => shouldRestoreJoinedRoom);
+  const [activeRoomId, setActiveRoomId] = useState<string | null>(
+    initialJoinedRoomState?.activeRoomId ?? null
+  );
+  const [isInRoom, setIsInRoom] = useState(
+    initialJoinedRoomState?.isInRoom ?? false
+  );
   const [participantSession, setParticipantSession] =
-    useState<LocalParticipantSession | null>(() =>
-      shouldRestoreJoinedRoom ? initialParticipantDraft.savedSession : null
+    useState<LocalParticipantSession | null>(
+      initialJoinedRoomState?.participantSession ?? null
     );
   const [localParticipantPresence, setLocalParticipantPresence] =
-    useState<ParticipantPresence | null>(() => {
-      const session = shouldRestoreJoinedRoom
-        ? initialParticipantDraft.savedSession
-        : null;
-      return session ? createLocalParticipantPresence(session) : null;
-    });
-  const [roomRecord, setRoomRecord] = useState<RoomRecord | null>(() =>
-    shouldRestoreJoinedRoom ? loadRoomRecord(initialDraftRoomId) : null
+    useState<ParticipantPresence | null>(
+      initialJoinedRoomState?.localParticipantPresence ?? null
+    );
+  const [roomRecord, setRoomRecord] = useState<RoomRecord | null>(
+    initialJoinedRoomState?.roomRecord ?? null
   );
-  const [roomCreatorId, setRoomCreatorId] = useState<string | null>(null);
-  const [draftName, setDraftName] = useState(initialParticipantDraft.draftName);
-  const [draftColor, setDraftColor] = useState(initialParticipantDraft.draftColor);
+  const [roomCreatorId, setRoomCreatorId] = useState<string | null>(
+    initialJoinedRoomState?.roomCreatorId ?? null
+  );
+  const [draftName, setDraftName] = useState(
+    initialJoinedRoomState?.draftName ?? initialParticipantDraft.draftName
+  );
+  const [draftColor, setDraftColor] = useState(
+    initialJoinedRoomState?.draftColor ?? initialParticipantDraft.draftColor
+  );
   const [isJoinPending, setIsJoinPending] = useState(false);
   const [isForegroundPresenceCarrier, setIsForegroundPresenceCarrier] = useState(() =>
     getIsForegroundPresenceCarrier()
@@ -647,6 +694,7 @@ function BootstrappedApp() {
     roomOccupancies,
     participantPresences,
     disconnectJoinedRoomPresence,
+    syncJoinedRoomParticipantPresence,
   } = useJoinedRoomPresenceTransport({
     activeRoomId,
     isInRoom,
@@ -677,6 +725,20 @@ function BootstrappedApp() {
     );
   };
 
+  const applyJoinedRoomActivationState = (
+    nextJoinedRoomState: JoinedRoomActivationState
+  ) => {
+    setDraftRoomId(nextJoinedRoomState.draftRoomId);
+    setDraftName(nextJoinedRoomState.draftName);
+    setDraftColor(nextJoinedRoomState.draftColor);
+    setActiveRoomId(nextJoinedRoomState.activeRoomId);
+    setIsInRoom(nextJoinedRoomState.isInRoom);
+    setParticipantSession(nextJoinedRoomState.participantSession);
+    setLocalParticipantPresence(nextJoinedRoomState.localParticipantPresence);
+    setRoomRecord(nextJoinedRoomState.roomRecord);
+    setRoomCreatorId(nextJoinedRoomState.roomCreatorId);
+  };
+
   const getOccupiedParticipantColors = (
     occupancies: RoomOccupancyMap,
     excludeParticipantId?: string
@@ -704,6 +766,45 @@ function BootstrappedApp() {
     if (nextRoomRecord) {
       setRoomRecord(nextRoomRecord);
     }
+  };
+
+  const activateJoinedRoom = (
+    roomId: string,
+    sessionOverride?: LocalParticipantSession | null
+  ) => {
+    const normalizedRoomId = normalizeRoomId(roomId);
+
+    if (!normalizedRoomId) {
+      return;
+    }
+
+    const nextSession =
+      sessionOverride === undefined
+        ? loadLocalParticipantSession(normalizedRoomId)
+        : sessionOverride;
+
+    if (!nextSession) {
+      setDraftRoomId(normalizedRoomId);
+      setActiveRoomId(normalizedRoomId);
+      setIsInRoom(true);
+      setParticipantSession(null);
+      setLocalParticipantPresence(null);
+      setRoomRecord(loadRoomRecord(normalizedRoomId));
+      setRoomCreatorId(null);
+      return;
+    }
+
+    saveActiveParticipantRoomSession({
+      participantId: nextSession.id,
+      roomId: normalizedRoomId,
+    });
+    applyJoinedRoomActivationState(
+      createJoinedRoomActivationState({
+        roomId: normalizedRoomId,
+        participantSession: nextSession,
+        roomRecord: rememberRoomMemberState(normalizedRoomId, nextSession),
+      })
+    );
   };
 
   const collapseToEntryScreen = (nextDraftRoomId: string) => {
@@ -779,40 +880,9 @@ function BootstrappedApp() {
   });
 
   useEffect(() => {
-    if (!isInRoom || !activeRoomId) {
-      setRoomRecord(null);
-      setRoomCreatorId(null);
-      return;
-    }
-
-    const nextSession = loadLocalParticipantSession(activeRoomId);
-    if (!nextSession) {
-      setParticipantSession(null);
-      setRoomRecord(loadRoomRecord(activeRoomId));
-      setRoomCreatorId(null);
-      setLocalParticipantPresence(null);
-      return;
-    }
-
-    saveActiveParticipantRoomSession({
-      participantId: nextSession.id,
-      roomId: activeRoomId,
-    });
-    setDraftName(nextSession.name);
-    setDraftColor(nextSession.color);
-    setParticipantSession(nextSession);
-    setRoomRecord(rememberRoomMemberState(activeRoomId, nextSession));
-    setRoomCreatorId(null);
-    setLocalParticipantPresence(
-      createLocalParticipantPresence(nextSession)
-    );
-  }, [activeRoomId, isInRoom]);
-
-  useEffect(() => {
     if (!isInRoom || !activeRoomId || !participantSession?.id) {
       roomCreatorConnectionRef.current?.destroy();
       roomCreatorConnectionRef.current = null;
-      setRoomCreatorId(null);
       return;
     }
 
@@ -843,29 +913,31 @@ function BootstrappedApp() {
     };
   }, [activeRoomId, isInRoom, participantSession?.id]);
 
+  const handleActiveParticipantRoomSessionChange = useEffectEvent(
+    (nextActiveRoomSession: ReturnType<typeof loadActiveParticipantRoomSession>) => {
+      if (nextActiveRoomSession?.roomId) {
+        if (isInRoom && activeRoomId === nextActiveRoomSession.roomId) {
+          return;
+        }
+
+        activateJoinedRoom(nextActiveRoomSession.roomId);
+        return;
+      }
+
+      if (!isInRoom && !activeRoomId) {
+        return;
+      }
+
+      collapseToEntryScreen(activeRoomId ?? draftRoomId);
+    }
+  );
+
   useEffect(() => {
     return subscribeToActiveParticipantRoomSession(
       browserParticipantId,
-      (nextActiveRoomSession) => {
-        if (nextActiveRoomSession?.roomId) {
-          if (isInRoom && activeRoomId === nextActiveRoomSession.roomId) {
-            return;
-          }
-
-          setDraftRoomId(nextActiveRoomSession.roomId);
-          setActiveRoomId(nextActiveRoomSession.roomId);
-          setIsInRoom(true);
-          return;
-        }
-
-        if (!isInRoom && !activeRoomId) {
-          return;
-        }
-
-        collapseToEntryScreen(activeRoomId ?? draftRoomId);
-      }
+      handleActiveParticipantRoomSessionChange
     );
-  }, [activeRoomId, browserParticipantId, draftRoomId, draftColor, draftName, isInRoom, participantSession]);
+  }, [browserParticipantId]);
 
   const joinRoom = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -943,79 +1015,65 @@ function BootstrappedApp() {
 
       saveLocalParticipantSession(trimmedRoomId, nextSession);
       saveActiveRoomId(trimmedRoomId);
-      saveActiveParticipantRoomSession({
-        participantId: nextSession.id,
-        roomId: trimmedRoomId,
-      });
       if (getRoomIdFromLocation(window.location) !== trimmedRoomId) {
         const nextUrl = new URL(window.location.href);
         nextUrl.searchParams.set("room", trimmedRoomId);
         window.history.pushState({}, "", nextUrl);
       }
 
-      setDraftRoomId(trimmedRoomId);
-      setDraftName(nextSession.name);
-      setDraftColor(nextSession.color);
-      setActiveRoomId(trimmedRoomId);
-      setIsInRoom(true);
-      setRoomRecord(rememberRoomMemberState(trimmedRoomId, nextSession));
-      setParticipantSession(nextSession);
-      setLocalParticipantPresence(createLocalParticipantPresence(nextSession));
+      activateJoinedRoom(trimmedRoomId, nextSession);
       setIsJoinPending(false);
     };
 
     void finalizeJoin();
   };
 
-  const updateParticipantSession = (updater: (session: LocalParticipantSession) => LocalParticipantSession) => {
-    setParticipantSession((currentSession) => {
-      if (!currentSession) {
-        return currentSession;
-      }
+  const updateParticipantSession = (
+    updater: (session: LocalParticipantSession) => LocalParticipantSession
+  ) => {
+    if (!participantSession || !activeRoomId) {
+      return;
+    }
 
-      const participantId = currentSession.id;
-      const draftSession = updater(currentSession);
-      const nextRoomId = activeRoomId;
+    const draftSession = updater(participantSession);
+    const occupiedColors = getOccupiedParticipantColors(
+      roomOccupancies,
+      participantSession.id
+    );
 
-      if (!nextRoomId) {
-        return currentSession;
-      }
+    if (
+      draftSession.color !== participantSession.color &&
+      occupiedColors.has(draftSession.color)
+    ) {
+      return;
+    }
 
-      const occupiedColors = getOccupiedParticipantColors(
-        roomOccupancies,
-        currentSession.id
-      );
-      if (
-        draftSession.color !== currentSession.color &&
-        occupiedColors.has(draftSession.color)
-      ) {
-        return currentSession;
-      }
+    const nextSession: LocalParticipantSession = {
+      ...draftSession,
+      color: draftSession.color,
+    };
+    const nextLocalParticipantPresence = localParticipantPresence
+      ? {
+          ...localParticipantPresence,
+          participantId: participantSession.id,
+          name: nextSession.name,
+          color: nextSession.color,
+        }
+      : {
+          ...createLocalParticipantPresence(nextSession),
+          participantId: participantSession.id,
+        };
 
-      const nextSession: LocalParticipantSession = {
-        ...draftSession,
-        color: draftSession.color,
-      };
-
-      saveLocalParticipantSession(nextRoomId, nextSession);
-      setRoomRecord(rememberRoomMemberState(nextRoomId, nextSession));
-      setDraftName(nextSession.name);
-      setDraftColor(nextSession.color);
-      setLocalParticipantPresence((currentPresence) =>
-        currentPresence
-          ? {
-              ...currentPresence,
-              participantId,
-              name: nextSession.name,
-              color: nextSession.color,
-            }
-          : {
-              ...createLocalParticipantPresence(nextSession),
-              participantId,
-            }
-      );
-      return nextSession;
-    });
+    saveLocalParticipantSession(activeRoomId, nextSession);
+    setRoomRecord(rememberRoomMemberState(activeRoomId, nextSession));
+    setDraftName(nextSession.name);
+    setDraftColor(nextSession.color);
+    setParticipantSession(nextSession);
+    setLocalParticipantPresence(nextLocalParticipantPresence);
+    syncJoinedRoomParticipantPresence(
+      nextSession,
+      nextLocalParticipantPresence
+    );
   };
 
   const leaveRoom = () => {

@@ -41,6 +41,34 @@ export function useJoinedRoomPresenceTransport({
     setParticipantPresences({});
   }, []);
 
+  const syncJoinedRoomParticipantPresence = useCallback(
+    (
+      nextParticipantSession: LocalParticipantSession,
+      nextLocalParticipantPresence: ParticipantPresence | null
+    ) => {
+      if (!isInRoom || !activeRoomId) {
+        return;
+      }
+
+      const connection = roomPresenceConnectionRef.current;
+
+      if (!connection) {
+        return;
+      }
+
+      connection.setLocalOccupancy(
+        createRoomOccupancy(nextParticipantSession)
+      );
+      connection.setLocalPresence(
+        isForegroundPresenceCarrier
+          ? nextLocalParticipantPresence ??
+              createLocalParticipantPresence(nextParticipantSession)
+          : null
+      );
+    },
+    [activeRoomId, isForegroundPresenceCarrier, isInRoom]
+  );
+
   useEffect(() => {
     if (!hasJoinedRoomPresenceTransport || !activeRoomId) {
       roomPresenceConnectionRef.current?.destroy();
@@ -106,5 +134,6 @@ export function useJoinedRoomPresenceTransport({
     participantPresences: hasJoinedRoomPresenceTransport ? participantPresences : {},
     roomOccupancies: hasJoinedRoomPresenceTransport ? roomOccupancies : {},
     disconnectJoinedRoomPresence,
+    syncJoinedRoomParticipantPresence,
   };
 }

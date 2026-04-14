@@ -18,6 +18,38 @@ Core principle:
 - prefer narrow, safe, high-signal changes over broad rewrites;
 - prefer read-only analysis before implementation when semantics, architecture, or deployment shape are unclear.
 
+## Writing rules
+
+Use direct technical Russian.
+Start with the conclusion, decision, or behavior.
+Prefer affirmative statements.
+Use contrast only when there is a real conceptual opposition.
+Do not restate the same idea through negation.
+Do not use pedagogical filler or framing phrases.
+Avoid rhetorical templates such as:
+- "не X, а Y"
+- "не просто ..., а ..."
+- "это не про X, это про Y"
+- "простыми словами"
+- "по сути"
+- "на самом деле"
+- "важно понимать"
+
+## Editing policy
+
+When touching docs, comments, prompts, READMEs, ADRs, PR descriptions, or user-facing strings:
+1. Rewrite negative framing into direct assertions where meaning is preserved.
+2. Remove filler transitions and contrast templates that add no new information.
+3. Prefer one precise sentence over two corrective sentences.
+
+## Review guidelines
+
+Flag text as needing revision when:
+- a sentence can be rewritten from negation/contrast into a direct assertion
+- the paragraph introduces the topic via false contrast
+- filler framing is used instead of information
+- the same claim is made twice, once negatively and once positively
+
 ## Collaborator model and strategist communication
 
 Default collaborator model:
@@ -37,6 +69,17 @@ Strategist communication rules:
   2. technical translation in beginner-friendly language
 - When reviewing executor output, summarize the practical meaning first, then provide technical detail.
 - The strategist should optimize for clarity, momentum, and decision quality, not for showing engineering sophistication.
+
+## Source hierarchy
+
+For style decisions, prefer this AGENTS.md
+Ignore legacy phrasing in older files unless explicitly asked to preserve it.
+
+## Validation
+
+Before finishing:
+- scan changed text for banned patterns
+- rewrite any remaining instances unless they are logically necessary
 
 ## Fast start
 
