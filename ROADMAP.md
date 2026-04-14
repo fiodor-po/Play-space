@@ -76,20 +76,19 @@
 
 ### Цель
 После текущего design-system checkpoint временно поставить дальнейшую
-design-system работу на pause, довести `App.tsx` до честного structural
-checkpoint и затем перейти от narrow split cleanup к explicit
-`App lifecycle / ownership` chapter.
+design-system работу на pause, закрыть `App.tsx` как structural hotspot и
+перейти к analysis-first `BoardStage.tsx` chapter.
 
 ### Основная последовательность
 1. удерживать hosted core + optional video checkpoint как baseline;
 2. удерживать design-system migration на pause after a good checkpoint rather
    than widening into visual polishing immediately;
-3. довести `App.tsx` through the safer narrow split slices that do not reopen
-   lifecycle semantics too early;
-4. после этого зафиксировать, что remaining `App` debt is now an explicit
-   lifecycle / ownership chapter rather than more generic split cleanup;
-5. только после этого решать, идти ли в `App lifecycle / ownership`,
-   `BoardStage.tsx` analysis, или возвращаться к design-system visual polishing;
+3. считать `App.tsx` structural hotspot closed after the completed lifecycle /
+   ownership checkpoint;
+4. открыть analysis-first `BoardStage.tsx` chapter;
+5. только после этого решать, идти ли в narrow `BoardStage` implementation,
+   возвращаться к design-system visual polishing, или открывать следующий
+   runtime/object chapter;
 6. возвращаться к hosted validation как recurring checkpoint после крупных
    шагов и новых demo snapshots.
 
@@ -106,23 +105,24 @@ lint/structure hotspots:
 target, чем немедленное продолжение design-system visual polishing или ранний
 заход в `BoardStage.tsx`.
 
-После нескольких успешных `App` passes это remains true, but the framing has
-changed:
+После нескольких успешных `App` passes это chapter now reads as completed
+enough for the current phase:
 
-- easy/high-signal split slices in `App` mostly landed already;
-- remaining `App` work is now better described as lifecycle / ownership work,
-  not as one more generic split cleanup pass.
+- narrow split slices landed;
+- lifecycle / ownership follow-up landed;
+- live joined-room presence sync follow-up landed;
+- `App.tsx` no longer appears in current lint output.
 
 ## 5. Что входит в текущий этап
 
 - удержание core hosted stack в честном рабочем состоянии;
 - удержание working hosted video path как optional layer без лишнего scope creep;
 - удержание design-system migration на pause after the current checkpoint;
-- analysis-first `App lifecycle / ownership` framing pass;
+- `App.tsx` checkpoint closure after lifecycle / ownership completion;
 - затем следующая decision point между:
-  - narrow `App lifecycle / ownership` implementation pass
   - `BoardStage.tsx` analysis-first pass
   - return to design-system visual polishing
+  - later narrow `BoardStage` implementation pass if analysis supports it
 - hosted validation как повторяемая проверка после крупных шагов, выкатываний и
   новых demo snapshots.
 
@@ -142,8 +142,8 @@ changed:
 1. удерживать successful first hosted core checkpoint как current baseline;
 2. удерживать successful hosted video checkpoint как optional layer, а не новый broad media chapter;
 3. держать design-system work на pause after the current checkpoint;
-4. считать текущий narrow `App` split track landed enough to pause;
-5. открыть analysis-first `App lifecycle / ownership` chapter;
+4. считать `App.tsx` chapter structurally closed;
+5. открыть analysis-first `BoardStage.tsx` chapter;
 6. после этого решить следующий chapter;
 7. возвращаться к hosted validation как checkpoint после больших шагов и новых
    demo snapshots.
@@ -166,11 +166,13 @@ changed:
 - [x] довести narrow `App` split track до good checkpoint pause
 - [x] verify the real boundary of the narrow `App` split track by attempting one
   more bookkeeping slice and reverting it after runtime regressions
-- [ ] открыть analysis-first `App lifecycle / ownership` chapter
+- [x] открыть analysis-first `App lifecycle / ownership` chapter
+- [x] закрыть `App.tsx` lifecycle / ownership checkpoint narrow implementation passes
+- [ ] открыть analysis-first `BoardStage.tsx` chapter
 - [ ] по результату выбрать следующий шаг между:
-  - narrow `App lifecycle / ownership` implementation pass
-  - `BoardStage.tsx` analysis-first pass
+  - narrow `BoardStage.tsx` implementation pass
   - return to design-system visual polishing
+  - next runtime/object chapter
 - [ ] использовать hosted validation как recurring checkpoint после крупных
   продуктовых шагов и новых demo snapshots
 

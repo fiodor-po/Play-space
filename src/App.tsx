@@ -55,7 +55,7 @@ import {
   mirrorRoomCreatorId,
 } from "./lib/roomMetadata";
 import { isLiveKitMediaEnabled, logClientRuntimeConfig } from "./lib/runtimeConfig";
-import type { FormEvent } from "react";
+import type { FormEvent, ReactNode } from "react";
 import type {
   LocalParticipantSession,
   ParticipantPresence,
@@ -579,18 +579,24 @@ function JoinedRoomScreen({
   );
 }
 
-export default function App() {
-  const isOpsRoute = window.location.pathname.startsWith("/ops/rooms");
+function AppShell({ children }: { children: ReactNode }) {
+  return (
+    <>
+      {children}
+      <DesignSystemHoverInspector />
+    </>
+  );
+}
 
-  if (isOpsRoute) {
-    return (
-      <>
-        <RoomsOpsPage />
-        <DesignSystemHoverInspector />
-      </>
-    );
-  }
+function OpsRouteShell() {
+  return (
+    <AppShell>
+      <RoomsOpsPage />
+    </AppShell>
+  );
+}
 
+function RoomRouteShell() {
   const [isBootReady, setIsBootReady] = useState(false);
 
   useEffect(() => {
@@ -609,19 +615,23 @@ export default function App() {
 
   if (!isBootReady) {
     return (
-      <>
+      <AppShell>
         <AppBootScreen />
-        <DesignSystemHoverInspector />
-      </>
+      </AppShell>
     );
   }
 
   return (
-    <>
+    <AppShell>
       <BootstrappedApp />
-      <DesignSystemHoverInspector />
-    </>
+    </AppShell>
   );
+}
+
+export default function App() {
+  const isOpsRoute = window.location.pathname.startsWith("/ops/rooms");
+
+  return isOpsRoute ? <OpsRouteShell /> : <RoomRouteShell />;
 }
 
 function BootstrappedApp() {

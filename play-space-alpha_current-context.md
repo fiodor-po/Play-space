@@ -812,7 +812,7 @@ What this means:
   - design-system visual polishing
 - but it is intentionally not the immediate active focus anymore
 
-## 8.7. Repo/runtime health work moved `App` to a clearer boundary
+## 8.7. Repo/runtime health work closed the current `App` chapter
 
 After the hygiene passes, repeated project-health audits, and the recent
 successful `App.tsx` slices, the repo now reads more clearly:
@@ -849,30 +849,27 @@ The remaining cluster now reads more honestly as:
 - cross-tab active-room ownership
 - foreground presence-carrier coordination
 
+What landed after that framing:
+
+- joined-room activation / restore now goes through one explicit activation path;
+- live participant color change now republishes joined-room presence immediately;
+- top-level route shell split landed;
+- `App.tsx` no longer appears in current lint output.
+
 So the current framing is now:
 
-- `App.tsx` still remains the best next technical target;
-- but the next chapter there is now
-  **explicit App lifecycle / ownership**, not just one more narrow split slice;
-- `BoardStage.tsx` should still remain later;
+- the current `App.tsx` chapter is closed as a structural hotspot;
+- `BoardStage.tsx` is now the remaining major lint / structure hotspot;
 - design-system visual polishing remains paused, not abandoned.
 
 Working order from here:
 
-1. treat the current `App` split progress as a good checkpoint pause
-2. open an analysis-first `App lifecycle / ownership` chapter
+1. treat `App.tsx` as closed for the current phase
+2. open an analysis-first `BoardStage.tsx` chapter
 3. only then choose between:
-   - a narrow lifecycle/ownership implementation pass in `App`
-   - `BoardStage.tsx` analysis-first work
+   - a narrow `BoardStage.tsx` implementation pass
    - return to design-system visual polishing
-  - `Clear`
-  - `Clear all`
-- those controls now inherit their visual shell from the shared
-  interaction-button branch rather than from local canvas-only literals
-- the current image-attached controls may still continue visual experimentation
-  on top of that shared branch without invalidating the accepted neutral-
-  primary tone path itself
-- participant-name inline edit/display behavior remains an acceptable special
+   - the next runtime/object chapter after `BoardStage` analysis
   inline-editing exception for now
 
 Accepted cleanup decisions already made:

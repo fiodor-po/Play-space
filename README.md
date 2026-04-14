@@ -114,11 +114,11 @@ Lint:
 npm run lint
 ```
 
-Current validation truth as of 2026-04-13:
+Current validation truth as of 2026-04-14:
 
 - `npm run typecheck` passes
 - `npm run build` passes
-- `npm run lint` has pre-existing failures in `src/App.tsx`, `src/components/BoardStage.tsx`, `src/lib/roomSession.ts`, and `src/ui/system/debug.tsx`
+- `npm run lint` has pre-existing failures only in `src/components/BoardStage.tsx`
 
 For manual regression checks, use:
 
