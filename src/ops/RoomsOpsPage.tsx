@@ -478,7 +478,7 @@ export function RoomsOpsPage() {
             ) : null}
             {authError ? <div style={inlineTextRecipes.error.style}>{authError}</div> : null}
 
-            <div style={{ display: "grid", gap: 8 }}>
+            <div style={roomListStyle}>
               {rooms.map((room) => {
                 const isSelected = room.roomId === selectedRoomId;
 
@@ -674,4 +674,12 @@ const preStyle: CSSProperties = {
   fontSize: 11,
   overflow: "auto",
   maxHeight: 360,
+};
+
+const roomListStyle: CSSProperties = {
+  display: "grid",
+  gap: 8,
+  overflow: "auto",
+  maxHeight: "calc(100vh - 220px)",
+  paddingRight: 4,
 };
