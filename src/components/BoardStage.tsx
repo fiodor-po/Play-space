@@ -55,12 +55,12 @@ import {
   type ImageEffectiveBounds,
 } from "../board/images/effectiveBounds";
 import {
-  getAddBoardObjectSyncOptions,
-  getRemoveBoardObjectSyncOptions,
   getUpdateBoardObjectSyncOptions,
-  syncBoardObjects,
-  type BoardObjectSyncOptions,
 } from "../board/sync/boardObjectSync";
+import {
+  getRoomScopedBoardObjects,
+  useBoardObjectRuntime,
+} from "../board/runtime/useBoardObjectRuntime";
 import {
   BOARD_HEIGHT,
   BOARD_WIDTH,
@@ -101,13 +101,11 @@ import {
 } from "../lib/durableRoomSnapshot";
 import {
   updateBoardObjectById,
-  removeBoardObjectById,
   updateBoardObjectLabel,
   updateBoardObjectPosition,
 } from "../lib/boardObjects";
 import {
   clearBoardContentStorage,
-  loadBoardObjects,
   loadRoomSnapshot,
   loadViewportState,
   saveBoardObjects,
@@ -119,17 +117,14 @@ import {
   createRoomTokenConnection,
   type ActiveObjectMove,
   type ActiveObjectMoveMap,
-  type RoomTokenConnection,
 } from "../lib/roomTokensRealtime";
 import {
   createRoomImageConnection,
   type ImageDrawingLock,
-  type RoomImageConnection,
 } from "../lib/roomImagesRealtime";
 import {
   createRoomTextCardConnection,
   type TextCardEditingPresence,
-  type RoomTextCardConnection,
   type TextCardResizePresence,
 } from "../lib/roomTextCardsRealtime";
 import {
@@ -251,6 +246,15 @@ function SmallFloatingActionButton({
   );
 }
 
+function getSharedBoardObjects(nextObjects: BoardObject[]) {
+  return nextObjects.filter(
+    (object) =>
+      object.kind === "token" ||
+      object.kind === "image" ||
+      isNoteCardObject(object)
+  );
+}
+
 type BoardStageProps = {
   participantSession: LocalParticipantSession;
   participantPresences: ParticipantPresenceMap;
@@ -320,19 +324,6 @@ export default function BoardStage({
   onUpdateLocalPresence,
 }: BoardStageProps) {
   const isDebugControlsEnabled = isDesignSystemHoverDebugEnabled();
-  const getRoomScopedObjects = (nextRoomId: string) => {
-    const localObjects = loadBoardObjects(nextRoomId, EMPTY_BOARD_STATE);
-
-    return [
-      ...localObjects.filter(
-        (object) =>
-          object.kind !== "token" &&
-          object.kind !== "image" &&
-          !isNoteCardObject(object)
-      ),
-    ];
-  };
-
   const containerRef = useRef<HTMLDivElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const imageInputRef = useRef<HTMLInputElement | null>(null);
@@ -381,9 +372,36 @@ export default function BoardStage({
     return savedViewport.scale;
   });
 
-  const [objects, setObjects] = useState<BoardObject[]>(() =>
-    getRoomScopedObjects(roomId)
-  );
+  const {
+    objects,
+    commands: {
+      addBoardObject,
+      applyBoardObjectsUpdate,
+      removeBoardObject,
+      replaceBoardObjects,
+      updateBoardObject,
+    },
+    sync: {
+      attachImageConnection,
+      attachTextCardConnection,
+      attachTokenConnection,
+      detachImageConnection,
+      detachTextCardConnection,
+      detachTokenConnection,
+      receiveSharedImages,
+      receiveSharedTextCards,
+      receiveSharedTokens,
+      setActiveImageDrawingLock,
+      setActiveTextCardEditingState,
+      setActiveTextCardResizeState,
+      setActiveTokenMove,
+      syncCurrentImage,
+      updateImagePositionPreview,
+      updateImagePreviewBounds,
+    },
+  } = useBoardObjectRuntime({
+    roomId,
+  });
 
   const [selectedObjectId, setSelectedObjectId] = useState<string | null>(null);
   const [editingTextCardId, setEditingTextCardId] = useState<string | null>(null);
@@ -747,9 +765,6 @@ export default function BoardStage({
   const drawingImageIdRef = useRef<string | null>(null);
   const activeImageStrokeRef = useRef<ActiveImageStrokeSession | null>(null);
   const transformingImageSnapshotRef = useRef<Record<string, BoardObject>>({});
-  const roomTokenConnectionRef = useRef<RoomTokenConnection | null>(null);
-  const roomImageConnectionRef = useRef<RoomImageConnection | null>(null);
-  const roomTextCardConnectionRef = useRef<RoomTextCardConnection | null>(null);
   const roomBootstrapEntryIdRef = useRef(0);
   const snapshotRecoveryAttemptedRoomRef = useRef<number | null>(null);
   const [resolvedSnapshotBootstrapRoomId, setResolvedSnapshotBootstrapRoomId] =
@@ -788,75 +803,9 @@ export default function BoardStage({
     textCardInitialSyncRoomId === roomId;
   const sharedRoomObjects = useMemo(
     () =>
-      objects.filter(
-        (object) =>
-          object.kind === "token" ||
-          object.kind === "image" ||
-          isNoteCardObject(object)
-      ),
+      getSharedBoardObjects(objects),
     [objects]
   );
-
-  const applyBoardObjectsUpdate = (
-    updater: (currentObjects: BoardObject[]) => BoardObject[],
-    options?: BoardObjectSyncOptions
-  ) => {
-    setObjects((currentObjects) => {
-      const nextObjects = updater(currentObjects);
-
-      syncBoardObjects(
-        {
-          roomTokenConnection: roomTokenConnectionRef.current,
-          roomImageConnection: roomImageConnectionRef.current,
-          roomTextCardConnection: roomTextCardConnectionRef.current,
-        },
-        nextObjects,
-        options
-      );
-
-      return nextObjects;
-    });
-  };
-
-  const replaceBoardObjects = (
-    nextObjects: BoardObject[],
-    options?: BoardObjectSyncOptions
-  ) => {
-    setObjects(nextObjects);
-
-    syncBoardObjects(
-      {
-        roomTokenConnection: roomTokenConnectionRef.current,
-        roomImageConnection: roomImageConnectionRef.current,
-        roomTextCardConnection: roomTextCardConnectionRef.current,
-      },
-      nextObjects,
-      options
-    );
-  };
-
-  const addBoardObject = (object: BoardObject) => {
-    applyBoardObjectsUpdate(
-      (currentObjects) => [...currentObjects, object],
-      getAddBoardObjectSyncOptions(object)
-    );
-  };
-
-  const updateBoardObject = (
-    id: string,
-    updater: (object: BoardObject) => BoardObject
-  ) => {
-    applyBoardObjectsUpdate((currentObjects) =>
-      updateBoardObjectById(currentObjects, id, updater)
-    );
-  };
-
-  const removeBoardObject = (id: string) => {
-    applyBoardObjectsUpdate(
-      (currentObjects) => removeBoardObjectById(currentObjects, id),
-      getRemoveBoardObjectSyncOptions(objects, id)
-    );
-  };
 
   const clearImageDrawing = (id: string) => {
     const clearAccess = resolveObjectActionAccess(
@@ -896,7 +845,7 @@ export default function BoardStage({
   };
 
   const releaseImageDrawingLock = () => {
-    roomImageConnectionRef.current?.setActiveDrawingImage(null);
+    setActiveImageDrawingLock(null);
   };
 
   const setDrawingImageSessionImageId = (nextImageId: string | null) => {
@@ -923,18 +872,7 @@ export default function BoardStage({
     const activeStroke = activeImageStrokeRef.current;
 
     if (activeStroke) {
-      setObjects((currentObjects) => {
-        const image = currentObjects.find(
-          (object) =>
-            object.id === activeStroke.imageId && object.kind === "image"
-        );
-
-        if (image) {
-          roomImageConnectionRef.current?.upsertImages([image]);
-        }
-
-        return currentObjects;
-      });
+      syncCurrentImage(activeStroke.imageId);
     }
 
     clearActiveImageStrokeSession();
@@ -978,7 +916,7 @@ export default function BoardStage({
 
     selectBoardObjectById(imageId);
     setDrawingImageSessionImageId(imageId);
-    roomImageConnectionRef.current?.setActiveDrawingImage({
+    setActiveImageDrawingLock({
       imageId,
       participantId: participantSession.id,
       participantName: participantSession.name,
@@ -1104,7 +1042,7 @@ export default function BoardStage({
       relativeTo: node.getLayer() ?? undefined,
     });
 
-    roomImageConnectionRef.current?.updateImagePreviewBounds(snapshot.id, {
+    updateImagePreviewBounds(snapshot.id, {
       x: bounds.x,
       y: bounds.y,
       width: bounds.width,
@@ -1146,7 +1084,7 @@ export default function BoardStage({
         return;
       }
 
-      replaceBoardObjects(getRoomScopedObjects(roomId));
+      replaceBoardObjects(getRoomScopedBoardObjects(roomId));
       setStagePosition(
         hasSavedViewport
           ? { x: savedViewport.x, y: savedViewport.y }
@@ -1179,7 +1117,7 @@ export default function BoardStage({
     return () => {
       isCancelled = true;
     };
-  }, [roomId]);
+  }, [replaceBoardObjects, roomId]);
 
   useEffect(() => {
     if (!isEditingParticipantName) {
@@ -1272,14 +1210,14 @@ export default function BoardStage({
       return;
     }
 
-    saveRoomSnapshot(roomId, objects);
-
     const durableSnapshotKey = JSON.stringify({
       roomId,
       tokens: objects.filter((object) => object.kind === "token"),
       images: objects.filter((object) => object.kind === "image"),
       textCards: objects.filter((object) => isNoteCardObject(object)),
     });
+
+    saveRoomSnapshot(roomId, objects);
 
     if (
       pendingDurableSnapshotSaveKeyRef.current === durableSnapshotKey ||
@@ -1392,7 +1330,7 @@ export default function BoardStage({
         images?: BoardObject[];
         textCards?: BoardObject[];
       }) => [
-        ...getRoomScopedObjects(params.roomId),
+        ...getRoomScopedBoardObjects(params.roomId),
         ...(params.tokens ?? []),
         ...(params.images ?? []),
         ...(params.textCards ?? []),
@@ -1400,7 +1338,7 @@ export default function BoardStage({
       const composeBaselineRoomObjects = (
         nextRoomId: string,
         baselineObjects: BoardObject[]
-      ) => [...getRoomScopedObjects(nextRoomId), ...baselineObjects];
+      ) => [...getRoomScopedBoardObjects(nextRoomId), ...baselineObjects];
       const localSnapshot = loadRoomSnapshot(roomId);
       const localSnapshotObjectCount = getSnapshotObjectCount(localSnapshot);
 
@@ -1527,6 +1465,7 @@ export default function BoardStage({
   }, [
     hasSharedRoomContentLoaded,
     onRoomBaselineApplied,
+    replaceBoardObjects,
     roomBaselineToApply,
     roomId,
     sharedRoomObjects.length,
@@ -1536,65 +1475,39 @@ export default function BoardStage({
     const connection = createRoomTokenConnection({
       roomId,
       onActiveMovesChange: setRemoteActiveObjectMoves,
-      onTokensChange: (sharedTokens) => {
-        setObjects((currentObjects) => [
-          ...currentObjects.filter((object) => object.kind !== "token"),
-          ...sharedTokens,
-        ]);
-      },
+      onTokensChange: receiveSharedTokens,
       onInitialSyncComplete: () => {
         setTokenInitialSyncRoomId(roomId);
       },
     });
-    roomTokenConnectionRef.current = connection;
+    attachTokenConnection(connection);
 
     return () => {
-      if (roomTokenConnectionRef.current === connection) {
-        roomTokenConnectionRef.current = null;
-      }
-
+      detachTokenConnection(connection);
       connection.destroy();
     };
-  }, [roomId]);
+  }, [attachTokenConnection, detachTokenConnection, receiveSharedTokens, roomId]);
 
   useEffect(() => {
     const connection = createRoomImageConnection({
       roomId,
       onImagesChange: (sharedImages) => {
-        setObjects((currentObjects) => {
-          const localImages = currentObjects.filter(
-            (object) => object.kind === "image"
-          );
+        receiveSharedImages(sharedImages, (sharedImage, localImage) => {
+          if (localImage && transformingImageSnapshotRef.current[sharedImage.id]) {
+            return localImage;
+          }
 
-          return [
-            ...currentObjects.filter((object) => object.kind !== "image"),
-            ...sharedImages.map((sharedImage) => {
-              const localImage = localImages.find(
-                (localObject) =>
-                  localObject.id === sharedImage.id &&
-                  localObject.kind === "image"
-              );
+          if (
+            !isImageLocallyDrawingInProgress(sharedImage.id) ||
+            !localImage?.imageStrokes?.length
+          ) {
+            return sharedImage;
+          }
 
-              if (
-                localImage &&
-                transformingImageSnapshotRef.current[sharedImage.id]
-              ) {
-                return localImage;
-              }
-
-              if (
-                !isImageLocallyDrawingInProgress(sharedImage.id) ||
-                !localImage?.imageStrokes?.length
-              ) {
-                return sharedImage;
-              }
-
-              return {
-                ...sharedImage,
-                imageStrokes: localImage.imageStrokes,
-              };
-            }),
-          ];
+          return {
+            ...sharedImage,
+            imageStrokes: localImage.imageStrokes,
+          };
         });
       },
       onInitialSyncComplete: () => {
@@ -1603,45 +1516,44 @@ export default function BoardStage({
       onImagePreviewPositionsChange: setRemoteImagePreviewPositions,
       onImageDrawingLocksChange: handleRemoteImageDrawingLocksChange,
     });
-    roomImageConnectionRef.current = connection;
+    attachImageConnection(connection);
 
     return () => {
-      if (roomImageConnectionRef.current === connection) {
-        roomImageConnectionRef.current = null;
-      }
-
+      detachImageConnection(connection);
       connection.destroy();
     };
-  }, [roomId]);
+  }, [
+    attachImageConnection,
+    detachImageConnection,
+    receiveSharedImages,
+    roomId,
+  ]);
 
   useEffect(() => {
     const connection = createRoomTextCardConnection({
       roomId,
-      onTextCardsChange: (sharedTextCards) => {
-        setObjects((currentObjects) => [
-          ...currentObjects.filter((object) => !isNoteCardObject(object)),
-          ...sharedTextCards,
-        ]);
-      },
+      onTextCardsChange: receiveSharedTextCards,
       onInitialSyncComplete: () => {
         setTextCardInitialSyncRoomId(roomId);
       },
       onTextCardEditingStatesChange: setRemoteTextCardEditingStates,
       onTextCardResizeStatesChange: setRemoteTextCardResizeStates,
     });
-    roomTextCardConnectionRef.current = connection;
+    attachTextCardConnection(connection);
 
     return () => {
-      if (roomTextCardConnectionRef.current === connection) {
-        roomTextCardConnectionRef.current = null;
-      }
-
+      detachTextCardConnection(connection);
       connection.destroy();
     };
-  }, [roomId]);
+  }, [
+    attachTextCardConnection,
+    detachTextCardConnection,
+    receiveSharedTextCards,
+    roomId,
+  ]);
 
   useEffect(() => {
-    roomTextCardConnectionRef.current?.setActiveEditingTextCard(
+    setActiveTextCardEditingState(
       editingTextCardId
         ? {
             textCardId: editingTextCardId,
@@ -1656,13 +1568,14 @@ export default function BoardStage({
     participantSession.color,
     participantSession.id,
     participantSession.name,
+    setActiveTextCardEditingState,
   ]);
 
   useEffect(() => {
     return () => {
-      roomTextCardConnectionRef.current?.setActiveResizingTextCard(null);
+      setActiveTextCardResizeState(null);
     };
-  }, []);
+  }, [setActiveTextCardResizeState]);
 
   useEffect(() => {
     objects.forEach((object) => {
@@ -1756,7 +1669,15 @@ export default function BoardStage({
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [drawingImageId, editingTextCardId, selectedObjectId, objects]);
+  }, [
+    drawingImageId,
+    editingTextCardId,
+    finishImageDrawingMode,
+    objects,
+    removeBoardObject,
+    resolveObjectActionAccess,
+    selectedObjectId,
+  ]);
 
   const sortedObjects = useMemo(() => {
     return [...objects].sort(
@@ -1764,7 +1685,11 @@ export default function BoardStage({
     );
   }, [objects]);
 
-  const updateObjectPosition = (id: string, x: number, y: number) => {
+  const updateObjectPosition = (
+    id: string,
+    x: number,
+    y: number
+  ) => {
     const moveAccess = resolveObjectActionAccess(id, "board-object.move");
 
     if (!moveAccess?.isAllowed) {
@@ -1857,12 +1782,7 @@ export default function BoardStage({
     applyBoardObjectsUpdate((currentObjects) =>
       updateBoardObjectPosition(currentObjects, id, x, y)
     );
-    roomImageConnectionRef.current?.updateImagePosition(
-      id,
-      x,
-      y,
-      participantSession.color
-    );
+    updateImagePositionPreview(id, x, y, participantSession.color);
   };
 
   const updateObjectLabel = (id: string, label: string) => {
@@ -3351,7 +3271,6 @@ export default function BoardStage({
                       node.scaleX(1);
                       node.scaleY(1);
                       node.draggable(true);
-
                       resizeImageObject(
                         object.id,
                         {
@@ -3473,7 +3392,7 @@ export default function BoardStage({
                   onTransformStart={(event) => {
                     event.cancelBubble = true;
                     selectBoardObject(object);
-                    roomTextCardConnectionRef.current?.setActiveResizingTextCard({
+                    setActiveTextCardResizeState({
                       textCardId: object.id,
                       participantId: participantSession.id,
                       participantName: participantSession.name,
@@ -3541,9 +3460,7 @@ export default function BoardStage({
                     node.scaleX(1);
                     node.scaleY(1);
                     resizeTextCardBounds(object.id, nextBounds);
-                    roomTextCardConnectionRef.current?.setActiveResizingTextCard(
-                      null
-                    );
+                    setActiveTextCardResizeState(null);
                     clearLiveNoteCardResizePreviewSession();
                     setLiveNoteCardResizePreview(null);
                   }}
@@ -3599,7 +3516,7 @@ export default function BoardStage({
                     );
                   }
 
-                  roomTokenConnectionRef.current?.setActiveMove({
+                  setActiveTokenMove({
                     objectId: object.id,
                     objectKind: object.kind,
                     participantId: participantSession.id,
@@ -3623,7 +3540,7 @@ export default function BoardStage({
                 }}
                 onDragEnd={(event) => {
                   event.cancelBubble = true;
-                  roomTokenConnectionRef.current?.setActiveMove(null);
+                  setActiveTokenMove(null);
                   updateTokenPlacementAfterDrop(object.id, {
                     x: event.target.x(),
                     y: event.target.y(),

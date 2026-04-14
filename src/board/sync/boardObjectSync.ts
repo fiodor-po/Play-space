@@ -12,7 +12,7 @@ export type BoardObjectSyncOptions = {
   syncSharedTextCards?: boolean;
 };
 
-type BoardObjectSyncConnections = {
+export type BoardObjectSyncConnections = {
   roomTokenConnection: RoomTokenConnection | null;
   roomImageConnection: RoomImageConnection | null;
   roomTextCardConnection: RoomTextCardConnection | null;
