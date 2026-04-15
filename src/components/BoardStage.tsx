@@ -3264,6 +3264,28 @@ export default function BoardStage({
         participantId: participantSession.id,
       })
     : null;
+  const debugPanelSectionHeadingStyle = {
+    paddingLeft: 2,
+    fontSize: 11,
+    fontWeight: 700,
+    letterSpacing: "0.06em",
+    textTransform: "uppercase",
+    color: "#cbd5e1",
+  };
+  const debugInsetCardStyle = {
+    ...surfaceRecipes.inset.default.style,
+    gap: 8,
+    minWidth: 0,
+    fontSize: 12,
+    overflowWrap: "anywhere" as const,
+  };
+  const debugInsetCardTitleStyle = {
+    fontSize: 11,
+    fontWeight: 700,
+    letterSpacing: "0.04em",
+    textTransform: "uppercase",
+    color: "#94a3b8",
+  };
   const selectedImageControlButtons: Array<{
     key: string;
     label: string;
@@ -3805,29 +3827,32 @@ export default function BoardStage({
           setIsEditingParticipantName(true);
         }}
         devToolsContent={
-          <div style={{ display: "grid", gap: 12 }}>
+          <div style={{ display: "grid", gap: 12, minWidth: 0 }}>
+            <div style={debugPanelSectionHeadingStyle}>Board inspection</div>
 
             <div
               className={surfaceRecipes.inset.default.className}
-              style={{
-                ...surfaceRecipes.inset.default.style,
-                gap: 8,
-                fontSize: 12,
-              }}
+              style={debugInsetCardStyle}
+              {...getDesignSystemDebugAttrs(surfaceRecipes.inset.default.debug)}
+            >
+              <div style={debugInsetCardTitleStyle}>Board actions</div>
+              <BoardToolbar
+                onAddImage={() => {
+                  imageInputRef.current?.click();
+                }}
+                addImageRecipe={buttonRecipes.secondary.default}
+                onAddNote={createNote}
+                onResetBoard={resetBoard}
+              />
+            </div>
+
+            <div
+              className={surfaceRecipes.inset.default.className}
+              style={debugInsetCardStyle}
               data-testid="debug-room-object-counts"
               {...getDesignSystemDebugAttrs(surfaceRecipes.inset.default.debug)}
             >
-              <div
-                style={{
-                  fontSize: 11,
-                  fontWeight: 700,
-                  letterSpacing: "0.04em",
-                  textTransform: "uppercase",
-                  color: "#94a3b8",
-                }}
-              >
-                Room objects
-              </div>
+              <div style={debugInsetCardTitleStyle}>Room objects</div>
               <div style={{ color: "#e2e8f0" }}>Total: {sharedObjectCount}</div>
               <div style={{ color: "#94a3b8" }}>
                 tokens {sharedTokenCount}
@@ -3838,25 +3863,11 @@ export default function BoardStage({
 
             <div
               className={surfaceRecipes.inset.default.className}
-              style={{
-                ...surfaceRecipes.inset.default.style,
-                gap: 8,
-                fontSize: 12,
-              }}
+              style={debugInsetCardStyle}
               data-testid="debug-image-inspection"
               {...getDesignSystemDebugAttrs(surfaceRecipes.inset.default.debug)}
             >
-              <div
-                style={{
-                  fontSize: 11,
-                  fontWeight: 700,
-                  letterSpacing: "0.04em",
-                  textTransform: "uppercase",
-                  color: "#94a3b8",
-                }}
-              >
-                Image inspection
-              </div>
+              <div style={debugInsetCardTitleStyle}>Image inspection</div>
               <div style={{ color: "#e2e8f0" }}>
                 Target: {inspectableImageTarget}
               </div>
@@ -3915,25 +3926,11 @@ export default function BoardStage({
 
             <div
               className={surfaceRecipes.inset.default.className}
-              style={{
-                ...surfaceRecipes.inset.default.style,
-                gap: 8,
-                fontSize: 12,
-              }}
+              style={debugInsetCardStyle}
               data-testid="debug-token-inspection"
               {...getDesignSystemDebugAttrs(surfaceRecipes.inset.default.debug)}
             >
-              <div
-                style={{
-                  fontSize: 11,
-                  fontWeight: 700,
-                  letterSpacing: "0.04em",
-                  textTransform: "uppercase",
-                  color: "#94a3b8",
-                }}
-              >
-                Token inspection
-              </div>
+              <div style={debugInsetCardTitleStyle}>Token inspection</div>
               <div style={{ color: "#e2e8f0" }}>
                 Target: {inspectableTokenTarget}
               </div>
@@ -3962,25 +3959,11 @@ export default function BoardStage({
 
             <div
               className={surfaceRecipes.inset.default.className}
-              style={{
-                ...surfaceRecipes.inset.default.style,
-                gap: 8,
-                fontSize: 12,
-              }}
+              style={debugInsetCardStyle}
               data-testid="debug-note-inspection"
               {...getDesignSystemDebugAttrs(surfaceRecipes.inset.default.debug)}
             >
-              <div
-                style={{
-                  fontSize: 11,
-                  fontWeight: 700,
-                  letterSpacing: "0.04em",
-                  textTransform: "uppercase",
-                  color: "#94a3b8",
-                }}
-              >
-                Note inspection
-              </div>
+              <div style={debugInsetCardTitleStyle}>Note inspection</div>
               <div style={{ color: "#e2e8f0" }}>
                 Target: {inspectableNoteCardTarget}
               </div>
@@ -4032,26 +4015,14 @@ export default function BoardStage({
               </div>
             </div>
 
+            <div style={debugPanelSectionHeadingStyle}>Utilities</div>
+
             <div
               className={surfaceRecipes.inset.default.className}
-              style={{
-                ...surfaceRecipes.inset.default.style,
-                gap: 8,
-                fontSize: 12,
-              }}
+              style={debugInsetCardStyle}
               {...getDesignSystemDebugAttrs(surfaceRecipes.inset.default.debug)}
             >
-              <div
-                style={{
-                  fontSize: 11,
-                  fontWeight: 700,
-                  letterSpacing: "0.04em",
-                  textTransform: "uppercase",
-                  color: "#94a3b8",
-                }}
-              >
-                Participant color
-              </div>
+              <div style={debugInsetCardTitleStyle}>Participant color</div>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                 {PARTICIPANT_COLOR_OPTIONS.map((color) => {
                   const swatchProps = getSwatchButtonProps(
@@ -4084,57 +4055,54 @@ export default function BoardStage({
               </div>
             </div>
 
-            <label
-              style={{
-                ...objectInspectionSelectionRecipe.row.style,
-                color: "#cbd5e1",
-              }}
-              className={objectInspectionSelectionRecipe.row.className}
-              {...getDesignSystemDebugAttrs(objectInspectionSelectionRecipe.row.debug)}
+            <div
+              className={surfaceRecipes.inset.default.className}
+              style={debugInsetCardStyle}
+              {...getDesignSystemDebugAttrs(surfaceRecipes.inset.default.debug)}
             >
-              <input
-                type="checkbox"
-                checked={isObjectInspectionEnabled}
-                onChange={(event) => {
-                  const isEnabled = event.target.checked;
-                  setIsObjectInspectionEnabled(isEnabled);
-
-                  if (!isEnabled) {
-                    clearObjectSemanticsHover();
-                  }
+              <div style={debugInsetCardTitleStyle}>Object semantics</div>
+              <label
+                style={{
+                  ...objectInspectionSelectionRecipe.row.style,
+                  color: "#cbd5e1",
                 }}
-                style={objectInspectionSelectionRecipe.indicator.style}
-                className={objectInspectionSelectionRecipe.indicator.className}
-              />
-              <span
-                style={objectInspectionSelectionRecipe.label.style}
-                className={objectInspectionSelectionRecipe.label.className}
+                className={objectInspectionSelectionRecipe.row.className}
+                {...getDesignSystemDebugAttrs(
+                  objectInspectionSelectionRecipe.row.debug
+                )}
               >
-                Inspect object semantics on hover
-              </span>
-            </label>
+                <input
+                  type="checkbox"
+                  checked={isObjectInspectionEnabled}
+                  onChange={(event) => {
+                    const isEnabled = event.target.checked;
+                    setIsObjectInspectionEnabled(isEnabled);
+
+                    if (!isEnabled) {
+                      clearObjectSemanticsHover();
+                    }
+                  }}
+                  style={objectInspectionSelectionRecipe.indicator.style}
+                  className={objectInspectionSelectionRecipe.indicator.className}
+                />
+                <span
+                  style={objectInspectionSelectionRecipe.label.style}
+                  className={objectInspectionSelectionRecipe.label.className}
+                >
+                  Inspect object semantics on hover
+                </span>
+              </label>
+            </div>
+
+            <div style={debugPanelSectionHeadingStyle}>Recovery and runtime</div>
 
             <div
               className={surfaceRecipes.inset.default.className}
-              style={{
-                ...surfaceRecipes.inset.default.style,
-                gap: 8,
-                fontSize: 12,
-              }}
+              style={debugInsetCardStyle}
               data-testid="debug-local-replica-inspection"
               {...getDesignSystemDebugAttrs(surfaceRecipes.inset.default.debug)}
             >
-              <div
-                style={{
-                  fontSize: 11,
-                  fontWeight: 700,
-                  letterSpacing: "0.04em",
-                  textTransform: "uppercase",
-                  color: "#94a3b8",
-                }}
-              >
-                Local replica
-              </div>
+              <div style={debugInsetCardTitleStyle}>Local replica</div>
               <div style={{ color: "#e2e8f0" }}>
                 Backend: IndexedDB
               </div>
@@ -4186,25 +4154,11 @@ export default function BoardStage({
 
             <div
               className={surfaceRecipes.inset.default.className}
-              style={{
-                ...surfaceRecipes.inset.default.style,
-                gap: 8,
-                fontSize: 12,
-              }}
+              style={debugInsetCardStyle}
               data-testid="debug-durable-replica-inspection"
               {...getDesignSystemDebugAttrs(surfaceRecipes.inset.default.debug)}
             >
-              <div
-                style={{
-                  fontSize: 11,
-                  fontWeight: 700,
-                  letterSpacing: "0.04em",
-                  textTransform: "uppercase",
-                  color: "#94a3b8",
-                }}
-              >
-                Durable replica
-              </div>
+              <div style={debugInsetCardTitleStyle}>Durable replica</div>
               <div style={{ color: "#e2e8f0" }}>
                 Backend: checkpoint store
               </div>
@@ -4256,24 +4210,10 @@ export default function BoardStage({
 
             <div
               className={surfaceRecipes.inset.default.className}
-              style={{
-                ...surfaceRecipes.inset.default.style,
-                gap: 8,
-                fontSize: 12,
-              }}
+              style={debugInsetCardStyle}
               {...getDesignSystemDebugAttrs(surfaceRecipes.inset.default.debug)}
             >
-              <div
-                style={{
-                  fontSize: 11,
-                  fontWeight: 700,
-                  letterSpacing: "0.04em",
-                  textTransform: "uppercase",
-                  color: "#94a3b8",
-                }}
-              >
-                Governance
-              </div>
+              <div style={debugInsetCardTitleStyle}>Governance</div>
               <div>
                 Room access: {governanceRoomSummary.effectiveAccess?.accessLevel ?? "none"}
                 {" · "}
@@ -4345,15 +4285,6 @@ export default function BoardStage({
                 )}
               </div>
             </div>
-
-            <BoardToolbar
-              onAddImage={() => {
-                imageInputRef.current?.click();
-              }}
-              addImageRecipe={buttonRecipes.secondary.default}
-              onAddNote={createNote}
-              onResetBoard={resetBoard}
-            />
 
           </div>
         }

@@ -67,14 +67,20 @@ export const ParticipantSessionPanel = forwardRef<
       className={surfaceRecipes.panel.compact.className}
       style={{
         ...boardSurfaceRecipes.floatingShell.shell.style,
+        display: "flex",
+        flexDirection: "column",
+        gap: 8,
         position: "fixed",
         top: 20,
         left: 20,
         zIndex: 10,
         minWidth: 180,
+        maxWidth: "min(360px, calc(100vw - 40px))",
+        maxHeight: "calc(100vh - 40px)",
         paddingBottom: 14,
         fontFamily: HTML_UI_FONT_FAMILY,
         pointerEvents: "none",
+        overflow: "hidden",
       }}
       {...getDesignSystemDebugAttrs(boardSurfaceRecipes.floatingShell.shell.debug)}
     >
@@ -91,6 +97,7 @@ export const ParticipantSessionPanel = forwardRef<
             fontSize: 15,
             fontWeight: 700,
             pointerEvents: "none",
+            overflowWrap: "anywhere",
           }}
         >
           {roomId}
@@ -235,12 +242,15 @@ export const ParticipantSessionPanel = forwardRef<
       {isDebugToolsEnabled ? (
         <div
           style={{
-            display: "grid",
+            display: "flex",
+            flexDirection: "column",
             gap: 10,
             marginTop: 2,
             paddingTop: 10,
             borderTop: "1px solid rgba(148, 163, 184, 0.16)",
             pointerEvents: "none",
+            minHeight: 0,
+            flex: isDevToolsOpen ? 1 : "0 0 auto",
           }}
         >
           <label
@@ -270,7 +280,17 @@ export const ParticipantSessionPanel = forwardRef<
           </label>
 
           {isDevToolsOpen && (
-            <div style={{ pointerEvents: "auto" }}>{devToolsContent}</div>
+            <div
+              style={{
+                pointerEvents: "auto",
+                minHeight: 0,
+                overflowY: "auto",
+                overscrollBehavior: "contain",
+                paddingRight: 4,
+              }}
+            >
+              {devToolsContent}
+            </div>
           )}
         </div>
       ) : null}
