@@ -173,6 +173,40 @@ export async function expectLocalReplicaWriteSaved(
   await expect(inspection).toContainText(`boundary ${commitBoundary}`);
 }
 
+export async function expectLocalReplicaLastReadRevision(
+  page: Page,
+  revision: number
+) {
+  await expect(page.getByTestId("debug-local-replica-last-read")).toContainText(
+    `rev ${revision}`
+  );
+}
+
+export async function expectLocalReplicaLastWriteRevision(
+  page: Page,
+  revision: number
+) {
+  await expect(
+    page.getByTestId("debug-local-replica-last-write")
+  ).toContainText(`rev ${revision}`);
+}
+
+export async function getLocalReplicaLastWriteRevision(page: Page) {
+  return readLocalReplicaRevision(page, "debug-local-replica-last-write");
+}
+
+function readLocalReplicaRevision(page: Page, testId: string) {
+  return page.getByTestId(testId).innerText().then((text) => {
+    const match = text.match(/rev\s+(\d+)/);
+
+    if (!match) {
+      throw new Error(`Failed to read local replica revision from: ${text}`);
+    }
+
+    return Number(match[1]);
+  });
+}
+
 export async function uploadSmokeImage(page: Page, fileName: string) {
   await page.getByTestId("image-file-input").setInputFiles({
     name: fileName,
@@ -308,6 +342,11 @@ export async function clickSmokeNoteMove(page: Page) {
 export async function clickSmokeNoteEdit(page: Page) {
   await expect(page.getByTestId("debug-smoke-note-edit-button")).toBeEnabled();
   await page.getByTestId("debug-smoke-note-edit-button").click();
+}
+
+export async function clickSmokeNoteResize(page: Page) {
+  await expect(page.getByTestId("debug-smoke-note-resize-button")).toBeEnabled();
+  await page.getByTestId("debug-smoke-note-resize-button").click();
 }
 
 export async function clickDebugAddNote(page: Page) {

@@ -346,9 +346,11 @@ type LocalReplicaReadSource =
 type LocalReplicaInspectionState = {
   lastWriteStatus: "idle" | "writing" | "saved" | "failed";
   lastWriteCommitBoundary: LocalObjectsChangeOptions["commitBoundary"] | null;
+  lastWriteRevision: number | null;
   lastWriteSavedAt: number | null;
   lastWriteObjectCount: number;
   lastReadSource: LocalReplicaReadSource;
+  lastReadRevision: number | null;
   lastReadSavedAt: number | null;
   lastReadObjectCount: number;
   lastBootstrapBranch:
@@ -394,9 +396,11 @@ export default function BoardStage({
     useState<LocalReplicaInspectionState>({
       lastWriteStatus: "idle",
       lastWriteCommitBoundary: null,
+      lastWriteRevision: null,
       lastWriteSavedAt: null,
       lastWriteObjectCount: 0,
       lastReadSource: "idle",
+      lastReadRevision: null,
       lastReadSavedAt: null,
       lastReadObjectCount: 0,
       lastBootstrapBranch: null,
@@ -471,6 +475,7 @@ export default function BoardStage({
             ...current,
             lastWriteStatus: "saved",
             lastWriteCommitBoundary: commitBoundary,
+            lastWriteRevision: replica.revision,
             lastWriteSavedAt: replica.savedAt,
             lastWriteObjectCount: getReplicaObjectCount(replica.content),
             lastError: null,
@@ -496,7 +501,11 @@ export default function BoardStage({
       if (
         options?.commitBoundary !== "image-drag-end" &&
         options?.commitBoundary !== "image-transform-end" &&
-        options?.commitBoundary !== "image-draw-commit"
+        options?.commitBoundary !== "image-draw-commit" &&
+        options?.commitBoundary !== "token-drop" &&
+        options?.commitBoundary !== "note-drag-end" &&
+        options?.commitBoundary !== "note-resize-end" &&
+        options?.commitBoundary !== "note-text-save"
       ) {
         return;
       }
@@ -1243,9 +1252,11 @@ export default function BoardStage({
     setLocalReplicaInspection({
       lastWriteStatus: "idle",
       lastWriteCommitBoundary: null,
+      lastWriteRevision: null,
       lastWriteSavedAt: null,
       lastWriteObjectCount: 0,
       lastReadSource: "idle",
+      lastReadRevision: null,
       lastReadSavedAt: null,
       lastReadObjectCount: 0,
       lastBootstrapBranch: "pending",
@@ -1587,6 +1598,7 @@ export default function BoardStage({
       setLocalReplicaInspection((current) => ({
         ...current,
         lastReadSource: localRecoverySource,
+        lastReadRevision: localReplicaObjectCount > 0 ? localReplica?.revision ?? null : null,
         lastReadSavedAt: localRecoverySavedAt,
         lastReadObjectCount: localRecoveryObjectCount,
       }));
@@ -2020,7 +2032,8 @@ export default function BoardStage({
             tokenAttachment: createAttachedTokenAttachment(attachmentTarget, point),
           };
         }),
-      getUpdateBoardObjectSyncOptions(objects, id)
+      getUpdateBoardObjectSyncOptions(objects, id),
+      { commitBoundary: "token-drop" }
     );
   };
 
@@ -2031,7 +2044,11 @@ export default function BoardStage({
     updateImagePositionPreview(id, x, y, participantSession.color);
   };
 
-  const updateObjectLabel = (id: string, label: string) => {
+  const updateObjectLabel = (
+    id: string,
+    label: string,
+    localOptions?: LocalObjectsChangeOptions
+  ) => {
     const editAccess = resolveObjectActionAccess(id, "board-object.edit");
 
     if (!editAccess?.isAllowed) {
@@ -2040,13 +2057,15 @@ export default function BoardStage({
 
     applyBoardObjectsUpdate(
       (currentObjects) => updateBoardObjectLabel(currentObjects, id, label),
-      getUpdateBoardObjectSyncOptions(objects, id)
+      getUpdateBoardObjectSyncOptions(objects, id),
+      localOptions
     );
   };
 
   const resizeTextCardBounds = (
     id: string,
-    nextBounds: { x: number; y: number; width: number; height: number }
+    nextBounds: { x: number; y: number; width: number; height: number },
+    localOptions?: LocalObjectsChangeOptions
   ) => {
     const resizeAccess = resolveObjectActionAccess(id, "board-object.resize");
 
@@ -2073,7 +2092,8 @@ export default function BoardStage({
             height,
           };
         }),
-      getUpdateBoardObjectSyncOptions(objects, id)
+      getUpdateBoardObjectSyncOptions(objects, id),
+      localOptions
     );
   };
 
@@ -2377,7 +2397,9 @@ export default function BoardStage({
       return;
     }
 
-    updateObjectLabel(editingTextCardId, editingDraft);
+    updateObjectLabel(editingTextCardId, editingDraft, {
+      commitBoundary: "note-text-save",
+    });
     stopEditingTextCard();
   };
 
@@ -2895,7 +2917,8 @@ export default function BoardStage({
     updateObjectPosition(
       inspectableNoteCardObject.id,
       inspectableNoteCardObject.x + 112,
-      inspectableNoteCardObject.y + 84
+      inspectableNoteCardObject.y + 84,
+      { commitBoundary: "note-drag-end" }
     );
     selectBoardObject(inspectableNoteCardObject);
   };
@@ -2912,7 +2935,26 @@ export default function BoardStage({
 
     updateObjectLabel(
       inspectableNoteCardObject.id,
-      `${nextLabelBase} [smoke-saved]`
+      `${nextLabelBase} [smoke-saved]`,
+      { commitBoundary: "note-text-save" }
+    );
+    selectBoardObject(inspectableNoteCardObject);
+  };
+
+  const resizeInspectableNoteCardForSmoke = () => {
+    if (!inspectableNoteCardObject) {
+      return;
+    }
+
+    resizeTextCardBounds(
+      inspectableNoteCardObject.id,
+      {
+        x: inspectableNoteCardObject.x,
+        y: inspectableNoteCardObject.y,
+        width: inspectableNoteCardObject.width + 96,
+        height: inspectableNoteCardObject.height + 72,
+      },
+      { commitBoundary: "note-resize-end" }
     );
     selectBoardObject(inspectableNoteCardObject);
   };
@@ -3460,6 +3502,17 @@ export default function BoardStage({
                 >
                   Save note text
                 </button>
+                <button
+                  type="button"
+                  data-testid="debug-smoke-note-resize-button"
+                  disabled={!inspectableNoteCardObject}
+                  onClick={resizeInspectableNoteCardForSmoke}
+                  className={buttonRecipes.secondary.small.className}
+                  style={buttonRecipes.secondary.small.style}
+                  {...getDesignSystemDebugAttrs(buttonRecipes.secondary.small.debug)}
+                >
+                  Resize note
+                </button>
               </div>
             </div>
 
@@ -3574,15 +3627,23 @@ export default function BoardStage({
                 {" · "}local source{" "}
                 {localReplicaInspection.lastBootstrapLocalSource ?? "none"}
               </div>
-              <div style={{ color: "#94a3b8" }}>
+              <div
+                data-testid="debug-local-replica-last-read"
+                style={{ color: "#94a3b8" }}
+              >
                 Last read: {localReplicaInspection.lastReadSource}
+                {" · "}rev {localReplicaInspection.lastReadRevision ?? "none"}
                 {" · "}objects {localReplicaInspection.lastReadObjectCount}
                 {" · "}saved {formatDebugTimestamp(localReplicaInspection.lastReadSavedAt)}
               </div>
-              <div style={{ color: "#94a3b8" }}>
+              <div
+                data-testid="debug-local-replica-last-write"
+                style={{ color: "#94a3b8" }}
+              >
                 Last write: {localReplicaInspection.lastWriteStatus}
                 {" · "}boundary{" "}
                 {localReplicaInspection.lastWriteCommitBoundary ?? "none"}
+                {" · "}rev {localReplicaInspection.lastWriteRevision ?? "none"}
                 {" · "}objects {localReplicaInspection.lastWriteObjectCount}
                 {" · "}saved{" "}
                 {formatDebugTimestamp(localReplicaInspection.lastWriteSavedAt)}
@@ -4207,7 +4268,12 @@ export default function BoardStage({
                   }}
                   onDragEnd={(event) => {
                     event.cancelBubble = true;
-                    updateObjectPosition(object.id, event.target.x(), event.target.y());
+                    updateObjectPosition(
+                      object.id,
+                      event.target.x(),
+                      event.target.y(),
+                      { commitBoundary: "note-drag-end" }
+                    );
                     setDraggingNoteCardId(null);
                   }}
                   onTransformStart={(event) => {
@@ -4280,7 +4346,9 @@ export default function BoardStage({
 
                     node.scaleX(1);
                     node.scaleY(1);
-                    resizeTextCardBounds(object.id, nextBounds);
+                    resizeTextCardBounds(object.id, nextBounds, {
+                      commitBoundary: "note-resize-end",
+                    });
                     setActiveTextCardResizeState(null);
                     clearLiveNoteCardResizePreviewSession();
                     setLiveNoteCardResizePreview(null);

@@ -45,7 +45,11 @@ export type LocalRoomDocumentReplicaWriteOptions = {
     | "default"
     | "image-drag-end"
     | "image-transform-end"
-    | "image-draw-commit";
+    | "image-draw-commit"
+    | "token-drop"
+    | "note-drag-end"
+    | "note-resize-end"
+    | "note-text-save";
 };
 
 export type LocalRoomDocumentReplicaLoadResult = {
@@ -162,10 +166,7 @@ export async function saveLocalRoomDocumentReplica(
   objects: BoardObject[],
   options?: LocalRoomDocumentReplicaWriteOptions
 ) {
-  const replica = createLocalRoomDocumentReplica(roomId, objects);
   const storageKey = getRoomDocumentReplicaStorageKey(roomId);
-  const serializedReplica = JSON.stringify(replica);
-  const payloadBytes = new TextEncoder().encode(serializedReplica).length;
 
   try {
     if (import.meta.env.DEV) {
@@ -173,11 +174,12 @@ export async function saveLocalRoomDocumentReplica(
         commitBoundary: options?.commitBoundary ?? "default",
         roomId,
         storageKey,
-        payloadBytes,
       });
     }
 
-    await putLocalRoomDocumentReplica(replica);
+    const replica = await putNextLocalRoomDocumentReplica(roomId, objects);
+    const serializedReplica = JSON.stringify(replica);
+    const payloadBytes = new TextEncoder().encode(serializedReplica).length;
 
     try {
       localStorage.removeItem(storageKey);
@@ -197,6 +199,7 @@ export async function saveLocalRoomDocumentReplica(
         databaseName: ROOM_DOCUMENT_REPLICA_INDEXED_DB_NAME,
         storeName: ROOM_DOCUMENT_REPLICA_INDEXED_DB_STORE_NAME,
         payloadBytes,
+        revision: replica.revision,
         savedAt: replica.savedAt,
         objectCount: getRoomDocumentReplicaObjectCount(replica),
       });
@@ -208,7 +211,6 @@ export async function saveLocalRoomDocumentReplica(
       commitBoundary: options?.commitBoundary ?? "default",
       roomId,
       storageKey,
-      payloadBytes,
       error,
     });
 
@@ -532,11 +534,12 @@ function getRoomDocumentReplicaStorageKey(roomId: string) {
 
 function createLocalRoomDocumentReplica(
   roomId: string,
-  objects: BoardObject[]
+  objects: BoardObject[],
+  previousReplica?: LocalRoomDocumentReplica | null
 ): LocalRoomDocumentReplica {
   return {
     roomId,
-    revision: null,
+    revision: getNextLocalRoomDocumentReplicaRevision(previousReplica),
     savedAt: Date.now(),
     content: {
       tokens: normalizeTokenObjects(
@@ -548,6 +551,15 @@ function createLocalRoomDocumentReplica(
       ),
     },
   };
+}
+
+function getNextLocalRoomDocumentReplicaRevision(
+  previousReplica?: LocalRoomDocumentReplica | null
+) {
+  const previousRevision =
+    typeof previousReplica?.revision === "number" ? previousReplica.revision : 0;
+
+  return previousRevision + 1;
 }
 
 function getRoomDocumentReplicaObjectCount(replica: LocalRoomDocumentReplica) {
@@ -672,6 +684,35 @@ async function putLocalRoomDocumentReplica(replica: LocalRoomDocumentReplica) {
 
   await waitForRequest(store.put(replica));
   await waitForTransaction(transaction);
+}
+
+async function putNextLocalRoomDocumentReplica(
+  roomId: string,
+  objects: BoardObject[]
+) {
+  const legacyReplica = loadLegacyLocalRoomDocumentReplica(roomId);
+  const database = await openRoomDocumentReplicaDatabase();
+  const transaction = database.transaction(
+    ROOM_DOCUMENT_REPLICA_INDEXED_DB_STORE_NAME,
+    "readwrite"
+  );
+  const store = transaction.objectStore(ROOM_DOCUMENT_REPLICA_INDEXED_DB_STORE_NAME);
+  const rawReplica = await waitForRequest<LocalRoomDocumentReplica | undefined>(
+    store.get(roomId)
+  );
+  const currentReplica = rawReplica
+    ? parseLocalRoomDocumentReplica(roomId, JSON.stringify(rawReplica))
+    : legacyReplica;
+  const nextReplica = createLocalRoomDocumentReplica(
+    roomId,
+    objects,
+    currentReplica
+  );
+
+  await waitForRequest(store.put(nextReplica));
+  await waitForTransaction(transaction);
+
+  return nextReplica;
 }
 
 async function getLocalRoomDocumentReplicaFromIndexedDb(roomId: string) {

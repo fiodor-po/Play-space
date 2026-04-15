@@ -70,10 +70,14 @@ npm run smoke:e2e:headed
 - committed image draw/save refresh survival while room stays live;
 - same-browser local-only recovery for image state through current
   `local-recovery` / IndexedDB corridor;
-- same-browser token move recovery through current `room-snapshot` corridor;
-- same-browser note move recovery through current `room-snapshot` corridor;
-- same-browser note text save recovery through current `room-snapshot`
-  corridor;
+- same-browser token move recovery through current
+  `local-recovery` / IndexedDB corridor;
+- same-browser note move recovery through current
+  `local-recovery` / IndexedDB corridor;
+- same-browser note resize recovery through current
+  `local-recovery` / IndexedDB corridor;
+- same-browser note text save recovery through current
+  `local-recovery` / IndexedDB corridor;
 - runtime failure policy for uncaught page errors and disallowed console
   events.
 
@@ -94,8 +98,10 @@ npm run smoke:e2e:headed
 - bootstrap branch names such as `live-wins` and `local-recovery`;
 - exact local source strings such as `indexeddb` and `room-snapshot`;
 - exact `Last read:` source strings;
-- current split where image local-only recovery uses IndexedDB and token/note
-  recovery still uses `room-snapshot`.
+- current covered same-browser image/token/note recovery corridors use
+  IndexedDB;
+- legacy `room-snapshot` fallback still exists as a compatibility path outside
+  those covered assertions.
 
 Эти assertions подлежат review после следующих replica-track steps.
 Они не задают mature target semantics сами по себе.
@@ -157,7 +163,8 @@ Harness review обязателен после:
 
 После `Local replica semantics`:
 
-- `room-snapshot` assertions for local recovery corridors;
+- legacy `room-snapshot` assertions that become stale when a covered corridor
+  moves to IndexedDB;
 - exact local source strings;
 - exact `Last read:` strings;
 - `local-recovery` branch expectations where bootstrap source changes.

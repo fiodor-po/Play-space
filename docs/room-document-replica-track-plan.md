@@ -420,7 +420,7 @@ cutover.
 
 Без human gate крупный checkpoint не закрывается.
 
-## Текущий automation baseline перед `Local replica semantics`
+## Текущий automation baseline для текущего local-replica шага
 
 До следующего replica-step accepted local smoke baseline уже покрывает:
 
@@ -430,10 +430,14 @@ cutover.
 - image draw/save refresh survival;
 - same-browser local-only recovery for image state through current
   `local-recovery` / IndexedDB corridor;
-- same-browser token move recovery through current `room-snapshot` corridor;
-- same-browser note move recovery through current `room-snapshot` corridor;
-- same-browser note text save recovery through current `room-snapshot`
-  corridor;
+- same-browser token move recovery through current
+  `local-recovery` / IndexedDB corridor;
+- same-browser note move recovery through current
+  `local-recovery` / IndexedDB corridor;
+- same-browser note resize recovery through current
+  `local-recovery` / IndexedDB corridor;
+- same-browser note text save recovery through current
+  `local-recovery` / IndexedDB corridor;
 - runtime failure policy for uncaught page errors and disallowed console
   warning/error events.
 
@@ -459,8 +463,10 @@ steps:
 - bootstrap branch names such as `live-wins` and `local-recovery`;
 - exact local source strings such as `indexeddb` and `room-snapshot`;
 - exact `Last read:` source strings;
-- current corridor split where image local-only recovery uses IndexedDB and
-  token/note recovery still uses `room-snapshot`;
+- current covered same-browser image/token/note recovery corridors use
+  IndexedDB;
+- legacy `room-snapshot` fallback still exists as a compatibility path outside
+  those covered assertions;
 - current warning allowlist assumptions around durable snapshot browser noise.
 
 Bridge-bound assertions полезны сейчас.
@@ -472,7 +478,8 @@ Bridge-bound assertions полезны сейчас.
 
 Review:
 
-- `room-snapshot` local recovery assertions for token/note corridors;
+- legacy `room-snapshot` assertions that become stale when a covered corridor
+  moves to IndexedDB;
 - exact `local source ...` assertions;
 - exact `Last read: ...` assertions;
 - `Bootstrap: local-recovery` expectations where the source contract changes.

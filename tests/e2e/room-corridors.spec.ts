@@ -7,6 +7,7 @@ import {
   clickSmokeImageResize,
   clickSmokeNoteEdit,
   clickSmokeNoteMove,
+  clickSmokeNoteResize,
   clickSmokeTokenMove,
   createSmokeRoomId,
   expectBootstrapLocalSource,
@@ -14,12 +15,14 @@ import {
   expectNoteLabel,
   expectBootstrapBranch,
   expectLocalReplicaLastRead,
+  expectLocalReplicaLastReadRevision,
+  expectLocalReplicaLastWriteRevision,
   expectLocalReplicaWriteSaved,
+  getLocalReplicaLastWriteRevision,
   expectRoomObjectCounts,
   getImageBounds,
   getImageStrokeCounts,
   getNoteBounds,
-  getNoteId,
   getRoomObjectCounts,
   getTokenPosition,
   joinRoom,
@@ -28,7 +31,6 @@ import {
   reopenRoomForLocalRecovery,
   uploadSmokeImage,
   waitForRoomOpsState,
-  waitForRoomSnapshotState,
 } from "./helpers/roomSmoke";
 
 test.describe("local room smoke corridors", () => {
@@ -476,7 +478,7 @@ test.describe("local room smoke corridors", () => {
     }
   });
 
-  test("recovers committed token move through same-browser room-snapshot recovery", async ({
+  test("recovers committed token move through same-browser IndexedDB local recovery", async ({
     page,
     request,
   }) => {
@@ -495,22 +497,22 @@ test.describe("local room smoke corridors", () => {
     const initialTokenPosition = await getTokenPosition(page);
 
     await clickSmokeTokenMove(page);
+    await expectLocalReplicaWriteSaved(page, "token-drop");
+    const localRevision = await getLocalReplicaLastWriteRevision(page);
+    expect(localRevision).toBeGreaterThan(0);
+    await expectLocalReplicaLastWriteRevision(page, localRevision);
 
     const movedTokenPosition = await getTokenPosition(page);
     expect(movedTokenPosition.x).toBe(initialTokenPosition.x + 84);
     expect(movedTokenPosition.y).toBe(initialTokenPosition.y + 60);
 
-    await waitForRoomSnapshotState(page, roomId, {
-      tokens: 1,
-      tokenPosition: movedTokenPosition,
-    });
-
     const recoveredPage = await reopenRoomForLocalRecovery(page, request, roomId);
 
     try {
       await expectBootstrapBranch(recoveredPage, "local-recovery");
-      await expectBootstrapLocalSource(recoveredPage, "room-snapshot");
-      await expectLocalReplicaLastRead(recoveredPage, "room-snapshot");
+      await expectBootstrapLocalSource(recoveredPage, "indexeddb");
+      await expectLocalReplicaLastRead(recoveredPage, "indexeddb");
+      await expectLocalReplicaLastReadRevision(recoveredPage, localRevision);
       await expectRoomObjectCounts(recoveredPage, {
         tokens: 1,
       });
@@ -526,7 +528,7 @@ test.describe("local room smoke corridors", () => {
     }
   });
 
-  test("recovers committed note move through same-browser room-snapshot recovery", async ({
+  test("recovers committed note move through same-browser IndexedDB local recovery", async ({
     page,
     request,
   }) => {
@@ -546,10 +548,13 @@ test.describe("local room smoke corridors", () => {
       notes: initialCounts.notes + 1,
     });
 
-    const noteId = await getNoteId(page);
     const initialNoteBounds = await getNoteBounds(page);
 
     await clickSmokeNoteMove(page);
+    await expectLocalReplicaWriteSaved(page, "note-drag-end");
+    const localRevision = await getLocalReplicaLastWriteRevision(page);
+    expect(localRevision).toBeGreaterThan(0);
+    await expectLocalReplicaLastWriteRevision(page, localRevision);
 
     const movedNoteBounds = await getNoteBounds(page);
     expect(movedNoteBounds.x).toBe(initialNoteBounds.x + 112);
@@ -557,20 +562,13 @@ test.describe("local room smoke corridors", () => {
     expect(movedNoteBounds.width).toBe(initialNoteBounds.width);
     expect(movedNoteBounds.height).toBe(initialNoteBounds.height);
 
-    await waitForRoomSnapshotState(page, roomId, {
-      tokens: initialCounts.tokens,
-      notes: initialCounts.notes + 1,
-      noteId,
-      noteBounds: movedNoteBounds,
-      noteLabel: "New note",
-    });
-
     const recoveredPage = await reopenRoomForLocalRecovery(page, request, roomId);
 
     try {
       await expectBootstrapBranch(recoveredPage, "local-recovery");
-      await expectBootstrapLocalSource(recoveredPage, "room-snapshot");
-      await expectLocalReplicaLastRead(recoveredPage, "room-snapshot");
+      await expectBootstrapLocalSource(recoveredPage, "indexeddb");
+      await expectLocalReplicaLastRead(recoveredPage, "indexeddb");
+      await expectLocalReplicaLastReadRevision(recoveredPage, localRevision);
       await expectRoomObjectCounts(recoveredPage, {
         tokens: initialCounts.tokens,
         notes: initialCounts.notes + 1,
@@ -590,7 +588,7 @@ test.describe("local room smoke corridors", () => {
     }
   });
 
-  test("recovers saved note text through same-browser room-snapshot recovery", async ({
+  test("recovers saved note text through same-browser IndexedDB local recovery", async ({
     page,
     request,
   }) => {
@@ -609,30 +607,87 @@ test.describe("local room smoke corridors", () => {
     await expectRoomObjectCounts(page, {
       notes: initialCounts.notes + 1,
     });
-    const noteId = await getNoteId(page);
     await expectNoteLabel(page, "New note");
 
     await clickSmokeNoteEdit(page);
+    await expectLocalReplicaWriteSaved(page, "note-text-save");
+    const localRevision = await getLocalReplicaLastWriteRevision(page);
+    expect(localRevision).toBeGreaterThan(0);
+    await expectLocalReplicaLastWriteRevision(page, localRevision);
     await expectNoteLabel(page, "New note [smoke-saved]");
-
-    await waitForRoomSnapshotState(page, roomId, {
-      tokens: initialCounts.tokens,
-      notes: initialCounts.notes + 1,
-      noteId,
-      noteLabel: "New note [smoke-saved]",
-    });
 
     const recoveredPage = await reopenRoomForLocalRecovery(page, request, roomId);
 
     try {
       await expectBootstrapBranch(recoveredPage, "local-recovery");
-      await expectBootstrapLocalSource(recoveredPage, "room-snapshot");
-      await expectLocalReplicaLastRead(recoveredPage, "room-snapshot");
+      await expectBootstrapLocalSource(recoveredPage, "indexeddb");
+      await expectLocalReplicaLastRead(recoveredPage, "indexeddb");
+      await expectLocalReplicaLastReadRevision(recoveredPage, localRevision);
       await expectRoomObjectCounts(recoveredPage, {
         tokens: initialCounts.tokens,
         notes: initialCounts.notes + 1,
       });
       await expectNoteLabel(recoveredPage, "New note [smoke-saved]");
+      await expect(
+        recoveredPage.getByTestId("debug-local-replica-inspection")
+      ).not.toContainText("Error:");
+    } finally {
+      await recoveredPage.close();
+    }
+  });
+
+  test("recovers committed note resize through same-browser IndexedDB local recovery", async ({
+    page,
+    request,
+  }) => {
+    const roomId = createSmokeRoomId("note-resize-recovery");
+
+    await openEntryPage(page, roomId);
+    await joinRoom(page, {
+      roomId,
+      name: "Smoke Note Resize",
+    });
+    await openDebugTools(page);
+
+    const initialCounts = await getRoomObjectCounts(page);
+
+    await clickDebugAddNote(page);
+    await expectRoomObjectCounts(page, {
+      notes: initialCounts.notes + 1,
+    });
+
+    const initialNoteBounds = await getNoteBounds(page);
+
+    await clickSmokeNoteResize(page);
+    await expectLocalReplicaWriteSaved(page, "note-resize-end");
+    const localRevision = await getLocalReplicaLastWriteRevision(page);
+    expect(localRevision).toBeGreaterThan(0);
+    await expectLocalReplicaLastWriteRevision(page, localRevision);
+
+    const resizedNoteBounds = await getNoteBounds(page);
+    expect(resizedNoteBounds.x).toBe(initialNoteBounds.x);
+    expect(resizedNoteBounds.y).toBe(initialNoteBounds.y);
+    expect(resizedNoteBounds.width).toBeGreaterThan(initialNoteBounds.width);
+    expect(resizedNoteBounds.height).toBeGreaterThan(initialNoteBounds.height);
+
+    const recoveredPage = await reopenRoomForLocalRecovery(page, request, roomId);
+
+    try {
+      await expectBootstrapBranch(recoveredPage, "local-recovery");
+      await expectBootstrapLocalSource(recoveredPage, "indexeddb");
+      await expectLocalReplicaLastRead(recoveredPage, "indexeddb");
+      await expectLocalReplicaLastReadRevision(recoveredPage, localRevision);
+      await expectRoomObjectCounts(recoveredPage, {
+        tokens: initialCounts.tokens,
+        notes: initialCounts.notes + 1,
+      });
+      await expectNoteLabel(recoveredPage, "New note");
+      await expect.poll(() => getNoteBounds(recoveredPage)).toMatchObject({
+        x: resizedNoteBounds.x,
+        y: resizedNoteBounds.y,
+        width: resizedNoteBounds.width,
+        height: resizedNoteBounds.height,
+      });
       await expect(
         recoveredPage.getByTestId("debug-local-replica-inspection")
       ).not.toContainText("Error:");

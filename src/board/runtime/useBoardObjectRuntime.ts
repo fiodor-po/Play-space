@@ -44,7 +44,15 @@ type BoardObjectSyncOptionsResolver =
     ) => BoardObjectSyncOptions | undefined);
 
 export type LocalObjectsChangeOptions = {
-  commitBoundary?: "default" | "image-drag-end" | "image-transform-end" | "image-draw-commit";
+  commitBoundary?:
+    | "default"
+    | "image-drag-end"
+    | "image-transform-end"
+    | "image-draw-commit"
+    | "token-drop"
+    | "note-drag-end"
+    | "note-resize-end"
+    | "note-text-save";
 };
 
 type LocalObjectsChangeOptionsResolver =

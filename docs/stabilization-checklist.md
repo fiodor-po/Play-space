@@ -19,8 +19,8 @@
 - [ ] committed image draw/save всё ещё переживает refresh, пока room остаётся live
 - [ ] same-browser reopen без второго live client всё ещё восстанавливает committed room state через local-recovery corridor
 - [ ] same-browser reopen без второго live client всё ещё восстанавливает committed image draw/save через local-recovery corridor
-- [ ] same-browser reopen без второго live client всё ещё восстанавливает committed token move через room-snapshot corridor
-- [ ] same-browser reopen без второго live client всё ещё восстанавливает committed note move и saved note text через room-snapshot corridor
+- [ ] same-browser reopen без второго live client всё ещё восстанавливает committed token move через `local-recovery` / IndexedDB corridor
+- [ ] same-browser reopen без второго live client всё ещё восстанавливает committed note move, committed note resize и saved note text через `local-recovery` / IndexedDB corridor
 - [ ] smoke harness валит suite на uncaught page errors и на console warning/error вне явного allowlist
 - [ ] accepted runtime allowlist остаётся узким и сейчас покрывает только `durable-snapshot save-conflict`, durable snapshot `404/409` resource errors, transient local `y-websocket` close-before-established и Chromium `ReadPixels` warning
 
