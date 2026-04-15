@@ -9,6 +9,57 @@
 
 ---
 
+## Phase 0X — Browser-local participant identity stabilization closed
+
+### Type
+- milestone
+- decision
+
+### Context
+После closure replica-track следующий вопрос уже не касался persistence or
+recovery semantics. Нужно было проверить, действительно ли browser-local
+participant identity уже живёт в runtime честно, или проект пока только
+декларирует эту модель в docs.
+
+### Goal or problem
+Нужно было закрыть главу без новой большой реализации:
+
+- подтвердить same-browser repeat join;
+- подтвердить foreground/background tab behavior;
+- подтвердить shared active room session across tabs;
+- подтвердить remembered room defaults;
+- добавить one real machine proof for same-browser second-tab attach.
+
+### What happened
+Chapter подтвердился как validation-first / runtime-honesty pass:
+
+- browser-local `participantId` already worked as the participant carrier;
+- room-local saved session already layered `name/color` on top of that
+  identity;
+- foreground tab already carried live presence;
+- shared active room session already attached a same-browser second tab to the
+  current room;
+- remembered room defaults already preselected previous color when free;
+- smoke gained one same-browser second-tab attach corridor inside one browser
+  profile.
+
+### Decision / change
+`browser-local participant identity stabilization` closed after human gate and
+one additional same-browser smoke corridor.
+
+### Why
+The intended model already existed in runtime.
+The remaining work was proof, not a new foundational implementation.
+
+### Result
+The next candidate chapter is now `participant-marker / creator-color`.
+
+The remaining runtime tail moved outside the closed chapter:
+
+- same-browser leave propagation warning cleanup.
+
+---
+
 ## Phase 0X — Core semantic cutover closed and replica-track completed
 
 ### Type

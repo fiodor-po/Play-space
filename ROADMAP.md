@@ -24,6 +24,60 @@
 - `docs/refactor-audit.md` и `docs/refactor-plan.md` — historical architecture baseline.
 - `ROADMAP.md` — живая карта этапов, приоритетов, backlog и open questions.
 
+## 2.1. Режимы roadmap
+
+Roadmap использует два режима.
+
+### Planning mode
+
+Planning mode действует по умолчанию после closure chapter или checkpoint.
+
+В этом режиме roadmap фиксирует:
+
+- current truth;
+- closed milestones;
+- active chapter, если он уже отдельно выбран;
+- candidate next chapters или candidate next slices;
+- backlog и optional follow-ups.
+
+Правило planning mode:
+
+- будущие шаги считаются planning candidates;
+- candidate не считается канонически утверждённым execution path;
+- candidate становится `active` только после отдельного planning decision.
+
+### Hard sprint / execution mode
+
+Hard sprint / execution mode запускается явно.
+
+Этот режим используется, когда выбран конкретный execution chain:
+
+- chapter already selected;
+- order of slices is already chosen;
+- constraints and stop conditions are already agreed.
+
+В этом режиме roadmap может фиксировать:
+
+- active chapter;
+- next execution slices;
+- concrete ordered sequence for the current sprint.
+
+Правило execution mode:
+
+- sequence written for the sprint is the current working truth;
+- later chapters and later cleanup stay `candidate`, `backlog`, or `optional`
+  until they are also explicitly promoted.
+
+### Status vocabulary
+
+Use these statuses in roadmap notes when useful:
+
+- `active`
+- `candidate`
+- `backlog`
+- `optional`
+- `closed`
+
 ## 3. Текущий снимок состояния
 
 ### Что уже собрано достаточно убедительно
@@ -50,7 +104,7 @@
 - hosted alpha environment уже включает working core stack и working optional video layer;
 - production-hardening отсутствует и не нужен прямо сейчас;
 - room lifecycle уже отделяет draft room selection от active participation, но broader room UX ещё intentionally rough;
-- participant identity still needs a narrow browser-local stabilization pass so same-browser repeat join and multi-tab behavior become explicit instead of accidental;
+- browser-local participant identity stabilization is now closed after human gate;
 - `BoardStage` всё ещё остаётся тяжёлым integration surface;
 - durable room memory остаётся best-effort, а не final collaborative durable platform;
 - current hosted snapshot persistence is now known to survive restart but not redeploy, so hosted room durability is not yet deploy-stable.
@@ -72,7 +126,7 @@
 
 ## Phase C — Room document persistence / recovery architecture
 
-**Статус:** replica-track complete, next chapter `browser-local participant identity stabilization`
+**Статус:** persistence/recovery complete, participant identity stabilization closed, next candidate chapter `participant-marker / creator-color`
 
 ### Цель
 Принять `room document replicas` как architecture chapter, перевести
@@ -125,21 +179,38 @@ persistence/recovery от snapshot arbitration к replica model.
    - visible debug/smoke contract now uses replica vocabulary;
    - settled runtime contract now uses state-first settled recovery shape;
    - human gate confirms `live-active`, `replica-converged`, durable-ahead reopen, and stale `room-snapshot` ignore behavior;
-15. взять `browser-local participant identity stabilization` как следующий
-    отдельный active chapter вне самого replica-track;
-16. держать `participant-marker / creator-color` как later chapter после participant identity stabilization;
+15. закрыть `browser-local participant identity stabilization` как следующий
+    отдельный chapter после replica-track:
+   - browser-local `participantId`, room-local saved session, foreground-tab
+     live carrier, shared active room session, and remembered room defaults now
+     behave as one coherent browser-local identity model;
+   - human gate confirmed same-browser repeat join, foreground/background tab
+     behavior, cross-tab attach, leave propagation, and previous color
+     preselect behavior;
+   - smoke now includes a same-browser second-tab attach corridor in one browser
+     profile;
+16. держать `participant-marker / creator-color` как next candidate chapter
+    after participant identity stabilization;
 17. возвращаться к hosted validation как recurring checkpoint после крупных
     шагов и новых demo snapshots.
 
 ### Что это теперь значит
 Persistence/recovery spine уже дошёл до финального semantic cutover.
-Следующий главный риск теперь лежит в browser-local participant identity stabilization:
+Browser-local participant identity stabilization теперь тоже закрыт.
+Следующий большой semantic/runtime candidate теперь лежит в participant-marker /
+creator-color:
 
-- same-browser repeat join и multi-tab behavior ещё должны стать explicit runtime semantics;
-- foreground-tab-only active presence ещё требует узкого implementation pass;
-- participant-marker / creator-color chapter уже можно держать после participant identity stabilization.
+- creator-linked rendering still needs truthful non-live fallback semantics;
+- creator color fallback still mixes current live state and stale object-local
+  values;
+- participant-marker / creator-color chapter already has its own analysis note
+  and separate design scope.
 
-Это делает participant identity следующим active architecture concern.
+Current planning-mode candidate for the next strategist step:
+
+- analysis-first pass for `participant-marker / creator-color`
+
+Это делает participant-marker / creator-color следующим candidate architecture concern.
 
 ## 5. Что вошло в этот checkpoint
 
@@ -157,12 +228,13 @@ Persistence/recovery spine уже дошёл до финального semantic 
 - completed internal replica-track step: `Core semantic cutover from snapshot arbitration`;
 - completed checkpoint: `Checkpoint 3`;
 - completed migration track: `room document persistence / recovery architecture`;
-- next active chapter: `browser-local participant identity stabilization`;
+- completed chapter: `browser-local participant identity stabilization`;
 - completed narrow follow-up: `debug-tools usability cleanup`;
 - later follow-up task: `room-ops durability ergonomics`;
 - optional follow-up task: `legacy room-snapshot write-cache cleanup`;
 - optional follow-up task: `internal recovery naming/log cleanup`;
-- later follow-up chapter: `participant-marker / creator-color`;
+- later follow-up task: `same-browser leave propagation warning cleanup`;
+- next candidate chapter: `participant-marker / creator-color`;
 - hosted validation как повторяемая проверка после крупных шагов, выкатываний и
   новых demo snapshots.
 
@@ -194,13 +266,14 @@ Persistence/recovery spine уже дошёл до финального semantic 
 13. считать `Checkpoint 3` закрытым перед final cutover;
 14. считать `Core semantic cutover from snapshot arbitration` закрытым финальным internal replica-track step;
 15. считать `room document persistence / recovery architecture` закрытым migration track;
-16. взять `browser-local participant identity stabilization` как следующий отдельный active chapter вне replica-track;
+16. считать `browser-local participant identity stabilization` закрытым chapter;
 17. считать `debug-tools usability cleanup` закрытым узким inspectability/usability pass;
 18. держать `room-ops durability ergonomics` как later follow-up task after the closed replica-track chapter;
 19. держать `legacy room-snapshot write-cache cleanup` как optional hygiene follow-up outside the core recovery semantics;
 20. держать `internal recovery naming/log cleanup` как optional hygiene follow-up outside the core runtime contract;
-21. держать `participant-marker / creator-color` как следующий отдельный follow-up chapter после participant identity stabilization;
-22. возвращаться к hosted validation как checkpoint после больших шагов и новых
+21. держать `same-browser leave propagation warning cleanup` как later runtime-hygiene follow-up outside the closed participant identity chapter;
+22. держать `participant-marker / creator-color` как следующий candidate chapter после participant identity stabilization;
+23. возвращаться к hosted validation как checkpoint после больших шагов и новых
    demo snapshots.
 
 ## 8. Backlog
@@ -278,7 +351,13 @@ Persistence/recovery spine уже дошёл до финального semantic 
 - [ ] прогонять hosted playable-session validation после крупных шагов и новых
   demo snapshots
 - [ ] фиксировать реальные rough edges после таких hosted checkpoint'ов
-- [ ] implement browser-local participant identity pass with foreground-tab-only active presence behavior
+- [x] close browser-local participant identity stabilization
+  - browser-local `participantId` is now the intended participant carrier
+  - room-local saved session layers `name/color` on top of that identity
+  - foreground tab carries live presence
+  - shared active room session attaches a same-browser second tab to the live room
+  - human gate confirmed same-browser repeat join, leave propagation, and previous color preselect behavior
+  - local smoke now covers same-browser second-tab attach in one browser profile
 - [ ] entry availability readiness hotfix if repro is confirmed again:
   - observed risk: entry-room occupancies / join claims can arrive late enough that occupied colors appear 1-2 seconds after the entry screen opens
   - resulting risk: user can briefly choose a color that is actually occupied before room availability state settles
@@ -319,6 +398,10 @@ Persistence/recovery spine уже дошёл до финального semantic 
   - draft/entry presence should not be the main path by which a room temporarily appears in ops
   - first slice should stay narrow and likely reuse the existing durable room identity path rather than introducing a new room-catalog system
 - [ ] determine and fix why hosted durable room snapshots survive restart but do not survive redeploy
+- [ ] decide whether to clean up the `yjs` warning during same-browser cross-tab leave propagation:
+  - current behavior is acceptable for chapter closure
+  - attempted automation exposed `Tried to remove event handler that doesn't exist.`
+  - keep this as narrow runtime hygiene, not as a reopened identity chapter
 - [ ] evaluate whether the IndexedDB local-replica baseline should later evolve into checkpoint + delta-log storage:
   - current accepted first baseline is one full local room-document replica per room
   - promote delta-log / compaction only if the IndexedDB full-replica baseline proves too heavy

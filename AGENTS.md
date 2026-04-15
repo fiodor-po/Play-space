@@ -138,19 +138,22 @@ Current preferred sequence:
 
 ## Current validation truth
 
-Current checked baseline as of 2026-04-15:
+Current checked baseline as of 2026-04-16:
 
 - `npm run typecheck` passes
 - `npm run build` passes
 - `npm run smoke:e2e` passes as the accepted local board/runtime smoke baseline
 - `npm run lint` is currently red with pre-existing failures only in:
   - `src/components/BoardStage.tsx`
+  - `tests/e2e/helpers/roomSmoke.ts`
 
 Current lint failure shape:
 
 - `src/components/BoardStage.tsx` still has structural hook/compiler findings:
   - one remaining `set-state-in-effect` finding in the participant-marker corridor
   - several hook dependency warnings
+- `tests/e2e/helpers/roomSmoke.ts` still has `@typescript-eslint/no-explicit-any`
+  lint debt
 
 Previously reported low-risk lint issues in `src/lib/roomSession.ts`,
 `src/ui/system/debug.tsx`, and `src/media/LiveKitMediaDock.tsx` were cleaned up in

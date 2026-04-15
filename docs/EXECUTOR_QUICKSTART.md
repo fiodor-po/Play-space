@@ -79,17 +79,20 @@ npm run lint
 
 ## 3. Current Validation Truth
 
-As of 2026-04-15:
+As of 2026-04-16:
 
 - `npm run build` passes
 - `npm run smoke:e2e` passes as the accepted local board/runtime smoke baseline
 - `npm run lint` fails with pre-existing issues only in:
   - `src/components/BoardStage.tsx`
+  - `tests/e2e/helpers/roomSmoke.ts`
 
 Current lint debt is now narrow:
 
 - `src/components/BoardStage.tsx` holds one remaining participant-marker
   `set-state-in-effect` finding plus several dependency warnings.
+- `tests/e2e/helpers/roomSmoke.ts` still holds `@typescript-eslint/no-explicit-any`
+  lint debt.
 
 Low-risk hygiene lint issues in `src/lib/roomSession.ts`,
 `src/ui/system/debug.tsx`, and `src/media/LiveKitMediaDock.tsx` have already

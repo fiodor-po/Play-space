@@ -65,6 +65,8 @@ npm run smoke:e2e:headed
 
 - shared note sync between two browser contexts;
 - active-room refresh while live state stays available;
+- same-browser second-tab attach to the active room session inside one browser
+  profile;
 - committed image move/resize sync to a second browser context;
 - committed image move/resize refresh survival while room stays live;
 - committed image draw/save refresh survival while room stays live;
@@ -113,6 +115,9 @@ npm run smoke:e2e:headed
 - exact `Last read:` source strings;
 - current covered same-browser image/token/note recovery corridors use
   IndexedDB;
+- current same-browser second-tab attach corridor uses one browser profile and
+  should keep the second tab in `live-active` joined state without a fresh join
+  flow;
 - stale `room-snapshot` is now ignored by recovery and survives only as an
   optional legacy write-side tail outside the current recovery semantics.
 

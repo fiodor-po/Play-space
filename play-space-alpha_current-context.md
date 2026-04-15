@@ -2,6 +2,33 @@
 
 ## 1. Current state summary
 
+## 0. Working planning mode
+
+Current-context distinguishes two working modes.
+
+### Default mode
+
+After chapter closure, the project returns to planning mode by default.
+
+In planning mode:
+
+- next work is tracked as `candidate`;
+- current chapter truth stays canonical;
+- the next chapter becomes `active` only after an explicit planning decision.
+
+### Hard sprint mode
+
+Hard sprint mode starts only by explicit decision.
+
+Use it when the next execution chain is already chosen and the project is
+intentionally entering a concrete implementation sprint.
+
+In hard sprint mode:
+
+- the selected chapter is recorded as `active`;
+- the chosen slice order may be written as the working sprint sequence;
+- other future work remains `candidate`, `backlog`, or `optional`.
+
 Проект остаётся в стадии `play-space-alpha`.
 
 Основной продуктовый курс не изменился:
@@ -58,7 +85,17 @@
   - settled recovery now reports through `Settled` state and settled slice
     sources;
   - replica-track is now complete.
-- next active chapter is now `browser-local participant identity stabilization`.
+- `browser-local participant identity stabilization` is now closed after
+  human gate:
+  - browser-local `participantId`, room-local saved session, foreground-tab
+    live carrier, shared active room session, and remembered room defaults now
+    read as one coherent browser-local identity model;
+  - human checks confirmed same-browser repeat join, foreground/background tab
+    behavior, cross-tab attach, leave propagation, and previous color
+    preselect behavior;
+  - local smoke now also covers same-browser second-tab attach in one browser
+    profile.
+- next candidate chapter is now `participant-marker / creator-color`.
 - Dev tools inspectability surface now has a closed usability cleanup checkpoint:
   - the panel stays viewport-bounded on ordinary desktop viewports;
   - lower inspect blocks and controls stay reachable through internal scroll;
@@ -74,6 +111,12 @@
   - core runtime contract already uses settled recovery state;
   - a separate `internal recovery naming/log cleanup` task is now recorded for
     remaining `bootstrap-*` internal names and log tags.
+- same-browser leave propagation now has one narrow runtime-hygiene follow-up:
+  - the current chapter closed with acceptable behavior;
+  - same-browser automation exposed a `yjs` warning during cross-tab leave
+    propagation;
+  - a separate `same-browser leave propagation warning cleanup` task is now
+    recorded for later teardown-order cleanup.
 
 Current workflow rule for hosted validation:
 
@@ -367,7 +410,7 @@ Track status now reads like this:
 
 Next separate chapter candidate:
 
-- `browser-local participant identity stabilization`
+- `participant-marker / creator-color`
 
 Separate observed watch item:
 
@@ -1014,12 +1057,13 @@ Working order from here:
 12. treat `Checkpoint 3` as closed before final cutover
 13. treat `Core semantic cutover from snapshot arbitration` as the closed final internal replica-track step
 14. treat `room document persistence / recovery architecture` as the closed migration track
-15. take `browser-local participant identity stabilization` as the next active chapter
+15. treat `browser-local participant identity stabilization` as a closed chapter
 16. treat `debug-tools usability cleanup` as a closed separate inspectability/usability pass
 17. keep `room-ops durability ergonomics` as a later follow-up task outside the closed replica-track chapter
 18. keep `legacy room-snapshot write-cache cleanup` as an optional hygiene follow-up outside the core recovery semantics
 19. keep `internal recovery naming/log cleanup` as an optional hygiene follow-up outside the core runtime contract
-20. keep participant-marker / creator-color as the following separate semantic/runtime chapter
+20. keep `same-browser leave propagation warning cleanup` as a later runtime-hygiene follow-up outside the closed participant identity chapter
+21. keep participant-marker / creator-color as the next candidate semantic/runtime chapter
 
 Accepted cleanup decisions already made:
 

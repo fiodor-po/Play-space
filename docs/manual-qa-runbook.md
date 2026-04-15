@@ -181,7 +181,21 @@
   - viewport восстанавливается;
   - клиент снова подключается к current live room state.
 
-### 3.4. Rejoin while room is still live
+### 3.4. Same-browser second-tab attach
+
+- Setup:
+  - открыть `alpha-qa-1` в A;
+  - создать хотя бы один объект, чтобы joined state был легко заметен.
+- Exact actions:
+  - в том же browser profile открыть вторую вкладку B с той же комнатой;
+  - не проходить отдельный fresh join в B, если вкладка already attached itself.
+- Expected result:
+  - B подхватывает active room session того же browser profile;
+  - B остаётся в joined state;
+  - в B visible settled state остаётся `live-active`;
+  - joined board state совпадает с A.
+
+### 3.5. Rejoin while room is still live
 
 - Setup:
   - открыть `alpha-qa-1` в A и B;
@@ -192,7 +206,7 @@
 - Expected result:
   - A снова видит текущее live state комнаты.
 
-### 3.5. Durable snapshot smoke
+### 3.6. Durable snapshot smoke
 
 - Setup:
   - в `alpha-qa-1` создать несколько объектов;
@@ -209,7 +223,7 @@
 - Note:
   - если этот сценарий ведёт себя странно, это уже не "известная нормальность по контракту", а повод перепроверить current durable path.
 
-### 3.6. Config failure visibility smoke
+### 3.7. Config failure visibility smoke
 
 - Setup:
   - использовать environment с намеренно отсутствующим или неправильным hosted config only if это безопасно для локальной smoke-проверки;

@@ -123,3 +123,14 @@ Recommended statuses:
 - `expected_action`: decide whether to rename remaining `bootstrap-*` refs, helper names, and log tags in a separate cleanup pass after cutover
 - `target_chapter`: `internal recovery naming/log cleanup`
 - `status`: `planned`
+
+### RF-2026-04-16-01
+
+- `id`: `RF-2026-04-16-01`
+- `date`: `2026-04-16`
+- `source`: strategist review during `browser-local participant identity stabilization` closure
+- `finding`: attempted same-browser cross-tab leave propagation automation emits `yjs` warning `Tried to remove event handler that doesn't exist.`
+- `why_deferred`: chapter closure already has acceptable runtime behavior and honest human proof; the warning is a teardown-order hygiene issue rather than a blocker for the participant identity model
+- `expected_action`: review room/presence/creator teardown ordering during same-browser cross-tab leave propagation and remove the warning in a separate narrow runtime cleanup pass
+- `target_chapter`: `same-browser leave propagation warning cleanup`
+- `status`: `planned`

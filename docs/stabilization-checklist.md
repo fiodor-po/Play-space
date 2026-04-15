@@ -14,6 +14,7 @@
 
 - [ ] shared note всё ещё доходит до второго browser context
 - [ ] refresh в active room всё ещё восстанавливает joined state и current live board state
+- [ ] same-browser second tab всё ещё прикрепляется к active room session внутри того же browser profile
 - [ ] shared image move/resize commit всё ещё доходит до второго browser context
 - [ ] committed image bounds всё ещё переживают refresh, пока room остаётся live
 - [ ] committed image draw/save всё ещё переживает refresh, пока room остаётся live
@@ -60,6 +61,7 @@
 ## Room lifecycle
 
 - [ ] `Leave room` returns to entry and joining another room stays clean
+- [ ] same-browser second tab keeps joined `live-active` state without fresh join flow
 - [ ] refresh in active room
 - [ ] rejoin while room is still live
 - [ ] durable snapshot smoke still behaves plausibly
