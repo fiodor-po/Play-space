@@ -40,7 +40,7 @@
 
 ## Shared board state
 
-- [ ] shared tokens: create / move / delete
+- [ ] participant marker move still syncs correctly
 - [ ] shared text-cards: create / move / edit
 - [ ] shared images: add / move / resize
 - [ ] image draw mode: `Draw / Save / Clear`
@@ -53,7 +53,7 @@
 
 ## Room lifecycle
 
-- [ ] switch room and back
+- [ ] `Leave room` returns to entry and joining another room stays clean
 - [ ] refresh in active room
 - [ ] rejoin while room is still live
 - [ ] durable snapshot smoke still behaves plausibly

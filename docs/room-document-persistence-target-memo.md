@@ -269,7 +269,7 @@ Accepted decisions:
 1. this memo is the target persistence direction for the project;
 2. `docs/refactor-plan.md` should treat room-document replicas as the active architecture chapter;
 3. the chosen migration strategy is `parallel replacement`;
-4. the next implementation phase is `narrow commit-boundary persistence phase`.
+4. `narrow commit-boundary persistence phase` is the completed first implementation checkpoint;
 5. the first concrete local-replica storage baseline is `IndexedDB`, not
    `localStorage`;
 6. the first concrete local-replica shape is a full room-document replica per

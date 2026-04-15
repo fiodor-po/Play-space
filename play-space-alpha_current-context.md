@@ -969,8 +969,9 @@ Working order from here:
 4. treat the refreshed architecture/runtime audit as completed
 5. treat `next runtime/object chapter` as paused by persistence/recovery correctness
 6. open `room document persistence / recovery architecture` as the active chapter
-7. take `narrow commit-boundary persistence phase` as the next implementation phase
-8. keep participant-marker / creator-color as the following separate semantic/runtime chapter
+7. treat `narrow commit-boundary persistence phase` as the completed first implementation checkpoint
+8. take `Local replica semantics` as the next internal replica-track step
+9. keep participant-marker / creator-color as the following separate semantic/runtime chapter
 
 Accepted cleanup decisions already made:
 

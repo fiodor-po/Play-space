@@ -26,7 +26,7 @@ Common task-to-doc mapping:
 - local startup / env / tooling: `docs/dev-workflows.md`
 - video / LiveKit: `docs/livekit-local-dev.md`
 - hosted deployment/runtime assumptions: `docs/hosted-alpha-deployment-plan.md`
-- board/runtime regression checks: `docs/manual-qa-runbook.md`, `docs/stabilization-checklist.md`
+- board/runtime regression checks: `docs/playwright-smoke-harness.md`, `docs/manual-qa-runbook.md`, `docs/stabilization-checklist.md`
 
 ## 2. Commands
 
@@ -34,6 +34,12 @@ Install:
 
 ```bash
 npm install
+```
+
+One-time browser install for local smoke:
+
+```bash
+npm run smoke:e2e:install
 ```
 
 Preferred local dev:
@@ -65,15 +71,18 @@ npm run build
 Additional checks:
 
 ```bash
+npm run smoke:e2e
+npm run smoke:e2e:headed
 npm run build:smoke
 npm run lint
 ```
 
 ## 3. Current Validation Truth
 
-As of 2026-04-14:
+As of 2026-04-15:
 
 - `npm run build` passes
+- `npm run smoke:e2e` passes as the accepted local board/runtime smoke baseline
 - `npm run lint` fails with pre-existing issues only in:
   - `src/components/BoardStage.tsx`
 
@@ -111,16 +120,25 @@ If the mechanism is unclear:
 After a meaningful implementation pass:
 
 - run `npm run build`
+- run `npm run smoke:e2e` for board/runtime/recovery/persistence changes
 - state exactly what you validated
 - say what you did not validate
 - list manual QA steps for the touched flow
 
 If the change touches board/runtime behavior, use:
 
+- `docs/playwright-smoke-harness.md`
 - `docs/manual-qa-runbook.md`
 - `docs/stabilization-checklist.md`
 
 If the change is architectural or runtime-internal, prefer a small inspectability path over relying only on "UI still looks fine."
+
+`npm run smoke:e2e` is a machine gate.
+It does not replace human product validation.
+If the task changes replica-track recovery semantics, review the bridge-bound
+smoke assertions in `docs/playwright-smoke-harness.md` and
+`docs/room-document-replica-track-plan.md` before assuming the current smoke
+baseline should stay unchanged.
 
 ## 6. Environment And Runtime Data
 

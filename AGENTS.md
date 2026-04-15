@@ -98,9 +98,12 @@ For non-trivial or semantics-changing work, also read:
 Core commands:
 
 - install: `npm install`
+- one-time local smoke browser install: `npm run smoke:e2e:install`
 - preferred local dev: `npm run dev:local`
 - LAN HTTPS dev: `npm run dev:lan`
 - default validation: `npm run build`
+- board/runtime smoke validation: `npm run smoke:e2e`
+- headed smoke debugging: `npm run smoke:e2e:headed`
 - additional checks: `npm run typecheck`, `npm run build:smoke`, `npm run lint`
 
 Fast orientation docs:
@@ -135,10 +138,11 @@ Current preferred sequence:
 
 ## Current validation truth
 
-Current checked baseline as of 2026-04-14:
+Current checked baseline as of 2026-04-15:
 
 - `npm run typecheck` passes
 - `npm run build` passes
+- `npm run smoke:e2e` passes as the accepted local board/runtime smoke baseline
 - `npm run lint` is currently red with pre-existing failures only in:
   - `src/components/BoardStage.tsx`
 
@@ -184,6 +188,7 @@ Then read only the directly relevant focused docs, for example:
 
 - `docs/color-model-design.md`
 - `docs/indication-design.md`
+- `docs/playwright-smoke-harness.md`
 - `docs/room-document-replica-map.md`
 - `docs/room-document-replica-track-plan.md`
 - `docs/room-document-persistence-target-memo.md`
@@ -522,11 +527,20 @@ The default hosted-alpha shape to reason about is:
 After any meaningful implementation pass:
 
 - run `npm run build`;
+- run `npm run smoke:e2e` for board/runtime/recovery/persistence changes;
 - explain what behavior might have regressed;
 - list manual QA steps for the touched flow;
-- if the change touches board/runtime behavior, use `docs/manual-qa-runbook.md` and `docs/stabilization-checklist.md` as the baseline.
+- if the change touches board/runtime behavior, use `docs/playwright-smoke-harness.md`, `docs/manual-qa-runbook.md` and `docs/stabilization-checklist.md` as the baseline.
 
 For docs-only or guidance-only passes, say which commands were intentionally not run if you skipped them.
+
+`npm run smoke:e2e` is the current machine gate for local board/runtime/recovery
+regression checks.
+It does not replace hosted validation or human product judgement.
+If a pass changes replica-track recovery semantics, review bridge-bound smoke
+assertions in `docs/playwright-smoke-harness.md` and
+`docs/room-document-replica-track-plan.md` before treating the current smoke
+baseline as canonical.
 
 ## Inspectability default
 
@@ -558,6 +572,7 @@ Scope this narrowly:
 - color / participant semantics: `docs/color-model-design.md`
 - indication / multiplayer cues: `docs/indication-design.md`
 - replica migration control: `docs/room-document-replica-map.md`, `docs/room-document-replica-track-plan.md`, `docs/room-document-persistence-target-memo.md`
+- local browser smoke harness: `docs/playwright-smoke-harness.md`
 - local startup and ops: `docs/dev-workflows.md`
 - LiveKit specifics: `docs/livekit-local-dev.md`
 - hosted deploy/runtime assumptions: `docs/hosted-alpha-deployment-plan.md`

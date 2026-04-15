@@ -236,6 +236,7 @@ Must not change:
 Validation:
 
 - `npm run build`
+- `npm run smoke:e2e` for board/runtime/recovery changes inside this phase
 - manual QA for:
   - quick leave / re-enter
   - refresh recovery
@@ -330,6 +331,7 @@ Must not change:
 Validation:
 
 - `npm run build`
+- `npm run smoke:e2e` for board/runtime/recovery changes inside this phase
 - manual QA for:
   - refresh in the same browser
   - reopen after short leave/offline gap
@@ -362,6 +364,7 @@ Must not change:
 Validation:
 
 - `npm run build`
+- `npm run smoke:e2e` for board/runtime/recovery changes inside this phase
 - manual QA for:
   - durable recovery after live room disappears
   - conflict handling
@@ -488,15 +491,15 @@ Stop conditions:
 
 ## 6. Recommended next phase only
 
-The next implementation chapter should be:
+The next internal replica-track implementation chapter should be:
 
-- **Phase 1A — Narrow commit-boundary persistence phase**
+- **Phase 2 — Local replica semantics**
 
 Short reason:
 
-- it directly addresses confirmed correctness bugs in the current product flow;
-- it is the first safe step toward the accepted room-document replica model;
-- it keeps scope narrow while moving toward the long-term target.
+- it turns the accepted IndexedDB baseline into version-aware local replica semantics;
+- it is the next required internal step in the active replica migration track;
+- it keeps scope narrower than durable-write or convergence work.
 
 ## 7. Relationship to current roadmap phase
 
@@ -506,5 +509,6 @@ architecture work into a concrete persistence/recovery migration sequence.
 Immediate roadmap-aligned result:
 
 - room-document replica chapter chosen as the new active architecture track
-- next implementation phase chosen: `narrow commit-boundary persistence phase`
+- phase-1 `narrow commit-boundary persistence phase` checkpoint completed
+- next internal replica-track step: `local replica semantics`
 - later follow-up chapter remains: `participant-marker / creator-color`

@@ -32,6 +32,7 @@ This is the fastest index for the repo's working docs.
 - `../PLANS.md` — ExecPlan rules for larger work
 - `../play-space-project-foundation.md` — stable product/architecture frame
 - `../play-space-alpha_current-context.md` — current handoff/operational context
+- `room-document-persistence-target-memo.md` — canonical technical target for the room-document replica migration track
 - `room-document-replica-map.md` — canonical human-facing control map for the room-document replica migration track
 - `room-document-replica-track-plan.md` — canonical agent-facing execution/control plan for the room-document replica migration track
 - `task-brief-template.md` — strategist to executor brief template
@@ -40,6 +41,7 @@ This is the fastest index for the repo's working docs.
 
 ## QA / Validation
 
+- `playwright-smoke-harness.md` — local browser smoke harness, commands, current coverage, and accepted runtime allowlist
 - `manual-qa-runbook.md` — detailed manual QA scenarios
 - `stabilization-checklist.md` — short regression/pre-deploy checklist
 

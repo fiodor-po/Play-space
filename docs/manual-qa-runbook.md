@@ -52,16 +52,16 @@
   - после zoom доска остаётся usable;
   - selection, overlays и panning не ломаются.
 
-### 1.3. Token local interactions
+### 1.3. Participant marker local interactions
 
 - Exact actions:
-  - нажать `Add token`;
-  - выбрать token;
-  - перетащить token;
-  - удалить token клавишей Delete/Backspace.
+  - убедиться, что у текущего участника уже есть marker;
+  - переместить marker;
+  - поменять zoom и снова переместить marker.
 - Expected result:
-  - token создаётся, двигается и удаляется без ошибок;
-  - selection рамка ведёт себя стабильно.
+  - marker двигается без ошибок;
+  - marker остаётся viewport-stable по размеру;
+  - marker move не ломает selection и board control.
 
 ### 1.4. Text-card local interactions
 
@@ -106,15 +106,15 @@
   - локальный курсор не дублируется как remote;
   - после закрытия B его presence исчезает.
 
-### 2.2. Shared tokens
+### 2.2. Shared participant markers
 
 - Exact actions:
-  - в клиенте A создать token;
-  - переместить его;
-  - удалить его;
+  - в клиенте A переместить свой marker;
+  - подвигать marker ещё раз после zoom;
   - смотреть клиент B.
 - Expected result:
-  - create / move / delete отражаются в клиенте B.
+  - marker move отражается в клиенте B;
+  - marker остаётся readable и viewport-stable.
 
 ### 2.3. Shared text-cards
 
@@ -142,16 +142,18 @@
 
 ## 3. Room lifecycle and recovery checks
 
-### 3.1. Switch room and back
+### 3.1. Leave room, join another room, return
 
 - Setup:
   - открыть `alpha-qa-1`, создать там несколько объектов;
   - подготовить `alpha-qa-2` как отдельную комнату.
 - Exact actions:
-  - в A переключиться в `alpha-qa-2`;
-  - затем вернуться в `alpha-qa-1`.
+  - в A нажать `Leave room`;
+  - на entry screen выбрать `alpha-qa-2` и войти;
+  - затем через entry screen вернуться в `alpha-qa-1`.
 - Expected result:
-  - URL и room id меняются сразу;
+  - `Leave room` возвращает на entry screen;
+  - URL и active room меняются предсказуемо;
   - presence и shared objects не протекают между комнатами;
   - при возврате показывается live state исходной комнаты.
 
@@ -161,7 +163,8 @@
   - открыть `alpha-qa-1` в A и B;
   - в B начать drag или transform image так, чтобы в A был виден remote preview.
 - Exact actions:
-  - пока preview активен, в A переключиться в `alpha-qa-2`.
+  - пока preview активен, в A нажать `Leave room`;
+  - на entry screen войти в `alpha-qa-2`.
 - Expected result:
   - в новой комнате не остаётся ghost preview из предыдущей комнаты.
 

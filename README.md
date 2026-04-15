@@ -114,14 +114,16 @@ Lint:
 npm run lint
 ```
 
-Current validation truth as of 2026-04-14:
+Current validation truth as of 2026-04-15:
 
 - `npm run typecheck` passes
 - `npm run build` passes
+- `npm run smoke:e2e` passes as the accepted local board/runtime smoke baseline
 - `npm run lint` has pre-existing failures only in `src/components/BoardStage.tsx`
 
 For manual regression checks, use:
 
+- `docs/playwright-smoke-harness.md`
 - `docs/manual-qa-runbook.md`
 - `docs/stabilization-checklist.md`
 

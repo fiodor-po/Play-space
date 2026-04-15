@@ -61,6 +61,8 @@
 
 - migration chain active;
 - phase-1 `browser-local replica baseline` checkpoint complete;
+- local browser smoke harness baseline exists and is accepted as a machine gate
+  before `Local replica semantics`;
 - current next required step: `Local replica semantics`;
 - current nearest checkpoint: `Checkpoint 2`;
 - human gate still required between major checkpoints.
@@ -372,6 +374,11 @@ Replica convergence становится основной recovery model.
 - full recovery convergence is complete;
 - semantic cutover already happened.
 
+**Checkpoint closure rule**
+
+Этот checkpoint требует review bridge-bound smoke assertions, которые текущий
+step делает устаревшими.
+
 ### Checkpoint 3. Validation before final cutover
 
 **Статус**
@@ -385,6 +392,11 @@ Replica convergence становится основной recovery model.
   net;
 - the system is ready for core semantic cutover.
 
+**Checkpoint closure rule**
+
+Этот checkpoint требует review bridge-bound smoke assertions перед semantic
+cutover.
+
 ## Validation split
 
 ### Machine validation
@@ -392,6 +404,7 @@ Replica convergence становится основной recovery model.
 Агент может закрывать:
 
 - `npm run build`;
+- `npm run smoke:e2e` for local board/runtime/recovery regression coverage;
 - focused code inspection;
 - docs alignment;
 - narrow inspectability for invisible/runtime changes.
@@ -406,6 +419,94 @@ Replica convergence становится основной recovery model.
 - final judgement that a checkpoint is actually trustworthy.
 
 Без human gate крупный checkpoint не закрывается.
+
+## Текущий automation baseline перед `Local replica semantics`
+
+До следующего replica-step accepted local smoke baseline уже покрывает:
+
+- shared note sync between two browser contexts;
+- active-room refresh while live state stays available;
+- image move/resize sync and refresh survival;
+- image draw/save refresh survival;
+- same-browser local-only recovery for image state through current
+  `local-recovery` / IndexedDB corridor;
+- same-browser token move recovery through current `room-snapshot` corridor;
+- same-browser note move recovery through current `room-snapshot` corridor;
+- same-browser note text save recovery through current `room-snapshot`
+  corridor;
+- runtime failure policy for uncaught page errors and disallowed console
+  warning/error events.
+
+Этот automation baseline является machine gate для remaining replica-track
+passes, которые трогают board/runtime/recovery behavior.
+
+## Stable smoke invariants
+
+Эти smoke expectations должны пережить remaining replica-track steps:
+
+- committed object state survives refresh or reopen;
+- shared state reaches a second browser context where that corridor is expected
+  to stay shared;
+- same-browser reopen preserves committed state for the corridor under test;
+- runtime failure policy still fails the suite on disallowed page or console
+  regressions.
+
+## Bridge-bound smoke assertions
+
+Эти assertions защищают текущий bridge checkpoint и подлежат review на следующих
+steps:
+
+- bootstrap branch names such as `live-wins` and `local-recovery`;
+- exact local source strings such as `indexeddb` and `room-snapshot`;
+- exact `Last read:` source strings;
+- current corridor split where image local-only recovery uses IndexedDB and
+  token/note recovery still uses `room-snapshot`;
+- current warning allowlist assumptions around durable snapshot browser noise.
+
+Bridge-bound assertions полезны сейчас.
+Они не являются permanent target semantics.
+
+## Mandatory smoke review points
+
+### After `Local replica semantics`
+
+Review:
+
+- `room-snapshot` local recovery assertions for token/note corridors;
+- exact `local source ...` assertions;
+- exact `Last read: ...` assertions;
+- `Bootstrap: local-recovery` expectations where the source contract changes.
+
+### After `Durable write model`
+
+Review:
+
+- accepted durable warning allowlist;
+- assumptions tied to current durable snapshot browser errors `404/409`;
+- ops-side durable expectations that still assume snapshot-era timing.
+
+### After `Recovery convergence model`
+
+Review:
+
+- `Bootstrap: live-wins` assertions;
+- strict local-vs-live bootstrap branch expectations;
+- current bridge-era local-vs-live source split assertions.
+
+### After `Core semantic cutover`
+
+Review:
+
+- every bridge-era bootstrap/source assertion;
+- every `room-snapshot` fallback assertion;
+- every allowlist entry that only exists because snapshot-era behavior is still
+  visible in the browser.
+
+Keep:
+
+- stable smoke invariants;
+- runtime failure policy;
+- convergence-era recovery assertions that match the new core semantics.
 
 ## Guardrails
 
