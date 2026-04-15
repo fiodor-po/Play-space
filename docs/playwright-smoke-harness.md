@@ -69,21 +69,21 @@ npm run smoke:e2e:headed
 - committed image move/resize refresh survival while room stays live;
 - committed image draw/save refresh survival while room stays live;
 - same-browser local-only recovery for image state through current
-  `converged-recovery` / IndexedDB settled corridor;
+  `replica-converged` / IndexedDB settled corridor;
 - same-browser token move recovery through current
-  `converged-recovery` / IndexedDB settled corridor;
+  `replica-converged` / IndexedDB settled corridor;
 - versioned empty local replica keeps same-browser reopen on the empty local
   document instead of stale `room-snapshot` or baseline fallback;
 - same-browser note move recovery through current
-  `converged-recovery` / IndexedDB settled corridor;
+  `replica-converged` / IndexedDB settled corridor;
 - same-browser note resize recovery through current
-  `converged-recovery` / IndexedDB settled corridor;
+  `replica-converged` / IndexedDB settled corridor;
 - same-browser note text save recovery through current
-  `converged-recovery` / IndexedDB settled corridor;
+  `replica-converged` / IndexedDB settled corridor;
 - same-browser note create-only reopen through current
-  `converged-recovery` / IndexedDB settled corridor;
+  `replica-converged` / IndexedDB settled corridor;
 - same-browser note delete-only reopen through current
-  `converged-recovery` / IndexedDB settled corridor;
+  `replica-converged` / IndexedDB settled corridor;
 - same-browser durable-ahead reopen now verifies per-slice durable catch-up for
   the `textCards` slice after provisional local-open;
 - stale `room-snapshot` no longer changes same-browser reopen when no local
@@ -107,7 +107,7 @@ npm run smoke:e2e:headed
 
 Эти assertions защищают current bridge behavior:
 
-- settled bootstrap branch names such as `live-wins` and `converged-recovery`;
+- settled bootstrap branch names such as `live-active` and `replica-converged`;
 - initial-open status/source strings for local-first recovery inspection;
 - exact local source strings such as `indexeddb` and `none`;
 - exact `Last read:` source strings;
@@ -197,8 +197,8 @@ After `Recovery convergence model`:
 
 - stale `room-snapshot` assertions that no longer belong to recovery semantics;
 - provisional initial-open assertions;
-- `live-wins` assertions;
-- exact `converged-recovery` bootstrap branch expectations;
+- `live-active` assertions;
+- exact `replica-converged` bootstrap branch expectations;
 - bridge-era source split assertions.
 
 After `Core semantic cutover`:

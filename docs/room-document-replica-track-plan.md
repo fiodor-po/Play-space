@@ -536,8 +536,8 @@ passes, которые трогают board/runtime/recovery behavior.
 Эти assertions защищают текущий bridge checkpoint и подлежат review на следующих
 steps:
 
-- settled bootstrap branch names such as `live-wins` and
-  `converged-recovery`;
+- settled bootstrap branch names such as `live-active` and
+  `replica-converged`;
 - exact local source strings such as `indexeddb` and `none`;
 - exact `Last read:` source strings;
 - current covered same-browser image/token/note recovery corridors use
@@ -572,8 +572,8 @@ Review:
 Review:
 
 - stale `room-snapshot` assertions that no longer belong to recovery semantics;
-- `Bootstrap: live-wins` assertions;
-- exact `converged-recovery` bootstrap branch expectations;
+- `Bootstrap: live-active` assertions;
+- exact `replica-converged` bootstrap branch expectations;
 - current bridge-era local-vs-live source split assertions.
 
 ### After `Core semantic cutover`
