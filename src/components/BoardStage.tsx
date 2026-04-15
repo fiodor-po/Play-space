@@ -2,6 +2,7 @@ import {
   useCallback,
   useEffect,
   useEffectEvent,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -730,7 +731,7 @@ export default function BoardStage({
     activeRoomIdRef.current = roomId;
   }, [roomId]);
 
-  const persistLocalReplica = useEffectEvent(
+  const persistLocalReplica = useCallback(
     (
       nextObjects: BoardObject[],
       commitBoundary: NonNullable<LocalObjectsChangeOptions["commitBoundary"]>
@@ -745,9 +746,10 @@ export default function BoardStage({
 
       void saveLocalRoomDocumentReplica(roomId, nextObjects, {
         commitBoundary,
-        lastKnownDurableSnapshotRevision: durableSnapshotRevisionRef.current,
+        lastKnownDurableSnapshotRevision:
+          durableTrackingRef.current.snapshotRevision,
         lastKnownDurableSliceRevisions: cloneDurableSliceRevisionState(
-          durableSliceRevisionRef.current
+          durableTrackingRef.current.sliceRevisions
         ),
       })
         .then((replica) => {
@@ -777,16 +779,21 @@ export default function BoardStage({
             lastError: getErrorMessage(error),
           }));
         });
-    }
+    },
+    [roomId]
   );
 
-  const queueDurableWriteTask = useEffectEvent((task: () => Promise<void>) => {
-    durableWriteQueueRef.current = durableWriteQueueRef.current
-      .catch(() => undefined)
-      .then(task);
-  });
+  const queueDurableWriteTask = useCallback((task: () => Promise<void>) => {
+    const enqueueDurableWriteTask = () => {
+      durableTrackingRef.current.writeQueue = durableTrackingRef.current.writeQueue
+        .catch(() => undefined)
+        .then(task);
+    };
 
-  const persistDurableSliceWrite = useEffectEvent(
+    enqueueDurableWriteTask();
+  }, []);
+
+  const persistDurableSliceWrite = useCallback(
     (
       nextObjects: BoardObject[],
       boundary: DurableDebugBoundary,
@@ -800,19 +807,19 @@ export default function BoardStage({
           return;
         }
 
-        let baseSliceRevision = durableSliceRevisionRef.current[slice];
+        let baseSliceRevision = durableTrackingRef.current.sliceRevisions[slice];
         let retryCount = 0;
 
         setDurableReplicaInspection((current) => ({
           ...current,
-          currentRevision: durableSnapshotRevisionRef.current,
+          currentRevision: durableTrackingRef.current.snapshotRevision,
           currentSliceRevisions: cloneDurableSliceRevisionState(
-            durableSliceRevisionRef.current
+            durableTrackingRef.current.sliceRevisions
           ),
           lastWriteStatus: "writing",
           lastWriteBoundary: boundary,
           lastWriteSlice: slice,
-          lastKnownSliceRevision: durableSliceRevisionRef.current[slice],
+          lastKnownSliceRevision: durableTrackingRef.current.sliceRevisions[slice],
           lastBaseRevision: null,
           lastBaseSliceRevision: baseSliceRevision,
           lastAckSnapshotRevision: null,
@@ -839,9 +846,9 @@ export default function BoardStage({
           }
 
           if (result.status === "conflict") {
-            durableSnapshotRevisionRef.current = result.currentRevision;
-            durableSliceRevisionRef.current = {
-              ...durableSliceRevisionRef.current,
+            durableTrackingRef.current.snapshotRevision = result.currentRevision;
+            durableTrackingRef.current.sliceRevisions = {
+              ...durableTrackingRef.current.sliceRevisions,
               [slice]: result.currentSliceRevision,
             };
 
@@ -859,12 +866,13 @@ export default function BoardStage({
               ...current,
               currentRevision: result.currentRevision,
               currentSliceRevisions: cloneDurableSliceRevisionState(
-                durableSliceRevisionRef.current
+                durableTrackingRef.current.sliceRevisions
               ),
               lastWriteStatus: "conflict",
               lastWriteBoundary: boundary,
               lastWriteSlice: slice,
-              lastKnownSliceRevision: durableSliceRevisionRef.current[slice],
+              lastKnownSliceRevision:
+                durableTrackingRef.current.sliceRevisions[slice],
               lastBaseRevision: null,
               lastBaseSliceRevision: baseSliceRevision,
               lastAckSnapshotRevision: null,
@@ -881,16 +889,17 @@ export default function BoardStage({
           }
 
           if (result.status === "saved") {
-            durableSnapshotRevisionRef.current = result.ack.snapshotRevision;
-            durableSliceRevisionRef.current = {
-              ...durableSliceRevisionRef.current,
+            durableTrackingRef.current.snapshotRevision =
+              result.ack.snapshotRevision;
+            durableTrackingRef.current.sliceRevisions = {
+              ...durableTrackingRef.current.sliceRevisions,
               [slice]: result.ack.sliceRevision,
             };
             setDurableReplicaInspection((current) => ({
               ...current,
               currentRevision: result.ack.snapshotRevision,
               currentSliceRevisions: cloneDurableSliceRevisionState(
-                durableSliceRevisionRef.current
+                durableTrackingRef.current.sliceRevisions
               ),
               lastWriteStatus: "saved",
               lastWriteBoundary: boundary,
@@ -913,14 +922,14 @@ export default function BoardStage({
 
           setDurableReplicaInspection((current) => ({
             ...current,
-            currentRevision: durableSnapshotRevisionRef.current,
+            currentRevision: durableTrackingRef.current.snapshotRevision,
             currentSliceRevisions: cloneDurableSliceRevisionState(
-              durableSliceRevisionRef.current
+              durableTrackingRef.current.sliceRevisions
             ),
             lastWriteStatus: "failed",
             lastWriteBoundary: boundary,
             lastWriteSlice: slice,
-            lastKnownSliceRevision: durableSliceRevisionRef.current[slice],
+            lastKnownSliceRevision: durableTrackingRef.current.sliceRevisions[slice],
             lastBaseRevision: null,
             lastBaseSliceRevision: baseSliceRevision,
             lastAckSnapshotRevision: null,
@@ -934,10 +943,11 @@ export default function BoardStage({
           return;
         }
       });
-    }
+    },
+    [queueDurableWriteTask, roomId]
   );
 
-  const persistLegacyDurableSnapshot = useEffectEvent(
+  const persistLegacyDurableSnapshot = useCallback(
     (nextObjects: BoardObject[], boundary: DurableDebugBoundary) => {
       const objectCount = getSharedBoardObjects(nextObjects).length;
 
@@ -946,14 +956,14 @@ export default function BoardStage({
           return;
         }
 
-        let baseRevision = durableSnapshotRevisionRef.current;
+        let baseRevision = durableTrackingRef.current.snapshotRevision;
         let retryCount = 0;
 
         setDurableReplicaInspection((current) => ({
           ...current,
-          currentRevision: durableSnapshotRevisionRef.current,
+          currentRevision: durableTrackingRef.current.snapshotRevision,
           currentSliceRevisions: cloneDurableSliceRevisionState(
-            durableSliceRevisionRef.current
+            durableTrackingRef.current.sliceRevisions
           ),
           lastWriteStatus: "writing",
           lastWriteBoundary: boundary,
@@ -984,7 +994,7 @@ export default function BoardStage({
           }
 
           if (result.status === "conflict") {
-            durableSnapshotRevisionRef.current = result.currentRevision;
+            durableTrackingRef.current.snapshotRevision = result.currentRevision;
 
             if (
               attempt === 0 &&
@@ -1000,7 +1010,7 @@ export default function BoardStage({
               ...current,
               currentRevision: result.currentRevision,
               currentSliceRevisions: cloneDurableSliceRevisionState(
-                durableSliceRevisionRef.current
+                durableTrackingRef.current.sliceRevisions
               ),
               lastWriteStatus: "conflict",
               lastWriteBoundary: boundary,
@@ -1022,15 +1032,14 @@ export default function BoardStage({
           }
 
           if (result.status === "saved") {
-            durableSnapshotRevisionRef.current = result.snapshot.revision;
-            durableSliceRevisionRef.current = getDurableSliceRevisionStateFromSnapshot(
-              result.snapshot
-            );
+            durableTrackingRef.current.snapshotRevision = result.snapshot.revision;
+            durableTrackingRef.current.sliceRevisions =
+              getDurableSliceRevisionStateFromSnapshot(result.snapshot);
             setDurableReplicaInspection((current) => ({
               ...current,
               currentRevision: result.snapshot.revision,
               currentSliceRevisions: cloneDurableSliceRevisionState(
-                durableSliceRevisionRef.current
+                durableTrackingRef.current.sliceRevisions
               ),
               lastWriteStatus: "saved",
               lastWriteBoundary: boundary,
@@ -1053,9 +1062,9 @@ export default function BoardStage({
 
           setDurableReplicaInspection((current) => ({
             ...current,
-            currentRevision: durableSnapshotRevisionRef.current,
+            currentRevision: durableTrackingRef.current.snapshotRevision,
             currentSliceRevisions: cloneDurableSliceRevisionState(
-              durableSliceRevisionRef.current
+              durableTrackingRef.current.sliceRevisions
             ),
             lastWriteStatus: "failed",
             lastWriteBoundary: boundary,
@@ -1074,10 +1083,11 @@ export default function BoardStage({
           return;
         }
       });
-    }
+    },
+    [queueDurableWriteTask, roomId]
   );
 
-  const handleLocalBoardObjectsChange = useEffectEvent(
+  const handleLocalBoardObjectsChange = useCallback(
     (nextObjects: BoardObject[], options?: LocalObjectsChangeOptions) => {
       const commitBoundary =
         options?.commitBoundary &&
@@ -1101,7 +1111,8 @@ export default function BoardStage({
       if (durableBoundary && durableSlice) {
         persistDurableSliceWrite(nextObjects, durableBoundary, durableSlice);
       }
-    }
+    },
+    [persistDurableSliceWrite, persistLocalReplica]
   );
 
   const {
@@ -1135,6 +1146,7 @@ export default function BoardStage({
     onLocalObjectsChange: handleLocalBoardObjectsChange,
     roomId,
   });
+  const objectsRef = useRef<BoardObject[]>(objects);
 
   const [selectedObjectId, setSelectedObjectId] = useState<string | null>(null);
   const [editingTextCardId, setEditingTextCardId] = useState<string | null>(null);
@@ -1523,11 +1535,15 @@ export default function BoardStage({
   const snapshotRecoveryAttemptedRoomRef = useRef<number | null>(null);
   const [resolvedSnapshotBootstrapRoomId, setResolvedSnapshotBootstrapRoomId] =
     useState<string | null>(null);
-  const durableSnapshotRevisionRef = useRef<number | null>(null);
-  const durableSliceRevisionRef = useRef<DurableSliceRevisionState>(
-    createInitialDurableSliceRevisionState()
-  );
-  const durableWriteQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const durableTrackingRef = useRef<{
+    snapshotRevision: number | null;
+    sliceRevisions: DurableSliceRevisionState;
+    writeQueue: Promise<void>;
+  }>({
+    snapshotRevision: null,
+    sliceRevisions: createInitialDurableSliceRevisionState(),
+    writeQueue: Promise.resolve(),
+  });
   const governanceInspectionSequenceRef = useRef(0);
   const pendingLocalCursorPresenceFrameRef = useRef<number | null>(null);
   const pendingLocalCursorPresencePointRef = useRef<{
@@ -1550,12 +1566,18 @@ export default function BoardStage({
     {}
   );
 
-  localCursorViewportRef.current = {
-    stageX: stagePosition.x,
-    stageY: stagePosition.y,
-    stageScale,
-  };
-  onUpdateLocalPresenceRef.current = onUpdateLocalPresence;
+  useLayoutEffect(() => {
+    objectsRef.current = objects;
+  }, [objects]);
+
+  useLayoutEffect(() => {
+    localCursorViewportRef.current = {
+      stageX: stagePosition.x,
+      stageY: stagePosition.y,
+      stageScale,
+    };
+    onUpdateLocalPresenceRef.current = onUpdateLocalPresence;
+  }, [onUpdateLocalPresence, stagePosition.x, stagePosition.y, stageScale]);
 
   const scheduleNoteCardResizePreviewRender = () => {
     if (liveNoteCardResizeFrameRef.current !== null) {
@@ -1662,23 +1684,27 @@ export default function BoardStage({
     [remoteImageDrawingLocks]
   );
 
-  const endImageStroke = () => {
+  const endImageStroke = useCallback(() => {
     const activeStroke = activeImageStrokeRef.current;
 
     if (activeStroke) {
       syncCurrentImage(activeStroke.imageId);
-      persistLocalReplica(objects, "image-draw-commit");
-      persistDurableSliceWrite(objects, "image-draw-commit", "images");
+      persistLocalReplica(objectsRef.current, "image-draw-commit");
+      persistDurableSliceWrite(
+        objectsRef.current,
+        "image-draw-commit",
+        "images"
+      );
     }
 
     clearActiveImageStrokeSession();
-  };
+  }, [persistDurableSliceWrite, persistLocalReplica, syncCurrentImage]);
 
-  const finishImageDrawingMode = () => {
+  const finishImageDrawingMode = useCallback(() => {
     endImageStroke();
     releaseImageDrawingLock();
     setDrawingImageSessionImageId(null);
-  };
+  }, [endImageStroke, releaseImageDrawingLock]);
 
   const setSelectedObjectIdWithImageDrawingGuard = (
     nextSelectedObjectId: string | null
@@ -1853,6 +1879,12 @@ export default function BoardStage({
 
   useEffect(() => {
     let isCancelled = false;
+    const resetDurableWriteTracking = () => {
+      durableTrackingRef.current.snapshotRevision = null;
+      durableTrackingRef.current.sliceRevisions =
+        createInitialDurableSliceRevisionState();
+      durableTrackingRef.current.writeQueue = Promise.resolve();
+    };
     const savedViewport = loadViewportState(roomId);
     const initialRoomViewport = getInitialRoomViewport(
       window.innerWidth,
@@ -1873,23 +1905,21 @@ export default function BoardStage({
 
     roomBootstrapEntryIdRef.current = nextBootstrapEntryId;
     snapshotRecoveryAttemptedRoomRef.current = null;
-    durableSnapshotRevisionRef.current = null;
-    durableSliceRevisionRef.current = createInitialDurableSliceRevisionState();
-    durableWriteQueueRef.current = Promise.resolve();
+    resetDurableWriteTracking();
     panStateRef.current = null;
     clearLiveNoteCardResizePreviewSession();
     clearActiveImageStrokeSession();
-    setLocalReplicaInspection({
-      ...createInitialLocalReplicaInspectionState(),
-      initialOpenStatus: "pending",
-      lastSettledRecoveryState: "pending",
-    });
-    setDurableReplicaInspection(createInitialDurableReplicaInspectionState());
     queueMicrotask(() => {
       if (isCancelled) {
         return;
       }
 
+      setLocalReplicaInspection({
+        ...createInitialLocalReplicaInspectionState(),
+        initialOpenStatus: "pending",
+        lastSettledRecoveryState: "pending",
+      });
+      setDurableReplicaInspection(createInitialDurableReplicaInspectionState());
       replaceBoardObjects(getRoomScopedBoardObjects(roomId));
       setStagePosition(
         hasSavedViewport
@@ -2071,15 +2101,14 @@ export default function BoardStage({
     const applyDurableSnapshotInspection = (
       snapshot: Awaited<ReturnType<typeof loadDurableRoomSnapshot>>
     ) => {
-      durableSnapshotRevisionRef.current = snapshot?.revision ?? null;
-      durableSliceRevisionRef.current = getDurableSliceRevisionStateFromSnapshot(
-        snapshot
-      );
+      durableTrackingRef.current.snapshotRevision = snapshot?.revision ?? null;
+      durableTrackingRef.current.sliceRevisions =
+        getDurableSliceRevisionStateFromSnapshot(snapshot);
       setDurableReplicaInspection((current) => ({
         ...current,
         currentRevision: snapshot?.revision ?? null,
         currentSliceRevisions: cloneDurableSliceRevisionState(
-          durableSliceRevisionRef.current
+          durableTrackingRef.current.sliceRevisions
         ),
       }));
     };
@@ -3172,7 +3201,7 @@ export default function BoardStage({
       window.removeEventListener("mousedown", handlePointerDown);
       window.removeEventListener("touchstart", handlePointerDown);
     };
-  }, [drawingImageId]);
+  }, [drawingImageId, finishImageDrawingMode]);
 
   useEffect(() => {
     return () => {
@@ -3739,7 +3768,9 @@ export default function BoardStage({
     );
   }, []);
 
-  flushLocalCursorPresenceRef.current = flushLocalCursorPresence;
+  useLayoutEffect(() => {
+    flushLocalCursorPresenceRef.current = flushLocalCursorPresence;
+  }, [flushLocalCursorPresence]);
 
   const scheduleLocalCursorPresencePublish = (
     clientX: number,
