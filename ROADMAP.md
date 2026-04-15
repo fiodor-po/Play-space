@@ -126,7 +126,7 @@ Use these statuses in roadmap notes when useful:
 
 ## Phase C — Room document persistence / recovery architecture
 
-**Статус:** persistence/recovery complete, participant identity stabilization closed, next execution block `push to hosted + debug`, next candidate chapter `participant-marker / creator-color`
+**Статус:** persistence/recovery complete, participant identity stabilization closed, hard sprint active in branch `sprint/cleanup-lint-boardstage-foundation`
 
 ### Цель
 Принять `room document replicas` как architecture chapter, перевести
@@ -212,13 +212,14 @@ Current planning-mode candidate for the next strategist step:
 
 Это делает participant-marker / creator-color следующим candidate architecture concern.
 
-Current expected execution track before that chapter:
+Current hard sprint in this branch:
 
-1. push the current mainline to hosted and verify the real deployed behavior;
-2. fix only the real hosted regressions or rough edges that surface there;
-3. start a separate cleanup sprint after hosted fixes:
-   - first bring lint back to an honest green checkpoint;
-   - then split structural hotspots in narrow passes.
+1. keep `main` as the stable hosted/demo line;
+2. use this branch for cleanup-only work;
+3. first active slice: `lint green baseline`;
+4. second slice after that: `BoardStage structural reduction phase 1`;
+5. keep `participant-marker / creator-color` outside this sprint as the next
+   product/runtime candidate chapter.
 
 ## 5. Что вошло в этот checkpoint
 
@@ -241,7 +242,9 @@ Current expected execution track before that chapter:
 - later follow-up task: `room-ops durability ergonomics`;
 - optional follow-up task: `legacy room-snapshot write-cache cleanup`;
 - optional follow-up task: `internal recovery naming/log cleanup`;
-- next execution block: `push to hosted + debug`;
+- hard sprint branch: `sprint/cleanup-lint-boardstage-foundation`;
+- first active cleanup slice: `lint green baseline`;
+- second cleanup slice: `BoardStage structural reduction phase 1`;
 - next candidate chapter: `participant-marker / creator-color`;
 - hosted validation как повторяемая проверка после крупных шагов, выкатываний и
   новых demo snapshots.
@@ -279,13 +282,12 @@ Current expected execution track before that chapter:
 18. держать `room-ops durability ergonomics` как later follow-up task after the closed replica-track chapter;
 19. держать `legacy room-snapshot write-cache cleanup` как optional hygiene follow-up outside the core recovery semantics;
 20. держать `internal recovery naming/log cleanup` как optional hygiene follow-up outside the core runtime contract;
-21. сначала выполнить следующий execution block: `push to hosted + debug`;
-22. после hosted проверки чинить только реальные hosted rough edges;
-23. после hosted fixes запускать отдельный cleanup sprint:
-   - сначала вернуть lint к честному green checkpoint;
-   - потом разрезать structural hotspots узкими passes;
-24. держать `participant-marker / creator-color` как следующий candidate chapter после participant identity stabilization;
-25. возвращаться к hosted validation как checkpoint после больших шагов и новых
+21. держать `main` как стабильную hosted/demo линию;
+22. вести cleanup-only work в branch `sprint/cleanup-lint-boardstage-foundation`;
+23. взять `lint green baseline` как первый active cleanup slice;
+24. взять `BoardStage structural reduction phase 1` как следующий cleanup slice после lint;
+25. держать `participant-marker / creator-color` как следующий candidate chapter после participant identity stabilization;
+26. возвращаться к hosted validation как checkpoint после больших шагов и новых
    demo snapshots.
 
 ## 8. Backlog

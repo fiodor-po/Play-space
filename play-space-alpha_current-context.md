@@ -29,6 +29,14 @@ In hard sprint mode:
 - the chosen slice order may be written as the working sprint sequence;
 - other future work remains `candidate`, `backlog`, or `optional`.
 
+Current branch is now in hard sprint mode:
+
+- branch: `sprint/cleanup-lint-boardstage-foundation`
+- `main` stays the stable hosted/demo line
+- first active cleanup slice: `lint green baseline`
+- second cleanup slice: `BoardStage structural reduction phase 1`
+- `participant-marker / creator-color` stays the next candidate product/runtime chapter
+
 Проект остаётся в стадии `play-space-alpha`.
 
 Основной продуктовый курс не изменился:
@@ -96,7 +104,7 @@ In hard sprint mode:
   - local smoke now also covers same-browser second-tab attach in one browser
     profile.
 - next candidate chapter is now `participant-marker / creator-color`.
-- next execution block before that chapter is now `push to hosted + debug`.
+- hard sprint is now active in branch `sprint/cleanup-lint-boardstage-foundation`.
 - Dev tools inspectability surface now has a closed usability cleanup checkpoint:
   - the panel stays viewport-bounded on ordinary desktop viewports;
   - lower inspect blocks and controls stay reachable through internal scroll;
@@ -121,13 +129,13 @@ Current workflow rule for hosted validation:
 
 Current expected order from here:
 
-1. push the current mainline to hosted and verify the real deployed behavior;
-2. fix only the hosted regressions or rough edges that actually surface there;
-3. start a separate cleanup sprint after hosted fixes:
-   - first return lint to an honest green checkpoint;
-   - then split structural hotspots in narrow passes;
-4. keep `participant-marker / creator-color` as the next candidate chapter
-   rather than mixing it into hosted debugging or cleanup.
+1. keep `main` as the stable hosted/demo line;
+2. use this branch for cleanup-only work;
+3. take `lint green baseline` as the first active cleanup slice;
+4. take `BoardStage structural reduction phase 1` as the next cleanup slice
+   after lint;
+5. keep `participant-marker / creator-color` as the next candidate chapter
+   rather than mixing it into the cleanup sprint.
 
 ## 1.1. Future room-flow split to remember
 
