@@ -568,6 +568,13 @@ Current hard sprint in this branch:
     - image = canonical box/media interaction object
     - note-card = canonical text-box interaction object
     - token = canonical pin exception
+- [ ] reduce local drag inertia for image-attached dependents:
+  - attached tokens and image-attached controls should stay visually glued to
+    the image during local drag
+  - current visible catch-up after parent bounds recompute should be reduced to
+    near-zero
+  - keep this as a narrow local interaction-loop / dependent-follow task, not
+    as a scene-graph rewrite
 - [ ] hosted deploy hardening only if product validation justifies it
 - [ ] behavior indication model chapter
 - [ ] cross-user action visibility model chapter
