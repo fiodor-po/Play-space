@@ -1450,21 +1450,30 @@ export default function BoardStage({
     []
   );
 
-  const resolveRoomActionAccess = (actionKey: GovernanceActionKey) => {
-    const resolution = resolveGovernedActionAccess({
-      entity: createRoomGovernedEntityRef({
-        roomId,
-        creatorId: roomCreatorId,
-      }),
-      actionKey,
-      participantId: participantSession.id,
-      explicitAccessLevel: roomEffectiveAccessLevel,
-      defaultAccessLevel: "full",
-    });
-    recordGovernanceResolution(resolution);
+  const resolveRoomActionAccess = useCallback(
+    (actionKey: GovernanceActionKey) => {
+      const resolution = resolveGovernedActionAccess({
+        entity: createRoomGovernedEntityRef({
+          roomId,
+          creatorId: roomCreatorId,
+        }),
+        actionKey,
+        participantId: participantSession.id,
+        explicitAccessLevel: roomEffectiveAccessLevel,
+        defaultAccessLevel: "full",
+      });
+      recordGovernanceResolution(resolution);
 
-    return resolution;
-  };
+      return resolution;
+    },
+    [
+      participantSession.id,
+      recordGovernanceResolution,
+      roomCreatorId,
+      roomEffectiveAccessLevel,
+      roomId,
+    ]
+  );
 
   const resolveObjectActionAccess = useCallback(
     (objectId: string, actionKey: GovernanceActionKey) => {
@@ -2820,30 +2829,42 @@ export default function BoardStage({
     });
   };
 
-  const createParticipantMarker = (position?: { x: number; y: number }) => {
-    const createTokenAccess = resolveRoomActionAccess("room.add-token");
+  const createParticipantMarker = useCallback(
+    (position?: { x: number; y: number }) => {
+      const createTokenAccess = resolveRoomActionAccess("room.add-token");
 
-    if (!createTokenAccess.isAllowed) {
-      return null;
-    }
+      if (!createTokenAccess.isAllowed) {
+        return null;
+      }
 
-    const markerPosition =
-      position ??
-      getViewportCenterInBoardCoords({
-        stageWidth: stageSize.width,
-        stageHeight: stageSize.height,
-        stageX: stagePosition.x,
-        stageY: stagePosition.y,
-        stageScale,
+      const markerPosition =
+        position ??
+        getViewportCenterInBoardCoords({
+          stageWidth: stageSize.width,
+          stageHeight: stageSize.height,
+          stageX: stagePosition.x,
+          stageY: stagePosition.y,
+          stageScale,
+        });
+
+      return createTokenObject({
+        id: `token-${createClientId()}`,
+        color: currentUserColor,
+        creatorId: participantSession.id,
+        position: markerPosition,
       });
-
-    return createTokenObject({
-      id: `token-${createClientId()}`,
-      color: currentUserColor,
-      creatorId: participantSession.id,
-      position: markerPosition,
-    });
-  };
+    },
+    [
+      currentUserColor,
+      participantSession.id,
+      resolveRoomActionAccess,
+      stagePosition.x,
+      stagePosition.y,
+      stageScale,
+      stageSize.height,
+      stageSize.width,
+    ]
+  );
 
   useEffect(() => {
     if (tokenInitialSyncRoomId !== roomId) {
@@ -2899,6 +2920,7 @@ export default function BoardStage({
   }, [
     addBoardObject,
     applyBoardObjectsUpdate,
+    createParticipantMarker,
     currentUserColor,
     objects,
     participantSession.id,
