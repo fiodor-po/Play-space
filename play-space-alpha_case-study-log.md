@@ -2463,3 +2463,70 @@ That separation keeps the current alpha path simple and honest while preserving 
 The future direction is now explicit:
 - current room entry can stay lightweight and demo-friendly;
 - a later email-based persistent room flow can carry the heavier long-lived semantics.
+
+---
+
+## Phase 0X — IndexedDB room-document replica checkpoint closure
+
+### Type
+- implementation checkpoint
+
+### Context
+The project opened `room document persistence / recovery architecture` as the
+active chapter because snapshot arbitration was no longer reliable enough for
+committed room content recovery.
+
+The first chosen slice was intentionally narrow:
+
+- move browser-local room-document replica storage from `localStorage` to
+  `IndexedDB`;
+- keep one full room-document replica per room as the first baseline;
+- add a narrow same-browser recovery read bridge;
+- preserve active-room `live-wins` and durable shared truth semantics.
+
+### Goal or problem
+The project needed a browser-local recovery layer that:
+
+- survives realistic image-heavy room payloads;
+- does not hit `localStorage` quota in ordinary use;
+- restores committed state in the same browser after refresh and leave / re-enter;
+- stays compatible with the current durable and live room corridors.
+
+### What happened
+The implementation phase landed together with several narrow stabilizing fixes:
+
+- browser-local room-document replicas moved to `IndexedDB`;
+- same-browser bootstrap can read the local replica as a narrow recovery bridge;
+- local replica writes stay tied to commit boundaries;
+- render-phase local persistence callback execution was moved out of React render;
+- durable snapshot retry loop on `409 conflict` was bounded;
+- token and note-card drag corridors stopped spamming durable persistence on each move;
+- cursor presence flood was throttled enough to stop runtime depth failures.
+
+Manual validation confirmed:
+
+- image move / resize / draw-save survive refresh;
+- token move survives refresh;
+- note-card move and text edit survive refresh;
+- leave / re-enter in the same browser works;
+- second-browser shared truth stays coherent.
+
+### Decision / change
+The project can now treat the first `IndexedDB room-document replica` phase as
+checkpoint-complete.
+
+### Why
+The core product corridor is now usable and materially safer:
+
+- browser-local recovery works in realistic usage;
+- the app no longer crashes in the previously opened persistence corridors;
+- persistent console noise was reduced from continuous flood to occasional
+  commit-time conflicts;
+- the remaining durable `409 conflict` entries no longer block normal room use.
+
+### Result
+The persistence/recovery chapter reached a real checkpoint:
+
+- `narrow commit-boundary persistence phase` is complete enough to close in the roadmap;
+- the next chapter can move to browser-local participant identity stabilization;
+- durable snapshot conflict handling remains a later refinement, not a blocker.

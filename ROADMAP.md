@@ -72,12 +72,12 @@
 
 ## Phase C — Room document persistence / recovery architecture
 
-**Статус:** active
+**Статус:** checkpoint-complete
 
 ### Цель
-Принять `room document replicas` как новый активный architecture chapter,
-перевести persistence/recovery от snapshot arbitration к replica model и начать
-с узкой `commit-boundary persistence` фазы.
+Принять `room document replicas` как architecture chapter, перевести
+persistence/recovery от snapshot arbitration к replica model и довести первую
+узкую `commit-boundary persistence` фазу до честного рабочего checkpoint.
 
 ### Основная последовательность
 1. удерживать hosted core + optional video checkpoint как baseline;
@@ -90,14 +90,15 @@
    - current product surface stays;
    - new room-document replica model grows beside current snapshot-arbitration model;
    - cutover happens by phases;
-8. взять первой implementation phase: `narrow commit-boundary persistence phase`;
-   first concrete slice inside it:
-   - move browser-local room-document replica storage to `IndexedDB`;
-   - keep one full local room-document replica per room as the first baseline;
-   - add a narrow same-browser recovery read bridge;
-   - keep local delta-log / compaction design deferred;
-9. держать `participant-marker / creator-color` как later chapter после persistence/recovery stabilization;
-10. возвращаться к hosted validation как recurring checkpoint после крупных
+8. завершить первую implementation phase: `narrow commit-boundary persistence phase`;
+   completed first slice:
+   - browser-local room-document replica storage moved to `IndexedDB`;
+   - one full local room-document replica per room accepted as the first baseline;
+   - narrow same-browser recovery read bridge added;
+   - local delta-log / compaction design remains deferred;
+9. взять `browser-local participant identity stabilization` как следующий chapter candidate;
+10. держать `participant-marker / creator-color` как later chapter после participant identity stabilization;
+11. возвращаться к hosted validation как recurring checkpoint после крупных
     шагов и новых demo snapshots.
 
 ### Почему это теперь главный фокус
@@ -113,7 +114,7 @@
 
 Это делает storage/recovery spine главным active architecture concern.
 
-## 5. Что входит в текущий этап
+## 5. Что входит в текущий checkpoint
 
 - удержание core hosted stack в честном рабочем состоянии;
 - удержание working hosted video path как optional layer без лишнего scope creep;
@@ -121,8 +122,9 @@
 - `App.tsx` checkpoint closure after lifecycle / ownership completion;
 - `BoardStage.tsx` cleanup chapter checkpoint closure;
 - refreshed architecture/runtime audit completion;
-- new active chapter: `room document persistence / recovery architecture`;
-- next implementation phase: `narrow commit-boundary persistence phase`;
+- completed chapter: `room document persistence / recovery architecture`;
+- completed implementation phase: `narrow commit-boundary persistence phase`;
+- next chapter candidate: `browser-local participant identity stabilization`;
 - later follow-up chapter: `participant-marker / creator-color`;
 - hosted validation как повторяемая проверка после крупных шагов, выкатываний и
   новых demo snapshots.
@@ -146,10 +148,11 @@
 4. считать `App.tsx` chapter structurally closed;
 5. считать current `BoardStage.tsx` cleanup chapter checkpoint-closed;
 6. считать refreshed architecture/runtime audit completed;
-7. открыть `room document persistence / recovery architecture` как следующий implementation chapter;
-8. взять `narrow commit-boundary persistence phase` как первый implementation phase;
-9. держать `participant-marker / creator-color` как следующий отдельный follow-up chapter после persistence/recovery stabilization;
-10. возвращаться к hosted validation как checkpoint после больших шагов и новых
+7. считать `room document persistence / recovery architecture` checkpoint-complete;
+8. считать `narrow commit-boundary persistence phase` checkpoint-complete;
+9. взять `browser-local participant identity stabilization` как следующий chapter candidate;
+10. держать `participant-marker / creator-color` как следующий отдельный follow-up chapter после participant identity stabilization;
+11. возвращаться к hosted validation как checkpoint после больших шагов и новых
    demo snapshots.
 
 ## 8. Backlog
@@ -180,12 +183,18 @@
 - [x] принять `parallel replacement` как strategy для migration к room-document replica model
 - [x] зафиксировать `participant-marker / creator-color` как следующий отдельный follow-up chapter
 - [x] открыть `room document persistence / recovery architecture` как новый active chapter
-- [ ] сделать `narrow commit-boundary persistence phase` как первый implementation phase
-  - first concrete slice:
-    - move browser-local room-document replica storage from `localStorage` to `IndexedDB`
-    - keep full room-document replica writes on commit boundary
-    - add same-browser IndexedDB recovery read bridge
-    - preserve active-room `live-wins` behavior and durable shared truth semantics
+- [x] сделать `narrow commit-boundary persistence phase` как первый implementation phase
+  - completed first concrete slice:
+    - browser-local room-document replica storage moved from `localStorage` to `IndexedDB`
+    - full room-document replica writes stay on commit boundary
+    - same-browser IndexedDB recovery read bridge added
+    - active-room `live-wins` behavior and durable shared truth semantics preserved
+  - validation checkpoint completed:
+    - image move / resize / draw-save survive refresh
+    - token move survives refresh
+    - note-card move and text edit survive refresh
+    - leave / re-enter in the same browser works
+    - second-browser shared truth remains coherent
 - [ ] использовать hosted validation как recurring checkpoint после крупных
   продуктовых шагов и новых demo snapshots
 

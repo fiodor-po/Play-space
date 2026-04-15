@@ -263,9 +263,10 @@ Required deferred follow-up is now explicit:
 - accepted target is snapshot-backed room-scoped last-known participant appearance as the non-live creator fallback by `creatorId`;
 - `creatorId` remains durable room identity truth, while participant appearance fallback belongs to durable room snapshot;
 
-### 3.18. Persistence/recovery is now the active architecture chapter
+### 3.18. Persistence/recovery reached a working checkpoint
 
-The current active architecture chapter is now `room document persistence / recovery architecture`.
+`room document persistence / recovery architecture` reached a working
+checkpoint.
 
 Accepted direction:
 
@@ -297,7 +298,7 @@ Current implementation consequence:
 - the uncommitted `Phase 1` runtime seam should be reused later as groundwork where useful;
 - it should not be committed as-is, because it currently mixes useful runtime extraction with incomplete persistence semantics.
 
-Next implementation phase:
+Completed implementation phase:
 
 - `narrow commit-boundary persistence phase`
 
@@ -309,6 +310,18 @@ Important persistence result already established during this chapter:
 - accepted consequence: the first serious local room-document replica baseline should move to IndexedDB rather than relying on `localStorage`.
 - accepted current implementation target: IndexedDB-backed full room-document replica writes on commit boundary, followed by a narrow same-browser recovery read bridge.
 - analysis note: [docs/creator-color-fallback-analysis-2026-04-14.md](docs/creator-color-fallback-analysis-2026-04-14.md)
+
+Checkpoint result now confirmed manually:
+
+- same-browser refresh recovers committed image, token, and note-card state;
+- same-browser leave / re-enter works;
+- second-browser shared truth stays coherent;
+- the current remaining durable `409 conflict` entries are occasional commit-time
+  conflicts and the room flow stays intact.
+
+Next chapter candidate:
+
+- `browser-local participant identity stabilization`
 
 Separate observed watch item:
 
