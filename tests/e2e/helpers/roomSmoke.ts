@@ -104,6 +104,8 @@ export async function openDebugTools(page: Page) {
   await expect(page.getByTestId("debug-token-inspection")).toBeVisible();
   await expect(page.getByTestId("debug-note-inspection")).toBeVisible();
   await expect(page.getByTestId("debug-local-replica-inspection")).toBeVisible();
+  await expect(page.getByTestId("debug-local-replica-initial-open")).toBeVisible();
+  await expect(page.getByTestId("debug-local-replica-bootstrap")).toBeVisible();
   await expect(page.getByTestId("debug-durable-replica-inspection")).toBeVisible();
 }
 
@@ -146,16 +148,27 @@ export async function getRoomObjectCounts(page: Page) {
 }
 
 export async function expectBootstrapBranch(page: Page, branch: string) {
-  const inspection = page.getByTestId("debug-local-replica-inspection");
+  const inspection = page.getByTestId("debug-local-replica-bootstrap");
 
   await expect(inspection).not.toContainText("Bootstrap: pending");
   await expect(inspection).toContainText(`Bootstrap: ${branch}`);
 }
 
 export async function expectBootstrapLocalSource(page: Page, source: string) {
-  await expect(page.getByTestId("debug-local-replica-inspection")).toContainText(
+  await expect(page.getByTestId("debug-local-replica-bootstrap")).toContainText(
     `local source ${source}`
   );
+}
+
+export async function expectLocalReplicaInitialOpen(
+  page: Page,
+  status: string,
+  source: string
+) {
+  const inspection = page.getByTestId("debug-local-replica-initial-open");
+
+  await expect(inspection).toContainText(`Initial open: ${status}`);
+  await expect(inspection).toContainText(`source ${source}`);
 }
 
 export async function expectLocalReplicaLastRead(page: Page, source: string) {

@@ -389,7 +389,17 @@ type ContainerRect = {
 
 type LocalReplicaReadSource = "idle" | LocalRoomDocumentBootstrapReadSource;
 
+type SharedBootstrapSliceCounts = {
+  tokens: number;
+  images: number;
+  textCards: number;
+};
+
 type LocalReplicaInspectionState = {
+  initialOpenStatus: "idle" | "pending" | "applied" | "skipped";
+  initialOpenSource: Exclude<LocalReplicaReadSource, "idle"> | null;
+  initialOpenRevision: number | null;
+  initialOpenObjectCount: number;
   lastWriteStatus: "idle" | "writing" | "saved" | "failed";
   lastWriteCommitBoundary: LocalObjectsChangeOptions["commitBoundary"] | null;
   lastWriteRevision: number | null;
@@ -406,6 +416,13 @@ type LocalReplicaInspectionState = {
     | "local-recovery"
     | "baseline-initialization"
     | "empty-room"
+    | null;
+  lastBootstrapSource:
+    | "live"
+    | "durable"
+    | "local"
+    | "baseline"
+    | "none"
     | null;
   lastBootstrapLocalSource: Exclude<LocalReplicaReadSource, "idle"> | null;
   lastError: string | null;
@@ -447,8 +464,20 @@ type DurableReplicaInspectionState = {
   lastError: string | null;
 };
 
+function createInitialSharedBootstrapSliceCounts(): SharedBootstrapSliceCounts {
+  return {
+    tokens: 0,
+    images: 0,
+    textCards: 0,
+  };
+}
+
 function createInitialLocalReplicaInspectionState(): LocalReplicaInspectionState {
   return {
+    initialOpenStatus: "idle",
+    initialOpenSource: null,
+    initialOpenRevision: null,
+    initialOpenObjectCount: 0,
     lastWriteStatus: "idle",
     lastWriteCommitBoundary: null,
     lastWriteRevision: null,
@@ -459,6 +488,7 @@ function createInitialLocalReplicaInspectionState(): LocalReplicaInspectionState
     lastReadSavedAt: null,
     lastReadObjectCount: 0,
     lastBootstrapBranch: null,
+    lastBootstrapSource: null,
     lastBootstrapLocalSource: null,
     lastError: null,
   };
@@ -1046,6 +1076,10 @@ export default function BoardStage({
   const [remoteActiveObjectMoves, setRemoteActiveObjectMoves] = useState<
     ActiveObjectMoveMap
   >({});
+  const [sharedBootstrapSliceCounts, setSharedBootstrapSliceCounts] =
+    useState<SharedBootstrapSliceCounts>(
+      createInitialSharedBootstrapSliceCounts
+    );
   const [containerRect, setContainerRect] = useState<ContainerRect | null>(null);
   const [liveSelectedImageControlAnchor, setLiveSelectedImageControlAnchor] =
     useState<{ imageId: string; x: number; y: number } | null>(null);
@@ -1058,6 +1092,7 @@ export default function BoardStage({
   const [textCardInitialSyncRoomId, setTextCardInitialSyncRoomId] = useState<
     string | null
   >(null);
+  const sharedBootstrapObjectCountRef = useRef(0);
   const currentUserColor = participantSession.color;
   const sharedTokenObjects = objects.filter((object) => object.kind === "token");
   const sharedTokenCount = sharedTokenObjects.length;
@@ -1415,11 +1450,14 @@ export default function BoardStage({
     tokenInitialSyncRoomId === roomId &&
     imageInitialSyncRoomId === roomId &&
     textCardInitialSyncRoomId === roomId;
-  const sharedRoomObjects = useMemo(
-    () =>
-      getSharedBoardObjects(objects),
-    [objects]
-  );
+  const sharedBootstrapObjectCount =
+    sharedBootstrapSliceCounts.tokens +
+    sharedBootstrapSliceCounts.images +
+    sharedBootstrapSliceCounts.textCards;
+
+  useEffect(() => {
+    sharedBootstrapObjectCountRef.current = sharedBootstrapObjectCount;
+  }, [sharedBootstrapObjectCount]);
 
   const clearImageDrawing = (id: string) => {
     const clearAccess = resolveObjectActionAccess(
@@ -1706,6 +1744,7 @@ export default function BoardStage({
     clearActiveImageStrokeSession();
     setLocalReplicaInspection({
       ...createInitialLocalReplicaInspectionState(),
+      initialOpenStatus: "pending",
       lastBootstrapBranch: "pending",
     });
     setDurableReplicaInspection(createInitialDurableReplicaInspectionState());
@@ -1738,6 +1777,7 @@ export default function BoardStage({
       setRemoteTextCardEditingStates({});
       setRemoteTextCardResizeStates({});
       setLiveSelectedImageControlAnchor(null);
+      setSharedBootstrapSliceCounts(createInitialSharedBootstrapSliceCounts());
       setTokenInitialSyncRoomId(null);
       setImageInitialSyncRoomId(null);
       setTextCardInitialSyncRoomId(null);
@@ -1875,84 +1915,138 @@ export default function BoardStage({
       return;
     }
 
-    if (sharedRoomObjects.length > 0) {
-      let isCancelled = false;
-
-      const resolveLiveBootstrap = async () => {
-        let snapshot = null;
-
-        try {
-          snapshot = await loadDurableRoomSnapshot(roomId);
-        } catch (error) {
-          console.error(
-            "Failed to resolve durable room snapshot during live bootstrap",
-            error
-          );
-        }
-
-        if (isCancelled) {
-          return;
-        }
-
-        durableSnapshotRevisionRef.current = snapshot?.revision ?? null;
-        durableSliceRevisionRef.current = getDurableSliceRevisionStateFromSnapshot(
-          snapshot
-        );
-        setDurableReplicaInspection((current) => ({
-          ...current,
-          currentRevision: snapshot?.revision ?? null,
-          currentSliceRevisions: cloneDurableSliceRevisionState(
-            durableSliceRevisionRef.current
-          ),
-        }));
-        console.info("[room-recovery][board-stage][bootstrap-terminal]", {
-          roomId,
-          branch: "live-wins",
-          durableRevision: snapshot?.revision ?? null,
-        });
-        setLocalReplicaInspection((current) => ({
-          ...current,
-          lastBootstrapBranch: "live-wins",
-          lastBootstrapLocalSource: null,
-        }));
-        snapshotRecoveryAttemptedRoomRef.current = roomBootstrapEntryIdRef.current;
-        setResolvedSnapshotBootstrapRoomId(roomId);
-      };
-
-      void resolveLiveBootstrap();
-
-      return () => {
-        isCancelled = true;
-      };
-    }
-
     let isCancelled = false;
+    const composeSharedRoomObjects = (params: {
+      roomId: string;
+      tokens?: BoardObject[];
+      images?: BoardObject[];
+      textCards?: BoardObject[];
+    }) => [
+      ...getRoomScopedBoardObjects(params.roomId),
+      ...(params.tokens ?? []),
+      ...(params.images ?? []),
+      ...(params.textCards ?? []),
+    ];
+    const composeBaselineRoomObjects = (
+      nextRoomId: string,
+      baselineObjects: BoardObject[]
+    ) => [...getRoomScopedBoardObjects(nextRoomId), ...baselineObjects];
+    const applyDurableSnapshotInspection = (
+      snapshot: Awaited<ReturnType<typeof loadDurableRoomSnapshot>>
+    ) => {
+      durableSnapshotRevisionRef.current = snapshot?.revision ?? null;
+      durableSliceRevisionRef.current = getDurableSliceRevisionStateFromSnapshot(
+        snapshot
+      );
+      setDurableReplicaInspection((current) => ({
+        ...current,
+        currentRevision: snapshot?.revision ?? null,
+        currentSliceRevisions: cloneDurableSliceRevisionState(
+          durableSliceRevisionRef.current
+        ),
+      }));
+    };
+    const settleLiveWinsBootstrap = (
+      snapshot: Awaited<ReturnType<typeof loadDurableRoomSnapshot>>
+    ) => {
+      applyDurableSnapshotInspection(snapshot);
+      console.info("[room-recovery][board-stage][bootstrap-terminal]", {
+        roomId,
+        branch: "live-wins",
+        durableRevision: snapshot?.revision ?? null,
+      });
+      setLocalReplicaInspection((current) => ({
+        ...current,
+        initialOpenStatus:
+          current.initialOpenStatus === "pending"
+            ? "skipped"
+            : current.initialOpenStatus,
+        initialOpenSource:
+          current.initialOpenStatus === "pending"
+            ? "none"
+            : current.initialOpenSource,
+        initialOpenRevision:
+          current.initialOpenStatus === "pending"
+            ? null
+            : current.initialOpenRevision,
+        initialOpenObjectCount:
+          current.initialOpenStatus === "pending"
+            ? 0
+            : current.initialOpenObjectCount,
+        lastBootstrapBranch: "live-wins",
+        lastBootstrapSource: "live",
+        lastBootstrapLocalSource: null,
+      }));
+      snapshotRecoveryAttemptedRoomRef.current = roomBootstrapEntryIdRef.current;
+      setResolvedSnapshotBootstrapRoomId(roomId);
+    };
+    const resolveLiveBootstrap = async () => {
+      let snapshot = null;
+
+      try {
+        snapshot = await loadDurableRoomSnapshot(roomId);
+      } catch (error) {
+        console.error(
+          "Failed to resolve durable room snapshot during live bootstrap",
+          error
+        );
+      }
+
+      if (isCancelled) {
+        return;
+      }
+
+      settleLiveWinsBootstrap(snapshot);
+    };
 
     const resolveRoomBootstrap = async () => {
-      const composeSharedRoomObjects = (params: {
-        roomId: string;
-        tokens?: BoardObject[];
-        images?: BoardObject[];
-        textCards?: BoardObject[];
-      }) => [
-        ...getRoomScopedBoardObjects(params.roomId),
-        ...(params.tokens ?? []),
-        ...(params.images ?? []),
-        ...(params.textCards ?? []),
-      ];
-      const composeBaselineRoomObjects = (
-        nextRoomId: string,
-        baselineObjects: BoardObject[]
-      ) => [...getRoomScopedBoardObjects(nextRoomId), ...baselineObjects];
       const localBootstrapState = await loadLocalRoomDocumentBootstrapState(
         roomId
       );
+
+      if (isCancelled) {
+        return;
+      }
+
       const localRecoverySnapshot = localBootstrapState.content;
       const localRecoverySource = localBootstrapState.source;
       const localRecoveryObjectCount = localBootstrapState.objectCount;
       const localRecoverySavedAt = localBootstrapState.savedAt;
       const localRecoveryRevision = localBootstrapState.revision;
       const localRecoveryIsVersionAware = localBootstrapState.isVersionAware;
+      const shouldApplyProvisionalLocalOpen =
+        localRecoverySnapshot !== null &&
+        localRecoveryIsVersionAware &&
+        sharedBootstrapObjectCountRef.current === 0;
+
+      setLocalReplicaInspection((current) => ({
+        ...current,
+        initialOpenStatus: shouldApplyProvisionalLocalOpen ? "applied" : "skipped",
+        initialOpenSource: localRecoverySource,
+        initialOpenRevision: localRecoveryRevision,
+        initialOpenObjectCount: localRecoveryObjectCount,
+        lastReadSource: localRecoverySource,
+        lastReadRevision: localRecoveryRevision,
+        lastReadSavedAt: localRecoverySavedAt,
+        lastReadObjectCount: localRecoveryObjectCount,
+      }));
+
+      if (shouldApplyProvisionalLocalOpen && localRecoverySnapshot) {
+        console.info("[room-recovery][board-stage][initial-open]", {
+          roomId,
+          source: localRecoverySource,
+          revision: localRecoveryRevision,
+          objectCount: localRecoveryObjectCount,
+        });
+        replaceBoardObjects(
+          composeSharedRoomObjects({
+            roomId,
+            tokens: localRecoverySnapshot.tokens,
+            images: localRecoverySnapshot.images,
+            textCards: localRecoverySnapshot.textCards,
+          })
+        );
+      }
 
       let durableSnapshot = null;
 
@@ -1966,24 +2060,12 @@ export default function BoardStage({
         return;
       }
 
-      durableSnapshotRevisionRef.current = durableSnapshot?.revision ?? null;
-      durableSliceRevisionRef.current = getDurableSliceRevisionStateFromSnapshot(
-        durableSnapshot
-      );
-      setDurableReplicaInspection((current) => ({
-        ...current,
-        currentRevision: durableSnapshot?.revision ?? null,
-        currentSliceRevisions: cloneDurableSliceRevisionState(
-          durableSliceRevisionRef.current
-        ),
-      }));
-      setLocalReplicaInspection((current) => ({
-        ...current,
-        lastReadSource: localRecoverySource,
-        lastReadRevision: localRecoveryRevision,
-        lastReadSavedAt: localRecoverySavedAt,
-        lastReadObjectCount: localRecoveryObjectCount,
-      }));
+      if (sharedBootstrapObjectCountRef.current > 0) {
+        settleLiveWinsBootstrap(durableSnapshot);
+        return;
+      }
+
+      applyDurableSnapshotInspection(durableSnapshot);
 
       const durableSnapshotObjectCount = getSnapshotObjectCount(durableSnapshot);
       const hasLocalRecoveryDocument =
@@ -2010,7 +2092,7 @@ export default function BoardStage({
       console.info("[room-recovery][board-stage][bootstrap-inputs]", {
         roomId,
         bootstrapEntryId: roomBootstrapEntryIdRef.current,
-        sharedRoomObjectCount: sharedRoomObjects.length,
+        sharedRoomObjectCount: sharedBootstrapObjectCountRef.current,
         durableSnapshotObjectCount,
         localRecoveryObjectCount,
         localRecoverySource,
@@ -2080,6 +2162,14 @@ export default function BoardStage({
       setLocalReplicaInspection((current) => ({
         ...current,
         lastBootstrapBranch: terminalBranch,
+        lastBootstrapSource:
+          terminalSource === "durable"
+            ? "durable"
+            : terminalSource === "local"
+              ? "local"
+              : terminalSource === "baseline"
+                ? "baseline"
+                : "none",
         lastBootstrapLocalSource:
           terminalBranch === "local-recovery" ? localRecoverySource : null,
       }));
@@ -2101,7 +2191,11 @@ export default function BoardStage({
       }
     };
 
-    void resolveRoomBootstrap();
+    if (sharedBootstrapObjectCount > 0) {
+      void resolveLiveBootstrap();
+    } else {
+      void resolveRoomBootstrap();
+    }
 
     return () => {
       isCancelled = true;
@@ -2112,14 +2206,24 @@ export default function BoardStage({
     replaceBoardObjects,
     roomBaselineToApply,
     roomId,
-    sharedRoomObjects.length,
+    sharedBootstrapObjectCount,
   ]);
 
   useEffect(() => {
     const connection = createRoomTokenConnection({
       roomId,
       onActiveMovesChange: setRemoteActiveObjectMoves,
-      onTokensChange: receiveSharedTokens,
+      onTokensChange: (tokens) => {
+        setSharedBootstrapSliceCounts((current) =>
+          current.tokens === tokens.length
+            ? current
+            : {
+                ...current,
+                tokens: tokens.length,
+              }
+        );
+        receiveSharedTokens(tokens);
+      },
       onInitialSyncComplete: () => {
         setTokenInitialSyncRoomId(roomId);
       },
@@ -2136,6 +2240,14 @@ export default function BoardStage({
     const connection = createRoomImageConnection({
       roomId,
       onImagesChange: (sharedImages) => {
+        setSharedBootstrapSliceCounts((current) =>
+          current.images === sharedImages.length
+            ? current
+            : {
+                ...current,
+                images: sharedImages.length,
+              }
+        );
         receiveSharedImages(sharedImages, (sharedImage, localImage) => {
           if (localImage && transformingImageSnapshotRef.current[sharedImage.id]) {
             return localImage;
@@ -2176,7 +2288,17 @@ export default function BoardStage({
   useEffect(() => {
     const connection = createRoomTextCardConnection({
       roomId,
-      onTextCardsChange: receiveSharedTextCards,
+      onTextCardsChange: (textCards) => {
+        setSharedBootstrapSliceCounts((current) =>
+          current.textCards === textCards.length
+            ? current
+            : {
+                ...current,
+                textCards: textCards.length,
+              }
+        );
+        receiveSharedTextCards(textCards);
+      },
       onInitialSyncComplete: () => {
         setTextCardInitialSyncRoomId(roomId);
       },
@@ -3684,6 +3806,7 @@ export default function BoardStage({
         }}
         devToolsContent={
           <div style={{ display: "grid", gap: 12 }}>
+
             <div
               className={surfaceRecipes.inset.default.className}
               style={{
@@ -4015,8 +4138,21 @@ export default function BoardStage({
               <div style={{ color: "#e2e8f0" }}>
                 Backend: IndexedDB
               </div>
-              <div style={{ color: "#94a3b8" }}>
+              <div
+                data-testid="debug-local-replica-initial-open"
+                style={{ color: "#94a3b8" }}
+              >
+                Initial open: {localReplicaInspection.initialOpenStatus}
+                {" · "}source {localReplicaInspection.initialOpenSource ?? "none"}
+                {" · "}rev {localReplicaInspection.initialOpenRevision ?? "none"}
+                {" · "}objects {localReplicaInspection.initialOpenObjectCount}
+              </div>
+              <div
+                data-testid="debug-local-replica-bootstrap"
+                style={{ color: "#94a3b8" }}
+              >
                 Bootstrap: {localReplicaInspection.lastBootstrapBranch ?? "none"}
+                {" · "}source {localReplicaInspection.lastBootstrapSource ?? "none"}
                 {" · "}local source{" "}
                 {localReplicaInspection.lastBootstrapLocalSource ?? "none"}
               </div>
@@ -4218,6 +4354,7 @@ export default function BoardStage({
               onAddNote={createNote}
               onResetBoard={resetBoard}
             />
+
           </div>
         }
       />
