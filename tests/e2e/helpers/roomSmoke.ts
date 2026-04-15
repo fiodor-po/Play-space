@@ -230,7 +230,7 @@ export async function expectDurableReplicaWriteSavedWithoutRetry(
   await expect(writeInspection).toContainText("conflict slice rev none");
 
   const writeText = await writeInspection.innerText();
-  const ackSnapshotMatch = writeText.match(/ack snapshot rev\s+(\d+)/);
+  const ackSnapshotMatch = writeText.match(/ack checkpoint rev\s+(\d+)/);
   const ackSliceMatch = writeText.match(/ack slice rev\s+(\d+)/);
 
   if (!ackSnapshotMatch || !ackSliceMatch) {
@@ -241,7 +241,7 @@ export async function expectDurableReplicaWriteSavedWithoutRetry(
 
   const knownText = await knownRevisions.innerText();
 
-  expect(knownText).toContain(`snapshot ${ackSnapshotMatch[1]}`);
+  expect(knownText).toContain(`checkpoint ${ackSnapshotMatch[1]}`);
   expect(knownText).toContain(`${slice} ${ackSliceMatch[1]}`);
 }
 
@@ -253,7 +253,7 @@ export async function getDurableReplicaKnownRevisions(page: Page) {
   return {
     snapshot: extractOptionalDebugNumber(
       text,
-      /snapshot\s+(\d+|none)/
+      /checkpoint\s+(\d+|none)/
     ),
     tokens: extractOptionalDebugNumber(text, /tokens\s+(\d+|none)/),
     images: extractOptionalDebugNumber(text, /images\s+(\d+|none)/),

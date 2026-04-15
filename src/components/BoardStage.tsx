@@ -420,8 +420,8 @@ type LocalReplicaInspectionState = {
   lastReadKnownDurableSliceRevisions: DurableSliceRevisionState;
   lastBootstrapBranch:
     | "pending"
-    | "live-wins"
-    | "converged-recovery"
+    | "live-active"
+    | "replica-converged"
     | "baseline-initialization"
     | "empty-room"
     | null;
@@ -457,7 +457,7 @@ type DurableReplicaInspectionState = {
   currentSliceRevisions: DurableSliceRevisionState;
   lastWriteStatus: "idle" | "writing" | "saved" | "conflict" | "failed";
   lastWriteBoundary: DurableDebugBoundary | null;
-  lastWriteSlice: DurableRoomSnapshotSlice | "snapshot" | null;
+  lastWriteSlice: DurableRoomSnapshotSlice | "checkpoint" | null;
   lastKnownSliceRevision: number | null;
   lastBaseRevision: number | null;
   lastBaseSliceRevision: number | null;
@@ -946,7 +946,7 @@ export default function BoardStage({
           ),
           lastWriteStatus: "writing",
           lastWriteBoundary: boundary,
-          lastWriteSlice: "snapshot",
+          lastWriteSlice: "checkpoint",
           lastKnownSliceRevision: null,
           lastBaseRevision: baseRevision,
           lastBaseSliceRevision: null,
@@ -993,7 +993,7 @@ export default function BoardStage({
               ),
               lastWriteStatus: "conflict",
               lastWriteBoundary: boundary,
-              lastWriteSlice: "snapshot",
+              lastWriteSlice: "checkpoint",
               lastKnownSliceRevision: null,
               lastBaseRevision: baseRevision,
               lastBaseSliceRevision: null,
@@ -1023,7 +1023,7 @@ export default function BoardStage({
               ),
               lastWriteStatus: "saved",
               lastWriteBoundary: boundary,
-              lastWriteSlice: "snapshot",
+              lastWriteSlice: "checkpoint",
               lastKnownSliceRevision: null,
               lastBaseRevision: baseRevision,
               lastBaseSliceRevision: null,
@@ -1048,7 +1048,7 @@ export default function BoardStage({
             ),
             lastWriteStatus: "failed",
             lastWriteBoundary: boundary,
-            lastWriteSlice: "snapshot",
+            lastWriteSlice: "checkpoint",
             lastKnownSliceRevision: null,
             lastBaseRevision: baseRevision,
             lastBaseSliceRevision: null,
@@ -2057,7 +2057,7 @@ export default function BoardStage({
       applyDurableSnapshotInspection(snapshot);
       console.info("[room-recovery][board-stage][bootstrap-terminal]", {
         roomId,
-        branch: "live-wins",
+        branch: "live-active",
         durableRevision: snapshot?.revision ?? null,
       });
       setLocalReplicaInspection((current) => ({
@@ -2078,7 +2078,7 @@ export default function BoardStage({
           current.initialOpenStatus === "pending"
             ? 0
             : current.initialOpenObjectCount,
-        lastBootstrapBranch: "live-wins",
+        lastBootstrapBranch: "live-active",
         lastBootstrapSource: "live",
         lastBootstrapLocalSource: null,
         lastBootstrapSliceSources: createInitialBootstrapSliceSourceState(),
@@ -2211,7 +2211,7 @@ export default function BoardStage({
         textCards: BoardObject[];
       } | null = null;
       let terminalBranch:
-        | "converged-recovery"
+        | "replica-converged"
         | "baseline-initialization"
         | "empty-room" = "empty-room";
       let terminalSource: "converged" | "baseline" | null = null;
@@ -2250,7 +2250,7 @@ export default function BoardStage({
           images: convergenceResult.content.images,
           textCards: convergenceResult.content.textCards,
         });
-        terminalBranch = "converged-recovery";
+        terminalBranch = "replica-converged";
         terminalSource = "converged";
       } else if (shouldApplyBaseline) {
         terminalContent = baselineContent;
@@ -2266,7 +2266,7 @@ export default function BoardStage({
         branch: terminalBranch,
         source: terminalSource,
         localSource:
-          terminalBranch === "converged-recovery" && hasLocalRecoveryDocument
+          terminalBranch === "replica-converged" && hasLocalRecoveryDocument
             ? localRecoverySource
             : null,
         localRevision: hasLocalRecoveryDocument ? localRecoveryRevision : null,
@@ -2280,7 +2280,7 @@ export default function BoardStage({
         lastBootstrapBranch: terminalBranch,
         lastBootstrapSource: terminalSource ?? "none",
         lastBootstrapLocalSource:
-          terminalBranch === "converged-recovery" && hasLocalRecoveryDocument
+          terminalBranch === "replica-converged" && hasLocalRecoveryDocument
             ? localRecoverySource
             : null,
         lastBootstrapSliceSources: terminalSliceSources,
@@ -4269,7 +4269,7 @@ export default function BoardStage({
                 data-testid="debug-local-replica-durable-handoff"
                 style={{ color: "#94a3b8" }}
               >
-                Durable handoff: snapshot{" "}
+                Durable handoff: checkpoint{" "}
                 {localReplicaInspection.lastReadKnownDurableSnapshotRevision ?? "none"}
                 {" · "}tokens{" "}
                 {localReplicaInspection.lastReadKnownDurableSliceRevisions.tokens ??
@@ -4324,7 +4324,8 @@ export default function BoardStage({
                 data-testid="debug-durable-replica-known-revisions"
                 style={{ color: "#94a3b8" }}
               >
-                Known revisions: snapshot {durableReplicaInspection.currentRevision ?? "none"}
+                Known revisions: checkpoint{" "}
+                {durableReplicaInspection.currentRevision ?? "none"}
                 {" · "}tokens{" "}
                 {durableReplicaInspection.currentSliceRevisions.tokens ?? "none"}
                 {" · "}images{" "}
@@ -4344,7 +4345,7 @@ export default function BoardStage({
                 {" · "}base rev {durableReplicaInspection.lastBaseRevision ?? "none"}
                 {" · "}base slice rev{" "}
                 {durableReplicaInspection.lastBaseSliceRevision ?? "none"}
-                {" · "}ack snapshot rev{" "}
+                {" · "}ack checkpoint rev{" "}
                 {durableReplicaInspection.lastAckSnapshotRevision ?? "none"}
                 {" · "}ack slice rev{" "}
                 {durableReplicaInspection.lastAckSliceRevision ?? "none"}

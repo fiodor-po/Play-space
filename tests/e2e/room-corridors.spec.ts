@@ -131,7 +131,7 @@ test.describe("local room smoke corridors", () => {
       await expectRoomObjectCounts(page, {
         notes: countsBeforeCreate.notes + 1,
       });
-      await expectBootstrapBranch(page, "live-wins");
+      await expectBootstrapBranch(page, "live-active");
       await expect(page.getByTestId("debug-local-replica-inspection")).not.toContainText(
         "Error:"
       );
@@ -345,7 +345,7 @@ test.describe("local room smoke corridors", () => {
         width: committedBounds.width,
         height: committedBounds.height,
       });
-      await expectBootstrapBranch(page, "live-wins");
+      await expectBootstrapBranch(page, "live-active");
       await expect(page.getByTestId("debug-local-replica-inspection")).not.toContainText(
         "Error:"
       );
@@ -407,7 +407,7 @@ test.describe("local room smoke corridors", () => {
       await expect(page.getByTestId("session-leave-room-button")).toBeVisible();
 
       await openDebugTools(page);
-      await expectBootstrapBranch(page, "live-wins");
+      await expectBootstrapBranch(page, "live-active");
       await expectImageLabel(page, imageLabel);
       await expect.poll(() => getImageStrokeCounts(page)).toMatchObject({
         total: 1,
@@ -485,7 +485,7 @@ test.describe("local room smoke corridors", () => {
 
       await openDebugTools(recoveredPage);
       await expectLocalReplicaInitialOpen(recoveredPage, "applied", "indexeddb");
-      await expectBootstrapBranch(recoveredPage, "converged-recovery");
+      await expectBootstrapBranch(recoveredPage, "replica-converged");
       await expectBootstrapLocalSource(recoveredPage, "indexeddb");
       await expectLocalReplicaLastRead(recoveredPage, "indexeddb");
       await expectRoomObjectCounts(recoveredPage, {
@@ -537,7 +537,7 @@ test.describe("local room smoke corridors", () => {
 
     try {
       await expectLocalReplicaInitialOpen(recoveredPage, "applied", "indexeddb");
-      await expectBootstrapBranch(recoveredPage, "converged-recovery");
+      await expectBootstrapBranch(recoveredPage, "replica-converged");
       await expectBootstrapLocalSource(recoveredPage, "indexeddb");
       await expectBootstrapSliceSource(recoveredPage, "textCards", "local");
       await expectLocalReplicaLastRead(recoveredPage, "indexeddb");
@@ -595,7 +595,7 @@ test.describe("local room smoke corridors", () => {
 
     try {
       await expectLocalReplicaInitialOpen(recoveredPage, "applied", "indexeddb");
-      await expectBootstrapBranch(recoveredPage, "converged-recovery");
+      await expectBootstrapBranch(recoveredPage, "replica-converged");
       await expectBootstrapLocalSource(recoveredPage, "indexeddb");
       await expectBootstrapSliceSource(recoveredPage, "textCards", "local");
       await expectLocalReplicaLastRead(recoveredPage, "indexeddb");
@@ -696,7 +696,7 @@ test.describe("local room smoke corridors", () => {
 
     try {
       await expectLocalReplicaInitialOpen(recoveredPage, "applied", "indexeddb");
-      await expectBootstrapBranch(recoveredPage, "converged-recovery");
+      await expectBootstrapBranch(recoveredPage, "replica-converged");
       await expectBootstrapLocalSource(recoveredPage, "indexeddb");
       await expectLocalReplicaLastRead(recoveredPage, "indexeddb");
       await expectRoomObjectCounts(recoveredPage, {
@@ -749,7 +749,7 @@ test.describe("local room smoke corridors", () => {
 
     try {
       await expectLocalReplicaInitialOpen(recoveredPage, "applied", "indexeddb");
-      await expectBootstrapBranch(recoveredPage, "converged-recovery");
+      await expectBootstrapBranch(recoveredPage, "replica-converged");
       await expectBootstrapLocalSource(recoveredPage, "indexeddb");
       await expectLocalReplicaLastRead(recoveredPage, "indexeddb");
       await expectLocalReplicaLastReadRevision(recoveredPage, localRevision);
@@ -807,7 +807,7 @@ test.describe("local room smoke corridors", () => {
 
     try {
       await expectLocalReplicaInitialOpen(recoveredPage, "applied", "indexeddb");
-      await expectBootstrapBranch(recoveredPage, "converged-recovery");
+      await expectBootstrapBranch(recoveredPage, "replica-converged");
       await expectBootstrapLocalSource(recoveredPage, "indexeddb");
       await expectLocalReplicaLastRead(recoveredPage, "indexeddb");
       await expectLocalReplicaLastReadRevision(recoveredPage, localRevision);
@@ -863,7 +863,7 @@ test.describe("local room smoke corridors", () => {
 
     try {
       await expectLocalReplicaInitialOpen(recoveredPage, "applied", "indexeddb");
-      await expectBootstrapBranch(recoveredPage, "converged-recovery");
+      await expectBootstrapBranch(recoveredPage, "replica-converged");
       await expectBootstrapLocalSource(recoveredPage, "indexeddb");
       await expectLocalReplicaLastRead(recoveredPage, "indexeddb");
       await expectLocalReplicaLastReadRevision(recoveredPage, localRevision);
@@ -919,7 +919,7 @@ test.describe("local room smoke corridors", () => {
 
     try {
       await expectLocalReplicaInitialOpen(recoveredPage, "applied", "indexeddb");
-      await expectBootstrapBranch(recoveredPage, "converged-recovery");
+      await expectBootstrapBranch(recoveredPage, "replica-converged");
       await expectBootstrapLocalSource(recoveredPage, "indexeddb");
       await expectLocalReplicaLastRead(recoveredPage, "indexeddb");
       await expectLocalReplicaLastReadRevision(recoveredPage, localRevision);
@@ -998,7 +998,7 @@ test.describe("local room smoke corridors", () => {
 
     try {
       await expectLocalReplicaInitialOpen(recoveredPage, "applied", "indexeddb");
-      await expectBootstrapBranch(recoveredPage, "converged-recovery");
+      await expectBootstrapBranch(recoveredPage, "replica-converged");
       await expectBootstrapLocalSource(recoveredPage, "indexeddb");
       await expectBootstrapSliceSource(recoveredPage, "textCards", "durable");
       await expectLocalReplicaLastRead(recoveredPage, "indexeddb");
