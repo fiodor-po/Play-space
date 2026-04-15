@@ -395,6 +395,13 @@ type SharedBootstrapSliceCounts = {
   textCards: number;
 };
 
+type BootstrapSliceSource = "local" | "durable" | "baseline" | "empty";
+
+type BootstrapSliceSourceState = Record<
+  DurableRoomSnapshotSlice,
+  BootstrapSliceSource
+>;
+
 type LocalReplicaInspectionState = {
   initialOpenStatus: "idle" | "pending" | "applied" | "skipped";
   initialOpenSource: Exclude<LocalReplicaReadSource, "idle"> | null;
@@ -409,22 +416,23 @@ type LocalReplicaInspectionState = {
   lastReadRevision: number | null;
   lastReadSavedAt: number | null;
   lastReadObjectCount: number;
+  lastReadKnownDurableSnapshotRevision: number | null;
+  lastReadKnownDurableSliceRevisions: DurableSliceRevisionState;
   lastBootstrapBranch:
     | "pending"
     | "live-wins"
-    | "durable-recovery"
-    | "local-recovery"
+    | "converged-recovery"
     | "baseline-initialization"
     | "empty-room"
     | null;
   lastBootstrapSource:
     | "live"
-    | "durable"
-    | "local"
+    | "converged"
     | "baseline"
     | "none"
     | null;
   lastBootstrapLocalSource: Exclude<LocalReplicaReadSource, "idle"> | null;
+  lastBootstrapSliceSources: BootstrapSliceSourceState;
   lastError: string | null;
 };
 
@@ -472,6 +480,16 @@ function createInitialSharedBootstrapSliceCounts(): SharedBootstrapSliceCounts {
   };
 }
 
+function createInitialBootstrapSliceSourceState(
+  source: BootstrapSliceSource = "empty"
+): BootstrapSliceSourceState {
+  return {
+    tokens: source,
+    images: source,
+    textCards: source,
+  };
+}
+
 function createInitialLocalReplicaInspectionState(): LocalReplicaInspectionState {
   return {
     initialOpenStatus: "idle",
@@ -487,9 +505,12 @@ function createInitialLocalReplicaInspectionState(): LocalReplicaInspectionState
     lastReadRevision: null,
     lastReadSavedAt: null,
     lastReadObjectCount: 0,
+    lastReadKnownDurableSnapshotRevision: null,
+    lastReadKnownDurableSliceRevisions: createInitialDurableSliceRevisionState(),
     lastBootstrapBranch: null,
     lastBootstrapSource: null,
     lastBootstrapLocalSource: null,
+    lastBootstrapSliceSources: createInitialBootstrapSliceSourceState(),
     lastError: null,
   };
 }
@@ -523,6 +544,80 @@ function getDurableSliceRevisionStateFromSnapshot(snapshot: {
     tokens: snapshot.sliceRevisions.tokens,
     images: snapshot.sliceRevisions.images,
     textCards: snapshot.sliceRevisions.textCards,
+  };
+}
+
+function getRoomDocumentSliceObjects(
+  content: {
+    tokens: BoardObject[];
+    images: BoardObject[];
+    textCards: BoardObject[];
+  },
+  slice: DurableRoomSnapshotSlice
+) {
+  if (slice === "tokens") {
+    return content.tokens;
+  }
+
+  if (slice === "images") {
+    return content.images;
+  }
+
+  return content.textCards;
+}
+
+function isDurableSliceAhead(
+  localKnownRevision: number | null,
+  durableRevision: number | null
+) {
+  return (
+    durableRevision !== null &&
+    (localKnownRevision === null || durableRevision > localKnownRevision)
+  );
+}
+
+function resolveSettledRecoveryConvergence(params: {
+  localRecoverySnapshot: {
+    tokens: BoardObject[];
+    images: BoardObject[];
+    textCards: BoardObject[];
+  } | null;
+  localRecoveryKnownDurableSliceRevisions: DurableSliceRevisionState;
+  durableSnapshot: {
+    sliceRevisions: Record<DurableRoomSnapshotSlice, number>;
+    tokens: BoardObject[];
+    images: BoardObject[];
+    textCards: BoardObject[];
+  } | null;
+}) {
+  const sliceSources = createInitialBootstrapSliceSourceState();
+  const content = {
+    tokens: [] as BoardObject[],
+    images: [] as BoardObject[],
+    textCards: [] as BoardObject[],
+  };
+
+  (["tokens", "images", "textCards"] as const).forEach((slice) => {
+    const localRecoverySnapshot = params.localRecoverySnapshot;
+    const shouldUseDurableSlice =
+      !localRecoverySnapshot ||
+      isDurableSliceAhead(
+        params.localRecoveryKnownDurableSliceRevisions[slice],
+        params.durableSnapshot?.sliceRevisions[slice] ?? null
+      );
+    const nextSliceObjects = shouldUseDurableSlice
+      ? params.durableSnapshot
+        ? getRoomDocumentSliceObjects(params.durableSnapshot, slice)
+        : []
+      : getRoomDocumentSliceObjects(localRecoverySnapshot, slice);
+
+    content[slice] = nextSliceObjects;
+    sliceSources[slice] = shouldUseDurableSlice ? "durable" : "local";
+  });
+
+  return {
+    content,
+    sliceSources,
   };
 }
 
@@ -639,6 +734,10 @@ export default function BoardStage({
 
       void saveLocalRoomDocumentReplica(roomId, nextObjects, {
         commitBoundary,
+        lastKnownDurableSnapshotRevision: durableSnapshotRevisionRef.current,
+        lastKnownDurableSliceRevisions: cloneDurableSliceRevisionState(
+          durableSliceRevisionRef.current
+        ),
       })
         .then((replica) => {
           if (activeRoomIdRef.current !== roomId) {
@@ -1976,6 +2075,7 @@ export default function BoardStage({
         lastBootstrapBranch: "live-wins",
         lastBootstrapSource: "live",
         lastBootstrapLocalSource: null,
+        lastBootstrapSliceSources: createInitialBootstrapSliceSourceState(),
       }));
       snapshotRecoveryAttemptedRoomRef.current = roomBootstrapEntryIdRef.current;
       setResolvedSnapshotBootstrapRoomId(roomId);
@@ -2014,6 +2114,12 @@ export default function BoardStage({
       const localRecoverySavedAt = localBootstrapState.savedAt;
       const localRecoveryRevision = localBootstrapState.revision;
       const localRecoveryIsVersionAware = localBootstrapState.isVersionAware;
+      const localRecoveryKnownDurableSnapshotRevision =
+        localBootstrapState.lastKnownDurableSnapshotRevision;
+      const localRecoveryKnownDurableSliceRevisions =
+        cloneDurableSliceRevisionState(
+          localBootstrapState.lastKnownDurableSliceRevisions
+        );
       const shouldApplyProvisionalLocalOpen =
         localRecoverySnapshot !== null &&
         localRecoveryIsVersionAware &&
@@ -2029,6 +2135,10 @@ export default function BoardStage({
         lastReadRevision: localRecoveryRevision,
         lastReadSavedAt: localRecoverySavedAt,
         lastReadObjectCount: localRecoveryObjectCount,
+        lastReadKnownDurableSnapshotRevision:
+          localRecoveryKnownDurableSnapshotRevision,
+        lastReadKnownDurableSliceRevisions:
+          localRecoveryKnownDurableSliceRevisions,
       }));
 
       if (shouldApplyProvisionalLocalOpen && localRecoverySnapshot) {
@@ -2074,20 +2184,32 @@ export default function BoardStage({
       const baselineObjects = roomBaselineToApply
         ? getRoomBaselinePayload(roomBaselineToApply)
         : [];
+      const baselineContent = {
+        tokens: baselineObjects.filter((object) => object.kind === "token"),
+        images: baselineObjects.filter((object) => object.kind === "image"),
+        textCards: baselineObjects.filter((object) => isNoteCardObject(object)),
+      };
+      const shouldRunConvergence =
+        hasLocalRecoveryDocument || durableSnapshotObjectCount > 0;
       const shouldApplyBaseline =
-        durableSnapshotObjectCount === 0 &&
+        !shouldRunConvergence &&
         !hasLocalRecoveryDocument &&
         baselineObjects.length > 0;
       const baselineIdToApply = shouldApplyBaseline
         ? roomBaselineToApply?.baselineId ?? null
         : null;
       let nextObjects: BoardObject[] | null = null;
+      let terminalContent: {
+        tokens: BoardObject[];
+        images: BoardObject[];
+        textCards: BoardObject[];
+      } | null = null;
       let terminalBranch:
-        | "durable-recovery"
-        | "local-recovery"
+        | "converged-recovery"
         | "baseline-initialization"
         | "empty-room" = "empty-room";
-      let terminalSource: "durable" | "local" | "baseline" | null = null;
+      let terminalSource: "converged" | "baseline" | null = null;
+      let terminalSliceSources = createInitialBootstrapSliceSourceState();
 
       console.info("[room-recovery][board-stage][bootstrap-inputs]", {
         roomId,
@@ -2098,29 +2220,35 @@ export default function BoardStage({
         localRecoverySource,
         localRecoveryRevision,
         localRecoveryIsVersionAware,
+        localRecoveryKnownDurableSnapshotRevision,
+        localRecoveryKnownDurableSliceRevisions,
         durableSnapshotRevision: durableSnapshot?.revision ?? null,
+        durableSnapshotSliceRevisions: durableSnapshot?.sliceRevisions ?? null,
         localRecoverySavedAt,
       });
 
-      if (durableSnapshot && durableSnapshotObjectCount > 0) {
+      if (shouldRunConvergence) {
+        const convergenceResult = resolveSettledRecoveryConvergence({
+          localRecoverySnapshot: hasLocalRecoveryDocument
+            ? localRecoverySnapshot
+            : null,
+          localRecoveryKnownDurableSliceRevisions,
+          durableSnapshot,
+        });
+
+        terminalContent = convergenceResult.content;
+        terminalSliceSources = convergenceResult.sliceSources;
         nextObjects = composeSharedRoomObjects({
           roomId,
-          tokens: durableSnapshot.tokens,
-          images: durableSnapshot.images,
-          textCards: durableSnapshot.textCards,
+          tokens: convergenceResult.content.tokens,
+          images: convergenceResult.content.images,
+          textCards: convergenceResult.content.textCards,
         });
-        terminalBranch = "durable-recovery";
-        terminalSource = "durable";
-      } else if (hasLocalRecoveryDocument && localRecoverySnapshot) {
-        nextObjects = composeSharedRoomObjects({
-          roomId,
-          tokens: localRecoverySnapshot.tokens,
-          images: localRecoverySnapshot.images,
-          textCards: localRecoverySnapshot.textCards,
-        });
-        terminalBranch = "local-recovery";
-        terminalSource = "local";
+        terminalBranch = "converged-recovery";
+        terminalSource = "converged";
       } else if (shouldApplyBaseline) {
+        terminalContent = baselineContent;
+        terminalSliceSources = createInitialBootstrapSliceSourceState("baseline");
         nextObjects = composeBaselineRoomObjects(roomId, baselineObjects);
         terminalBranch = "baseline-initialization";
         terminalSource = "baseline";
@@ -2131,47 +2259,25 @@ export default function BoardStage({
         bootstrapEntryId: roomBootstrapEntryIdRef.current,
         branch: terminalBranch,
         source: terminalSource,
-        localSource: terminalSource === "local" ? localRecoverySource : null,
-        localRevision:
-          terminalSource === "local" ? localRecoveryRevision : null,
-        tokenCount:
-          terminalSource === "durable"
-            ? durableSnapshot?.tokens.length ?? 0
-            : terminalSource === "local"
-              ? localRecoverySnapshot?.tokens.length ?? 0
-              : terminalSource === "baseline"
-                ? baselineObjects.filter((object) => object.kind === "token").length
-                : 0,
-        imageCount:
-          terminalSource === "durable"
-            ? durableSnapshot?.images.length ?? 0
-            : terminalSource === "local"
-              ? localRecoverySnapshot?.images.length ?? 0
-              : terminalSource === "baseline"
-                ? baselineObjects.filter((object) => object.kind === "image").length
-                : 0,
-        textCardCount:
-          terminalSource === "durable"
-            ? durableSnapshot?.textCards.length ?? 0
-            : terminalSource === "local"
-            ? localRecoverySnapshot?.textCards.length ?? 0
-              : terminalSource === "baseline"
-                ? baselineObjects.filter((object) => isNoteCardObject(object)).length
-                : 0,
+        localSource:
+          terminalBranch === "converged-recovery" && hasLocalRecoveryDocument
+            ? localRecoverySource
+            : null,
+        localRevision: hasLocalRecoveryDocument ? localRecoveryRevision : null,
+        tokenCount: terminalContent?.tokens.length ?? 0,
+        imageCount: terminalContent?.images.length ?? 0,
+        textCardCount: terminalContent?.textCards.length ?? 0,
+        sliceSources: terminalSliceSources,
       });
       setLocalReplicaInspection((current) => ({
         ...current,
         lastBootstrapBranch: terminalBranch,
-        lastBootstrapSource:
-          terminalSource === "durable"
-            ? "durable"
-            : terminalSource === "local"
-              ? "local"
-              : terminalSource === "baseline"
-                ? "baseline"
-                : "none",
+        lastBootstrapSource: terminalSource ?? "none",
         lastBootstrapLocalSource:
-          terminalBranch === "local-recovery" ? localRecoverySource : null,
+          terminalBranch === "converged-recovery" && hasLocalRecoveryDocument
+            ? localRecoverySource
+            : null,
+        lastBootstrapSliceSources: terminalSliceSources,
       }));
 
       snapshotRecoveryAttemptedRoomRef.current = roomBootstrapEntryIdRef.current;
@@ -4132,6 +4238,32 @@ export default function BoardStage({
                 {" · "}rev {localReplicaInspection.lastReadRevision ?? "none"}
                 {" · "}objects {localReplicaInspection.lastReadObjectCount}
                 {" · "}saved {formatDebugTimestamp(localReplicaInspection.lastReadSavedAt)}
+              </div>
+              <div
+                data-testid="debug-local-replica-durable-handoff"
+                style={{ color: "#94a3b8" }}
+              >
+                Durable handoff: snapshot{" "}
+                {localReplicaInspection.lastReadKnownDurableSnapshotRevision ?? "none"}
+                {" · "}tokens{" "}
+                {localReplicaInspection.lastReadKnownDurableSliceRevisions.tokens ??
+                  "none"}
+                {" · "}images{" "}
+                {localReplicaInspection.lastReadKnownDurableSliceRevisions.images ??
+                  "none"}
+                {" · "}textCards{" "}
+                {localReplicaInspection.lastReadKnownDurableSliceRevisions.textCards ??
+                  "none"}
+              </div>
+              <div
+                data-testid="debug-local-replica-bootstrap-slices"
+                style={{ color: "#94a3b8" }}
+              >
+                Bootstrap slices: tokens{" "}
+                {localReplicaInspection.lastBootstrapSliceSources.tokens}
+                {" · "}images {localReplicaInspection.lastBootstrapSliceSources.images}
+                {" · "}textCards{" "}
+                {localReplicaInspection.lastBootstrapSliceSources.textCards}
               </div>
               <div
                 data-testid="debug-local-replica-last-write"

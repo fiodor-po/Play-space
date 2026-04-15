@@ -106,6 +106,12 @@ export async function openDebugTools(page: Page) {
   await expect(page.getByTestId("debug-local-replica-inspection")).toBeVisible();
   await expect(page.getByTestId("debug-local-replica-initial-open")).toBeVisible();
   await expect(page.getByTestId("debug-local-replica-bootstrap")).toBeVisible();
+  await expect(
+    page.getByTestId("debug-local-replica-durable-handoff")
+  ).toBeVisible();
+  await expect(
+    page.getByTestId("debug-local-replica-bootstrap-slices")
+  ).toBeVisible();
   await expect(page.getByTestId("debug-durable-replica-inspection")).toBeVisible();
 }
 
@@ -158,6 +164,16 @@ export async function expectBootstrapLocalSource(page: Page, source: string) {
   await expect(page.getByTestId("debug-local-replica-bootstrap")).toContainText(
     `local source ${source}`
   );
+}
+
+export async function expectBootstrapSliceSource(
+  page: Page,
+  slice: "tokens" | "images" | "textCards",
+  source: string
+) {
+  await expect(
+    page.getByTestId("debug-local-replica-bootstrap-slices")
+  ).toContainText(`${slice} ${source}`);
 }
 
 export async function expectLocalReplicaInitialOpen(
@@ -227,6 +243,22 @@ export async function expectDurableReplicaWriteSavedWithoutRetry(
 
   expect(knownText).toContain(`snapshot ${ackSnapshotMatch[1]}`);
   expect(knownText).toContain(`${slice} ${ackSliceMatch[1]}`);
+}
+
+export async function getDurableReplicaKnownRevisions(page: Page) {
+  const text = await page
+    .getByTestId("debug-durable-replica-known-revisions")
+    .innerText();
+
+  return {
+    snapshot: extractOptionalDebugNumber(
+      text,
+      /snapshot\s+(\d+|none)/
+    ),
+    tokens: extractOptionalDebugNumber(text, /tokens\s+(\d+|none)/),
+    images: extractOptionalDebugNumber(text, /images\s+(\d+|none)/),
+    textCards: extractOptionalDebugNumber(text, /textCards\s+(\d+|none)/),
+  };
 }
 
 export async function expectLocalReplicaLastReadRevision(
@@ -460,6 +492,29 @@ export async function reopenRoomForLocalRecovery(
   request: APIRequestContext,
   roomId: string
 ) {
+  return reopenRoomForRecovery(page, request, roomId, {
+    clearDurableSnapshotAfterClose: true,
+  });
+}
+
+export async function reopenRoomForDurableRecovery(
+  page: Page,
+  request: APIRequestContext,
+  roomId: string
+) {
+  return reopenRoomForRecovery(page, request, roomId, {
+    clearDurableSnapshotAfterClose: false,
+  });
+}
+
+async function reopenRoomForRecovery(
+  page: Page,
+  request: APIRequestContext,
+  roomId: string,
+  options: {
+    clearDurableSnapshotAfterClose: boolean;
+  }
+) {
   const context = page.context();
 
   await waitForRoomOpsState(request, roomId, {
@@ -473,11 +528,18 @@ export async function reopenRoomForLocalRecovery(
     liveIsActive: false,
   });
 
-  await clearDurableRoomSnapshot(request, roomId);
-  await waitForRoomOpsState(request, roomId, {
-    liveIsActive: false,
-    snapshotExists: false,
-  });
+  if (options.clearDurableSnapshotAfterClose) {
+    await clearDurableRoomSnapshot(request, roomId);
+    await waitForRoomOpsState(request, roomId, {
+      liveIsActive: false,
+      snapshotExists: false,
+    });
+  } else {
+    await waitForRoomOpsState(request, roomId, {
+      liveIsActive: false,
+      snapshotExists: true,
+    });
+  }
 
   const recoveredPage = await context.newPage();
 
@@ -648,29 +710,214 @@ export async function seedEmptyVersionedLocalReplica(
   roomId: string,
   revision: number
 ) {
+  await writeIndexedDbLocalReplica(page, {
+    roomId,
+    revision,
+    savedAt: Date.now(),
+    content: {
+      tokens: [],
+      images: [],
+      textCards: [],
+    },
+    lastKnownDurableSnapshotRevision: null,
+    lastKnownDurableSliceRevisions: {
+      tokens: null,
+      images: null,
+      textCards: null,
+    },
+  });
+}
+
+export async function seedStaleLocalReplicaNoteLabel(
+  page: Page,
+  roomId: string,
+  options: {
+    revision: number;
+    label: string;
+    lastKnownDurableSnapshotRevision: number | null;
+    lastKnownDurableSliceRevisions: {
+      tokens: number | null;
+      images: number | null;
+      textCards: number | null;
+    };
+  }
+) {
   await page.evaluate(
-    async ({ roomId: nextRoomId, nextRevision, savedAt }) => {
-      const database = await new Promise<IDBDatabase>((resolve, reject) => {
-        const request = window.indexedDB.open(
-          "play-space-alpha-browser-storage-v1",
-          1
-        );
+    async ({
+      nextRoomId,
+      nextRevision,
+      nextLabel,
+      nextSavedAt,
+      nextLastKnownDurableSnapshotRevision,
+      nextLastKnownDurableSliceRevisions,
+    }) => {
+      const openDatabase = () =>
+        new Promise<IDBDatabase>((resolve, reject) => {
+          const request = window.indexedDB.open(
+            "play-space-alpha-browser-storage-v1",
+            1
+          );
 
-        request.onerror = () => {
-          reject(request.error ?? new Error("indexeddb-open-failed"));
-        };
+          request.onerror = () => {
+            reject(request.error ?? new Error("indexeddb-open-failed"));
+          };
 
-        request.onsuccess = () => {
-          resolve(request.result);
-        };
+          request.onsuccess = () => {
+            resolve(request.result);
+          };
+        });
+
+      const readReplica = async (roomIdToRead: string) => {
+        const database = await openDatabase();
+
+        try {
+          const transaction = database.transaction(
+            "room-document-replicas",
+            "readonly"
+          );
+          const store = transaction.objectStore("room-document-replicas");
+          const replica = await new Promise<any>((resolve, reject) => {
+            const request = store.get(roomIdToRead);
+
+            request.onerror = () => {
+              reject(request.error ?? new Error("indexeddb-read-failed"));
+            };
+
+            request.onsuccess = () => {
+              resolve(request.result ?? null);
+            };
+          });
+
+          await new Promise<void>((resolve, reject) => {
+            transaction.onerror = () => {
+              reject(transaction.error ?? new Error("indexeddb-read-failed"));
+            };
+
+            transaction.oncomplete = () => {
+              resolve();
+            };
+          });
+
+          return replica;
+        } finally {
+          database.close();
+        }
+      };
+
+      const writeReplica = async (nextReplica: unknown) => {
+        const database = await openDatabase();
+
+        try {
+          const transaction = database.transaction(
+            "room-document-replicas",
+            "readwrite"
+          );
+
+          transaction.objectStore("room-document-replicas").put(nextReplica);
+
+          await new Promise<void>((resolve, reject) => {
+            transaction.onerror = () => {
+              reject(transaction.error ?? new Error("indexeddb-write-failed"));
+            };
+
+            transaction.oncomplete = () => {
+              resolve();
+            };
+          });
+        } finally {
+          database.close();
+        }
+      };
+
+      const replica = await readReplica(nextRoomId);
+
+      if (!replica) {
+        throw new Error("local-replica-missing");
+      }
+
+      const staleTextCards = Array.isArray(replica.content?.textCards)
+        ? replica.content.textCards
+        : [];
+
+      if (staleTextCards.length === 0) {
+        throw new Error("local-replica-note-missing");
+      }
+
+      staleTextCards[0] = {
+        ...staleTextCards[0],
+        label: nextLabel,
+      };
+
+      await writeReplica({
+        ...replica,
+        roomId: nextRoomId,
+        revision: nextRevision,
+        savedAt: nextSavedAt,
+        content: {
+          ...replica.content,
+          textCards: staleTextCards,
+        },
+        lastKnownDurableSnapshotRevision: nextLastKnownDurableSnapshotRevision,
+        lastKnownDurableSliceRevisions: nextLastKnownDurableSliceRevisions,
       });
+    },
+    {
+      nextRoomId: roomId,
+      nextRevision: options.revision,
+      nextLabel: options.label,
+      nextSavedAt: Date.now(),
+      nextLastKnownDurableSnapshotRevision:
+        options.lastKnownDurableSnapshotRevision,
+      nextLastKnownDurableSliceRevisions:
+        options.lastKnownDurableSliceRevisions,
+    }
+  );
+}
+
+async function writeIndexedDbLocalReplica(
+  page: Page,
+  replica: {
+    roomId: string;
+    revision: number | null;
+    savedAt: number;
+    content: {
+      tokens: unknown[];
+      images: unknown[];
+      textCards: unknown[];
+    };
+    lastKnownDurableSnapshotRevision: number | null;
+    lastKnownDurableSliceRevisions: {
+      tokens: number | null;
+      images: number | null;
+      textCards: number | null;
+    };
+  }
+) {
+  await page.evaluate(async (nextReplica) => {
+    const database = await new Promise<IDBDatabase>((resolve, reject) => {
+      const request = window.indexedDB.open(
+        "play-space-alpha-browser-storage-v1",
+        1
+      );
+
+      request.onerror = () => {
+        reject(request.error ?? new Error("indexeddb-open-failed"));
+      };
+
+      request.onsuccess = () => {
+        resolve(request.result);
+      };
+    });
+
+    try {
+      const transaction = database.transaction(
+        "room-document-replicas",
+        "readwrite"
+      );
+
+      transaction.objectStore("room-document-replicas").put(nextReplica);
 
       await new Promise<void>((resolve, reject) => {
-        const transaction = database.transaction(
-          "room-document-replicas",
-          "readwrite"
-        );
-
         transaction.onerror = () => {
           reject(transaction.error ?? new Error("indexeddb-write-failed"));
         };
@@ -678,27 +925,11 @@ export async function seedEmptyVersionedLocalReplica(
         transaction.oncomplete = () => {
           resolve();
         };
-
-        transaction.objectStore("room-document-replicas").put({
-          roomId: nextRoomId,
-          revision: nextRevision,
-          savedAt,
-          content: {
-            tokens: [],
-            images: [],
-            textCards: [],
-          },
-        });
       });
-
+    } finally {
       database.close();
-    },
-    {
-      roomId,
-      nextRevision: revision,
-      savedAt: Date.now(),
     }
-  );
+  }, replica);
 }
 
 function extractCount(text: string, pattern: RegExp) {
@@ -709,6 +940,16 @@ function extractCount(text: string, pattern: RegExp) {
   }
 
   return Number(match[1]);
+}
+
+function extractOptionalDebugNumber(text: string, pattern: RegExp) {
+  const match = text.match(pattern);
+
+  if (!match) {
+    throw new Error(`Failed to read debug number from: ${text}`);
+  }
+
+  return match[1] === "none" ? null : Number(match[1]);
 }
 
 async function getRoomOpsDetail(

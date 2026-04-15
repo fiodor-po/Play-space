@@ -4,6 +4,7 @@ import {
   isNoteCardObject,
   normalizeNoteCardObject,
 } from "../board/objects/noteCard/sizing";
+import type { DurableRoomSnapshotSlice } from "./durableRoomSnapshot";
 import { normalizeRoomId } from "./roomId";
 
 export const BOARD_STORAGE_KEY = "play-space-alpha-board-v1";
@@ -33,11 +34,18 @@ export type RoomDocumentContent = {
   textCards: BoardObject[];
 };
 
+export type LocalRoomDocumentReplicaDurableSliceRevisions = Record<
+  DurableRoomSnapshotSlice,
+  number | null
+>;
+
 export type LocalRoomDocumentReplica = {
   roomId: string;
   revision: number | null;
   savedAt: number;
   content: RoomDocumentContent;
+  lastKnownDurableSnapshotRevision: number | null;
+  lastKnownDurableSliceRevisions: LocalRoomDocumentReplicaDurableSliceRevisions;
 };
 
 export type LocalRoomDocumentReplicaWriteOptions = {
@@ -50,6 +58,8 @@ export type LocalRoomDocumentReplicaWriteOptions = {
     | "note-drag-end"
     | "note-resize-end"
     | "note-text-save";
+  lastKnownDurableSnapshotRevision?: number | null;
+  lastKnownDurableSliceRevisions?: LocalRoomDocumentReplicaDurableSliceRevisions;
 };
 
 export type LocalRoomDocumentReplicaLoadResult = {
@@ -70,6 +80,8 @@ export type LocalRoomDocumentBootstrapState = {
   savedAt: number | null;
   revision: number | null;
   isVersionAware: boolean;
+  lastKnownDurableSnapshotRevision: number | null;
+  lastKnownDurableSliceRevisions: LocalRoomDocumentReplicaDurableSliceRevisions;
 };
 
 let roomDocumentReplicaDatabasePromise: Promise<IDBDatabase> | null = null;
@@ -192,7 +204,7 @@ export async function saveLocalRoomDocumentReplica(
       });
     }
 
-    const replica = await putNextLocalRoomDocumentReplica(roomId, objects);
+    const replica = await putNextLocalRoomDocumentReplica(roomId, objects, options);
     const serializedReplica = JSON.stringify(replica);
     const payloadBytes = new TextEncoder().encode(serializedReplica).length;
 
@@ -292,15 +304,19 @@ export async function loadLocalRoomDocumentBootstrapState(
     typeof localReplica?.revision === "number";
 
   if (localReplica && (hasVersionAwareLocalReplica || localReplicaObjectCount > 0)) {
-    return {
-      source: localReplicaResult.source,
-      content: localReplica.content,
-      objectCount: localReplicaObjectCount,
-      savedAt: localReplica.savedAt,
-      revision: localReplica.revision,
-      isVersionAware: hasVersionAwareLocalReplica,
-    };
-  }
+      return {
+        source: localReplicaResult.source,
+        content: localReplica.content,
+        objectCount: localReplicaObjectCount,
+        savedAt: localReplica.savedAt,
+        revision: localReplica.revision,
+        isVersionAware: hasVersionAwareLocalReplica,
+        lastKnownDurableSnapshotRevision:
+          localReplica.lastKnownDurableSnapshotRevision,
+        lastKnownDurableSliceRevisions:
+          localReplica.lastKnownDurableSliceRevisions,
+      };
+    }
 
   const legacyRoomSnapshot = loadRoomSnapshot(roomId);
   const legacyRoomSnapshotObjectCount = getRoomSnapshotObjectCount(
@@ -319,6 +335,8 @@ export async function loadLocalRoomDocumentBootstrapState(
       savedAt: legacyRoomSnapshot.savedAt,
       revision: null,
       isVersionAware: false,
+      lastKnownDurableSnapshotRevision: null,
+      lastKnownDurableSliceRevisions: createEmptyDurableSliceRevisions(),
     };
   }
 
@@ -329,6 +347,8 @@ export async function loadLocalRoomDocumentBootstrapState(
     savedAt: null,
     revision: null,
     isVersionAware: false,
+    lastKnownDurableSnapshotRevision: null,
+    lastKnownDurableSliceRevisions: createEmptyDurableSliceRevisions(),
   };
 }
 
@@ -605,10 +625,38 @@ function getRoomSnapshotObjectCount(snapshot: RoomSnapshot | null) {
     : 0;
 }
 
+function createEmptyDurableSliceRevisions(): LocalRoomDocumentReplicaDurableSliceRevisions {
+  return {
+    tokens: null,
+    images: null,
+    textCards: null,
+  };
+}
+
+function normalizeDurableSliceRevision(
+  revision: unknown
+): number | null {
+  return typeof revision === "number" ? revision : null;
+}
+
+function normalizeLocalRoomDocumentReplicaDurableSliceRevisions(
+  sliceRevisions:
+    | Partial<LocalRoomDocumentReplicaDurableSliceRevisions>
+    | null
+    | undefined
+): LocalRoomDocumentReplicaDurableSliceRevisions {
+  return {
+    tokens: normalizeDurableSliceRevision(sliceRevisions?.tokens),
+    images: normalizeDurableSliceRevision(sliceRevisions?.images),
+    textCards: normalizeDurableSliceRevision(sliceRevisions?.textCards),
+  };
+}
+
 function createLocalRoomDocumentReplica(
   roomId: string,
   objects: BoardObject[],
-  previousReplica?: LocalRoomDocumentReplica | null
+  previousReplica?: LocalRoomDocumentReplica | null,
+  options?: LocalRoomDocumentReplicaWriteOptions
 ): LocalRoomDocumentReplica {
   return {
     roomId,
@@ -623,6 +671,14 @@ function createLocalRoomDocumentReplica(
         objects.filter((object) => object.kind === "note-card")
       ),
     },
+    lastKnownDurableSnapshotRevision:
+      options?.lastKnownDurableSnapshotRevision ??
+      previousReplica?.lastKnownDurableSnapshotRevision ??
+      null,
+    lastKnownDurableSliceRevisions:
+      options?.lastKnownDurableSliceRevisions ??
+      previousReplica?.lastKnownDurableSliceRevisions ??
+      createEmptyDurableSliceRevisions(),
   };
 }
 
@@ -684,6 +740,13 @@ function parseLocalRoomDocumentReplica(roomId: string, raw: string) {
             )
           : [],
       },
+      lastKnownDurableSnapshotRevision: normalizeDurableSliceRevision(
+        parsed.lastKnownDurableSnapshotRevision
+      ),
+      lastKnownDurableSliceRevisions:
+        normalizeLocalRoomDocumentReplicaDurableSliceRevisions(
+          parsed.lastKnownDurableSliceRevisions
+        ),
     };
   } catch {
     return null;
@@ -761,7 +824,8 @@ async function putLocalRoomDocumentReplica(replica: LocalRoomDocumentReplica) {
 
 async function putNextLocalRoomDocumentReplica(
   roomId: string,
-  objects: BoardObject[]
+  objects: BoardObject[],
+  options?: LocalRoomDocumentReplicaWriteOptions
 ) {
   const legacyReplica = loadLegacyLocalRoomDocumentReplica(roomId);
   const database = await openRoomDocumentReplicaDatabase();
@@ -779,7 +843,8 @@ async function putNextLocalRoomDocumentReplica(
   const nextReplica = createLocalRoomDocumentReplica(
     roomId,
     objects,
-    currentReplica
+    currentReplica,
+    options
   );
 
   await waitForRequest(store.put(nextReplica));
