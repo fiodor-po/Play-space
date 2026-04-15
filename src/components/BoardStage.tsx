@@ -1635,9 +1635,9 @@ export default function BoardStage({
     );
   };
 
-  const releaseImageDrawingLock = () => {
+  const releaseImageDrawingLock = useCallback(() => {
     setActiveImageDrawingLock(null);
-  };
+  }, [setActiveImageDrawingLock]);
 
   const setDrawingImageSessionImageId = (nextImageId: string | null) => {
     drawingImageIdRef.current = nextImageId;
@@ -1648,16 +1648,19 @@ export default function BoardStage({
     activeImageStrokeRef.current = null;
   };
 
-  const getImageDrawingLock = (imageId: string) => {
-    return remoteImageDrawingLocks[imageId] ?? null;
-  };
-
   const isImageLocallyDrawingInProgress = (imageId: string) => {
     return (
       drawingImageIdRef.current === imageId ||
       activeImageStrokeRef.current?.imageId === imageId
     );
   };
+
+  const getImageDrawingLock = useCallback(
+    (imageId: string) => {
+      return remoteImageDrawingLocks[imageId] ?? null;
+    },
+    [remoteImageDrawingLocks]
+  );
 
   const endImageStroke = () => {
     const activeStroke = activeImageStrokeRef.current;
@@ -1690,11 +1693,14 @@ export default function BoardStage({
     setSelectedObjectId(nextSelectedObjectId);
   };
 
-  const isImageLockedByAnotherParticipant = (imageId: string) => {
-    const lock = getImageDrawingLock(imageId);
+  const isImageLockedByAnotherParticipant = useCallback(
+    (imageId: string) => {
+      const lock = remoteImageDrawingLocks[imageId] ?? null;
 
-    return !!lock && lock.participantId !== participantSession.id;
-  };
+      return !!lock && lock.participantId !== participantSession.id;
+    },
+    [participantSession.id, remoteImageDrawingLocks]
+  );
 
   const startImageDrawingMode = (imageId: string) => {
     const drawAccess = resolveObjectActionAccess(imageId, "board-object.draw");
@@ -3136,7 +3142,7 @@ export default function BoardStage({
   }, [
     drawingImageId,
     editingTextCardId,
-    remoteImageDrawingLocks,
+    isImageLockedByAnotherParticipant,
     selectedObjectId,
   ]);
 
@@ -3172,7 +3178,7 @@ export default function BoardStage({
     return () => {
       releaseImageDrawingLock();
     };
-  }, []);
+  }, [releaseImageDrawingLock]);
 
   const editingTextCard = editingTextCardId
     ? objects.find(
