@@ -113,11 +113,13 @@ persistence/recovery от snapshot arbitration к replica model.
      - covered multi-client durable corridors no longer rely on browser-visible `409` resource noise;
      - covered durable `PATCH` corridors use per-slice revision discipline and avoid cross-slice stale-base conflicts;
 12. вести `Recovery convergence model` как текущий internal replica-track step;
-   - first safe slice is already landed:
-     - empty-live bootstrap can apply a provisional local-first render from the version-aware local replica;
-     - settled arbitration still keeps the current `durable -> local -> baseline -> empty` order;
+   - current landed slices now give:
+     - empty-live bootstrap applies a provisional local-first render from the version-aware local replica;
+     - empty-live settled recovery converges per slice after provisional local-open;
+     - durable slice catches up only when its durable slice revision is ahead of the local handoff metadata;
+     - baseline still applies only when neither usable local document nor durable content exists;
      - active-room `live-wins` behavior stays unchanged;
-     - inspectability now separates `Initial open` from settled `Bootstrap`;
+     - inspectability separates `Initial open` from settled `Bootstrap` and shows slice-level settled sources;
 13. взять `browser-local participant identity stabilization` как следующий
     отдельный chapter candidate вне самого replica-track;
 14. держать `participant-marker / creator-color` как later chapter после participant identity stabilization;
@@ -245,11 +247,13 @@ persistence/recovery от snapshot arbitration к replica model.
   - lower inspect blocks and controls stay reachable through internal scroll
   - current smoke-facing `data-testid` hooks and inspectability strings stay stable
 - [ ] continue `Recovery convergence model` as the current internal replica-track step
-  - first safe slice already landed:
+  - current landed slices now give:
     - empty-live bootstrap now applies a provisional local-first render from the version-aware local replica
-    - settled arbitration still keeps the current `durable -> local -> baseline -> empty` order
+    - empty-live settled recovery now converges per slice after provisional local-open
+    - durable slice now catches up only when its durable slice revision is ahead of the local handoff metadata
+    - baseline still applies only when neither usable local document nor durable content exists
     - active-room `live-wins` behavior stays unchanged
-    - inspectability now separates `Initial open` from settled `Bootstrap`
+    - inspectability now separates `Initial open` from settled `Bootstrap` and shows slice-level settled sources
 - [ ] использовать hosted validation как recurring checkpoint после крупных
   продуктовых шагов и новых demo snapshots
 

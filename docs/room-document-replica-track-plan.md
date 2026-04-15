@@ -323,12 +323,17 @@ freshest shared room document state.
 
 **Current progress**
 
-- empty-live bootstrap can already apply a provisional local-first render from
-  the version-aware local replica;
-- settled arbitration still keeps the current `durable -> local -> baseline ->
-  empty` order;
+- empty-live bootstrap now applies a provisional local-first render from the
+  version-aware local replica;
+- empty-live settled recovery now converges per slice after provisional
+  local-open;
+- durable slice now catches up only when its durable slice revision is ahead of
+  the local handoff metadata;
+- baseline still applies only when neither usable local document nor durable
+  content exists;
 - active-room `live-wins` behavior stays unchanged;
-- debug inspectability now separates `Initial open` from settled `Bootstrap`;
+- debug inspectability now separates `Initial open` from settled `Bootstrap`
+  and shows slice-level settled sources;
 - `RF-2026-04-15-01` remains deferred inside this chapter as follow-up review
   for the legacy `room-snapshot` compatibility fallback.
 

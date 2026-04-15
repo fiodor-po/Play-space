@@ -44,10 +44,12 @@
   - covered durable `PATCH` corridors now use per-slice revision discipline to avoid cross-slice stale-base conflicts.
 - `Checkpoint 2` is now closed after local and durable persistence maturity.
 - `Recovery convergence model` is now the current active internal replica-track step:
-  - empty-live bootstrap can already apply a provisional local-first render from the version-aware local replica;
-  - settled arbitration still keeps the current `durable -> local -> baseline -> empty` order;
+  - empty-live bootstrap now applies a provisional local-first render from the version-aware local replica;
+  - empty-live settled recovery now converges per slice after provisional local-open;
+  - durable slice now catches up only when its durable slice revision is ahead of the local handoff metadata;
+  - baseline still applies only when neither usable local document nor durable content exists;
   - active-room `live-wins` behavior stays unchanged;
-  - debug inspectability now separates `Initial open` from settled `Bootstrap`.
+  - debug inspectability now separates `Initial open` from settled `Bootstrap` and shows slice-level settled sources.
 - Dev tools inspectability surface now has a closed usability cleanup checkpoint:
   - the panel stays viewport-bounded on ordinary desktop viewports;
   - lower inspect blocks and controls stay reachable through internal scroll;
