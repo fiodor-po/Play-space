@@ -98,6 +98,7 @@ export const ParticipantSessionPanel = forwardRef<
         <button
           type="button"
           onClick={onLeaveRoom}
+          data-testid="session-leave-room-button"
           style={{
             ...leaveRoomButtonRecipe.style,
             justifyContent: "flex-end",
@@ -252,6 +253,7 @@ export const ParticipantSessionPanel = forwardRef<
           >
             <input
               type="checkbox"
+              data-testid="session-debug-tools-toggle"
               checked={isDevToolsOpen}
               onChange={() => {
                 onToggleDevTools();

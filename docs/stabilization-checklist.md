@@ -8,6 +8,12 @@
 ## Build
 
 - [ ] `npm run build`
+- [ ] `npm run smoke:e2e`
+
+## Local browser smoke
+
+- [ ] shared note всё ещё доходит до второго browser context
+- [ ] refresh в active room всё ещё восстанавливает joined state и current live board state
 
 ## Hosted smoke minimum
 

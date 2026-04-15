@@ -605,6 +605,11 @@ export default function BoardStage({
     string | null
   >(null);
   const currentUserColor = participantSession.color;
+  const sharedTokenCount = objects.filter((object) => object.kind === "token").length;
+  const sharedImageCount = objects.filter((object) => object.kind === "image").length;
+  const sharedNoteCount = objects.filter((object) => isNoteCardObject(object)).length;
+  const sharedObjectCount =
+    sharedTokenCount + sharedImageCount + sharedNoteCount;
   const getLiveCreatorColor = (object: BoardObject) => {
     return resolveCurrentParticipantColor({
       participantId: object.creatorId,
@@ -3011,6 +3016,35 @@ export default function BoardStage({
                 gap: 8,
                 fontSize: 12,
               }}
+              data-testid="debug-room-object-counts"
+              {...getDesignSystemDebugAttrs(surfaceRecipes.inset.default.debug)}
+            >
+              <div
+                style={{
+                  fontSize: 11,
+                  fontWeight: 700,
+                  letterSpacing: "0.04em",
+                  textTransform: "uppercase",
+                  color: "#94a3b8",
+                }}
+              >
+                Room objects
+              </div>
+              <div style={{ color: "#e2e8f0" }}>Total: {sharedObjectCount}</div>
+              <div style={{ color: "#94a3b8" }}>
+                tokens {sharedTokenCount}
+                {" · "}images {sharedImageCount}
+                {" · "}notes {sharedNoteCount}
+              </div>
+            </div>
+
+            <div
+              className={surfaceRecipes.inset.default.className}
+              style={{
+                ...surfaceRecipes.inset.default.style,
+                gap: 8,
+                fontSize: 12,
+              }}
               {...getDesignSystemDebugAttrs(surfaceRecipes.inset.default.debug)}
             >
               <div
@@ -3093,6 +3127,7 @@ export default function BoardStage({
                 gap: 8,
                 fontSize: 12,
               }}
+              data-testid="debug-local-replica-inspection"
               {...getDesignSystemDebugAttrs(surfaceRecipes.inset.default.debug)}
             >
               <div

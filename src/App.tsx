@@ -257,6 +257,7 @@ function EntryModeScreen({
 
         <form
           onSubmit={onJoinRoom}
+          data-testid="entry-form"
           className={surfaceRecipes.panel.default.className}
           style={surfaceRecipes.panel.default.style}
           {...getDesignSystemDebugAttrs(surfaceRecipes.panel.default.debug)}
@@ -272,6 +273,7 @@ function EntryModeScreen({
                 onChange={(event) => {
                   onDraftRoomIdChange(event.target.value);
                 }}
+                data-testid="entry-room-input"
                 placeholder="Room name"
                 className={fieldRecipes.default.input.className}
                 style={fieldRecipes.default.input.style}
@@ -290,6 +292,7 @@ function EntryModeScreen({
                 onChange={(event) => {
                   onDraftNameChange(event.target.value);
                 }}
+                data-testid="entry-name-input"
                 placeholder="Your name"
                 autoFocus
                 className={fieldRecipes.default.input.className}
@@ -494,6 +497,7 @@ function EntryModeScreen({
 
           <button
             type="submit"
+            data-testid="entry-join-button"
             disabled={
               !normalizeRoomId(draftRoomId) ||
               !draftName.trim() ||

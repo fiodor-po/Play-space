@@ -27,6 +27,7 @@ export function BoardToolbar({
       <button
         type="button"
         onClick={onAddImage}
+        data-testid="debug-add-image-button"
         className={addImageRecipe.className}
         style={addImageRecipe.style}
         {...getDesignSystemDebugAttrs(addImageRecipe.debug)}
@@ -37,6 +38,7 @@ export function BoardToolbar({
       <button
         type="button"
         onClick={onAddNote}
+        data-testid="debug-add-note-button"
         className={buttonRecipes.secondary.default.className}
         style={buttonRecipes.secondary.default.style}
         {...getDesignSystemDebugAttrs(buttonRecipes.secondary.default.debug)}
@@ -47,6 +49,7 @@ export function BoardToolbar({
       <button
         type="button"
         onClick={onResetBoard}
+        data-testid="debug-reset-board-button"
         className={buttonRecipes.danger.default.className}
         style={buttonRecipes.danger.default.style}
         {...getDesignSystemDebugAttrs(buttonRecipes.danger.default.debug)}

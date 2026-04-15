@@ -26,6 +26,7 @@
 - documentation workflow разделён на foundation file, roadmap, current-context file и case-study log;
 - work model с AI теперь сознательно формализуется как strategist + executor;
 - minimal capability checklist собран достаточно для first hosted alpha core checkpoint;
+- минимальный локальный Playwright smoke harness теперь покрывает первые headless-проверки основных room corridors и recovery flow;
 - first hosted core deploy поднят;
 - базовая hosted validation core flow подтверждена;
 - hosted video now works as an optional layer via the Vercel token fallback path;
