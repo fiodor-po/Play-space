@@ -72,7 +72,7 @@
 
 ## Phase C — Room document persistence / recovery architecture
 
-**Статус:** active track, `Local replica semantics` complete, checkpoint 2 open
+**Статус:** active track, `Core semantic cutover from snapshot arbitration` active, checkpoint 3 closed
 
 ### Цель
 Принять `room document replicas` как architecture chapter, перевести
@@ -102,7 +102,7 @@ persistence/recovery от snapshot arbitration к replica model.
    - local replica now has monotonic local revision identity;
    - covered committed image/token/note corridors now write into IndexedDB local replica;
    - bootstrap now treats version-aware local replica as the local document source even when local content is empty;
-   - legacy `room-snapshot` stays only as a compatibility fallback when no version-aware local replica is available;
+   - legacy `room-snapshot` still remained as a temporary compatibility fallback and moved forward to later recovery work;
 10. зафиксировать, что первый `IndexedDB`-baseline checkpoint закрыт, но сам
    replica-track ещё не завершён;
 11. взять `Durable write model` как следующий internal replica-track step;

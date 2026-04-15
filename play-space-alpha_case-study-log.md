@@ -2602,8 +2602,8 @@ The project closed this step through several narrow slices:
 - local replica writes gained monotonic local revision identity;
 - covered committed image/token/note corridors now write into IndexedDB local
   replica on commit boundary;
-- same-browser reopen smoke for those covered corridors now reads from
-  `local-recovery` / `indexeddb`;
+- same-browser reopen smoke for those covered corridors then read from the
+  historical `local-recovery` / `indexeddb` label;
 - bootstrap read path now treats version-aware local replica as the local
   document source even when that replica is empty;
 - stale `room-snapshot` no longer resurrects content over a version-aware empty
@@ -2627,7 +2627,8 @@ The next internal replica-track step is now `Durable write model`.
 
 The remaining local follow-up was classified explicitly:
 
-- legacy `room-snapshot` stays as a compatibility fallback for now;
+- legacy `room-snapshot` still stayed as a compatibility fallback at that
+  point;
 - its later fate should be reviewed during `Durable write model`, not reopened
   as another immediate local bootstrap chapter.
 

@@ -103,9 +103,9 @@ npm run smoke:e2e:headed
 - same-browser reopen preserves committed state for the current test corridor;
 - suite fails on disallowed runtime regressions.
 
-## Bridge-bound assertions in the current checkpoint
+## Assertions for the current smoke/debug contract
 
-Эти assertions защищают current bridge behavior:
+Эти assertions фиксируют текущий smoke/debug contract:
 
 - settled bootstrap branch names such as `live-active` and `replica-converged`;
 - initial-open status/source strings for local-first recovery inspection;
@@ -179,7 +179,8 @@ Harness review обязателен после:
   moves to IndexedDB;
 - exact local source strings;
 - exact `Last read:` strings;
-- `local-recovery` branch expectations where bootstrap source changes.
+- exact `replica-converged` bootstrap branch expectations where bootstrap
+  source changes.
 
 After `Durable write model`:
 

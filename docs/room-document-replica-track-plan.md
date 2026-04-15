@@ -215,8 +215,8 @@ Browser-local state становится version-aware local replica, а не fa
   replica on commit boundary;
 - bootstrap read path treats version-aware local replica as the local document
   source even when the local content is empty;
-- legacy `room-snapshot` remains only as a compatibility fallback when no
-  version-aware local replica is available.
+- at closure of this step, legacy `room-snapshot` still remained as a
+  compatibility fallback when no version-aware local replica was available.
 
 ### Шаг 5. Durable write model
 
@@ -503,17 +503,17 @@ cutover.
 - image move/resize sync and refresh survival;
 - image draw/save refresh survival;
 - same-browser local-only recovery for image state through current
-  `local-recovery` / IndexedDB corridor;
+  `replica-converged` / IndexedDB settled corridor;
 - versioned empty local replica keeps same-browser reopen on the empty local
   document instead of stale `room-snapshot` or baseline fallback;
 - same-browser token move recovery through current
-  `local-recovery` / IndexedDB corridor;
+  `replica-converged` / IndexedDB settled corridor;
 - same-browser note move recovery through current
-  `local-recovery` / IndexedDB corridor;
+  `replica-converged` / IndexedDB settled corridor;
 - same-browser note resize recovery through current
-  `local-recovery` / IndexedDB corridor;
+  `replica-converged` / IndexedDB settled corridor;
 - same-browser note text save recovery through current
-  `local-recovery` / IndexedDB corridor;
+  `replica-converged` / IndexedDB settled corridor;
 - runtime failure policy for uncaught page errors and disallowed console
   warning/error events.
 
@@ -531,9 +531,9 @@ passes, которые трогают board/runtime/recovery behavior.
 - runtime failure policy still fails the suite on disallowed page or console
   regressions.
 
-## Bridge-bound smoke assertions
+## Smoke assertions for the current contract
 
-Эти assertions защищают текущий bridge checkpoint и подлежат review на следующих
+Эти assertions фиксируют текущий contract и подлежат review на следующих
 steps:
 
 - settled bootstrap branch names such as `live-active` and
@@ -557,7 +557,7 @@ Review:
   moves to IndexedDB;
 - exact `local source ...` assertions;
 - exact `Last read: ...` assertions;
-- `Bootstrap: local-recovery` expectations where the source contract changes.
+- `Bootstrap: replica-converged` expectations where the source contract changes.
 
 ### After `Durable write model`
 

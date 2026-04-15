@@ -318,7 +318,7 @@ Accepted direction:
 Practical blocker behind this decision:
 
 - committed room content can still be lost or recovered incorrectly;
-- current model still arbitrates between local and durable snapshots as competing sources;
+- at that checkpoint current model still arbitrated between local and durable snapshots as competing sources;
 - confirmed bug corridors include quick leave / re-enter, refresh, and image commit boundaries.
 
 Current implementation consequence:
