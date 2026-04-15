@@ -42,6 +42,25 @@ type NoteBounds = {
   height: number;
 };
 
+type IndexedDbRoomDocumentReplicaRecord = {
+  roomId: string;
+  revision: number | null;
+  savedAt: number;
+  content: {
+    tokens?: unknown[];
+    images?: unknown[];
+    textCards?: Array<{
+      label?: string;
+    } & Record<string, unknown>>;
+  };
+  lastKnownDurableSnapshotRevision: number | null;
+  lastKnownDurableSliceRevisions: {
+    tokens: number | null;
+    images: number | null;
+    textCards: number | null;
+  };
+};
+
 type RoomOpsDetail = {
   roomId: string;
   live: {
@@ -825,7 +844,8 @@ export async function seedStaleLocalReplicaNoteLabel(
             "readonly"
           );
           const store = transaction.objectStore("room-document-replicas");
-          const replica = await new Promise<any>((resolve, reject) => {
+          const replica = await new Promise<IndexedDbRoomDocumentReplicaRecord | null>(
+            (resolve, reject) => {
             const request = store.get(roomIdToRead);
 
             request.onerror = () => {
@@ -835,7 +855,8 @@ export async function seedStaleLocalReplicaNoteLabel(
             request.onsuccess = () => {
               resolve(request.result ?? null);
             };
-          });
+            }
+          );
 
           await new Promise<void>((resolve, reject) => {
             transaction.onerror = () => {

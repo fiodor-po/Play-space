@@ -1,4 +1,11 @@
-import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useEffectEvent,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   Group,
   Image as KonvaImage,
@@ -385,6 +392,12 @@ type EditingTextareaStyle = {
 type ContainerRect = {
   left: number;
   top: number;
+};
+
+type LocalCursorViewportState = {
+  stageX: number;
+  stageY: number;
+  stageScale: number;
 };
 
 type LocalReplicaReadSource = "idle" | LocalRoomDocumentBootstrapReadSource;
@@ -1525,9 +1538,23 @@ export default function BoardStage({
     y: number;
   } | null>(null);
   const lastLocalCursorPresenceSentAtRef = useRef(0);
+  const flushLocalCursorPresenceRef = useRef<() => void>(() => undefined);
+  const localCursorViewportRef = useRef<LocalCursorViewportState>({
+    stageX: stagePosition.x,
+    stageY: stagePosition.y,
+    stageScale,
+  });
+  const onUpdateLocalPresenceRef = useRef(onUpdateLocalPresence);
   const [loadedImages, setLoadedImages] = useState<Record<string, HTMLImageElement>>(
     {}
   );
+
+  localCursorViewportRef.current = {
+    stageX: stagePosition.x,
+    stageY: stagePosition.y,
+    stageScale,
+  };
+  onUpdateLocalPresenceRef.current = onUpdateLocalPresence;
 
   const scheduleNoteCardResizePreviewRender = () => {
     if (liveNoteCardResizeFrameRef.current !== null) {
@@ -3648,7 +3675,7 @@ export default function BoardStage({
     stageScale,
   ]);
 
-  const flushLocalCursorPresence = useEffectEvent(() => {
+  const flushLocalCursorPresence = useCallback(() => {
     pendingLocalCursorPresenceFrameRef.current = null;
 
     const nextPoint = pendingLocalCursorPresencePointRef.current;
@@ -3658,14 +3685,16 @@ export default function BoardStage({
       return;
     }
 
+    const { stageX, stageY, stageScale: currentStageScale } =
+      localCursorViewportRef.current;
     const cursor = getBoardPointFromScreen({
       clientX: nextPoint.clientX,
       clientY: nextPoint.clientY,
       containerLeft: containerRect.left,
       containerTop: containerRect.top,
-      stageX: stagePosition.x,
-      stageY: stagePosition.y,
-      stageScale,
+      stageX,
+      stageY,
+      stageScale: currentStageScale,
     });
     const lastPublishedCursor = lastPublishedLocalCursorRef.current;
     const now = Date.now();
@@ -3678,9 +3707,10 @@ export default function BoardStage({
       LOCAL_CURSOR_PRESENCE_MIN_INTERVAL_MS;
 
     if (cursorChanged && !isPublishIntervalReady) {
-      pendingLocalCursorPresenceFrameRef.current = window.requestAnimationFrame(() =>
-        flushLocalCursorPresence()
-      );
+      pendingLocalCursorPresenceFrameRef.current =
+        window.requestAnimationFrame(() => {
+          flushLocalCursorPresenceRef.current();
+        });
       return;
     }
 
@@ -3691,7 +3721,7 @@ export default function BoardStage({
     lastPublishedLocalCursorRef.current = cursor;
     lastLocalCursorPresenceSentAtRef.current = now;
 
-    onUpdateLocalPresence((presence) =>
+    onUpdateLocalPresenceRef.current((presence) =>
       presence
         ? {
             ...presence,
@@ -3700,7 +3730,9 @@ export default function BoardStage({
           }
         : null
     );
-  });
+  }, []);
+
+  flushLocalCursorPresenceRef.current = flushLocalCursorPresence;
 
   const scheduleLocalCursorPresencePublish = (
     clientX: number,
@@ -3715,12 +3747,13 @@ export default function BoardStage({
       return;
     }
 
-    pendingLocalCursorPresenceFrameRef.current = window.requestAnimationFrame(() =>
-      flushLocalCursorPresence()
-    );
+    pendingLocalCursorPresenceFrameRef.current =
+      window.requestAnimationFrame(() => {
+        flushLocalCursorPresenceRef.current();
+      });
   };
 
-  const clearLocalCursorPresence = useEffectEvent(() => {
+  const clearLocalCursorPresence = useCallback(() => {
     pendingLocalCursorPresencePointRef.current = null;
 
     if (pendingLocalCursorPresenceFrameRef.current !== null) {
@@ -3728,19 +3761,20 @@ export default function BoardStage({
       pendingLocalCursorPresenceFrameRef.current = null;
     }
 
+    const now = Date.now();
     lastPublishedLocalCursorRef.current = null;
-    lastLocalCursorPresenceSentAtRef.current = Date.now();
+    lastLocalCursorPresenceSentAtRef.current = now;
 
-    onUpdateLocalPresence((presence) =>
+    onUpdateLocalPresenceRef.current((presence) =>
       presence
         ? {
             ...presence,
             cursor: null,
-            lastActiveAt: Date.now(),
+            lastActiveAt: now,
           }
         : null
     );
-  });
+  }, []);
 
   useEffect(() => {
     return () => {
