@@ -97,6 +97,10 @@ export function createRoomCreatorConnection(params: {
 
   return {
     destroy: () => {
+      if (isDestroyed) {
+        return;
+      }
+
       isDestroyed = true;
       roomState.unobserve(handleRoomStateChange);
       provider.off("sync", handleProviderSync);
