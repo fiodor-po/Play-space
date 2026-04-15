@@ -1421,21 +1421,22 @@ export default function BoardStage({
     setObjectSemanticsHoverState(null);
   };
 
-  const recordGovernanceResolution = (
-    resolution: GovernedActionAccessResolution
-  ) => {
-    const nextEntryId = governanceInspectionSequenceRef.current + 1;
-    governanceInspectionSequenceRef.current = nextEntryId;
+  const recordGovernanceResolution = useCallback(
+    (resolution: GovernedActionAccessResolution) => {
+      const nextEntryId = governanceInspectionSequenceRef.current + 1;
+      governanceInspectionSequenceRef.current = nextEntryId;
 
-    setGovernanceInspectionEntries((currentEntries) => [
-      {
-        id: `governance-${nextEntryId}`,
-        resolution,
-        timestamp: Date.now(),
-      },
-      ...currentEntries,
-    ].slice(0, 8));
-  };
+      setGovernanceInspectionEntries((currentEntries) => [
+        {
+          id: `governance-${nextEntryId}`,
+          resolution,
+          timestamp: Date.now(),
+        },
+        ...currentEntries,
+      ].slice(0, 8));
+    },
+    []
+  );
 
   const resolveRoomActionAccess = (actionKey: GovernanceActionKey) => {
     const resolution = resolveGovernedActionAccess({
@@ -1453,45 +1454,45 @@ export default function BoardStage({
     return resolution;
   };
 
-  const resolveObjectActionAccess = (
-    objectId: string,
-    actionKey: GovernanceActionKey
-  ) => {
-    const object = objects.find((candidate) => candidate.id === objectId);
+  const resolveObjectActionAccess = useCallback(
+    (objectId: string, actionKey: GovernanceActionKey) => {
+      const object = objects.find((candidate) => candidate.id === objectId);
 
-    if (!object) {
-      return null;
-    }
+      if (!object) {
+        return null;
+      }
 
-    const resolution =
-      actionKey === "board-object.delete"
-        ? resolveBoardObjectDeletePolicyAccess({
-            object,
-            participantId: participantSession.id,
-            roomCreatorId,
-          })
-        : actionKey === "board-object.clear-all-drawing"
-          ? resolveImageClearAllDrawingPolicyAccess({
+      const resolution =
+        actionKey === "board-object.delete"
+          ? resolveBoardObjectDeletePolicyAccess({
               object,
               participantId: participantSession.id,
               roomCreatorId,
             })
-        : actionKey === "board-object.clear-own-drawing"
-          ? resolveImageClearOwnDrawingPolicyAccess({
-              object,
-              participantId: participantSession.id,
-            })
-        : resolveGovernedActionAccess({
-            entity: createBoardObjectGovernedEntityRef(object),
-            actionKey,
-            participantId: participantSession.id,
-            defaultAccessLevel: "full",
-          });
+          : actionKey === "board-object.clear-all-drawing"
+            ? resolveImageClearAllDrawingPolicyAccess({
+                object,
+                participantId: participantSession.id,
+                roomCreatorId,
+              })
+            : actionKey === "board-object.clear-own-drawing"
+              ? resolveImageClearOwnDrawingPolicyAccess({
+                  object,
+                  participantId: participantSession.id,
+                })
+              : resolveGovernedActionAccess({
+                  entity: createBoardObjectGovernedEntityRef(object),
+                  actionKey,
+                  participantId: participantSession.id,
+                  defaultAccessLevel: "full",
+                });
 
-    recordGovernanceResolution(resolution);
+      recordGovernanceResolution(resolution);
 
-    return resolution;
-  };
+      return resolution;
+    },
+    [objects, participantSession.id, recordGovernanceResolution, roomCreatorId]
+  );
 
   const noteCardRefs = useRef<Record<string, Konva.Group | null>>({});
   const imageRefs = useRef<Record<string, Konva.Image | null>>({});
