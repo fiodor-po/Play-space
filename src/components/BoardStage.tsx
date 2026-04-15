@@ -59,6 +59,7 @@ import {
 } from "../board/sync/boardObjectSync";
 import {
   getRoomScopedBoardObjects,
+  type LocalObjectsChangeOptions,
   useBoardObjectRuntime,
 } from "../board/runtime/useBoardObjectRuntime";
 import {
@@ -106,6 +107,8 @@ import {
 } from "../lib/boardObjects";
 import {
   clearBoardContentStorage,
+  loadLocalRoomDocumentReplica,
+  saveLocalRoomDocumentReplica,
   loadRoomSnapshot,
   loadViewportState,
   saveBoardObjects,
@@ -162,6 +165,7 @@ type SmallFloatingActionButtonProps = {
 
 const IMAGE_ATTACHED_CONTROLS_GAP = 8;
 const IMAGE_ATTACHED_CONTROLS_OUTER_OFFSET_Y = 12;
+const LOCAL_CURSOR_PRESENCE_MIN_INTERVAL_MS = 33;
 
 function getSmallFloatingActionButtonWidth(
   label: string,
@@ -255,6 +259,30 @@ function getSharedBoardObjects(nextObjects: BoardObject[]) {
   );
 }
 
+function getReplicaObjectCount(content: {
+  tokens: BoardObject[];
+  images: BoardObject[];
+  textCards: BoardObject[];
+}) {
+  return content.tokens.length + content.images.length + content.textCards.length;
+}
+
+function formatDebugTimestamp(timestamp: number | null) {
+  if (timestamp === null) {
+    return "none";
+  }
+
+  return new Date(timestamp).toLocaleString();
+}
+
+function getErrorMessage(error: unknown) {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return String(error);
+}
+
 type BoardStageProps = {
   participantSession: LocalParticipantSession;
   participantPresences: ParticipantPresenceMap;
@@ -308,6 +336,33 @@ type ContainerRect = {
   top: number;
 };
 
+type LocalReplicaReadSource =
+  | "idle"
+  | "indexeddb"
+  | "legacy-localstorage"
+  | "room-snapshot"
+  | "none";
+
+type LocalReplicaInspectionState = {
+  lastWriteStatus: "idle" | "writing" | "saved" | "failed";
+  lastWriteCommitBoundary: LocalObjectsChangeOptions["commitBoundary"] | null;
+  lastWriteSavedAt: number | null;
+  lastWriteObjectCount: number;
+  lastReadSource: LocalReplicaReadSource;
+  lastReadSavedAt: number | null;
+  lastReadObjectCount: number;
+  lastBootstrapBranch:
+    | "pending"
+    | "live-wins"
+    | "durable-recovery"
+    | "local-recovery"
+    | "baseline-initialization"
+    | "empty-room"
+    | null;
+  lastBootstrapLocalSource: Exclude<LocalReplicaReadSource, "idle"> | null;
+  lastError: string | null;
+};
+
 export default function BoardStage({
   participantSession,
   participantPresences,
@@ -324,15 +379,30 @@ export default function BoardStage({
   onUpdateLocalPresence,
 }: BoardStageProps) {
   const isDebugControlsEnabled = isDesignSystemHoverDebugEnabled();
+
   const containerRef = useRef<HTMLDivElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const imageInputRef = useRef<HTMLInputElement | null>(null);
   const sessionPanelRef = useRef<HTMLDivElement | null>(null);
   const stageWrapperRef = useRef<HTMLDivElement | null>(null);
+  const activeRoomIdRef = useRef(roomId);
   const [stageSize, setStageSize] = useState({
     width: window.innerWidth,
     height: window.innerHeight,
   });
+  const [localReplicaInspection, setLocalReplicaInspection] =
+    useState<LocalReplicaInspectionState>({
+      lastWriteStatus: "idle",
+      lastWriteCommitBoundary: null,
+      lastWriteSavedAt: null,
+      lastWriteObjectCount: 0,
+      lastReadSource: "idle",
+      lastReadSavedAt: null,
+      lastReadObjectCount: 0,
+      lastBootstrapBranch: null,
+      lastBootstrapLocalSource: null,
+      lastError: null,
+    });
 
   const [stagePosition, setStagePosition] = useState(() => {
     const savedViewport = loadViewportState(roomId);
@@ -372,6 +442,68 @@ export default function BoardStage({
     return savedViewport.scale;
   });
 
+  useEffect(() => {
+    activeRoomIdRef.current = roomId;
+  }, [roomId]);
+
+  const persistLocalReplica = useEffectEvent(
+    (
+      nextObjects: BoardObject[],
+      commitBoundary: NonNullable<LocalObjectsChangeOptions["commitBoundary"]>
+    ) => {
+      setLocalReplicaInspection((current) => ({
+        ...current,
+        lastWriteStatus: "writing",
+        lastWriteCommitBoundary: commitBoundary,
+        lastWriteObjectCount: getSharedBoardObjects(nextObjects).length,
+        lastError: null,
+      }));
+
+      void saveLocalRoomDocumentReplica(roomId, nextObjects, {
+        commitBoundary,
+      })
+        .then((replica) => {
+          if (activeRoomIdRef.current !== roomId) {
+            return;
+          }
+
+          setLocalReplicaInspection((current) => ({
+            ...current,
+            lastWriteStatus: "saved",
+            lastWriteCommitBoundary: commitBoundary,
+            lastWriteSavedAt: replica.savedAt,
+            lastWriteObjectCount: getReplicaObjectCount(replica.content),
+            lastError: null,
+          }));
+        })
+        .catch((error) => {
+          if (activeRoomIdRef.current !== roomId) {
+            return;
+          }
+
+          setLocalReplicaInspection((current) => ({
+            ...current,
+            lastWriteStatus: "failed",
+            lastWriteCommitBoundary: commitBoundary,
+            lastError: getErrorMessage(error),
+          }));
+        });
+    }
+  );
+
+  const handleLocalBoardObjectsChange = useEffectEvent(
+    (nextObjects: BoardObject[], options?: LocalObjectsChangeOptions) => {
+      if (
+        options?.commitBoundary !== "image-drag-end" &&
+        options?.commitBoundary !== "image-transform-end"
+      ) {
+        return;
+      }
+
+      persistLocalReplica(nextObjects, options.commitBoundary);
+    }
+  );
+
   const {
     objects,
     commands: {
@@ -400,6 +532,7 @@ export default function BoardStage({
       updateImagePreviewBounds,
     },
   } = useBoardObjectRuntime({
+    onLocalObjectsChange: handleLocalBoardObjectsChange,
     roomId,
   });
 
@@ -419,6 +552,10 @@ export default function BoardStage({
   );
   const [drawingImageId, setDrawingImageId] = useState<string | null>(null);
   const [draggingImageId, setDraggingImageId] = useState<string | null>(null);
+  const [draggingTokenId, setDraggingTokenId] = useState<string | null>(null);
+  const [draggingNoteCardId, setDraggingNoteCardId] = useState<string | null>(
+    null
+  );
   const [isEditingParticipantName, setIsEditingParticipantName] = useState(false);
   const [participantNameDraft, setParticipantNameDraft] = useState(
     participantSession.name
@@ -674,9 +811,12 @@ export default function BoardStage({
   const recordGovernanceResolution = (
     resolution: GovernedActionAccessResolution
   ) => {
+    const nextEntryId = governanceInspectionSequenceRef.current + 1;
+    governanceInspectionSequenceRef.current = nextEntryId;
+
     setGovernanceInspectionEntries((currentEntries) => [
       {
-        id: `${Date.now()}-${currentEntries.length}`,
+        id: `governance-${nextEntryId}`,
         resolution,
         timestamp: Date.now(),
       },
@@ -769,10 +909,20 @@ export default function BoardStage({
   const snapshotRecoveryAttemptedRoomRef = useRef<number | null>(null);
   const [resolvedSnapshotBootstrapRoomId, setResolvedSnapshotBootstrapRoomId] =
     useState<string | null>(null);
-  const [durableSnapshotRetryNonce, setDurableSnapshotRetryNonce] = useState(0);
   const durableSnapshotRevisionRef = useRef<number | null>(null);
   const pendingDurableSnapshotSaveKeyRef = useRef<string | null>(null);
   const lastSavedDurableSnapshotKeyRef = useRef<string | null>(null);
+  const governanceInspectionSequenceRef = useRef(0);
+  const pendingLocalCursorPresenceFrameRef = useRef<number | null>(null);
+  const pendingLocalCursorPresencePointRef = useRef<{
+    clientX: number;
+    clientY: number;
+  } | null>(null);
+  const lastPublishedLocalCursorRef = useRef<{
+    x: number;
+    y: number;
+  } | null>(null);
+  const lastLocalCursorPresenceSentAtRef = useRef(0);
   const [loadedImages, setLoadedImages] = useState<Record<string, HTMLImageElement>>(
     {}
   );
@@ -873,6 +1023,7 @@ export default function BoardStage({
 
     if (activeStroke) {
       syncCurrentImage(activeStroke.imageId);
+      persistLocalReplica(objects, "image-draw-commit");
     }
 
     clearActiveImageStrokeSession();
@@ -1027,7 +1178,8 @@ export default function BoardStage({
             })),
           };
         }),
-      { syncSharedImageIds: [id] }
+      { syncSharedImageIds: [id] },
+      { commitBoundary: "image-transform-end" }
     );
   };
 
@@ -1079,6 +1231,18 @@ export default function BoardStage({
     panStateRef.current = null;
     clearLiveNoteCardResizePreviewSession();
     clearActiveImageStrokeSession();
+    setLocalReplicaInspection({
+      lastWriteStatus: "idle",
+      lastWriteCommitBoundary: null,
+      lastWriteSavedAt: null,
+      lastWriteObjectCount: 0,
+      lastReadSource: "idle",
+      lastReadSavedAt: null,
+      lastReadObjectCount: 0,
+      lastBootstrapBranch: "pending",
+      lastBootstrapLocalSource: null,
+      lastError: null,
+    });
     queueMicrotask(() => {
       if (isCancelled) {
         return;
@@ -1101,6 +1265,8 @@ export default function BoardStage({
       setDrawingImageSessionImageId(null);
       setTransformingImageId(null);
       setDraggingImageId(null);
+      setDraggingTokenId(null);
+      setDraggingNoteCardId(null);
       setRemoteImagePreviewPositions({});
       setRemoteImageDrawingLocks({});
       setRemoteTextCardEditingStates({});
@@ -1112,6 +1278,9 @@ export default function BoardStage({
       setResolvedSnapshotBootstrapRoomId(null);
       setIsDevToolsOpen(false);
       setObjectSemanticsHoverState(null);
+      pendingLocalCursorPresencePointRef.current = null;
+      lastPublishedLocalCursorRef.current = null;
+      lastLocalCursorPresenceSentAtRef.current = 0;
     });
 
     return () => {
@@ -1204,9 +1373,15 @@ export default function BoardStage({
     }
 
     // Local room snapshots are a fallback cache of last known committed shared content.
-    // Skip writes while image state is mid-interaction so we don't persist transient
-    // preview/drawing-in-progress state as if it were committed room content.
-    if (drawingImageId || draggingImageId || transformingImageId) {
+    // Skip writes while local interaction is mid-flight so commit-time persistence
+    // runs only after the committed end state lands in room objects.
+    if (
+      drawingImageId ||
+      draggingImageId ||
+      transformingImageId ||
+      draggingTokenId ||
+      draggingNoteCardId
+    ) {
       return;
     }
 
@@ -1230,27 +1405,36 @@ export default function BoardStage({
     let isCancelled = false;
 
     const persistDurableSnapshot = async () => {
-      const result = await saveDurableRoomSnapshot(
-        roomId,
-        objects,
-        durableSnapshotRevisionRef.current
-      );
+      let baseRevision = durableSnapshotRevisionRef.current;
 
-      if (isCancelled) {
-        return;
-      }
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        const result = await saveDurableRoomSnapshot(roomId, objects, baseRevision);
 
-      if (result.status === "conflict") {
-        durableSnapshotRevisionRef.current = result.currentRevision;
-        if (result.currentRevision !== null) {
-          setDurableSnapshotRetryNonce((value) => value + 1);
+        if (isCancelled) {
+          return;
         }
-        return;
-      }
 
-      if (result.status === "saved") {
-        durableSnapshotRevisionRef.current = result.snapshot.revision;
-        lastSavedDurableSnapshotKeyRef.current = durableSnapshotKey;
+        if (result.status === "conflict") {
+          durableSnapshotRevisionRef.current = result.currentRevision;
+
+          if (
+            attempt === 0 &&
+            result.currentRevision !== null &&
+            result.currentRevision !== baseRevision
+          ) {
+            baseRevision = result.currentRevision;
+            continue;
+          }
+
+          return;
+        }
+
+        if (result.status === "saved") {
+          durableSnapshotRevisionRef.current = result.snapshot.revision;
+          lastSavedDurableSnapshotKeyRef.current = durableSnapshotKey;
+        }
+
+        return;
       }
     };
 
@@ -1265,8 +1449,9 @@ export default function BoardStage({
     };
   }, [
     drawingImageId,
+    draggingNoteCardId,
+    draggingTokenId,
     draggingImageId,
-    durableSnapshotRetryNonce,
     hasSharedRoomContentLoaded,
     objects,
     resolvedSnapshotBootstrapRoomId,
@@ -1310,6 +1495,11 @@ export default function BoardStage({
           branch: "live-wins",
           durableRevision: snapshot?.revision ?? null,
         });
+        setLocalReplicaInspection((current) => ({
+          ...current,
+          lastBootstrapBranch: "live-wins",
+          lastBootstrapLocalSource: null,
+        }));
         snapshotRecoveryAttemptedRoomRef.current = roomBootstrapEntryIdRef.current;
         setResolvedSnapshotBootstrapRoomId(roomId);
       };
@@ -1339,8 +1529,38 @@ export default function BoardStage({
         nextRoomId: string,
         baselineObjects: BoardObject[]
       ) => [...getRoomScopedBoardObjects(nextRoomId), ...baselineObjects];
-      const localSnapshot = loadRoomSnapshot(roomId);
-      const localSnapshotObjectCount = getSnapshotObjectCount(localSnapshot);
+      const localReplicaResult = await loadLocalRoomDocumentReplica(roomId);
+      const localReplica = localReplicaResult.replica;
+      const localReplicaSnapshot = localReplica
+        ? {
+            tokens: localReplica.content.tokens,
+            images: localReplica.content.images,
+            textCards: localReplica.content.textCards,
+          }
+        : null;
+      const localReplicaObjectCount = localReplica
+        ? getReplicaObjectCount(localReplica.content)
+        : 0;
+      const legacyLocalSnapshot =
+        localReplicaObjectCount === 0 ? loadRoomSnapshot(roomId) : null;
+      const legacyLocalSnapshotObjectCount =
+        getSnapshotObjectCount(legacyLocalSnapshot);
+      const localRecoverySnapshot =
+        localReplicaObjectCount > 0 ? localReplicaSnapshot : legacyLocalSnapshot;
+      const localRecoverySource: Exclude<LocalReplicaReadSource, "idle"> =
+        localReplicaObjectCount > 0
+          ? localReplicaResult.source
+          : legacyLocalSnapshotObjectCount > 0
+            ? "room-snapshot"
+            : "none";
+      const localRecoveryObjectCount =
+        localReplicaObjectCount > 0
+          ? localReplicaObjectCount
+          : legacyLocalSnapshotObjectCount;
+      const localRecoverySavedAt =
+        localReplicaObjectCount > 0
+          ? localReplica?.savedAt ?? null
+          : legacyLocalSnapshot?.savedAt ?? null;
 
       let durableSnapshot = null;
 
@@ -1355,6 +1575,12 @@ export default function BoardStage({
       }
 
       durableSnapshotRevisionRef.current = durableSnapshot?.revision ?? null;
+      setLocalReplicaInspection((current) => ({
+        ...current,
+        lastReadSource: localRecoverySource,
+        lastReadSavedAt: localRecoverySavedAt,
+        lastReadObjectCount: localRecoveryObjectCount,
+      }));
 
       const durableSnapshotObjectCount = getSnapshotObjectCount(durableSnapshot);
       const baselineObjects = roomBaselineToApply
@@ -1362,7 +1588,7 @@ export default function BoardStage({
         : [];
       const shouldApplyBaseline =
         durableSnapshotObjectCount === 0 &&
-        localSnapshotObjectCount === 0 &&
+        localRecoveryObjectCount === 0 &&
         baselineObjects.length > 0;
       const baselineIdToApply = shouldApplyBaseline
         ? roomBaselineToApply?.baselineId ?? null
@@ -1380,9 +1606,11 @@ export default function BoardStage({
         bootstrapEntryId: roomBootstrapEntryIdRef.current,
         sharedRoomObjectCount: sharedRoomObjects.length,
         durableSnapshotObjectCount,
-        localSnapshotObjectCount,
+        localReplicaObjectCount,
+        localReplicaSource: localReplicaResult.source,
+        legacyLocalSnapshotObjectCount,
         durableSnapshotRevision: durableSnapshot?.revision ?? null,
-        localSnapshotSavedAt: localSnapshot?.savedAt ?? null,
+        localRecoverySavedAt,
       });
 
       if (durableSnapshot && durableSnapshotObjectCount > 0) {
@@ -1394,12 +1622,12 @@ export default function BoardStage({
         });
         terminalBranch = "durable-recovery";
         terminalSource = "durable";
-      } else if (localSnapshotObjectCount > 0) {
+      } else if (localRecoveryObjectCount > 0 && localRecoverySnapshot) {
         nextObjects = composeSharedRoomObjects({
           roomId,
-          tokens: localSnapshot?.tokens,
-          images: localSnapshot?.images,
-          textCards: localSnapshot?.textCards,
+          tokens: localRecoverySnapshot.tokens,
+          images: localRecoverySnapshot.images,
+          textCards: localRecoverySnapshot.textCards,
         });
         terminalBranch = "local-recovery";
         terminalSource = "local";
@@ -1414,11 +1642,12 @@ export default function BoardStage({
         bootstrapEntryId: roomBootstrapEntryIdRef.current,
         branch: terminalBranch,
         source: terminalSource,
+        localSource: terminalSource === "local" ? localRecoverySource : null,
         tokenCount:
           terminalSource === "durable"
             ? durableSnapshot?.tokens.length ?? 0
             : terminalSource === "local"
-              ? localSnapshot?.tokens.length ?? 0
+              ? localRecoverySnapshot?.tokens.length ?? 0
               : terminalSource === "baseline"
                 ? baselineObjects.filter((object) => object.kind === "token").length
                 : 0,
@@ -1426,7 +1655,7 @@ export default function BoardStage({
           terminalSource === "durable"
             ? durableSnapshot?.images.length ?? 0
             : terminalSource === "local"
-              ? localSnapshot?.images.length ?? 0
+              ? localRecoverySnapshot?.images.length ?? 0
               : terminalSource === "baseline"
                 ? baselineObjects.filter((object) => object.kind === "image").length
                 : 0,
@@ -1434,11 +1663,17 @@ export default function BoardStage({
           terminalSource === "durable"
             ? durableSnapshot?.textCards.length ?? 0
             : terminalSource === "local"
-              ? localSnapshot?.textCards.length ?? 0
+              ? localRecoverySnapshot?.textCards.length ?? 0
               : terminalSource === "baseline"
                 ? baselineObjects.filter((object) => isNoteCardObject(object)).length
                 : 0,
       });
+      setLocalReplicaInspection((current) => ({
+        ...current,
+        lastBootstrapBranch: terminalBranch,
+        lastBootstrapLocalSource:
+          terminalBranch === "local-recovery" ? localRecoverySource : null,
+      }));
 
       snapshotRecoveryAttemptedRoomRef.current = roomBootstrapEntryIdRef.current;
 
@@ -1688,7 +1923,8 @@ export default function BoardStage({
   const updateObjectPosition = (
     id: string,
     x: number,
-    y: number
+    y: number,
+    localOptions?: LocalObjectsChangeOptions
   ) => {
     const moveAccess = resolveObjectActionAccess(id, "board-object.move");
 
@@ -1698,7 +1934,8 @@ export default function BoardStage({
 
     applyBoardObjectsUpdate(
       (currentObjects) => updateBoardObjectPosition(currentObjects, id, x, y),
-      getUpdateBoardObjectSyncOptions(objects, id)
+      getUpdateBoardObjectSyncOptions(objects, id),
+      localOptions
     );
   };
 
@@ -2483,6 +2720,108 @@ export default function BoardStage({
     stageScale,
   ]);
 
+  const flushLocalCursorPresence = useEffectEvent(() => {
+    pendingLocalCursorPresenceFrameRef.current = null;
+
+    const nextPoint = pendingLocalCursorPresencePointRef.current;
+    const containerRect = containerRef.current?.getBoundingClientRect();
+
+    if (!nextPoint || !containerRect) {
+      return;
+    }
+
+    const cursor = getBoardPointFromScreen({
+      clientX: nextPoint.clientX,
+      clientY: nextPoint.clientY,
+      containerLeft: containerRect.left,
+      containerTop: containerRect.top,
+      stageX: stagePosition.x,
+      stageY: stagePosition.y,
+      stageScale,
+    });
+    const lastPublishedCursor = lastPublishedLocalCursorRef.current;
+    const now = Date.now();
+    const cursorChanged =
+      !lastPublishedCursor ||
+      lastPublishedCursor.x !== cursor.x ||
+      lastPublishedCursor.y !== cursor.y;
+    const isPublishIntervalReady =
+      now - lastLocalCursorPresenceSentAtRef.current >=
+      LOCAL_CURSOR_PRESENCE_MIN_INTERVAL_MS;
+
+    if (cursorChanged && !isPublishIntervalReady) {
+      pendingLocalCursorPresenceFrameRef.current = window.requestAnimationFrame(() =>
+        flushLocalCursorPresence()
+      );
+      return;
+    }
+
+    if (!cursorChanged && !isPublishIntervalReady) {
+      return;
+    }
+
+    lastPublishedLocalCursorRef.current = cursor;
+    lastLocalCursorPresenceSentAtRef.current = now;
+
+    onUpdateLocalPresence((presence) =>
+      presence
+        ? {
+            ...presence,
+            cursor,
+            lastActiveAt: now,
+          }
+        : null
+    );
+  });
+
+  const scheduleLocalCursorPresencePublish = (
+    clientX: number,
+    clientY: number
+  ) => {
+    pendingLocalCursorPresencePointRef.current = {
+      clientX,
+      clientY,
+    };
+
+    if (pendingLocalCursorPresenceFrameRef.current !== null) {
+      return;
+    }
+
+    pendingLocalCursorPresenceFrameRef.current = window.requestAnimationFrame(() =>
+      flushLocalCursorPresence()
+    );
+  };
+
+  const clearLocalCursorPresence = useEffectEvent(() => {
+    pendingLocalCursorPresencePointRef.current = null;
+
+    if (pendingLocalCursorPresenceFrameRef.current !== null) {
+      window.cancelAnimationFrame(pendingLocalCursorPresenceFrameRef.current);
+      pendingLocalCursorPresenceFrameRef.current = null;
+    }
+
+    lastPublishedLocalCursorRef.current = null;
+    lastLocalCursorPresenceSentAtRef.current = Date.now();
+
+    onUpdateLocalPresence((presence) =>
+      presence
+        ? {
+            ...presence,
+            cursor: null,
+            lastActiveAt: Date.now(),
+          }
+        : null
+    );
+  });
+
+  useEffect(() => {
+    return () => {
+      if (pendingLocalCursorPresenceFrameRef.current !== null) {
+        window.cancelAnimationFrame(pendingLocalCursorPresenceFrameRef.current);
+      }
+    };
+  }, []);
+
   const updateLocalCursorPresence = (clientX: number, clientY: number) => {
     const containerRect = containerRef.current?.getBoundingClientRect();
 
@@ -2490,25 +2829,7 @@ export default function BoardStage({
       return;
     }
 
-    const cursor = getBoardPointFromScreen({
-      clientX,
-      clientY,
-      containerLeft: containerRect.left,
-      containerTop: containerRect.top,
-      stageX: stagePosition.x,
-      stageY: stagePosition.y,
-      stageScale,
-    });
-
-    onUpdateLocalPresence((presence) =>
-      presence
-        ? {
-            ...presence,
-            cursor,
-            lastActiveAt: Date.now(),
-          }
-        : null
-    );
+    scheduleLocalCursorPresencePublish(clientX, clientY);
   };
 
   const participantCursorScreenPositions = useMemo(() => {
@@ -2549,15 +2870,7 @@ export default function BoardStage({
         updateLocalCursorPresence(event.clientX, event.clientY);
       }}
       onMouseLeave={() => {
-        onUpdateLocalPresence((presence) =>
-          presence
-            ? {
-                ...presence,
-                cursor: null,
-                lastActiveAt: Date.now(),
-              }
-            : null
-        );
+        clearLocalCursorPresence();
       }}
       onTouchMove={(event) => {
         const touch = event.touches[0];
@@ -2569,15 +2882,7 @@ export default function BoardStage({
         updateLocalCursorPresence(touch.clientX, touch.clientY);
       }}
       onTouchEnd={() => {
-        onUpdateLocalPresence((presence) =>
-          presence
-            ? {
-                ...presence,
-                cursor: null,
-                lastActiveAt: Date.now(),
-              }
-            : null
-        );
+        clearLocalCursorPresence();
       }}
       onDragOver={(event) => {
         event.preventDefault();
@@ -2780,6 +3085,54 @@ export default function BoardStage({
                 Inspect object semantics on hover
               </span>
             </label>
+
+            <div
+              className={surfaceRecipes.inset.default.className}
+              style={{
+                ...surfaceRecipes.inset.default.style,
+                gap: 8,
+                fontSize: 12,
+              }}
+              {...getDesignSystemDebugAttrs(surfaceRecipes.inset.default.debug)}
+            >
+              <div
+                style={{
+                  fontSize: 11,
+                  fontWeight: 700,
+                  letterSpacing: "0.04em",
+                  textTransform: "uppercase",
+                  color: "#94a3b8",
+                }}
+              >
+                Local replica
+              </div>
+              <div style={{ color: "#e2e8f0" }}>
+                Backend: IndexedDB
+              </div>
+              <div style={{ color: "#94a3b8" }}>
+                Bootstrap: {localReplicaInspection.lastBootstrapBranch ?? "none"}
+                {" · "}local source{" "}
+                {localReplicaInspection.lastBootstrapLocalSource ?? "none"}
+              </div>
+              <div style={{ color: "#94a3b8" }}>
+                Last read: {localReplicaInspection.lastReadSource}
+                {" · "}objects {localReplicaInspection.lastReadObjectCount}
+                {" · "}saved {formatDebugTimestamp(localReplicaInspection.lastReadSavedAt)}
+              </div>
+              <div style={{ color: "#94a3b8" }}>
+                Last write: {localReplicaInspection.lastWriteStatus}
+                {" · "}boundary{" "}
+                {localReplicaInspection.lastWriteCommitBoundary ?? "none"}
+                {" · "}objects {localReplicaInspection.lastWriteObjectCount}
+                {" · "}saved{" "}
+                {formatDebugTimestamp(localReplicaInspection.lastWriteSavedAt)}
+              </div>
+              {localReplicaInspection.lastError ? (
+                <div style={{ color: "#fca5a5" }}>
+                  Error: {localReplicaInspection.lastError}
+                </div>
+              ) : null}
+            </div>
 
             <div
               className={surfaceRecipes.inset.default.className}
@@ -3198,7 +3551,12 @@ export default function BoardStage({
                         event.target.x(),
                         event.target.y()
                       );
-                      updateObjectPosition(object.id, event.target.x(), event.target.y());
+                      updateObjectPosition(
+                        object.id,
+                        event.target.x(),
+                        event.target.y(),
+                        { commitBoundary: "image-drag-end" }
+                      );
                     }}
                     onTransformStart={(event) => {
                       event.cancelBubble = true;
@@ -3380,6 +3738,7 @@ export default function BoardStage({
                   onDragStart={(event) => {
                     event.cancelBubble = true;
                     selectBoardObject(object);
+                    setDraggingNoteCardId(object.id);
                   }}
                   onDragMove={(event) => {
                     event.cancelBubble = true;
@@ -3388,6 +3747,7 @@ export default function BoardStage({
                   onDragEnd={(event) => {
                     event.cancelBubble = true;
                     updateObjectPosition(object.id, event.target.x(), event.target.y());
+                    setDraggingNoteCardId(null);
                   }}
                   onTransformStart={(event) => {
                     event.cancelBubble = true;
@@ -3506,6 +3866,8 @@ export default function BoardStage({
                     return;
                   }
 
+                  setDraggingTokenId(object.id);
+
                   if (getTokenAttachment(object).mode === "attached") {
                     const anchorPosition = getTokenAnchorPosition(object);
 
@@ -3545,6 +3907,7 @@ export default function BoardStage({
                     x: event.target.x(),
                     y: event.target.y(),
                   });
+                  setDraggingTokenId(null);
                 }}
               />
             );

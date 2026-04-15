@@ -75,6 +75,20 @@ Purpose:
 This is not a separate fallback truth model.
 It is a replica of the room document.
 
+Accepted first implementation shape:
+
+- use `IndexedDB` as the browser-local replica store;
+- store one full room-document replica per room as the first baseline;
+- keep the document shape close to the current room-document envelope;
+- defer delta-log / compaction work until the IndexedDB baseline is stable.
+
+Reason:
+
+- current realistic room payloads can already exceed `localStorage` quota;
+- image-heavy content makes synchronous string-based storage a poor long-term fit;
+- the project needs a safe same-browser recovery base before it needs a
+  Figma-class local update-log engine.
+
 ### 4. Server durable replica
 
 The server stores the durable replica of the same room document.
@@ -125,13 +139,21 @@ Preview and in-progress interaction state stay outside persistence.
 
 ### Read rule
 
-Room open should behave like this:
+Mature target behavior:
 
 1. open the local replica immediately;
 2. render it immediately;
 3. attach live transport;
 4. fetch or receive missing durable/live updates;
 5. converge to the freshest shared room document state.
+
+Accepted phase-1 bridge behavior:
+
+1. preserve active-room `live-wins` behavior;
+2. keep durable replica as shared non-live truth;
+3. use the local IndexedDB replica as a same-browser fast-recovery fallback when
+   live state is absent or not ready yet;
+4. avoid turning local browser state into cross-browser arbitration authority.
 
 ### Write rule
 
@@ -196,6 +218,13 @@ Reframe browser-local room snapshot as a local replica of the room document.
 
 Add explicit version or revision tracking for the room document at the client layer.
 
+Accepted first implementation slice inside this direction:
+
+- move browser-local replica storage from `localStorage` to `IndexedDB`;
+- write the full room document on commit boundary;
+- add a narrow same-browser bootstrap read bridge;
+- leave delta-log / checkpoint compaction as a later follow-up.
+
 ### Phase C. Durable write model
 
 Move durable persistence from whole-room ad hoc snapshot timing toward:
@@ -241,3 +270,9 @@ Accepted decisions:
 2. `docs/refactor-plan.md` should treat room-document replicas as the active architecture chapter;
 3. the chosen migration strategy is `parallel replacement`;
 4. the next implementation phase is `narrow commit-boundary persistence phase`.
+5. the first concrete local-replica storage baseline is `IndexedDB`, not
+   `localStorage`;
+6. the first concrete local-replica shape is a full room-document replica per
+   room;
+7. local delta-log / compaction design stays deferred until the IndexedDB
+   baseline is stable.

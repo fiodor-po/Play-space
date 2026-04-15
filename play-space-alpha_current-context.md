@@ -280,6 +280,11 @@ Accepted direction:
   - keep the current product surface;
   - build the target room-document replica model beside the current snapshot-arbitration model;
   - cut over by phases.
+- the accepted first browser-local replica storage baseline is `IndexedDB`;
+- the accepted first browser-local replica shape is one full room-document
+  replica per room;
+- local delta-log / compaction design stays deferred until the IndexedDB
+  baseline proves insufficient.
 
 Practical blocker behind this decision:
 
@@ -295,7 +300,14 @@ Current implementation consequence:
 Next implementation phase:
 
 - `narrow commit-boundary persistence phase`
-- this remains required participant-marker / creator-color chapter work rather than optional polish;
+
+Important persistence result already established during this chapter:
+
+- current `localStorage`-based room snapshot path can already hit browser quota in realistic room usage;
+- once quota is hit, room snapshot writes fail with `setItem(...): exceeded the quota`;
+- this should be treated as a meaningful architecture signal, not as incidental local noise;
+- accepted consequence: the first serious local room-document replica baseline should move to IndexedDB rather than relying on `localStorage`.
+- accepted current implementation target: IndexedDB-backed full room-document replica writes on commit boundary, followed by a narrow same-browser recovery read bridge.
 - analysis note: [docs/creator-color-fallback-analysis-2026-04-14.md](docs/creator-color-fallback-analysis-2026-04-14.md)
 
 Separate observed watch item:

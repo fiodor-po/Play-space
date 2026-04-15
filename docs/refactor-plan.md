@@ -190,7 +190,8 @@ Purpose:
 Likely focus areas:
 
 - commit-boundary persistence policy;
-- local replica semantics;
+- IndexedDB-backed local replica foundation;
+- local replica read semantics;
 - durable write model;
 - recovery convergence model.
 
@@ -236,13 +237,16 @@ Purpose:
 
 - define and honor commit boundaries for committed room content;
 - remove reliance on late effect windows for known loss corridors;
-- make committed mutations persistence-eligible immediately.
+- make committed mutations persistence-eligible immediately;
+- persist those committed mutations into an IndexedDB-backed full local replica
+  as the first browser-local baseline.
 
 Files likely touched:
 
 - `src/components/BoardStage.tsx`
 - `src/board/runtime/*`
 - selected persistence helpers
+- `src/lib/storage.ts`
 
 Must not change:
 
@@ -260,6 +264,8 @@ Validation:
   - image transform end + immediate leave/reload
   - draw commit + immediate leave/reload
   - empty-room first committed mutation
+  - DevTools verification that IndexedDB room-document replica records are
+    written at commit boundary
   - same-browser and second-browser recovery where applicable
 
 Stop conditions:
@@ -268,12 +274,22 @@ Stop conditions:
 - if the work starts changing interaction semantics, stop;
 - if the work cannot be expressed as commit-boundary discipline, stop.
 
+Current concrete slice for Phase 1A:
+
+- replace `localStorage` as the browser-local room-document replica base with
+  `IndexedDB`;
+- keep one full local room-document replica per room;
+- keep active-room `live-wins` behavior;
+- add a narrow same-browser recovery bridge that can read the IndexedDB replica
+  before durable/live convergence finishes.
+
 ### Phase 2 — Local replica semantics
 
 Purpose:
 
 - turn browser-local room snapshot into an explicit local replica of the room
-  document instead of a competing fallback snapshot.
+  document instead of a competing fallback snapshot;
+- refine read/convergence semantics after the IndexedDB local baseline exists.
 
 Files likely touched:
 
@@ -293,7 +309,8 @@ Validation:
 - manual QA for:
   - refresh in the same browser
   - reopen after short leave/offline gap
-  - correct preference of fresher local replica without changing shared truth
+  - correct use of the fresher same-browser local replica without changing
+    shared truth
 
 Stop conditions:
 

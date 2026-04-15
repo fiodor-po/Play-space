@@ -33,6 +33,7 @@ This is the fastest index for the repo's working docs.
 - `../play-space-project-foundation.md` — stable product/architecture frame
 - `../play-space-alpha_current-context.md` — current handoff/operational context
 - `task-brief-template.md` — strategist to executor brief template
+- `task-brief-indexeddb-local-replica-phase-1.md` — narrow implementation brief for the current local-replica storage phase
 - `executor-report-template.md` — executor return format
 
 ## QA / Validation

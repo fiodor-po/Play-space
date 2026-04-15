@@ -91,6 +91,11 @@
    - new room-document replica model grows beside current snapshot-arbitration model;
    - cutover happens by phases;
 8. взять первой implementation phase: `narrow commit-boundary persistence phase`;
+   first concrete slice inside it:
+   - move browser-local room-document replica storage to `IndexedDB`;
+   - keep one full local room-document replica per room as the first baseline;
+   - add a narrow same-browser recovery read bridge;
+   - keep local delta-log / compaction design deferred;
 9. держать `participant-marker / creator-color` как later chapter после persistence/recovery stabilization;
 10. возвращаться к hosted validation как recurring checkpoint после крупных
     шагов и новых demo snapshots.
@@ -176,6 +181,11 @@
 - [x] зафиксировать `participant-marker / creator-color` как следующий отдельный follow-up chapter
 - [x] открыть `room document persistence / recovery architecture` как новый active chapter
 - [ ] сделать `narrow commit-boundary persistence phase` как первый implementation phase
+  - first concrete slice:
+    - move browser-local room-document replica storage from `localStorage` to `IndexedDB`
+    - keep full room-document replica writes on commit boundary
+    - add same-browser IndexedDB recovery read bridge
+    - preserve active-room `live-wins` behavior and durable shared truth semantics
 - [ ] использовать hosted validation как recurring checkpoint после крупных
   продуктовых шагов и новых demo snapshots
 
@@ -222,6 +232,10 @@
   - draft/entry presence should not be the main path by which a room temporarily appears in ops
   - first slice should stay narrow and likely reuse the existing durable room identity path rather than introducing a new room-catalog system
 - [ ] determine and fix why hosted durable room snapshots survive restart but do not survive redeploy
+- [ ] evaluate whether the IndexedDB local-replica baseline should later evolve into checkpoint + delta-log storage:
+  - current accepted first baseline is one full local room-document replica per room
+  - promote delta-log / compaction only if the IndexedDB full-replica baseline proves too heavy
+  - do not introduce a Figma-class local update-log engine before the simpler IndexedDB baseline is stable
 - [ ] media dock simplification / stabilization pass
 - [ ] dice tray / dice UX cleanup pass
 - [ ] board shell coherence pass

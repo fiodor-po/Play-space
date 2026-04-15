@@ -29,7 +29,10 @@ import {
 } from "../sync/boardObjectSync";
 
 type UseBoardObjectRuntimeParams = {
-  onLocalObjectsChange?: (nextObjects: BoardObject[]) => void;
+  onLocalObjectsChange?: (
+    nextObjects: BoardObject[],
+    options?: LocalObjectsChangeOptions
+  ) => void;
   roomId: string;
 };
 
@@ -39,6 +42,17 @@ type BoardObjectSyncOptionsResolver =
       currentObjects: BoardObject[],
       nextObjects: BoardObject[]
     ) => BoardObjectSyncOptions | undefined);
+
+export type LocalObjectsChangeOptions = {
+  commitBoundary?: "default" | "image-drag-end" | "image-transform-end" | "image-draw-commit";
+};
+
+type LocalObjectsChangeOptionsResolver =
+  | LocalObjectsChangeOptions
+  | ((
+      currentObjects: BoardObject[],
+      nextObjects: BoardObject[]
+    ) => LocalObjectsChangeOptions | undefined);
 
 type SharedImageMergeResolver = (
   sharedImage: BoardObject,
@@ -63,7 +77,17 @@ export function useBoardObjectRuntime({
   const [objects, setObjects] = useState<BoardObject[]>(() =>
     getRoomScopedBoardObjects(roomId)
   );
+  const [pendingMutationFlushVersion, setPendingMutationFlushVersion] =
+    useState(0);
   const onLocalObjectsChangeRef = useRef(onLocalObjectsChange);
+  const pendingMutationQueueRef = useRef<
+    Array<{
+      nextObjects: BoardObject[];
+      options?: BoardObjectSyncOptions;
+      localOptions?: LocalObjectsChangeOptions;
+    }>
+  >([]);
+  const mutationSequenceRef = useRef(0);
   const roomTokenConnectionRef = useRef<RoomTokenConnection | null>(null);
   const roomImageConnectionRef = useRef<RoomImageConnection | null>(null);
   const roomTextCardConnectionRef = useRef<RoomTextCardConnection | null>(null);
@@ -88,25 +112,55 @@ export function useBoardObjectRuntime({
     [getSyncConnections]
   );
 
+  useEffect(() => {
+    if (pendingMutationQueueRef.current.length === 0) {
+      return;
+    }
+
+    const pendingMutations = pendingMutationQueueRef.current;
+    pendingMutationQueueRef.current = [];
+
+    pendingMutations.forEach((mutation) => {
+      onLocalObjectsChangeRef.current?.(
+        mutation.nextObjects,
+        mutation.localOptions
+      );
+      syncObjects(mutation.nextObjects, mutation.options);
+    });
+  }, [pendingMutationFlushVersion, syncObjects]);
+
   const applyBoardObjectsUpdate = useCallback(
     (
       updater: (currentObjects: BoardObject[]) => BoardObject[],
-      options?: BoardObjectSyncOptionsResolver
+      options?: BoardObjectSyncOptionsResolver,
+      localOptions?: LocalObjectsChangeOptionsResolver
     ) => {
+      const mutationId = mutationSequenceRef.current + 1;
+      mutationSequenceRef.current = mutationId;
+
       setObjects((currentObjects) => {
         const nextObjects = updater(currentObjects);
         const resolvedOptions =
           typeof options === "function"
             ? options(currentObjects, nextObjects)
             : options;
+        const resolvedLocalOptions =
+          typeof localOptions === "function"
+            ? localOptions(currentObjects, nextObjects)
+            : localOptions;
 
-        onLocalObjectsChangeRef.current?.(nextObjects);
-        syncObjects(nextObjects, resolvedOptions);
+        pendingMutationQueueRef.current.push({
+          nextObjects,
+          options: resolvedOptions,
+          localOptions: resolvedLocalOptions,
+        });
 
         return nextObjects;
       });
+
+      setPendingMutationFlushVersion(mutationId);
     },
-    [syncObjects]
+    []
   );
 
   const replaceBoardObjects = useCallback(
@@ -128,9 +182,15 @@ export function useBoardObjectRuntime({
   );
 
   const updateBoardObject = useCallback(
-    (id: string, updater: (object: BoardObject) => BoardObject) => {
-      applyBoardObjectsUpdate((currentObjects) =>
-        updateBoardObjectById(currentObjects, id, updater)
+    (
+      id: string,
+      updater: (object: BoardObject) => BoardObject,
+      localOptions?: LocalObjectsChangeOptions
+    ) => {
+      applyBoardObjectsUpdate(
+        (currentObjects) => updateBoardObjectById(currentObjects, id, updater),
+        undefined,
+        localOptions
       );
     },
     [applyBoardObjectsUpdate]

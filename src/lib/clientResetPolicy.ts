@@ -29,7 +29,7 @@ export async function applyClientResetPolicyIfNeeded() {
     return;
   }
 
-  wipeBrowserLocalRoomMemoryState();
+  await wipeBrowserLocalRoomMemoryState();
   localStorage.setItem(CLIENT_RESET_POLICY_ACK_STORAGE_KEY, policy.policyId);
 }
 
@@ -78,8 +78,8 @@ async function fetchClientResetPolicy() {
   }
 }
 
-function wipeBrowserLocalRoomMemoryState() {
+async function wipeBrowserLocalRoomMemoryState() {
   clearBrowserLocalRoomSessionState();
   clearAllRoomMetadataStorage();
-  clearAllBrowserLocalRoomStorage();
+  await clearAllBrowserLocalRoomStorage();
 }

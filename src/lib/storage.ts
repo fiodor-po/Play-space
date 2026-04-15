@@ -12,6 +12,12 @@ export const ROOM_TOKEN_STORAGE_KEY = "play-space-alpha-room-tokens-v1";
 export const ROOM_IMAGE_STORAGE_KEY = "play-space-alpha-room-images-v1";
 export const ROOM_TEXT_CARD_STORAGE_KEY = "play-space-alpha-room-text-cards-v1";
 export const ROOM_SNAPSHOT_STORAGE_KEY = "play-space-alpha-room-snapshot-v1";
+export const ROOM_DOCUMENT_REPLICA_STORAGE_KEY =
+  "play-space-alpha-room-document-replica-v1";
+const ROOM_DOCUMENT_REPLICA_INDEXED_DB_NAME =
+  "play-space-alpha-browser-storage-v1";
+const ROOM_DOCUMENT_REPLICA_INDEXED_DB_VERSION = 1;
+const ROOM_DOCUMENT_REPLICA_INDEXED_DB_STORE_NAME = "room-document-replicas";
 
 export type RoomSnapshot = {
   roomId: string;
@@ -20,6 +26,34 @@ export type RoomSnapshot = {
   images: BoardObject[];
   textCards: BoardObject[];
 };
+
+export type RoomDocumentContent = {
+  tokens: BoardObject[];
+  images: BoardObject[];
+  textCards: BoardObject[];
+};
+
+export type LocalRoomDocumentReplica = {
+  roomId: string;
+  revision: number | null;
+  savedAt: number;
+  content: RoomDocumentContent;
+};
+
+export type LocalRoomDocumentReplicaWriteOptions = {
+  commitBoundary?:
+    | "default"
+    | "image-drag-end"
+    | "image-transform-end"
+    | "image-draw-commit";
+};
+
+export type LocalRoomDocumentReplicaLoadResult = {
+  replica: LocalRoomDocumentReplica | null;
+  source: "indexeddb" | "legacy-localstorage" | "none";
+};
+
+let roomDocumentReplicaDatabasePromise: Promise<IDBDatabase> | null = null;
 
 export function loadBoardObjects(roomId: string, fallback: BoardObject[]) {
   const raw = localStorage.getItem(getBoardStorageKey(roomId));
@@ -123,6 +157,112 @@ export function loadRoomSnapshot(roomId: string): RoomSnapshot | null {
   }
 }
 
+export async function saveLocalRoomDocumentReplica(
+  roomId: string,
+  objects: BoardObject[],
+  options?: LocalRoomDocumentReplicaWriteOptions
+) {
+  const replica = createLocalRoomDocumentReplica(roomId, objects);
+  const storageKey = getRoomDocumentReplicaStorageKey(roomId);
+  const serializedReplica = JSON.stringify(replica);
+  const payloadBytes = new TextEncoder().encode(serializedReplica).length;
+
+  try {
+    if (import.meta.env.DEV) {
+      console.info("[room-document-replica][local-write][attempt]", {
+        commitBoundary: options?.commitBoundary ?? "default",
+        roomId,
+        storageKey,
+        payloadBytes,
+      });
+    }
+
+    await putLocalRoomDocumentReplica(replica);
+
+    try {
+      localStorage.removeItem(storageKey);
+    } catch (cleanupError) {
+      console.warn("[room-document-replica][legacy-cleanup][failed]", {
+        roomId,
+        storageKey,
+        error: cleanupError,
+      });
+    }
+
+    if (import.meta.env.DEV) {
+      console.info("[room-document-replica][local-write][saved]", {
+        commitBoundary: options?.commitBoundary ?? "default",
+        roomId,
+        storageKey,
+        databaseName: ROOM_DOCUMENT_REPLICA_INDEXED_DB_NAME,
+        storeName: ROOM_DOCUMENT_REPLICA_INDEXED_DB_STORE_NAME,
+        payloadBytes,
+        savedAt: replica.savedAt,
+        objectCount: getRoomDocumentReplicaObjectCount(replica),
+      });
+    }
+
+    return replica;
+  } catch (error) {
+    console.error("[room-document-replica][local-write][failed]", {
+      commitBoundary: options?.commitBoundary ?? "default",
+      roomId,
+      storageKey,
+      payloadBytes,
+      error,
+    });
+
+    throw error;
+  }
+}
+
+export async function loadLocalRoomDocumentReplica(
+  roomId: string
+): Promise<LocalRoomDocumentReplicaLoadResult> {
+  try {
+    const replica = await getLocalRoomDocumentReplicaFromIndexedDb(roomId);
+
+    if (replica) {
+      return {
+        replica,
+        source: "indexeddb",
+      };
+    }
+  } catch (error) {
+    console.error("[room-document-replica][local-read][failed]", {
+      roomId,
+      databaseName: ROOM_DOCUMENT_REPLICA_INDEXED_DB_NAME,
+      storeName: ROOM_DOCUMENT_REPLICA_INDEXED_DB_STORE_NAME,
+      error,
+    });
+  }
+
+  const legacyReplica = loadLegacyLocalRoomDocumentReplica(roomId);
+
+  if (legacyReplica) {
+    void putLocalRoomDocumentReplica(legacyReplica)
+      .then(() => {
+        localStorage.removeItem(getRoomDocumentReplicaStorageKey(roomId));
+      })
+      .catch((error) => {
+        console.warn("[room-document-replica][legacy-migration][failed]", {
+          roomId,
+          error,
+        });
+      });
+
+    return {
+      replica: legacyReplica,
+      source: "legacy-localstorage",
+    };
+  }
+
+  return {
+    replica: null,
+    source: "none",
+  };
+}
+
 export function clearBoardStorage(roomId: string) {
   clearBoardContentStorage(roomId);
   localStorage.removeItem(getViewportStorageKey(roomId));
@@ -134,9 +274,11 @@ export function clearBoardContentStorage(roomId: string) {
   localStorage.removeItem(getRoomImageStorageKey(roomId));
   localStorage.removeItem(getRoomTextCardStorageKey(roomId));
   localStorage.removeItem(getRoomSnapshotStorageKey(roomId));
+  localStorage.removeItem(getRoomDocumentReplicaStorageKey(roomId));
+  void deleteLocalRoomDocumentReplica(roomId);
 }
 
-export function clearAllBrowserLocalRoomStorage() {
+export async function clearAllBrowserLocalRoomStorage() {
   const storagePrefixes = [
     BOARD_STORAGE_KEY,
     VIEWPORT_STORAGE_KEY,
@@ -144,6 +286,7 @@ export function clearAllBrowserLocalRoomStorage() {
     ROOM_IMAGE_STORAGE_KEY,
     ROOM_TEXT_CARD_STORAGE_KEY,
     ROOM_SNAPSHOT_STORAGE_KEY,
+    ROOM_DOCUMENT_REPLICA_STORAGE_KEY,
   ];
 
   const keysToRemove: string[] = [];
@@ -160,6 +303,7 @@ export function clearAllBrowserLocalRoomStorage() {
   }
 
   keysToRemove.forEach((key) => localStorage.removeItem(key));
+  await clearLocalRoomDocumentReplicaDatabase();
 }
 
 export function loadRoomTokenObjects(
@@ -380,4 +524,238 @@ function getRoomTextCardStorageKey(roomId: string) {
 
 function getRoomSnapshotStorageKey(roomId: string) {
   return `${ROOM_SNAPSHOT_STORAGE_KEY}:${normalizeRoomId(roomId)}`;
+}
+
+function getRoomDocumentReplicaStorageKey(roomId: string) {
+  return `${ROOM_DOCUMENT_REPLICA_STORAGE_KEY}:${normalizeRoomId(roomId)}`;
+}
+
+function createLocalRoomDocumentReplica(
+  roomId: string,
+  objects: BoardObject[]
+): LocalRoomDocumentReplica {
+  return {
+    roomId,
+    revision: null,
+    savedAt: Date.now(),
+    content: {
+      tokens: normalizeTokenObjects(
+        objects.filter((object) => object.kind === "token")
+      ),
+      images: objects.filter((object) => object.kind === "image"),
+      textCards: normalizeTextCardObjects(
+        objects.filter((object) => object.kind === "note-card")
+      ),
+    },
+  };
+}
+
+function getRoomDocumentReplicaObjectCount(replica: LocalRoomDocumentReplica) {
+  return (
+    replica.content.tokens.length +
+    replica.content.images.length +
+    replica.content.textCards.length
+  );
+}
+
+function loadLegacyLocalRoomDocumentReplica(roomId: string) {
+  const raw = localStorage.getItem(getRoomDocumentReplicaStorageKey(roomId));
+
+  if (!raw) {
+    return null;
+  }
+
+  return parseLocalRoomDocumentReplica(roomId, raw);
+}
+
+function parseLocalRoomDocumentReplica(roomId: string, raw: string) {
+  try {
+    const parsed = JSON.parse(raw) as Partial<LocalRoomDocumentReplica>;
+
+    if (parsed.roomId !== roomId || !parsed.content) {
+      return null;
+    }
+
+    return {
+      roomId,
+      revision:
+        typeof parsed.revision === "number" ? parsed.revision : null,
+      savedAt:
+        typeof parsed.savedAt === "number" ? parsed.savedAt : Date.now(),
+      content: {
+        tokens: Array.isArray(parsed.content.tokens)
+          ? normalizeTokenObjects(
+              parsed.content.tokens.filter((object) => object?.kind === "token")
+            )
+          : [],
+        images: Array.isArray(parsed.content.images)
+          ? parsed.content.images.filter((object) => object?.kind === "image")
+          : [],
+        textCards: Array.isArray(parsed.content.textCards)
+          ? normalizeTextCardObjects(
+              parsed.content.textCards.filter(
+                (object) => object?.kind === "note-card"
+              )
+            )
+          : [],
+      },
+    };
+  } catch {
+    return null;
+  }
+}
+
+function openRoomDocumentReplicaDatabase() {
+  if (roomDocumentReplicaDatabasePromise) {
+    return roomDocumentReplicaDatabasePromise;
+  }
+
+  roomDocumentReplicaDatabasePromise = new Promise<IDBDatabase>(
+    (resolve, reject) => {
+      if (
+        typeof window === "undefined" ||
+        typeof window.indexedDB === "undefined"
+      ) {
+        reject(new Error("indexeddb-unavailable"));
+        return;
+      }
+
+      const request = window.indexedDB.open(
+        ROOM_DOCUMENT_REPLICA_INDEXED_DB_NAME,
+        ROOM_DOCUMENT_REPLICA_INDEXED_DB_VERSION
+      );
+
+      request.onerror = () => {
+        reject(request.error ?? new Error("indexeddb-open-failed"));
+      };
+
+      request.onupgradeneeded = () => {
+        const database = request.result;
+
+        if (
+          !database.objectStoreNames.contains(
+            ROOM_DOCUMENT_REPLICA_INDEXED_DB_STORE_NAME
+          )
+        ) {
+          database.createObjectStore(ROOM_DOCUMENT_REPLICA_INDEXED_DB_STORE_NAME, {
+            keyPath: "roomId",
+          });
+        }
+      };
+
+      request.onsuccess = () => {
+        const database = request.result;
+
+        database.onversionchange = () => {
+          database.close();
+          roomDocumentReplicaDatabasePromise = null;
+        };
+
+        resolve(database);
+      };
+    }
+  ).catch((error) => {
+    roomDocumentReplicaDatabasePromise = null;
+    throw error;
+  });
+
+  return roomDocumentReplicaDatabasePromise;
+}
+
+async function putLocalRoomDocumentReplica(replica: LocalRoomDocumentReplica) {
+  const database = await openRoomDocumentReplicaDatabase();
+  const transaction = database.transaction(
+    ROOM_DOCUMENT_REPLICA_INDEXED_DB_STORE_NAME,
+    "readwrite"
+  );
+  const store = transaction.objectStore(ROOM_DOCUMENT_REPLICA_INDEXED_DB_STORE_NAME);
+
+  await waitForRequest(store.put(replica));
+  await waitForTransaction(transaction);
+}
+
+async function getLocalRoomDocumentReplicaFromIndexedDb(roomId: string) {
+  const database = await openRoomDocumentReplicaDatabase();
+  const transaction = database.transaction(
+    ROOM_DOCUMENT_REPLICA_INDEXED_DB_STORE_NAME,
+    "readonly"
+  );
+  const store = transaction.objectStore(ROOM_DOCUMENT_REPLICA_INDEXED_DB_STORE_NAME);
+  const rawReplica = await waitForRequest<LocalRoomDocumentReplica | undefined>(
+    store.get(roomId)
+  );
+
+  await waitForTransaction(transaction);
+
+  if (!rawReplica) {
+    return null;
+  }
+
+  return parseLocalRoomDocumentReplica(roomId, JSON.stringify(rawReplica));
+}
+
+async function deleteLocalRoomDocumentReplica(roomId: string) {
+  try {
+    const database = await openRoomDocumentReplicaDatabase();
+    const transaction = database.transaction(
+      ROOM_DOCUMENT_REPLICA_INDEXED_DB_STORE_NAME,
+      "readwrite"
+    );
+    const store = transaction.objectStore(
+      ROOM_DOCUMENT_REPLICA_INDEXED_DB_STORE_NAME
+    );
+
+    await waitForRequest(store.delete(roomId));
+    await waitForTransaction(transaction);
+  } catch (error) {
+    console.warn("[room-document-replica][clear-room][failed]", {
+      roomId,
+      error,
+    });
+  }
+}
+
+async function clearLocalRoomDocumentReplicaDatabase() {
+  try {
+    const database = await openRoomDocumentReplicaDatabase();
+    const transaction = database.transaction(
+      ROOM_DOCUMENT_REPLICA_INDEXED_DB_STORE_NAME,
+      "readwrite"
+    );
+    const store = transaction.objectStore(
+      ROOM_DOCUMENT_REPLICA_INDEXED_DB_STORE_NAME
+    );
+
+    await waitForRequest(store.clear());
+    await waitForTransaction(transaction);
+  } catch (error) {
+    console.warn("[room-document-replica][clear-all][failed]", {
+      error,
+    });
+  }
+}
+
+function waitForRequest<T>(request: IDBRequest<T>) {
+  return new Promise<T>((resolve, reject) => {
+    request.onsuccess = () => {
+      resolve(request.result);
+    };
+    request.onerror = () => {
+      reject(request.error ?? new Error("indexeddb-request-failed"));
+    };
+  });
+}
+
+function waitForTransaction(transaction: IDBTransaction) {
+  return new Promise<void>((resolve, reject) => {
+    transaction.oncomplete = () => {
+      resolve();
+    };
+    transaction.onerror = () => {
+      reject(transaction.error ?? new Error("indexeddb-transaction-failed"));
+    };
+    transaction.onabort = () => {
+      reject(transaction.error ?? new Error("indexeddb-transaction-aborted"));
+    };
+  });
 }
