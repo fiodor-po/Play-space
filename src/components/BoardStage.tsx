@@ -395,11 +395,23 @@ type SharedBootstrapSliceCounts = {
   textCards: number;
 };
 
-type BootstrapSliceSource = "local" | "durable" | "baseline" | "empty";
+type SettledRecoveryState =
+  | "pending"
+  | "live-active"
+  | "replica-converged"
+  | "baseline-initialization"
+  | "empty-room";
 
-type BootstrapSliceSourceState = Record<
+type SettledRecoverySliceSource =
+  | "live"
+  | "local"
+  | "durable"
+  | "baseline"
+  | "empty";
+
+type SettledRecoverySliceSourceState = Record<
   DurableRoomSnapshotSlice,
-  BootstrapSliceSource
+  SettledRecoverySliceSource
 >;
 
 type LocalReplicaInspectionState = {
@@ -418,21 +430,8 @@ type LocalReplicaInspectionState = {
   lastReadObjectCount: number;
   lastReadKnownDurableSnapshotRevision: number | null;
   lastReadKnownDurableSliceRevisions: DurableSliceRevisionState;
-  lastBootstrapBranch:
-    | "pending"
-    | "live-active"
-    | "replica-converged"
-    | "baseline-initialization"
-    | "empty-room"
-    | null;
-  lastBootstrapSource:
-    | "live"
-    | "converged"
-    | "baseline"
-    | "none"
-    | null;
-  lastBootstrapLocalSource: Exclude<LocalReplicaReadSource, "idle"> | null;
-  lastBootstrapSliceSources: BootstrapSliceSourceState;
+  lastSettledRecoveryState: SettledRecoveryState | null;
+  lastSettledRecoverySliceSources: SettledRecoverySliceSourceState;
   lastError: string | null;
 };
 
@@ -480,9 +479,9 @@ function createInitialSharedBootstrapSliceCounts(): SharedBootstrapSliceCounts {
   };
 }
 
-function createInitialBootstrapSliceSourceState(
-  source: BootstrapSliceSource = "empty"
-): BootstrapSliceSourceState {
+function createInitialSettledRecoverySliceSourceState(
+  source: SettledRecoverySliceSource = "empty"
+): SettledRecoverySliceSourceState {
   return {
     tokens: source,
     images: source,
@@ -507,10 +506,9 @@ function createInitialLocalReplicaInspectionState(): LocalReplicaInspectionState
     lastReadObjectCount: 0,
     lastReadKnownDurableSnapshotRevision: null,
     lastReadKnownDurableSliceRevisions: createInitialDurableSliceRevisionState(),
-    lastBootstrapBranch: null,
-    lastBootstrapSource: null,
-    lastBootstrapLocalSource: null,
-    lastBootstrapSliceSources: createInitialBootstrapSliceSourceState(),
+    lastSettledRecoveryState: null,
+    lastSettledRecoverySliceSources:
+      createInitialSettledRecoverySliceSourceState(),
     lastError: null,
   };
 }
@@ -590,7 +588,7 @@ function resolveSettledRecoveryConvergence(params: {
     textCards: BoardObject[];
   } | null;
 }) {
-  const sliceSources = createInitialBootstrapSliceSourceState();
+  const sliceSources = createInitialSettledRecoverySliceSourceState();
   const content = {
     tokens: [] as BoardObject[],
     images: [] as BoardObject[],
@@ -1850,7 +1848,7 @@ export default function BoardStage({
     setLocalReplicaInspection({
       ...createInitialLocalReplicaInspectionState(),
       initialOpenStatus: "pending",
-      lastBootstrapBranch: "pending",
+      lastSettledRecoveryState: "pending",
     });
     setDurableReplicaInspection(createInitialDurableReplicaInspectionState());
     queueMicrotask(() => {
@@ -2057,7 +2055,8 @@ export default function BoardStage({
       applyDurableSnapshotInspection(snapshot);
       console.info("[room-recovery][board-stage][bootstrap-terminal]", {
         roomId,
-        branch: "live-active",
+        settledState: "live-active",
+        settledSliceSources: createInitialSettledRecoverySliceSourceState("live"),
         durableRevision: snapshot?.revision ?? null,
       });
       setLocalReplicaInspection((current) => ({
@@ -2078,10 +2077,9 @@ export default function BoardStage({
           current.initialOpenStatus === "pending"
             ? 0
             : current.initialOpenObjectCount,
-        lastBootstrapBranch: "live-active",
-        lastBootstrapSource: "live",
-        lastBootstrapLocalSource: null,
-        lastBootstrapSliceSources: createInitialBootstrapSliceSourceState(),
+        lastSettledRecoveryState: "live-active",
+        lastSettledRecoverySliceSources:
+          createInitialSettledRecoverySliceSourceState("live"),
       }));
       snapshotRecoveryAttemptedRoomRef.current = roomBootstrapEntryIdRef.current;
       setResolvedSnapshotBootstrapRoomId(roomId);
@@ -2210,12 +2208,8 @@ export default function BoardStage({
         images: BoardObject[];
         textCards: BoardObject[];
       } | null = null;
-      let terminalBranch:
-        | "replica-converged"
-        | "baseline-initialization"
-        | "empty-room" = "empty-room";
-      let terminalSource: "converged" | "baseline" | null = null;
-      let terminalSliceSources = createInitialBootstrapSliceSourceState();
+      let settledState: Exclude<SettledRecoveryState, "pending"> = "empty-room";
+      let settledSliceSources = createInitialSettledRecoverySliceSourceState();
 
       console.info("[room-recovery][board-stage][bootstrap-inputs]", {
         roomId,
@@ -2243,47 +2237,36 @@ export default function BoardStage({
         });
 
         terminalContent = convergenceResult.content;
-        terminalSliceSources = convergenceResult.sliceSources;
+        settledSliceSources = convergenceResult.sliceSources;
         nextObjects = composeSharedRoomObjects({
           roomId,
           tokens: convergenceResult.content.tokens,
           images: convergenceResult.content.images,
           textCards: convergenceResult.content.textCards,
         });
-        terminalBranch = "replica-converged";
-        terminalSource = "converged";
+        settledState = "replica-converged";
       } else if (shouldApplyBaseline) {
         terminalContent = baselineContent;
-        terminalSliceSources = createInitialBootstrapSliceSourceState("baseline");
+        settledSliceSources =
+          createInitialSettledRecoverySliceSourceState("baseline");
         nextObjects = composeBaselineRoomObjects(roomId, baselineObjects);
-        terminalBranch = "baseline-initialization";
-        terminalSource = "baseline";
+        settledState = "baseline-initialization";
       }
 
       console.info("[room-recovery][board-stage][bootstrap-terminal]", {
         roomId,
         bootstrapEntryId: roomBootstrapEntryIdRef.current,
-        branch: terminalBranch,
-        source: terminalSource,
-        localSource:
-          terminalBranch === "replica-converged" && hasLocalRecoveryDocument
-            ? localRecoverySource
-            : null,
+        settledState,
         localRevision: hasLocalRecoveryDocument ? localRecoveryRevision : null,
         tokenCount: terminalContent?.tokens.length ?? 0,
         imageCount: terminalContent?.images.length ?? 0,
         textCardCount: terminalContent?.textCards.length ?? 0,
-        sliceSources: terminalSliceSources,
+        settledSliceSources,
       });
       setLocalReplicaInspection((current) => ({
         ...current,
-        lastBootstrapBranch: terminalBranch,
-        lastBootstrapSource: terminalSource ?? "none",
-        lastBootstrapLocalSource:
-          terminalBranch === "replica-converged" && hasLocalRecoveryDocument
-            ? localRecoverySource
-            : null,
-        lastBootstrapSliceSources: terminalSliceSources,
+        lastSettledRecoveryState: settledState,
+        lastSettledRecoverySliceSources: settledSliceSources,
       }));
 
       snapshotRecoveryAttemptedRoomRef.current = roomBootstrapEntryIdRef.current;
@@ -4248,13 +4231,10 @@ export default function BoardStage({
                 {" · "}objects {localReplicaInspection.initialOpenObjectCount}
               </div>
               <div
-                data-testid="debug-local-replica-bootstrap"
+                data-testid="debug-local-replica-settled-recovery"
                 style={{ color: "#94a3b8" }}
               >
-                Bootstrap: {localReplicaInspection.lastBootstrapBranch ?? "none"}
-                {" · "}source {localReplicaInspection.lastBootstrapSource ?? "none"}
-                {" · "}local source{" "}
-                {localReplicaInspection.lastBootstrapLocalSource ?? "none"}
+                Settled: {localReplicaInspection.lastSettledRecoveryState ?? "none"}
               </div>
               <div
                 data-testid="debug-local-replica-last-read"
@@ -4282,14 +4262,15 @@ export default function BoardStage({
                   "none"}
               </div>
               <div
-                data-testid="debug-local-replica-bootstrap-slices"
+                data-testid="debug-local-replica-settled-slices"
                 style={{ color: "#94a3b8" }}
               >
-                Bootstrap slices: tokens{" "}
-                {localReplicaInspection.lastBootstrapSliceSources.tokens}
-                {" · "}images {localReplicaInspection.lastBootstrapSliceSources.images}
+                Settled slices: tokens{" "}
+                {localReplicaInspection.lastSettledRecoverySliceSources.tokens}
+                {" · "}images{" "}
+                {localReplicaInspection.lastSettledRecoverySliceSources.images}
                 {" · "}textCards{" "}
-                {localReplicaInspection.lastBootstrapSliceSources.textCards}
+                {localReplicaInspection.lastSettledRecoverySliceSources.textCards}
               </div>
               <div
                 data-testid="debug-local-replica-last-write"

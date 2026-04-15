@@ -12,18 +12,17 @@ import {
   clickSmokeNoteResize,
   clickSmokeTokenMove,
   createSmokeRoomId,
-  expectBootstrapLocalSource,
-  expectBootstrapSliceSource,
   expectDurableReplicaWriteSaved,
   expectDurableReplicaWriteSavedWithoutRetry,
   expectImageLabel,
   expectNoteLabel,
-  expectBootstrapBranch,
   expectLocalReplicaInitialOpen,
   expectLocalReplicaLastRead,
   expectLocalReplicaLastReadRevision,
   expectLocalReplicaLastWriteRevision,
   expectLocalReplicaWriteSaved,
+  expectSettledRecoverySliceSource,
+  expectSettledRecoveryState,
   getDurableReplicaKnownRevisions,
   getLocalReplicaLastWriteRevision,
   expectRoomObjectCounts,
@@ -131,7 +130,8 @@ test.describe("local room smoke corridors", () => {
       await expectRoomObjectCounts(page, {
         notes: countsBeforeCreate.notes + 1,
       });
-      await expectBootstrapBranch(page, "live-active");
+      await expectSettledRecoveryState(page, "live-active");
+      await expectSettledRecoverySliceSource(page, "textCards", "live");
       await expect(page.getByTestId("debug-local-replica-inspection")).not.toContainText(
         "Error:"
       );
@@ -345,7 +345,7 @@ test.describe("local room smoke corridors", () => {
         width: committedBounds.width,
         height: committedBounds.height,
       });
-      await expectBootstrapBranch(page, "live-active");
+      await expectSettledRecoveryState(page, "live-active");
       await expect(page.getByTestId("debug-local-replica-inspection")).not.toContainText(
         "Error:"
       );
@@ -407,7 +407,7 @@ test.describe("local room smoke corridors", () => {
       await expect(page.getByTestId("session-leave-room-button")).toBeVisible();
 
       await openDebugTools(page);
-      await expectBootstrapBranch(page, "live-active");
+      await expectSettledRecoveryState(page, "live-active");
       await expectImageLabel(page, imageLabel);
       await expect.poll(() => getImageStrokeCounts(page)).toMatchObject({
         total: 1,
@@ -485,8 +485,7 @@ test.describe("local room smoke corridors", () => {
 
       await openDebugTools(recoveredPage);
       await expectLocalReplicaInitialOpen(recoveredPage, "applied", "indexeddb");
-      await expectBootstrapBranch(recoveredPage, "replica-converged");
-      await expectBootstrapLocalSource(recoveredPage, "indexeddb");
+      await expectSettledRecoveryState(recoveredPage, "replica-converged");
       await expectLocalReplicaLastRead(recoveredPage, "indexeddb");
       await expectRoomObjectCounts(recoveredPage, {
         images: initialCounts.images + 1,
@@ -537,9 +536,12 @@ test.describe("local room smoke corridors", () => {
 
     try {
       await expectLocalReplicaInitialOpen(recoveredPage, "applied", "indexeddb");
-      await expectBootstrapBranch(recoveredPage, "replica-converged");
-      await expectBootstrapLocalSource(recoveredPage, "indexeddb");
-      await expectBootstrapSliceSource(recoveredPage, "textCards", "local");
+      await expectSettledRecoveryState(recoveredPage, "replica-converged");
+      await expectSettledRecoverySliceSource(
+        recoveredPage,
+        "textCards",
+        "local"
+      );
       await expectLocalReplicaLastRead(recoveredPage, "indexeddb");
       await expectLocalReplicaLastReadRevision(recoveredPage, localRevision);
       await expectRoomObjectCounts(recoveredPage, {
@@ -595,9 +597,12 @@ test.describe("local room smoke corridors", () => {
 
     try {
       await expectLocalReplicaInitialOpen(recoveredPage, "applied", "indexeddb");
-      await expectBootstrapBranch(recoveredPage, "replica-converged");
-      await expectBootstrapLocalSource(recoveredPage, "indexeddb");
-      await expectBootstrapSliceSource(recoveredPage, "textCards", "local");
+      await expectSettledRecoveryState(recoveredPage, "replica-converged");
+      await expectSettledRecoverySliceSource(
+        recoveredPage,
+        "textCards",
+        "local"
+      );
       await expectLocalReplicaLastRead(recoveredPage, "indexeddb");
       await expectLocalReplicaLastReadRevision(recoveredPage, localRevision);
       await expectRoomObjectCounts(recoveredPage, {
@@ -648,8 +653,8 @@ test.describe("local room smoke corridors", () => {
 
     try {
       await expectLocalReplicaInitialOpen(recoveredPage, "skipped", "none");
-      await expectBootstrapBranch(recoveredPage, "empty-room");
-      await expectBootstrapLocalSource(recoveredPage, "none");
+      await expectSettledRecoveryState(recoveredPage, "empty-room");
+      await expectSettledRecoverySliceSource(recoveredPage, "textCards", "empty");
       await expectLocalReplicaLastRead(recoveredPage, "none");
       await expectRoomObjectCounts(recoveredPage, {
         tokens: initialCounts.tokens,
@@ -696,8 +701,7 @@ test.describe("local room smoke corridors", () => {
 
     try {
       await expectLocalReplicaInitialOpen(recoveredPage, "applied", "indexeddb");
-      await expectBootstrapBranch(recoveredPage, "replica-converged");
-      await expectBootstrapLocalSource(recoveredPage, "indexeddb");
+      await expectSettledRecoveryState(recoveredPage, "replica-converged");
       await expectLocalReplicaLastRead(recoveredPage, "indexeddb");
       await expectRoomObjectCounts(recoveredPage, {
         images: initialCounts.images + 1,
@@ -749,8 +753,7 @@ test.describe("local room smoke corridors", () => {
 
     try {
       await expectLocalReplicaInitialOpen(recoveredPage, "applied", "indexeddb");
-      await expectBootstrapBranch(recoveredPage, "replica-converged");
-      await expectBootstrapLocalSource(recoveredPage, "indexeddb");
+      await expectSettledRecoveryState(recoveredPage, "replica-converged");
       await expectLocalReplicaLastRead(recoveredPage, "indexeddb");
       await expectLocalReplicaLastReadRevision(recoveredPage, localRevision);
       await expectRoomObjectCounts(recoveredPage, {
@@ -807,8 +810,7 @@ test.describe("local room smoke corridors", () => {
 
     try {
       await expectLocalReplicaInitialOpen(recoveredPage, "applied", "indexeddb");
-      await expectBootstrapBranch(recoveredPage, "replica-converged");
-      await expectBootstrapLocalSource(recoveredPage, "indexeddb");
+      await expectSettledRecoveryState(recoveredPage, "replica-converged");
       await expectLocalReplicaLastRead(recoveredPage, "indexeddb");
       await expectLocalReplicaLastReadRevision(recoveredPage, localRevision);
       await expectRoomObjectCounts(recoveredPage, {
@@ -863,8 +865,7 @@ test.describe("local room smoke corridors", () => {
 
     try {
       await expectLocalReplicaInitialOpen(recoveredPage, "applied", "indexeddb");
-      await expectBootstrapBranch(recoveredPage, "replica-converged");
-      await expectBootstrapLocalSource(recoveredPage, "indexeddb");
+      await expectSettledRecoveryState(recoveredPage, "replica-converged");
       await expectLocalReplicaLastRead(recoveredPage, "indexeddb");
       await expectLocalReplicaLastReadRevision(recoveredPage, localRevision);
       await expectRoomObjectCounts(recoveredPage, {
@@ -919,8 +920,7 @@ test.describe("local room smoke corridors", () => {
 
     try {
       await expectLocalReplicaInitialOpen(recoveredPage, "applied", "indexeddb");
-      await expectBootstrapBranch(recoveredPage, "replica-converged");
-      await expectBootstrapLocalSource(recoveredPage, "indexeddb");
+      await expectSettledRecoveryState(recoveredPage, "replica-converged");
       await expectLocalReplicaLastRead(recoveredPage, "indexeddb");
       await expectLocalReplicaLastReadRevision(recoveredPage, localRevision);
       await expectRoomObjectCounts(recoveredPage, {
@@ -998,9 +998,12 @@ test.describe("local room smoke corridors", () => {
 
     try {
       await expectLocalReplicaInitialOpen(recoveredPage, "applied", "indexeddb");
-      await expectBootstrapBranch(recoveredPage, "replica-converged");
-      await expectBootstrapLocalSource(recoveredPage, "indexeddb");
-      await expectBootstrapSliceSource(recoveredPage, "textCards", "durable");
+      await expectSettledRecoveryState(recoveredPage, "replica-converged");
+      await expectSettledRecoverySliceSource(
+        recoveredPage,
+        "textCards",
+        "durable"
+      );
       await expectLocalReplicaLastRead(recoveredPage, "indexeddb");
       await expectRoomObjectCounts(recoveredPage, {
         tokens: initialCounts.tokens,
