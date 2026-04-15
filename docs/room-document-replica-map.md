@@ -36,7 +36,9 @@
 - migration chain active;
 - phase-1 `browser-local replica baseline` checkpoint complete;
 - checkpoint 2 after local and durable replica maturity is complete;
-- current internal replica-track step is `Recovery convergence model`;
+- checkpoint 3 before final cutover is complete;
+- next internal replica-track step is
+  `Core semantic cutover from snapshot arbitration`;
 - full replica cutover ещё впереди.
 
 ## Как это называть
@@ -371,7 +373,7 @@ state.
 
 **Статус**
 
-- не начато
+- сделано
 
 **Шаг считается завершённым, когда**
 
@@ -382,6 +384,16 @@ state.
 - current `live-wins + local fallback` bridge перестаёт быть основной recovery
   моделью;
 - snapshot winner-picking перестаёт быть главным recovery mechanism.
+
+**Closure result**
+
+- empty-live bootstrap now opens version-aware local replica first;
+- empty-live settled recovery now converges per slice after provisional
+  local-open;
+- bootstrap read path no longer uses `room-snapshot` as a recovery source;
+- committed add/remove corridors now survive same-browser reopen through local
+  replica coverage;
+- active-room `live-wins` behavior stays unchanged.
 
 ### Checkpoint 3. Validation before final cutover
 
@@ -397,7 +409,7 @@ recovery behavior.
 
 **Статус**
 
-- позже
+- сделано
 
 ### Шаг 7. Core semantic cutover from snapshot arbitration
 
@@ -417,7 +429,7 @@ Legacy snapshot winner-picking logic перестаёт быть главной 
 
 **Статус**
 
-- позже
+- следующий
 
 **Шаг считается завершённым, когда**
 

@@ -112,26 +112,29 @@ persistence/recovery от snapshot arbitration к replica model.
      - durable ack/revision handling is explicit and inspectable;
      - covered multi-client durable corridors no longer rely on browser-visible `409` resource noise;
      - covered durable `PATCH` corridors use per-slice revision discipline and avoid cross-slice stale-base conflicts;
-12. вести `Recovery convergence model` как текущий internal replica-track step;
-   - current landed slices now give:
-     - empty-live bootstrap applies a provisional local-first render from the version-aware local replica;
+12. закрыть `Recovery convergence model` как текущий internal replica-track step;
+   - step is now closed:
+     - empty-live bootstrap opens the version-aware local replica first;
      - empty-live settled recovery converges per slice after provisional local-open;
      - durable slice catches up only when its durable slice revision is ahead of the local handoff metadata;
-     - baseline still applies only when neither usable local document nor durable content exists;
+     - bootstrap read path now uses version-aware local replica or `none` and no longer reads `room-snapshot`;
+     - committed add/remove corridors now survive same-browser reopen through local replica coverage;
      - active-room `live-wins` behavior stays unchanged;
-     - inspectability separates `Initial open` from settled `Bootstrap` and shows slice-level settled sources;
-13. взять `browser-local participant identity stabilization` как следующий
+13. закрыть `Checkpoint 3` before final cutover;
+14. взять `Core semantic cutover from snapshot arbitration` как следующий internal replica-track step;
+15. взять `browser-local participant identity stabilization` как следующий
     отдельный chapter candidate вне самого replica-track;
-14. держать `participant-marker / creator-color` как later chapter после participant identity stabilization;
-15. возвращаться к hosted validation как recurring checkpoint после крупных
+16. держать `participant-marker / creator-color` как later chapter после participant identity stabilization;
+17. возвращаться к hosted validation как recurring checkpoint после крупных
     шагов и новых demo snapshots.
 
 ### Почему это теперь главный фокус
 Последние runtime и audit passes закрыли старые structural decision points.
 Следующий главный риск теперь лежит в persistence/recovery correctness:
 
-- committed room content всё ещё может теряться или восстанавливаться неверно;
-- current model arbitrates between competing snapshots instead of converging replicas;
+- committed room content всё ещё требует final semantic cutover в core recovery model;
+- current convergence model уже landed, а snapshot-era semantics всё ещё
+  остаются в core cutover boundary;
 - confirmed bugs уже затрагивают базовые product flows:
   - quick leave / re-enter
   - refresh
@@ -151,10 +154,13 @@ persistence/recovery от snapshot arbitration к replica model.
 - completed implementation checkpoint: `narrow commit-boundary persistence phase`;
 - completed internal replica-track step: `Local replica semantics`;
 - completed internal replica-track step: `Durable write model`;
-- current internal replica-track step: `Recovery convergence model`;
+- completed internal replica-track step: `Recovery convergence model`;
+- completed checkpoint: `Checkpoint 3`;
+- next internal replica-track step: `Core semantic cutover from snapshot arbitration`;
 - next separate chapter candidate: `browser-local participant identity stabilization`;
 - completed narrow follow-up: `debug-tools usability cleanup`;
 - later follow-up task: `room-ops durability ergonomics`;
+- optional follow-up task: `legacy room-snapshot write-cache cleanup`;
 - later follow-up chapter: `participant-marker / creator-color`;
 - hosted validation как повторяемая проверка после крупных шагов, выкатываний и
   новых demo snapshots.
@@ -183,12 +189,15 @@ persistence/recovery от snapshot arbitration к replica model.
 9. считать `Local replica semantics` закрытым internal replica-track step;
 10. считать `Durable write model` закрытым internal replica-track step;
 11. считать `Checkpoint 2` закрытым после local и durable maturity;
-12. вести `Recovery convergence model` как текущий internal replica-track step;
-13. взять `browser-local participant identity stabilization` как следующий отдельный chapter candidate вне replica-track;
-14. считать `debug-tools usability cleanup` закрытым узким inspectability/usability pass;
-15. держать `room-ops durability ergonomics` как later follow-up task after the current replica-track chapter;
-16. держать `participant-marker / creator-color` как следующий отдельный follow-up chapter после participant identity stabilization;
-17. возвращаться к hosted validation как checkpoint после больших шагов и новых
+12. считать `Recovery convergence model` закрытым internal replica-track step;
+13. считать `Checkpoint 3` закрытым перед final cutover;
+14. взять `Core semantic cutover from snapshot arbitration` как следующий internal replica-track step;
+15. взять `browser-local participant identity stabilization` как следующий отдельный chapter candidate вне replica-track;
+16. считать `debug-tools usability cleanup` закрытым узким inspectability/usability pass;
+17. держать `room-ops durability ergonomics` как later follow-up task after the current replica-track chapter;
+18. держать `legacy room-snapshot write-cache cleanup` как optional hygiene follow-up outside the core recovery semantics;
+19. держать `participant-marker / creator-color` как следующий отдельный follow-up chapter после participant identity stabilization;
+20. возвращаться к hosted validation как checkpoint после больших шагов и новых
    demo snapshots.
 
 ## 8. Backlog
@@ -246,14 +255,15 @@ persistence/recovery от snapshot arbitration к replica model.
   - Dev tools panel now stays viewport-bounded in ordinary desktop viewports
   - lower inspect blocks and controls stay reachable through internal scroll
   - current smoke-facing `data-testid` hooks and inspectability strings stay stable
-- [ ] continue `Recovery convergence model` as the current internal replica-track step
-  - current landed slices now give:
-    - empty-live bootstrap now applies a provisional local-first render from the version-aware local replica
-    - empty-live settled recovery now converges per slice after provisional local-open
-    - durable slice now catches up only when its durable slice revision is ahead of the local handoff metadata
-    - baseline still applies only when neither usable local document nor durable content exists
-    - active-room `live-wins` behavior stays unchanged
-    - inspectability now separates `Initial open` from settled `Bootstrap` and shows slice-level settled sources
+- [x] close `Recovery convergence model` as the current internal replica-track step
+  - empty-live bootstrap now opens the version-aware local replica first
+  - empty-live settled recovery now converges per slice after provisional local-open
+  - durable slice now catches up only when its durable slice revision is ahead of the local handoff metadata
+  - bootstrap read path now uses version-aware local replica or `none` and no longer reads `room-snapshot`
+  - committed add/remove corridors now survive same-browser reopen through local replica coverage
+  - active-room `live-wins` behavior stays unchanged
+- [x] close `Checkpoint 3` before final cutover
+- [ ] take `Core semantic cutover from snapshot arbitration` as the next internal replica-track step
 - [ ] использовать hosted validation как recurring checkpoint после крупных
   продуктовых шагов и новых demo snapshots
 

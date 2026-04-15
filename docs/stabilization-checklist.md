@@ -22,7 +22,10 @@
 - [ ] same-browser reopen без второго live client всё ещё восстанавливает committed image draw/save через `converged-recovery` settled corridor
 - [ ] same-browser reopen без второго live client всё ещё восстанавливает committed token move через `converged-recovery` / IndexedDB settled corridor
 - [ ] same-browser reopen без второго live client всё ещё восстанавливает committed note move, committed note resize и saved note text через `converged-recovery` / IndexedDB settled corridor
+- [ ] same-browser reopen без второго live client всё ещё восстанавливает committed note create через `converged-recovery` / IndexedDB settled corridor
+- [ ] same-browser reopen без второго live client всё ещё восстанавливает committed note delete через `converged-recovery` / IndexedDB settled corridor
 - [ ] same-browser reopen с stale local replica и preserved durable snapshot всё ещё дотягивает durable-ahead `textCards` slice до settled state после provisional local-open
+- [ ] stale `room-snapshot` больше не меняет same-browser reopen, когда local replica отсутствует
 - [ ] covered two-browser cross-slice durable corridor finishes with durable `saved` and without retry/conflict on the acting writer
 - [ ] smoke harness валит suite на uncaught page errors и на console warning/error вне явного allowlist
 - [ ] accepted runtime allowlist остаётся узким и сейчас покрывает только durable snapshot `404` resource errors, transient local `y-websocket` close-before-established и Chromium `ReadPixels` warning

@@ -43,13 +43,17 @@
   - covered multi-client durable update corridors no longer rely on browser-visible `409` resource noise;
   - covered durable `PATCH` corridors now use per-slice revision discipline to avoid cross-slice stale-base conflicts.
 - `Checkpoint 2` is now closed after local and durable persistence maturity.
-- `Recovery convergence model` is now the current active internal replica-track step:
-  - empty-live bootstrap now applies a provisional local-first render from the version-aware local replica;
+- `Recovery convergence model` is now closed after human gate:
+  - empty-live bootstrap now opens the version-aware local replica first;
   - empty-live settled recovery now converges per slice after provisional local-open;
   - durable slice now catches up only when its durable slice revision is ahead of the local handoff metadata;
-  - baseline still applies only when neither usable local document nor durable content exists;
+  - bootstrap read path now uses version-aware local replica or `none` and no longer reads `room-snapshot`;
+  - committed add/remove corridors now survive same-browser reopen through local replica coverage;
   - active-room `live-wins` behavior stays unchanged;
   - debug inspectability now separates `Initial open` from settled `Bootstrap` and shows slice-level settled sources.
+- `Checkpoint 3` is now closed before final cutover.
+- current next internal replica-track step is now
+  `Core semantic cutover from snapshot arbitration`.
 - Dev tools inspectability surface now has a closed usability cleanup checkpoint:
   - the panel stays viewport-bounded on ordinary desktop viewports;
   - lower inspect blocks and controls stay reachable through internal scroll;
@@ -57,6 +61,9 @@
 - room ops now have one recorded durability ergonomics follow-up:
   - destructive snapshot delete leaves the room without durable recoverability until the next covered commit;
   - a separate `room-ops durability ergonomics` task is now recorded for reseed or leave-flush policy.
+- legacy `room-snapshot` now has one optional hygiene follow-up:
+  - recovery no longer reads it;
+  - a separate `legacy room-snapshot write-cache cleanup` task is now recorded for the remaining write-only cache tail.
 
 Current workflow rule for hosted validation:
 
@@ -993,10 +1000,13 @@ Working order from here:
 8. treat `Local replica semantics` as the completed next internal replica-track step
 9. treat `Durable write model` as the completed next internal replica-track step
 10. treat `Checkpoint 2` as closed after local and durable persistence maturity
-11. run `Recovery convergence model` as the current internal replica-track step
-12. treat `debug-tools usability cleanup` as a closed separate inspectability/usability pass
-13. keep `room-ops durability ergonomics` as a later follow-up task outside the current replica-track chapter
-14. keep participant-marker / creator-color as the following separate semantic/runtime chapter
+11. treat `Recovery convergence model` as the completed current internal replica-track step
+12. treat `Checkpoint 3` as closed before final cutover
+13. take `Core semantic cutover from snapshot arbitration` as the next internal replica-track step
+14. treat `debug-tools usability cleanup` as a closed separate inspectability/usability pass
+15. keep `room-ops durability ergonomics` as a later follow-up task outside the current replica-track chapter
+16. keep `legacy room-snapshot write-cache cleanup` as an optional hygiene follow-up outside the core recovery semantics
+17. keep participant-marker / creator-color as the following separate semantic/runtime chapter
 
 Accepted cleanup decisions already made:
 

@@ -80,8 +80,14 @@ npm run smoke:e2e:headed
   `converged-recovery` / IndexedDB settled corridor;
 - same-browser note text save recovery through current
   `converged-recovery` / IndexedDB settled corridor;
+- same-browser note create-only reopen through current
+  `converged-recovery` / IndexedDB settled corridor;
+- same-browser note delete-only reopen through current
+  `converged-recovery` / IndexedDB settled corridor;
 - same-browser durable-ahead reopen now verifies per-slice durable catch-up for
   the `textCards` slice after provisional local-open;
+- stale `room-snapshot` no longer changes same-browser reopen when no local
+  replica exists;
 - same-browser local recovery corridors now expose the provisional
   `Initial open` inspectability contract before settled bootstrap;
 - runtime failure policy for uncaught page errors and disallowed console
@@ -103,12 +109,12 @@ npm run smoke:e2e:headed
 
 - settled bootstrap branch names such as `live-wins` and `converged-recovery`;
 - initial-open status/source strings for local-first recovery inspection;
-- exact local source strings such as `indexeddb` and `room-snapshot`;
+- exact local source strings such as `indexeddb` and `none`;
 - exact `Last read:` source strings;
 - current covered same-browser image/token/note recovery corridors use
   IndexedDB;
-- legacy `room-snapshot` fallback still exists as a compatibility path when no
-  version-aware local replica is available.
+- stale `room-snapshot` is now ignored by recovery and survives only as an
+  optional legacy write-side tail outside the current recovery semantics.
 
 Эти assertions подлежат review после следующих replica-track steps.
 Они не задают mature target semantics сами по себе.
@@ -189,6 +195,7 @@ After `Durable write model`:
 
 After `Recovery convergence model`:
 
+- stale `room-snapshot` assertions that no longer belong to recovery semantics;
 - provisional initial-open assertions;
 - `live-wins` assertions;
 - exact `converged-recovery` bootstrap branch expectations;

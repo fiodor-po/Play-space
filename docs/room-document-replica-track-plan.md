@@ -65,10 +65,13 @@
   replica slices plus human gate;
 - `Durable write model` complete after commit-owned update slices, per-slice
   durable revision discipline, and human gate;
+- `Recovery convergence model` complete after provisional local-open,
+  per-slice settled convergence, add/remove local replica coverage, and human
+  gate;
+- `Checkpoint 3` complete before final cutover;
 - local browser smoke harness baseline exists and is accepted as a machine gate
   for current replica-track steps;
-- current active step: `Recovery convergence model`;
-- current nearest checkpoint: `Checkpoint 3`;
+- current next required step: `Core semantic cutover from snapshot arbitration`;
 - human gate still required between major checkpoints.
 
 ## Граница с room identity layer
@@ -280,7 +283,7 @@ Durable persistence становится version-aware durable replica path.
 
 **Статус**
 
-- в работе
+- сделано
 
 **Роль**
 
@@ -321,7 +324,7 @@ freshest shared room document state.
 - step broadens into participant identity or transport redesign;
 - hosted/manual validation becomes mandatory and unavailable.
 
-**Current progress**
+**Closure result**
 
 - empty-live bootstrap now applies a provisional local-first render from the
   version-aware local replica;
@@ -331,11 +334,15 @@ freshest shared room document state.
   the local handoff metadata;
 - baseline still applies only when neither usable local document nor durable
   content exists;
+- committed `object-add` and `object-remove` now write version-aware local
+  replica and survive same-browser reopen without legacy fallback reads;
+- bootstrap read path now uses version-aware local replica or `none` and no
+  longer reads `room-snapshot`;
 - active-room `live-wins` behavior stays unchanged;
 - debug inspectability now separates `Initial open` from settled `Bootstrap`
   and shows slice-level settled sources;
-- `RF-2026-04-15-01` remains deferred inside this chapter as follow-up review
-  for the legacy `room-snapshot` compatibility fallback.
+- write-side `room-snapshot` cache is now an optional legacy tail outside
+  recovery semantics.
 
 ### Шаг 7. Core semantic cutover from snapshot arbitration
 
@@ -443,9 +450,16 @@ step делает устаревшими.
 
 **Статус**
 
-- позже
+- сделано
 
 **Что должен подтвердить**
+
+- recovery already behaves through convergence;
+- legacy snapshot logic is no longer needed as the primary operational safety
+  net;
+- the system is ready for core semantic cutover.
+
+**Что подтвердили**
 
 - recovery already behaves through convergence;
 - legacy snapshot logic is no longer needed as the primary operational safety
@@ -522,13 +536,12 @@ passes, которые трогают board/runtime/recovery behavior.
 Эти assertions защищают текущий bridge checkpoint и подлежат review на следующих
 steps:
 
-- bootstrap branch names such as `live-wins` and `local-recovery`;
-- exact local source strings such as `indexeddb` and `room-snapshot`;
+- settled bootstrap branch names such as `live-wins` and
+  `converged-recovery`;
+- exact local source strings such as `indexeddb` and `none`;
 - exact `Last read:` source strings;
 - current covered same-browser image/token/note recovery corridors use
   IndexedDB;
-- legacy `room-snapshot` fallback still exists as a compatibility path when no
-  version-aware local replica is available;
 - current warning allowlist assumptions around durable snapshot browser noise.
 
 Bridge-bound assertions полезны сейчас.
@@ -558,8 +571,9 @@ Review:
 
 Review:
 
+- stale `room-snapshot` assertions that no longer belong to recovery semantics;
 - `Bootstrap: live-wins` assertions;
-- strict local-vs-live bootstrap branch expectations;
+- exact `converged-recovery` bootstrap branch expectations;
 - current bridge-era local-vs-live source split assertions.
 
 ### After `Core semantic cutover`

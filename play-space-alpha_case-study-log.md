@@ -9,6 +9,53 @@
 
 ---
 
+## Phase 0X — Recovery convergence model closed before semantic cutover
+
+### Type
+- milestone
+- decision
+
+### Context
+После закрытия local replica semantics и durable write model проект уже умел
+открывать local replica first и сходиться с durable state по slice freshness.
+Legacy `room-snapshot` ещё оставался read-side fallback и держал recovery
+chapter открытым.
+
+### Goal or problem
+Нужно было понять, закрывает ли текущий recovery chapter свою собственную
+semantic задачу, или recovery всё ещё зависит от snapshot-era fallback.
+
+### What happened
+Recovery chapter был доведён до двух важных границ:
+
+- empty-live bootstrap now opens the version-aware local replica first;
+- empty-live settled recovery now converges per slice after provisional
+  local-open;
+- durable slice catches up only when its durable slice revision is ahead of the
+  local handoff metadata;
+- committed add/remove corridors now survive same-browser reopen through local
+  replica coverage;
+- bootstrap read path no longer uses `room-snapshot`.
+
+### Decision / change
+`Recovery convergence model` closed after human gate.
+
+The next internal replica-track step is
+`Core semantic cutover from snapshot arbitration`.
+
+### Why
+Recovery semantics already work through convergence.
+The remaining `room-snapshot` tail is now a write-only cache and no longer
+participates in bootstrap or settled recovery decisions.
+
+### Result
+The project moved from recovery-side convergence work to cutover readiness.
+
+The remaining snapshot write-only cache is now tracked as an optional hygiene
+follow-up rather than as a blocker for recovery chapter closure.
+
+---
+
 ## Phase 0X — Board-material tokenization exposed a CSS-vs-canvas token boundary
 
 ### Type

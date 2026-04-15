@@ -75,8 +75,9 @@ Recommended statuses:
 - `finding`: legacy `room-snapshot` remains as a compatibility fallback after version-aware local replica adoption
 - `why_deferred`: `Durable write model` closed without needing fallback removal; the remaining decision belongs to the recovery-side chapter where bootstrap and convergence semantics are already in scope
 - `expected_action`: keep the fallback as a compatibility path for now and review whether it should narrow further during `Recovery convergence model`
+- `closure_result`: bootstrap read path now uses version-aware local replica or `none`, committed add/remove corridors now write local replica, and stale `room-snapshot` no longer affects same-browser recovery decisions
 - `target_chapter`: `Recovery convergence model`
-- `status`: `planned`
+- `status`: `closed`
 
 ### RF-2026-04-15-02
 
@@ -99,4 +100,15 @@ Recommended statuses:
 - `why_deferred`: ordinary durable write corridors and recovery order are already validated; reseed or leave-flush policy is a separate room-ops/runtime ergonomics decision
 - `expected_action`: decide whether destructive snapshot delete should trigger immediate durable reseed, explicit leave-time flush, or clearer destructive semantics in the ops path
 - `target_chapter`: `room-ops durability ergonomics`
+- `status`: `planned`
+
+### RF-2026-04-15-04
+
+- `id`: `RF-2026-04-15-04`
+- `date`: `2026-04-15`
+- `source`: strategist review during `Recovery convergence model` closure
+- `finding`: write-side `room-snapshot` cache still exists as a legacy local cache after recovery semantics stopped reading it
+- `why_deferred`: recovery now opens and settles through version-aware local replica plus per-slice durable convergence; removing the remaining write-only cache is hygiene work and does not block chapter closure
+- `expected_action`: decide whether to remove the `saveRoomSnapshot` write effect, dead storage helpers, and stale smoke helpers in a separate cleanup pass after cutover or as an optional hygiene step
+- `target_chapter`: `legacy room-snapshot write-cache cleanup`
 - `status`: `planned`
