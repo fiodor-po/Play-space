@@ -86,8 +86,9 @@ Recommended statuses:
 - `finding`: Dev tools panel now overflows the viewport and hides lower debug actions because the panel has no human-usable scroll behavior
 - `why_deferred`: current pass is about durable write semantics; the inspectability surface still works for automation, and the layout fix belongs to a separate narrow usability pass
 - `expected_action`: add viewport-bounded layout and internal scroll behavior so the full Dev tools panel remains reachable on ordinary desktop viewports
+- `closure_result`: the panel now stays viewport-bounded, lower debug sections stay reachable through internal scroll, and smoke-facing inspectability hooks stay stable
 - `target_chapter`: `debug-tools usability cleanup`
-- `status`: `planned`
+- `status`: `closed`
 
 ### RF-2026-04-15-03
 

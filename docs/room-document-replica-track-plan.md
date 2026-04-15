@@ -67,7 +67,7 @@
   durable revision discipline, and human gate;
 - local browser smoke harness baseline exists and is accepted as a machine gate
   for current replica-track steps;
-- current next required step: `Recovery convergence model`;
+- current active step: `Recovery convergence model`;
 - current nearest checkpoint: `Checkpoint 3`;
 - human gate still required between major checkpoints.
 
@@ -280,7 +280,7 @@ Durable persistence становится version-aware durable replica path.
 
 **Статус**
 
-- не начато
+- в работе
 
 **Роль**
 
@@ -320,6 +320,17 @@ freshest shared room document state.
 - step starts redefining product semantics outside recovery;
 - step broadens into participant identity or transport redesign;
 - hosted/manual validation becomes mandatory and unavailable.
+
+**Current progress**
+
+- empty-live bootstrap can already apply a provisional local-first render from
+  the version-aware local replica;
+- settled arbitration still keeps the current `durable -> local -> baseline ->
+  empty` order;
+- active-room `live-wins` behavior stays unchanged;
+- debug inspectability now separates `Initial open` from settled `Bootstrap`;
+- `RF-2026-04-15-01` remains deferred inside this chapter as follow-up review
+  for the legacy `room-snapshot` compatibility fallback.
 
 ### Шаг 7. Core semantic cutover from snapshot arbitration
 

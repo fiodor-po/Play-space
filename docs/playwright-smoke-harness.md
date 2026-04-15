@@ -80,6 +80,8 @@ npm run smoke:e2e:headed
   `local-recovery` / IndexedDB corridor;
 - same-browser note text save recovery through current
   `local-recovery` / IndexedDB corridor;
+- same-browser local recovery corridors now expose the provisional
+  `Initial open` inspectability contract before settled bootstrap;
 - runtime failure policy for uncaught page errors and disallowed console
   events.
 
@@ -97,7 +99,8 @@ npm run smoke:e2e:headed
 
 Эти assertions защищают current bridge behavior:
 
-- bootstrap branch names such as `live-wins` and `local-recovery`;
+- settled bootstrap branch names such as `live-wins` and `local-recovery`;
+- initial-open status/source strings for local-first recovery inspection;
 - exact local source strings such as `indexeddb` and `room-snapshot`;
 - exact `Last read:` source strings;
 - current covered same-browser image/token/note recovery corridors use
@@ -184,6 +187,7 @@ After `Durable write model`:
 
 After `Recovery convergence model`:
 
+- provisional initial-open assertions;
 - `live-wins` assertions;
 - strict local-vs-live bootstrap branch expectations;
 - bridge-era source split assertions.

@@ -36,7 +36,7 @@
 - migration chain active;
 - phase-1 `browser-local replica baseline` checkpoint complete;
 - checkpoint 2 after local and durable replica maturity is complete;
-- next internal replica-track step is `Recovery convergence model`;
+- current internal replica-track step is `Recovery convergence model`;
 - full replica cutover ещё впереди.
 
 ## Как это называть

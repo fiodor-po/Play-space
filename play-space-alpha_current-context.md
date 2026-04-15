@@ -43,10 +43,15 @@
   - covered multi-client durable update corridors no longer rely on browser-visible `409` resource noise;
   - covered durable `PATCH` corridors now use per-slice revision discipline to avoid cross-slice stale-base conflicts.
 - `Checkpoint 2` is now closed after local and durable persistence maturity.
-- current next internal replica-track step is now `Recovery convergence model`.
-- Dev tools inspectability surface now has one recorded usability follow-up:
-  - current panel height hides lower controls on ordinary desktop viewport sizes;
-  - a separate `debug-tools usability cleanup` chapter candidate is now recorded for viewport-bounded scroll behavior.
+- `Recovery convergence model` is now the current active internal replica-track step:
+  - empty-live bootstrap can already apply a provisional local-first render from the version-aware local replica;
+  - settled arbitration still keeps the current `durable -> local -> baseline -> empty` order;
+  - active-room `live-wins` behavior stays unchanged;
+  - debug inspectability now separates `Initial open` from settled `Bootstrap`.
+- Dev tools inspectability surface now has a closed usability cleanup checkpoint:
+  - the panel stays viewport-bounded on ordinary desktop viewports;
+  - lower inspect blocks and controls stay reachable through internal scroll;
+  - smoke-facing inspectability values and hooks stay unchanged.
 - room ops now have one recorded durability ergonomics follow-up:
   - destructive snapshot delete leaves the room without durable recoverability until the next covered commit;
   - a separate `room-ops durability ergonomics` task is now recorded for reseed or leave-flush policy.
@@ -986,8 +991,8 @@ Working order from here:
 8. treat `Local replica semantics` as the completed next internal replica-track step
 9. treat `Durable write model` as the completed next internal replica-track step
 10. treat `Checkpoint 2` as closed after local and durable persistence maturity
-11. take `Recovery convergence model` as the next internal replica-track step
-12. keep `debug-tools usability cleanup` as a later inspectability/usability chapter candidate
+11. run `Recovery convergence model` as the current internal replica-track step
+12. treat `debug-tools usability cleanup` as a closed separate inspectability/usability pass
 13. keep `room-ops durability ergonomics` as a later follow-up task outside the current replica-track chapter
 14. keep participant-marker / creator-color as the following separate semantic/runtime chapter
 

@@ -112,7 +112,12 @@ persistence/recovery от snapshot arbitration к replica model.
      - durable ack/revision handling is explicit and inspectable;
      - covered multi-client durable corridors no longer rely on browser-visible `409` resource noise;
      - covered durable `PATCH` corridors use per-slice revision discipline and avoid cross-slice stale-base conflicts;
-12. взять `Recovery convergence model` как следующий internal replica-track step;
+12. вести `Recovery convergence model` как текущий internal replica-track step;
+   - first safe slice is already landed:
+     - empty-live bootstrap can apply a provisional local-first render from the version-aware local replica;
+     - settled arbitration still keeps the current `durable -> local -> baseline -> empty` order;
+     - active-room `live-wins` behavior stays unchanged;
+     - inspectability now separates `Initial open` from settled `Bootstrap`;
 13. взять `browser-local participant identity stabilization` как следующий
     отдельный chapter candidate вне самого replica-track;
 14. держать `participant-marker / creator-color` как later chapter после participant identity stabilization;
@@ -144,9 +149,9 @@ persistence/recovery от snapshot arbitration к replica model.
 - completed implementation checkpoint: `narrow commit-boundary persistence phase`;
 - completed internal replica-track step: `Local replica semantics`;
 - completed internal replica-track step: `Durable write model`;
-- next internal replica-track step: `Recovery convergence model`;
+- current internal replica-track step: `Recovery convergence model`;
 - next separate chapter candidate: `browser-local participant identity stabilization`;
-- later chapter candidate: `debug-tools usability cleanup`;
+- completed narrow follow-up: `debug-tools usability cleanup`;
 - later follow-up task: `room-ops durability ergonomics`;
 - later follow-up chapter: `participant-marker / creator-color`;
 - hosted validation как повторяемая проверка после крупных шагов, выкатываний и
@@ -176,9 +181,9 @@ persistence/recovery от snapshot arbitration к replica model.
 9. считать `Local replica semantics` закрытым internal replica-track step;
 10. считать `Durable write model` закрытым internal replica-track step;
 11. считать `Checkpoint 2` закрытым после local и durable maturity;
-12. взять `Recovery convergence model` как следующий internal replica-track step;
+12. вести `Recovery convergence model` как текущий internal replica-track step;
 13. взять `browser-local participant identity stabilization` как следующий отдельный chapter candidate вне replica-track;
-14. держать `debug-tools usability cleanup` как отдельный later chapter candidate for inspectability ergonomics;
+14. считать `debug-tools usability cleanup` закрытым узким inspectability/usability pass;
 15. держать `room-ops durability ergonomics` как later follow-up task after the current replica-track chapter;
 16. держать `participant-marker / creator-color` как следующий отдельный follow-up chapter после participant identity stabilization;
 17. возвращаться к hosted validation как checkpoint после больших шагов и новых
@@ -235,7 +240,16 @@ persistence/recovery от snapshot arbitration к replica model.
   - covered multi-client durable update corridors now finish without accepted `409` resource-error baseline noise
   - covered durable `PATCH` corridors now use per-slice revision discipline to avoid cross-slice stale-base conflicts
 - [x] close `Checkpoint 2` after local replica semantics and durable write model
-- [ ] run `Recovery convergence model` as the next internal replica-track step
+- [x] close `debug-tools usability cleanup` as a narrow inspectability/usability pass
+  - Dev tools panel now stays viewport-bounded in ordinary desktop viewports
+  - lower inspect blocks and controls stay reachable through internal scroll
+  - current smoke-facing `data-testid` hooks and inspectability strings stay stable
+- [ ] continue `Recovery convergence model` as the current internal replica-track step
+  - first safe slice already landed:
+    - empty-live bootstrap now applies a provisional local-first render from the version-aware local replica
+    - settled arbitration still keeps the current `durable -> local -> baseline -> empty` order
+    - active-room `live-wins` behavior stays unchanged
+    - inspectability now separates `Initial open` from settled `Bootstrap`
 - [ ] использовать hosted validation как recurring checkpoint после крупных
   продуктовых шагов и новых demo snapshots
 
