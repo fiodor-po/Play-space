@@ -32,6 +32,7 @@ This is the fastest index for the repo's working docs.
 - `../PLANS.md` — ExecPlan rules for larger work
 - `../play-space-project-foundation.md` — stable product/architecture frame
 - `../play-space-alpha_current-context.md` — current handoff/operational context
+- `review-followups-log.md` — concrete review findings and deferred follow-up actions
 - `room-document-persistence-target-memo.md` — canonical technical target for the room-document replica migration track
 - `room-document-replica-map.md` — canonical human-facing control map for the room-document replica migration track
 - `room-document-replica-track-plan.md` — canonical agent-facing execution/control plan for the room-document replica migration track

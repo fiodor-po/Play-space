@@ -57,6 +57,21 @@ export type LocalRoomDocumentReplicaLoadResult = {
   source: "indexeddb" | "legacy-localstorage" | "none";
 };
 
+export type LocalRoomDocumentBootstrapReadSource =
+  | "indexeddb"
+  | "legacy-localstorage"
+  | "room-snapshot"
+  | "none";
+
+export type LocalRoomDocumentBootstrapState = {
+  source: LocalRoomDocumentBootstrapReadSource;
+  content: RoomDocumentContent | null;
+  objectCount: number;
+  savedAt: number | null;
+  revision: number | null;
+  isVersionAware: boolean;
+};
+
 let roomDocumentReplicaDatabasePromise: Promise<IDBDatabase> | null = null;
 
 export function loadBoardObjects(roomId: string, fallback: BoardObject[]) {
@@ -262,6 +277,58 @@ export async function loadLocalRoomDocumentReplica(
   return {
     replica: null,
     source: "none",
+  };
+}
+
+export async function loadLocalRoomDocumentBootstrapState(
+  roomId: string
+): Promise<LocalRoomDocumentBootstrapState> {
+  const localReplicaResult = await loadLocalRoomDocumentReplica(roomId);
+  const localReplica = localReplicaResult.replica;
+  const localReplicaObjectCount = localReplica
+    ? getRoomDocumentReplicaObjectCount(localReplica)
+    : 0;
+  const hasVersionAwareLocalReplica =
+    typeof localReplica?.revision === "number";
+
+  if (localReplica && (hasVersionAwareLocalReplica || localReplicaObjectCount > 0)) {
+    return {
+      source: localReplicaResult.source,
+      content: localReplica.content,
+      objectCount: localReplicaObjectCount,
+      savedAt: localReplica.savedAt,
+      revision: localReplica.revision,
+      isVersionAware: hasVersionAwareLocalReplica,
+    };
+  }
+
+  const legacyRoomSnapshot = loadRoomSnapshot(roomId);
+  const legacyRoomSnapshotObjectCount = getRoomSnapshotObjectCount(
+    legacyRoomSnapshot
+  );
+
+  if (legacyRoomSnapshot && legacyRoomSnapshotObjectCount > 0) {
+    return {
+      source: "room-snapshot",
+      content: {
+        tokens: legacyRoomSnapshot.tokens,
+        images: legacyRoomSnapshot.images,
+        textCards: legacyRoomSnapshot.textCards,
+      },
+      objectCount: legacyRoomSnapshotObjectCount,
+      savedAt: legacyRoomSnapshot.savedAt,
+      revision: null,
+      isVersionAware: false,
+    };
+  }
+
+  return {
+    source: "none",
+    content: null,
+    objectCount: 0,
+    savedAt: null,
+    revision: null,
+    isVersionAware: false,
   };
 }
 
@@ -530,6 +597,12 @@ function getRoomSnapshotStorageKey(roomId: string) {
 
 function getRoomDocumentReplicaStorageKey(roomId: string) {
   return `${ROOM_DOCUMENT_REPLICA_STORAGE_KEY}:${normalizeRoomId(roomId)}`;
+}
+
+function getRoomSnapshotObjectCount(snapshot: RoomSnapshot | null) {
+  return snapshot
+    ? snapshot.tokens.length + snapshot.images.length + snapshot.textCards.length
+    : 0;
 }
 
 function createLocalRoomDocumentReplica(

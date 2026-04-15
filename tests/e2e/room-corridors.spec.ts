@@ -23,14 +23,17 @@ import {
   getImageBounds,
   getImageStrokeCounts,
   getNoteBounds,
+  getNoteId,
   getRoomObjectCounts,
   getTokenPosition,
   joinRoom,
   openDebugTools,
   openEntryPage,
   reopenRoomForLocalRecovery,
+  seedEmptyVersionedLocalReplica,
   uploadSmokeImage,
   waitForRoomOpsState,
+  waitForRoomSnapshotState,
 } from "./helpers/roomSmoke";
 
 test.describe("local room smoke corridors", () => {
@@ -418,6 +421,64 @@ test.describe("local room smoke corridors", () => {
         y: committedBounds.y,
         width: committedBounds.width,
         height: committedBounds.height,
+      });
+      await expect(
+        recoveredPage.getByTestId("debug-local-replica-inspection")
+      ).not.toContainText("Error:");
+    } finally {
+      await recoveredPage.close();
+    }
+  });
+
+  test("prefers a versioned empty local replica over stale room-snapshot fallback during same-browser reopen", async ({
+    page,
+    request,
+  }) => {
+    const roomId = createSmokeRoomId("versioned-empty-local-recovery");
+
+    await openEntryPage(page, roomId);
+    await joinRoom(page, {
+      roomId,
+      name: "Smoke Versioned Empty Local",
+    });
+    await openDebugTools(page);
+
+    const initialCounts = await getRoomObjectCounts(page);
+
+    await clickDebugAddNote(page);
+    await expectRoomObjectCounts(page, {
+      notes: initialCounts.notes + 1,
+    });
+    const createdNoteId = await getNoteId(page);
+
+    await clickSmokeNoteMove(page);
+    await expectLocalReplicaWriteSaved(page, "note-drag-end");
+    const localRevision = await getLocalReplicaLastWriteRevision(page);
+    expect(localRevision).toBeGreaterThan(0);
+
+    await waitForRoomSnapshotState(page, roomId, {
+      notes: initialCounts.notes + 1,
+      noteId: createdNoteId,
+      noteLabel: "New note",
+    });
+
+    const emptyReplicaRevision = localRevision + 1;
+    await seedEmptyVersionedLocalReplica(page, roomId, emptyReplicaRevision);
+
+    const recoveredPage = await reopenRoomForLocalRecovery(page, request, roomId);
+
+    try {
+      await expectBootstrapBranch(recoveredPage, "local-recovery");
+      await expectBootstrapLocalSource(recoveredPage, "indexeddb");
+      await expectLocalReplicaLastRead(recoveredPage, "indexeddb");
+      await expectLocalReplicaLastReadRevision(
+        recoveredPage,
+        emptyReplicaRevision
+      );
+      await expectRoomObjectCounts(recoveredPage, {
+        tokens: initialCounts.tokens,
+        images: initialCounts.images,
+        notes: 0,
       });
       await expect(
         recoveredPage.getByTestId("debug-local-replica-inspection")

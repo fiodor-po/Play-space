@@ -2531,3 +2531,55 @@ The persistence/recovery chapter reached a real checkpoint:
 - the broader room-document replica migration track remains open;
 - the next separate chapter can move to browser-local participant identity stabilization;
 - durable snapshot conflict handling remains a later refinement, not a blocker.
+
+---
+
+## Phase 0Y — Local replica semantics closure
+
+### Type
+- internal replica-track step closure
+
+### Context
+After the IndexedDB baseline checkpoint, the next required internal step was
+`Local replica semantics`.
+
+The chapter still had two open gaps:
+
+- write-side local replica coverage outside the image corridor;
+- read-side bootstrap behavior still treated local state too much like a
+  winner-picked fallback snapshot.
+
+### What happened
+The project closed this step through several narrow slices:
+
+- local replica writes gained monotonic local revision identity;
+- covered committed image/token/note corridors now write into IndexedDB local
+  replica on commit boundary;
+- same-browser reopen smoke for those covered corridors now reads from
+  `local-recovery` / `indexeddb`;
+- bootstrap read path now treats version-aware local replica as the local
+  document source even when that replica is empty;
+- stale `room-snapshot` no longer resurrects content over a version-aware empty
+  local replica.
+
+### Decision / change
+`Local replica semantics` is now complete as the next internal replica-track
+step.
+
+### Why
+The browser-local path now behaves like a real local document carrier:
+
+- local replica has explicit revision identity;
+- covered committed corridors no longer depend on `room-snapshot` for same-browser reopen;
+- bootstrap no longer overlays stale fallback content on top of a version-aware
+  empty local replica;
+- active-room `live-wins` and durable semantics stayed unchanged.
+
+### Result
+The next internal replica-track step is now `Durable write model`.
+
+The remaining local follow-up was classified explicitly:
+
+- legacy `room-snapshot` stays as a compatibility fallback for now;
+- its later fate should be reviewed during `Durable write model`, not reopened
+  as another immediate local bootstrap chapter.

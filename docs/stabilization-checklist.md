@@ -18,6 +18,7 @@
 - [ ] committed image bounds всё ещё переживают refresh, пока room остаётся live
 - [ ] committed image draw/save всё ещё переживает refresh, пока room остаётся live
 - [ ] same-browser reopen без второго live client всё ещё восстанавливает committed room state через local-recovery corridor
+- [ ] version-aware empty local replica при same-browser reopen всё ещё удерживает empty local document вместо stale `room-snapshot` или baseline fallback
 - [ ] same-browser reopen без второго live client всё ещё восстанавливает committed image draw/save через local-recovery corridor
 - [ ] same-browser reopen без второго live client всё ещё восстанавливает committed token move через `local-recovery` / IndexedDB corridor
 - [ ] same-browser reopen без второго live client всё ещё восстанавливает committed note move, committed note resize и saved note text через `local-recovery` / IndexedDB corridor

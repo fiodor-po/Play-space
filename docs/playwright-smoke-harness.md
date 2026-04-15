@@ -72,6 +72,8 @@ npm run smoke:e2e:headed
   `local-recovery` / IndexedDB corridor;
 - same-browser token move recovery through current
   `local-recovery` / IndexedDB corridor;
+- versioned empty local replica keeps same-browser reopen on the empty local
+  document instead of stale `room-snapshot` or baseline fallback;
 - same-browser note move recovery through current
   `local-recovery` / IndexedDB corridor;
 - same-browser note resize recovery through current
@@ -100,8 +102,8 @@ npm run smoke:e2e:headed
 - exact `Last read:` source strings;
 - current covered same-browser image/token/note recovery corridors use
   IndexedDB;
-- legacy `room-snapshot` fallback still exists as a compatibility path outside
-  those covered assertions.
+- legacy `room-snapshot` fallback still exists as a compatibility path when no
+  version-aware local replica is available.
 
 Эти assertions подлежат review после следующих replica-track steps.
 Они не задают mature target semantics сами по себе.

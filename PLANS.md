@@ -53,6 +53,7 @@ Which docs must be updated if the plan lands:
 - `ROADMAP.md`
 - `play-space-alpha_current-context.md`
 - `play-space-alpha_case-study-log.md`
+- `docs/review-followups-log.md`
 - any focused design/spec/runbook docs
 
 ## Plan-type notes
@@ -95,6 +96,11 @@ Every significant ExecPlan must:
 - reference the backlog item(s) it advances when applicable;
 - say whether `ROADMAP.md` also needs an update;
 - say whether the work should update `play-space-alpha_current-context.md` and/or `play-space-alpha_case-study-log.md`.
+- say whether the work should add, close, or reclassify entries in
+  `docs/review-followups-log.md`.
+
+If an ExecPlan closes a checkpoint or chapter, it must also define a closure
+review for open follow-up entries touched by that work.
 
 ## When not to use an ExecPlan
 

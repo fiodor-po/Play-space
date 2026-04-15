@@ -577,6 +577,7 @@ Scope this narrowly:
 - LiveKit specifics: `docs/livekit-local-dev.md`
 - hosted deploy/runtime assumptions: `docs/hosted-alpha-deployment-plan.md`
 - manual regression checks: `docs/manual-qa-runbook.md`, `docs/stabilization-checklist.md`
+- concrete review follow-ups: `docs/review-followups-log.md`
 - task brief / executor report format: `docs/task-brief-template.md`, `docs/executor-report-template.md`
 
 ### Color
@@ -606,6 +607,7 @@ After any meaningful step, decide whether to update:
 - `ROADMAP.md`
 - `play-space-alpha_current-context.md`
 - `play-space-alpha_case-study-log.md`
+- `docs/review-followups-log.md`
 
 Rules:
 
@@ -613,6 +615,32 @@ Rules:
 - `ROADMAP.md` is the live development plan and priority map;
 - `play-space-alpha_current-context.md` is short and operational;
 - `play-space-alpha_case-study-log.md` stores decisions, milestones, bugs, and workflow lessons;
+- `docs/review-followups-log.md` stores concrete review findings that still need later action;
 - do not lose major reasoning between chats.
 
 If a step changes priorities, closes a roadmap item, changes the intended sequence of work, or changes product/deployment direction, update `ROADMAP.md` in the same change set when appropriate.
+
+## Review follow-up discipline
+
+When a strategist review, executor review, or read-only audit reveals concrete
+later work:
+
+- record it in `docs/review-followups-log.md`;
+- keep the entry concrete:
+  - finding
+  - why it is deferred
+  - expected next action
+  - target chapter or decision point
+  - status
+
+At chapter or checkpoint closure:
+
+- review open follow-up entries touched by that chapter;
+- decide whether each item should:
+  - close
+  - stay deferred
+  - become the next task in the same chapter
+  - become a new later chapter candidate
+- when a new task or chapter is created, reflect it in `ROADMAP.md` and
+  `play-space-alpha_current-context.md` as needed;
+- update the follow-up entry status in the same pass.

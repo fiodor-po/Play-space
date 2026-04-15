@@ -310,6 +310,10 @@ Phase 1A current result:
 
 ### Phase 2 — Local replica semantics
 
+Status:
+
+- completed
+
 Purpose:
 
 - turn browser-local room snapshot into an explicit local replica of the room
@@ -493,13 +497,13 @@ Stop conditions:
 
 The next internal replica-track implementation chapter should be:
 
-- **Phase 2 — Local replica semantics**
+- **Phase 3 — Durable write model**
 
 Short reason:
 
-- it turns the accepted IndexedDB baseline into version-aware local replica semantics;
-- it is the next required internal step in the active replica migration track;
-- it keeps scope narrower than durable-write or convergence work.
+- local read/write semantics are now version-aware enough to leave the browser-local fallback stage;
+- durable persistence remains the next unresolved replica-track correctness layer;
+- this keeps the migration moving without reopening bootstrap work immediately.
 
 ## 7. Relationship to current roadmap phase
 
@@ -510,5 +514,6 @@ Immediate roadmap-aligned result:
 
 - room-document replica chapter chosen as the new active architecture track
 - phase-1 `narrow commit-boundary persistence phase` checkpoint completed
-- next internal replica-track step: `local replica semantics`
+- `Local replica semantics` completed as the next internal replica-track step
+- next internal replica-track step: `Durable write model`
 - later follow-up chapter remains: `participant-marker / creator-color`

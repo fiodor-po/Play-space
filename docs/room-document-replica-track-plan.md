@@ -61,9 +61,11 @@
 
 - migration chain active;
 - phase-1 `browser-local replica baseline` checkpoint complete;
+- `Local replica semantics` complete after write-side and read-side local
+  replica slices plus human gate;
 - local browser smoke harness baseline exists and is accepted as a machine gate
-  before `Local replica semantics`;
-- current next required step: `Local replica semantics`;
+  for current replica-track steps;
+- current next required step: `Durable write model`;
 - current nearest checkpoint: `Checkpoint 2`;
 - human gate still required between major checkpoints.
 
@@ -161,7 +163,7 @@ Committed room content становится persistence-eligible на commit bou
 
 **Статус**
 
-- не начато
+- сделано
 
 **Роль**
 
@@ -200,6 +202,16 @@ Browser-local state становится version-aware local replica, а не fa
 - step starts redefining durable write semantics broadly;
 - step starts changing bootstrap winner logic beyond local-replica scope;
 - step starts mixing participant identity or marker semantics.
+
+**Closure result**
+
+- local replica now has explicit monotonic local revision identity;
+- covered committed image/token/note corridors write into IndexedDB local
+  replica on commit boundary;
+- bootstrap read path treats version-aware local replica as the local document
+  source even when the local content is empty;
+- legacy `room-snapshot` remains only as a compatibility fallback when no
+  version-aware local replica is available.
 
 ### Шаг 5. Durable write model
 
@@ -336,6 +348,20 @@ Replica convergence становится основной recovery model.
 
 ## Control checkpoints
 
+## Chapter closure review discipline
+
+Перед закрытием internal step или checkpoint в replica-track:
+
+- review open entries in `docs/review-followups-log.md`, которые затронуты этим
+  step;
+- decide whether each entry should:
+  - close
+  - stay deferred
+  - become the next narrow step in the same chapter
+  - become a new later chapter candidate
+- if a new task or chapter is spawned, update `ROADMAP.md` and
+  `play-space-alpha_current-context.md` in the same pass.
+
 ### Checkpoint 1. Validation after browser-local baseline
 
 **Статус**
@@ -430,6 +456,8 @@ cutover.
 - image draw/save refresh survival;
 - same-browser local-only recovery for image state through current
   `local-recovery` / IndexedDB corridor;
+- versioned empty local replica keeps same-browser reopen on the empty local
+  document instead of stale `room-snapshot` or baseline fallback;
 - same-browser token move recovery through current
   `local-recovery` / IndexedDB corridor;
 - same-browser note move recovery through current
@@ -465,8 +493,8 @@ steps:
 - exact `Last read:` source strings;
 - current covered same-browser image/token/note recovery corridors use
   IndexedDB;
-- legacy `room-snapshot` fallback still exists as a compatibility path outside
-  those covered assertions;
+- legacy `room-snapshot` fallback still exists as a compatibility path when no
+  version-aware local replica is available;
 - current warning allowlist assumptions around durable snapshot browser noise.
 
 Bridge-bound assertions полезны сейчас.

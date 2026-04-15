@@ -323,10 +323,10 @@ Checkpoint result now confirmed manually:
 Track status now reads like this:
 
 - the first `IndexedDB` local-replica checkpoint is closed;
+- `Local replica semantics` is now closed as the next internal replica-track step;
 - the broader replica migration chain remains open;
-- later required replica-track steps still include local replica semantics,
-  durable write model, recovery convergence, and final cutover from snapshot
-  arbitration.
+- later required replica-track steps now include durable write model,
+  recovery convergence, and final cutover from snapshot arbitration.
 
 Next separate chapter candidate:
 
@@ -970,8 +970,9 @@ Working order from here:
 5. treat `next runtime/object chapter` as paused by persistence/recovery correctness
 6. open `room document persistence / recovery architecture` as the active chapter
 7. treat `narrow commit-boundary persistence phase` as the completed first implementation checkpoint
-8. take `Local replica semantics` as the next internal replica-track step
-9. keep participant-marker / creator-color as the following separate semantic/runtime chapter
+8. treat `Local replica semantics` as the completed next internal replica-track step
+9. take `Durable write model` as the next internal replica-track step
+10. keep participant-marker / creator-color as the following separate semantic/runtime chapter
 
 Accepted cleanup decisions already made:
 

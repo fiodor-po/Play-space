@@ -587,6 +587,64 @@ export async function waitForRoomSnapshotState(
     );
 }
 
+export async function seedEmptyVersionedLocalReplica(
+  page: Page,
+  roomId: string,
+  revision: number
+) {
+  await page.evaluate(
+    async ({ roomId: nextRoomId, nextRevision, savedAt }) => {
+      const database = await new Promise<IDBDatabase>((resolve, reject) => {
+        const request = window.indexedDB.open(
+          "play-space-alpha-browser-storage-v1",
+          1
+        );
+
+        request.onerror = () => {
+          reject(request.error ?? new Error("indexeddb-open-failed"));
+        };
+
+        request.onsuccess = () => {
+          resolve(request.result);
+        };
+      });
+
+      await new Promise<void>((resolve, reject) => {
+        const transaction = database.transaction(
+          "room-document-replicas",
+          "readwrite"
+        );
+
+        transaction.onerror = () => {
+          reject(transaction.error ?? new Error("indexeddb-write-failed"));
+        };
+
+        transaction.oncomplete = () => {
+          resolve();
+        };
+
+        transaction.objectStore("room-document-replicas").put({
+          roomId: nextRoomId,
+          revision: nextRevision,
+          savedAt,
+          content: {
+            tokens: [],
+            images: [],
+            textCards: [],
+          },
+        });
+      });
+
+      database.close();
+    },
+    {
+      roomId,
+      nextRevision: revision,
+      savedAt: Date.now(),
+    }
+  );
+}
+
 function extractCount(text: string, pattern: RegExp) {
   const match = text.match(pattern);
 

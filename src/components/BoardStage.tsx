@@ -107,13 +107,13 @@ import {
 } from "../lib/boardObjects";
 import {
   clearBoardContentStorage,
-  loadLocalRoomDocumentReplica,
+  loadLocalRoomDocumentBootstrapState,
   saveLocalRoomDocumentReplica,
-  loadRoomSnapshot,
   loadViewportState,
   saveBoardObjects,
   saveRoomSnapshot,
   saveViewportState,
+  type LocalRoomDocumentBootstrapReadSource,
 } from "../lib/storage";
 import { createClientId } from "../lib/id";
 import {
@@ -336,12 +336,7 @@ type ContainerRect = {
   top: number;
 };
 
-type LocalReplicaReadSource =
-  | "idle"
-  | "indexeddb"
-  | "legacy-localstorage"
-  | "room-snapshot"
-  | "none";
+type LocalReplicaReadSource = "idle" | LocalRoomDocumentBootstrapReadSource;
 
 type LocalReplicaInspectionState = {
   lastWriteStatus: "idle" | "writing" | "saved" | "failed";
@@ -1549,38 +1544,15 @@ export default function BoardStage({
         nextRoomId: string,
         baselineObjects: BoardObject[]
       ) => [...getRoomScopedBoardObjects(nextRoomId), ...baselineObjects];
-      const localReplicaResult = await loadLocalRoomDocumentReplica(roomId);
-      const localReplica = localReplicaResult.replica;
-      const localReplicaSnapshot = localReplica
-        ? {
-            tokens: localReplica.content.tokens,
-            images: localReplica.content.images,
-            textCards: localReplica.content.textCards,
-          }
-        : null;
-      const localReplicaObjectCount = localReplica
-        ? getReplicaObjectCount(localReplica.content)
-        : 0;
-      const legacyLocalSnapshot =
-        localReplicaObjectCount === 0 ? loadRoomSnapshot(roomId) : null;
-      const legacyLocalSnapshotObjectCount =
-        getSnapshotObjectCount(legacyLocalSnapshot);
-      const localRecoverySnapshot =
-        localReplicaObjectCount > 0 ? localReplicaSnapshot : legacyLocalSnapshot;
-      const localRecoverySource: Exclude<LocalReplicaReadSource, "idle"> =
-        localReplicaObjectCount > 0
-          ? localReplicaResult.source
-          : legacyLocalSnapshotObjectCount > 0
-            ? "room-snapshot"
-            : "none";
-      const localRecoveryObjectCount =
-        localReplicaObjectCount > 0
-          ? localReplicaObjectCount
-          : legacyLocalSnapshotObjectCount;
-      const localRecoverySavedAt =
-        localReplicaObjectCount > 0
-          ? localReplica?.savedAt ?? null
-          : legacyLocalSnapshot?.savedAt ?? null;
+      const localBootstrapState = await loadLocalRoomDocumentBootstrapState(
+        roomId
+      );
+      const localRecoverySnapshot = localBootstrapState.content;
+      const localRecoverySource = localBootstrapState.source;
+      const localRecoveryObjectCount = localBootstrapState.objectCount;
+      const localRecoverySavedAt = localBootstrapState.savedAt;
+      const localRecoveryRevision = localBootstrapState.revision;
+      const localRecoveryIsVersionAware = localBootstrapState.isVersionAware;
 
       let durableSnapshot = null;
 
@@ -1598,18 +1570,21 @@ export default function BoardStage({
       setLocalReplicaInspection((current) => ({
         ...current,
         lastReadSource: localRecoverySource,
-        lastReadRevision: localReplicaObjectCount > 0 ? localReplica?.revision ?? null : null,
+        lastReadRevision: localRecoveryRevision,
         lastReadSavedAt: localRecoverySavedAt,
         lastReadObjectCount: localRecoveryObjectCount,
       }));
 
       const durableSnapshotObjectCount = getSnapshotObjectCount(durableSnapshot);
+      const hasLocalRecoveryDocument =
+        localRecoverySnapshot !== null &&
+        (localRecoveryObjectCount > 0 || localRecoveryRevision !== null);
       const baselineObjects = roomBaselineToApply
         ? getRoomBaselinePayload(roomBaselineToApply)
         : [];
       const shouldApplyBaseline =
         durableSnapshotObjectCount === 0 &&
-        localRecoveryObjectCount === 0 &&
+        !hasLocalRecoveryDocument &&
         baselineObjects.length > 0;
       const baselineIdToApply = shouldApplyBaseline
         ? roomBaselineToApply?.baselineId ?? null
@@ -1627,9 +1602,10 @@ export default function BoardStage({
         bootstrapEntryId: roomBootstrapEntryIdRef.current,
         sharedRoomObjectCount: sharedRoomObjects.length,
         durableSnapshotObjectCount,
-        localReplicaObjectCount,
-        localReplicaSource: localReplicaResult.source,
-        legacyLocalSnapshotObjectCount,
+        localRecoveryObjectCount,
+        localRecoverySource,
+        localRecoveryRevision,
+        localRecoveryIsVersionAware,
         durableSnapshotRevision: durableSnapshot?.revision ?? null,
         localRecoverySavedAt,
       });
@@ -1643,7 +1619,7 @@ export default function BoardStage({
         });
         terminalBranch = "durable-recovery";
         terminalSource = "durable";
-      } else if (localRecoveryObjectCount > 0 && localRecoverySnapshot) {
+      } else if (hasLocalRecoveryDocument && localRecoverySnapshot) {
         nextObjects = composeSharedRoomObjects({
           roomId,
           tokens: localRecoverySnapshot.tokens,
@@ -1664,6 +1640,8 @@ export default function BoardStage({
         branch: terminalBranch,
         source: terminalSource,
         localSource: terminalSource === "local" ? localRecoverySource : null,
+        localRevision:
+          terminalSource === "local" ? localRecoveryRevision : null,
         tokenCount:
           terminalSource === "durable"
             ? durableSnapshot?.tokens.length ?? 0
@@ -1684,7 +1662,7 @@ export default function BoardStage({
           terminalSource === "durable"
             ? durableSnapshot?.textCards.length ?? 0
             : terminalSource === "local"
-              ? localRecoverySnapshot?.textCards.length ?? 0
+            ? localRecoverySnapshot?.textCards.length ?? 0
               : terminalSource === "baseline"
                 ? baselineObjects.filter((object) => isNoteCardObject(object)).length
                 : 0,
