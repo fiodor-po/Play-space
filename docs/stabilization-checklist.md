@@ -14,6 +14,8 @@
 
 - [ ] shared note всё ещё доходит до второго browser context
 - [ ] refresh в active room всё ещё восстанавливает joined state и current live board state
+- [ ] shared image move/resize commit всё ещё доходит до второго browser context
+- [ ] committed image bounds всё ещё переживают refresh, пока room остаётся live
 
 ## Hosted smoke minimum
 

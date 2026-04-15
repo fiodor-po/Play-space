@@ -606,7 +606,8 @@ export default function BoardStage({
   >(null);
   const currentUserColor = participantSession.color;
   const sharedTokenCount = objects.filter((object) => object.kind === "token").length;
-  const sharedImageCount = objects.filter((object) => object.kind === "image").length;
+  const sharedImageObjects = objects.filter((object) => object.kind === "image");
+  const sharedImageCount = sharedImageObjects.length;
   const sharedNoteCount = objects.filter((object) => isNoteCardObject(object)).length;
   const sharedObjectCount =
     sharedTokenCount + sharedImageCount + sharedNoteCount;
@@ -2581,6 +2582,23 @@ export default function BoardStage({
     (selectedImageEffectiveBounds
       ? getImageControlsAnchorFromBounds(selectedImageEffectiveBounds)
       : null);
+  const inspectableImageObject =
+    selectedImageObject ??
+    (sharedImageObjects.length === 1 ? sharedImageObjects[0] : null);
+  const inspectableImageBounds = inspectableImageObject
+    ? {
+        x: Math.round(inspectableImageObject.x),
+        y: Math.round(inspectableImageObject.y),
+        width: Math.round(inspectableImageObject.width),
+        height: Math.round(inspectableImageObject.height),
+      }
+    : null;
+  const inspectableImageTarget =
+    selectedImageObject && inspectableImageObject
+      ? "selected"
+      : inspectableImageObject
+        ? "sole"
+        : "none";
 
   const inspectedObject = objectSemanticsHoverState
     ? objects.find((object) => object.id === objectSemanticsHoverState.objectId) ?? null
@@ -2676,6 +2694,53 @@ export default function BoardStage({
       });
     }
   }
+
+  const moveInspectableImageForSmoke = () => {
+    if (!inspectableImageObject) {
+      return;
+    }
+
+    updateObjectPosition(
+      inspectableImageObject.id,
+      inspectableImageObject.x + 96,
+      inspectableImageObject.y + 72,
+      { commitBoundary: "image-drag-end" }
+    );
+    selectBoardObject(inspectableImageObject);
+  };
+
+  const resizeInspectableImageForSmoke = () => {
+    if (!inspectableImageObject) {
+      return;
+    }
+
+    const nextWidth = inspectableImageObject.width + 128;
+    const nextHeight = inspectableImageObject.height + 96;
+    const scaleX =
+      inspectableImageObject.width > 0
+        ? nextWidth / inspectableImageObject.width
+        : 1;
+    const scaleY =
+      inspectableImageObject.height > 0
+        ? nextHeight / inspectableImageObject.height
+        : 1;
+
+    resizeImageObject(
+      inspectableImageObject.id,
+      {
+        x: inspectableImageObject.x,
+        y: inspectableImageObject.y,
+        width: nextWidth,
+        height: nextHeight,
+      },
+      {
+        x: scaleX,
+        y: scaleY,
+      },
+      (Math.abs(scaleX) + Math.abs(scaleY)) / 2
+    );
+    selectBoardObject(inspectableImageObject);
+  };
 
   const editingTextareaStyle = useMemo<EditingTextareaStyle | null>(() => {
     if (!editingTextCard) {
@@ -3045,6 +3110,67 @@ export default function BoardStage({
                 gap: 8,
                 fontSize: 12,
               }}
+              data-testid="debug-image-inspection"
+              {...getDesignSystemDebugAttrs(surfaceRecipes.inset.default.debug)}
+            >
+              <div
+                style={{
+                  fontSize: 11,
+                  fontWeight: 700,
+                  letterSpacing: "0.04em",
+                  textTransform: "uppercase",
+                  color: "#94a3b8",
+                }}
+              >
+                Image inspection
+              </div>
+              <div style={{ color: "#e2e8f0" }}>
+                Target: {inspectableImageTarget}
+              </div>
+              <div data-testid="debug-image-label" style={{ color: "#94a3b8" }}>
+                Label: {inspectableImageObject?.label ?? "none"}
+              </div>
+              <div data-testid="debug-image-id" style={{ color: "#94a3b8" }}>
+                Id: {inspectableImageObject?.id ?? "none"}
+              </div>
+              <div data-testid="debug-image-bounds" style={{ color: "#94a3b8" }}>
+                {inspectableImageBounds
+                  ? `Bounds: x ${inspectableImageBounds.x} · y ${inspectableImageBounds.y} · w ${inspectableImageBounds.width} · h ${inspectableImageBounds.height}`
+                  : "Bounds: none"}
+              </div>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <button
+                  type="button"
+                  data-testid="debug-smoke-image-move-button"
+                  disabled={!inspectableImageObject}
+                  onClick={moveInspectableImageForSmoke}
+                  className={buttonRecipes.secondary.small.className}
+                  style={buttonRecipes.secondary.small.style}
+                  {...getDesignSystemDebugAttrs(buttonRecipes.secondary.small.debug)}
+                >
+                  Move image
+                </button>
+                <button
+                  type="button"
+                  data-testid="debug-smoke-image-resize-button"
+                  disabled={!inspectableImageObject}
+                  onClick={resizeInspectableImageForSmoke}
+                  className={buttonRecipes.secondary.small.className}
+                  style={buttonRecipes.secondary.small.style}
+                  {...getDesignSystemDebugAttrs(buttonRecipes.secondary.small.debug)}
+                >
+                  Resize image
+                </button>
+              </div>
+            </div>
+
+            <div
+              className={surfaceRecipes.inset.default.className}
+              style={{
+                ...surfaceRecipes.inset.default.style,
+                gap: 8,
+                fontSize: 12,
+              }}
               {...getDesignSystemDebugAttrs(surfaceRecipes.inset.default.debug)}
             >
               <div
@@ -3277,6 +3403,7 @@ export default function BoardStage({
         ref={imageInputRef}
         type="file"
         accept="image/*"
+        data-testid="image-file-input"
         style={{ display: "none" }}
         onChange={(event) => {
           const file = event.target.files?.[0];

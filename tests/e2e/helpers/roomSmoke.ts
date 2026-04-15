@@ -13,6 +13,16 @@ type RoomObjectCountExpectation = Partial<{
   notes: number;
 }>;
 
+type ImageBounds = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
+
+const SMOKE_IMAGE_PNG_BASE64 =
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+kv0cAAAAASUVORK5CYII=";
+
 export function createSmokeRoomId(label: string) {
   const entropy = Math.random().toString(36).slice(2, 8);
   return `pw-${label}-${Date.now()}-${entropy}`;
@@ -48,6 +58,7 @@ export async function openDebugTools(page: Page) {
   }
 
   await expect(page.getByTestId("debug-room-object-counts")).toBeVisible();
+  await expect(page.getByTestId("debug-image-inspection")).toBeVisible();
   await expect(page.getByTestId("debug-local-replica-inspection")).toBeVisible();
 }
 
@@ -94,6 +105,53 @@ export async function expectBootstrapBranch(page: Page, branch: string) {
 
   await expect(inspection).not.toContainText("Bootstrap: pending");
   await expect(inspection).toContainText(`Bootstrap: ${branch}`);
+}
+
+export async function uploadSmokeImage(page: Page, fileName: string) {
+  await page.getByTestId("image-file-input").setInputFiles({
+    name: fileName,
+    mimeType: "image/png",
+    buffer: Buffer.from(SMOKE_IMAGE_PNG_BASE64, "base64"),
+  });
+}
+
+export async function expectImageLabel(page: Page, label: string) {
+  await expect(page.getByTestId("debug-image-label")).toContainText(label);
+}
+
+export async function getImageBounds(page: Page): Promise<ImageBounds> {
+  const boundsText = await page.getByTestId("debug-image-bounds").innerText();
+  const match = boundsText.match(
+    /Bounds:\s*x\s+(-?\d+)\s+·\s+y\s+(-?\d+)\s+·\s+w\s+(\d+)\s+·\s+h\s+(\d+)/
+  );
+
+  if (!match) {
+    throw new Error(`Failed to read image bounds from: ${boundsText}`);
+  }
+
+  return {
+    x: Number(match[1]),
+    y: Number(match[2]),
+    width: Number(match[3]),
+    height: Number(match[4]),
+  };
+}
+
+export async function clickSmokeImageMove(page: Page) {
+  await expect(page.getByTestId("debug-smoke-image-move-button")).toBeEnabled();
+  await page.getByTestId("debug-smoke-image-move-button").click();
+}
+
+export async function clickSmokeImageResize(page: Page) {
+  await expect(page.getByTestId("debug-smoke-image-resize-button")).toBeEnabled();
+  await page.getByTestId("debug-smoke-image-resize-button").click();
+}
+
+export async function clickDebugAddNote(page: Page) {
+  await expect(page.getByTestId("debug-add-note-button")).toBeVisible();
+  await page.getByTestId("debug-add-note-button").evaluate((element) => {
+    (element as HTMLButtonElement).click();
+  });
 }
 
 function extractCount(text: string, pattern: RegExp) {
