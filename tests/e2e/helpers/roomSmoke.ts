@@ -1,4 +1,8 @@
-import { expect, type Page } from "@playwright/test";
+import {
+  expect,
+  type APIRequestContext,
+  type Page,
+} from "@playwright/test";
 
 type JoinRoomOptions = {
   roomId: string;
@@ -19,6 +23,44 @@ type ImageBounds = {
   width: number;
   height: number;
 };
+
+type ImageStrokeCounts = {
+  total: number;
+  own: number;
+  points: number;
+};
+
+type TokenPosition = {
+  x: number;
+  y: number;
+};
+
+type NoteBounds = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
+
+type RoomOpsDetail = {
+  roomId: string;
+  live: {
+    isActive: boolean;
+    sliceCount: number;
+  };
+  snapshot: {
+    exists: boolean;
+  };
+};
+
+type RoomOpsExpectation = {
+  liveIsActive?: boolean;
+  snapshotExists?: boolean;
+};
+
+const SMOKE_BACKEND_URL =
+  process.env.PLAYWRIGHT_SMOKE_BACKEND_URL ?? "http://127.0.0.1:1235";
+const SMOKE_OPS_KEY = process.env.PLAY_SPACE_OPS_KEY ?? "dev-ops-key";
 
 const SMOKE_IMAGE_PNG_BASE64 =
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+kv0cAAAAASUVORK5CYII=";
@@ -59,6 +101,8 @@ export async function openDebugTools(page: Page) {
 
   await expect(page.getByTestId("debug-room-object-counts")).toBeVisible();
   await expect(page.getByTestId("debug-image-inspection")).toBeVisible();
+  await expect(page.getByTestId("debug-token-inspection")).toBeVisible();
+  await expect(page.getByTestId("debug-note-inspection")).toBeVisible();
   await expect(page.getByTestId("debug-local-replica-inspection")).toBeVisible();
 }
 
@@ -107,6 +151,28 @@ export async function expectBootstrapBranch(page: Page, branch: string) {
   await expect(inspection).toContainText(`Bootstrap: ${branch}`);
 }
 
+export async function expectBootstrapLocalSource(page: Page, source: string) {
+  await expect(page.getByTestId("debug-local-replica-inspection")).toContainText(
+    `local source ${source}`
+  );
+}
+
+export async function expectLocalReplicaLastRead(page: Page, source: string) {
+  await expect(page.getByTestId("debug-local-replica-inspection")).toContainText(
+    `Last read: ${source}`
+  );
+}
+
+export async function expectLocalReplicaWriteSaved(
+  page: Page,
+  commitBoundary: string
+) {
+  const inspection = page.getByTestId("debug-local-replica-inspection");
+
+  await expect(inspection).toContainText("Last write: saved");
+  await expect(inspection).toContainText(`boundary ${commitBoundary}`);
+}
+
 export async function uploadSmokeImage(page: Page, fileName: string) {
   await page.getByTestId("image-file-input").setInputFiles({
     name: fileName,
@@ -137,9 +203,91 @@ export async function getImageBounds(page: Page): Promise<ImageBounds> {
   };
 }
 
+export async function getImageStrokeCounts(
+  page: Page
+): Promise<ImageStrokeCounts> {
+  const strokesText = await page.getByTestId("debug-image-strokes").innerText();
+  const match = strokesText.match(
+    /Strokes:\s*total\s+(\d+)\s+·\s+own\s+(\d+)\s+·\s+points\s+(\d+)/
+  );
+
+  if (!match) {
+    throw new Error(`Failed to read image stroke counts from: ${strokesText}`);
+  }
+
+  return {
+    total: Number(match[1]),
+    own: Number(match[2]),
+    points: Number(match[3]),
+  };
+}
+
+export async function getTokenPosition(page: Page): Promise<TokenPosition> {
+  const positionText = await page.getByTestId("debug-token-position").innerText();
+  const match = positionText.match(/Position:\s*x\s+(-?\d+)\s+·\s+y\s+(-?\d+)/);
+
+  if (!match) {
+    throw new Error(`Failed to read token position from: ${positionText}`);
+  }
+
+  return {
+    x: Number(match[1]),
+    y: Number(match[2]),
+  };
+}
+
+export async function getTokenId(page: Page) {
+  const idText = await page.getByTestId("debug-token-id").innerText();
+  const match = idText.match(/Id:\s+(.+)/);
+
+  if (!match) {
+    throw new Error(`Failed to read token id from: ${idText}`);
+  }
+
+  return match[1].trim();
+}
+
+export async function getNoteBounds(page: Page): Promise<NoteBounds> {
+  const boundsText = await page.getByTestId("debug-note-bounds").innerText();
+  const match = boundsText.match(
+    /Bounds:\s*x\s+(-?\d+)\s+·\s+y\s+(-?\d+)\s+·\s+w\s+(\d+)\s+·\s+h\s+(\d+)/
+  );
+
+  if (!match) {
+    throw new Error(`Failed to read note bounds from: ${boundsText}`);
+  }
+
+  return {
+    x: Number(match[1]),
+    y: Number(match[2]),
+    width: Number(match[3]),
+    height: Number(match[4]),
+  };
+}
+
+export async function getNoteId(page: Page) {
+  const idText = await page.getByTestId("debug-note-id").innerText();
+  const match = idText.match(/Id:\s+(.+)/);
+
+  if (!match) {
+    throw new Error(`Failed to read note id from: ${idText}`);
+  }
+
+  return match[1].trim();
+}
+
+export async function expectNoteLabel(page: Page, label: string) {
+  await expect(page.getByTestId("debug-note-label")).toContainText(label);
+}
+
 export async function clickSmokeImageMove(page: Page) {
   await expect(page.getByTestId("debug-smoke-image-move-button")).toBeEnabled();
   await page.getByTestId("debug-smoke-image-move-button").click();
+}
+
+export async function clickSmokeImageDraw(page: Page) {
+  await expect(page.getByTestId("debug-smoke-image-draw-button")).toBeEnabled();
+  await page.getByTestId("debug-smoke-image-draw-button").click();
 }
 
 export async function clickSmokeImageResize(page: Page) {
@@ -147,11 +295,257 @@ export async function clickSmokeImageResize(page: Page) {
   await page.getByTestId("debug-smoke-image-resize-button").click();
 }
 
+export async function clickSmokeTokenMove(page: Page) {
+  await expect(page.getByTestId("debug-smoke-token-move-button")).toBeEnabled();
+  await page.getByTestId("debug-smoke-token-move-button").click();
+}
+
+export async function clickSmokeNoteMove(page: Page) {
+  await expect(page.getByTestId("debug-smoke-note-move-button")).toBeEnabled();
+  await page.getByTestId("debug-smoke-note-move-button").click();
+}
+
+export async function clickSmokeNoteEdit(page: Page) {
+  await expect(page.getByTestId("debug-smoke-note-edit-button")).toBeEnabled();
+  await page.getByTestId("debug-smoke-note-edit-button").click();
+}
+
 export async function clickDebugAddNote(page: Page) {
   await expect(page.getByTestId("debug-add-note-button")).toBeVisible();
   await page.getByTestId("debug-add-note-button").evaluate((element) => {
     (element as HTMLButtonElement).click();
   });
+}
+
+export async function waitForRoomOpsState(
+  request: APIRequestContext,
+  roomId: string,
+  expected: RoomOpsExpectation
+) {
+  await expect
+    .poll(async () => {
+      const room = await getRoomOpsDetail(request, roomId);
+      const result: RoomOpsExpectation = {};
+
+      if (expected.liveIsActive !== undefined) {
+        result.liveIsActive = room.live.isActive;
+      }
+
+      if (expected.snapshotExists !== undefined) {
+        result.snapshotExists = room.snapshot.exists;
+      }
+
+      return JSON.stringify(result);
+    })
+    .toBe(JSON.stringify(expected));
+}
+
+export async function clearDurableRoomSnapshot(
+  request: APIRequestContext,
+  roomId: string
+) {
+  const response = await request.delete(
+    `${SMOKE_BACKEND_URL}/api/rooms/${encodeURIComponent(roomId)}/durable-snapshot`,
+    {
+      headers: {
+        "x-play-space-ops-key": SMOKE_OPS_KEY,
+      },
+    }
+  );
+
+  expect(response.ok()).toBeTruthy();
+
+  await waitForRoomOpsState(request, roomId, {
+    snapshotExists: false,
+  });
+}
+
+export async function reopenRoomForLocalRecovery(
+  page: Page,
+  request: APIRequestContext,
+  roomId: string
+) {
+  const context = page.context();
+
+  await waitForRoomOpsState(request, roomId, {
+    liveIsActive: true,
+    snapshotExists: true,
+  });
+
+  await page.close();
+
+  await waitForRoomOpsState(request, roomId, {
+    liveIsActive: false,
+  });
+
+  await clearDurableRoomSnapshot(request, roomId);
+  await waitForRoomOpsState(request, roomId, {
+    liveIsActive: false,
+    snapshotExists: false,
+  });
+
+  const recoveredPage = await context.newPage();
+
+  await recoveredPage.goto(
+    `/?room=${encodeURIComponent(roomId)}&uiDebugControls=1`
+  );
+  await expect(
+    recoveredPage.getByTestId("session-leave-room-button")
+  ).toBeVisible();
+  await openDebugTools(recoveredPage);
+
+  return recoveredPage;
+}
+
+export async function waitForRoomSnapshotState(
+  page: Page,
+  roomId: string,
+  expected: {
+    tokens?: number;
+    images?: number;
+    notes?: number;
+    tokenId?: string;
+    tokenPosition?: TokenPosition;
+    noteId?: string;
+    noteBounds?: NoteBounds;
+    noteLabel?: string;
+  }
+) {
+  await expect
+    .poll(async () => {
+      const snapshotState = await page.evaluate(
+        ({ key, expectedTokenId, expectedNoteId }) => {
+          const raw = window.localStorage.getItem(key);
+
+          if (!raw) {
+            return {
+              tokens: 0,
+              images: 0,
+              notes: 0,
+            };
+          }
+
+          const parsed = JSON.parse(raw) as {
+            tokens?: Array<{ id?: string; x?: number; y?: number }>;
+            images?: unknown[];
+            textCards?: Array<{
+              id?: string;
+              x?: number;
+              y?: number;
+              width?: number;
+              height?: number;
+              label?: string;
+            }>;
+          };
+          const matchedToken = Array.isArray(parsed.tokens)
+            ? parsed.tokens.find((token) =>
+                expectedTokenId ? token?.id === expectedTokenId : true
+              ) ?? null
+            : null;
+          const matchedNote = Array.isArray(parsed.textCards)
+            ? parsed.textCards.find((note) =>
+                expectedNoteId ? note?.id === expectedNoteId : true
+              ) ?? null
+            : null;
+
+          return {
+            tokens: Array.isArray(parsed.tokens) ? parsed.tokens.length : 0,
+            images: Array.isArray(parsed.images) ? parsed.images.length : 0,
+            notes: Array.isArray(parsed.textCards) ? parsed.textCards.length : 0,
+            tokenPosition: matchedToken
+              ? {
+                  x:
+                    typeof matchedToken.x === "number"
+                      ? Math.round(matchedToken.x)
+                      : null,
+                  y:
+                    typeof matchedToken.y === "number"
+                      ? Math.round(matchedToken.y)
+                      : null,
+                }
+              : null,
+            noteBounds: matchedNote
+              ? {
+                  x:
+                    typeof matchedNote.x === "number"
+                      ? Math.round(matchedNote.x)
+                      : null,
+                  y:
+                    typeof matchedNote.y === "number"
+                      ? Math.round(matchedNote.y)
+                      : null,
+                  width:
+                    typeof matchedNote.width === "number"
+                      ? Math.round(matchedNote.width)
+                      : null,
+                  height:
+                    typeof matchedNote.height === "number"
+                      ? Math.round(matchedNote.height)
+                      : null,
+                }
+              : null,
+            noteLabel:
+              matchedNote && typeof matchedNote.label === "string"
+                ? matchedNote.label
+                : null,
+          };
+        },
+        {
+          key: getRoomSnapshotStorageKey(roomId),
+          expectedTokenId: expected.tokenId ?? null,
+          expectedNoteId: expected.noteId ?? null,
+        }
+      );
+      const result: typeof expected = {};
+
+      if (expected.tokens !== undefined) {
+        result.tokens = snapshotState.tokens;
+      }
+
+      if (expected.images !== undefined) {
+        result.images = snapshotState.images;
+      }
+
+      if (expected.notes !== undefined) {
+        result.notes = snapshotState.notes;
+      }
+
+      if (expected.tokenPosition !== undefined) {
+        result.tokenPosition = snapshotState.tokenPosition
+          ? {
+              x: snapshotState.tokenPosition.x ?? 0,
+              y: snapshotState.tokenPosition.y ?? 0,
+            }
+          : null;
+      }
+
+      if (expected.noteBounds !== undefined) {
+        result.noteBounds = snapshotState.noteBounds
+          ? {
+              x: snapshotState.noteBounds.x ?? 0,
+              y: snapshotState.noteBounds.y ?? 0,
+              width: snapshotState.noteBounds.width ?? 0,
+              height: snapshotState.noteBounds.height ?? 0,
+            }
+          : null;
+      }
+
+      if (expected.noteLabel !== undefined) {
+        result.noteLabel = snapshotState.noteLabel;
+      }
+
+      return JSON.stringify(result);
+    })
+    .toBe(
+      JSON.stringify({
+        tokens: expected.tokens,
+        images: expected.images,
+        notes: expected.notes,
+        tokenPosition: expected.tokenPosition,
+        noteBounds: expected.noteBounds,
+        noteLabel: expected.noteLabel,
+      })
+    );
 }
 
 function extractCount(text: string, pattern: RegExp) {
@@ -162,4 +556,38 @@ function extractCount(text: string, pattern: RegExp) {
   }
 
   return Number(match[1]);
+}
+
+async function getRoomOpsDetail(
+  request: APIRequestContext,
+  roomId: string
+): Promise<RoomOpsDetail> {
+  const response = await request.get(
+    `${SMOKE_BACKEND_URL}/api/rooms/${encodeURIComponent(roomId)}`,
+    {
+      headers: {
+        "x-play-space-ops-key": SMOKE_OPS_KEY,
+      },
+    }
+  );
+
+  expect(response.ok()).toBeTruthy();
+
+  const body = (await response.json()) as {
+    room?: RoomOpsDetail;
+  };
+
+  if (!body.room) {
+    throw new Error(`Missing room ops detail for ${roomId}`);
+  }
+
+  return body.room;
+}
+
+function getRoomSnapshotStorageKey(roomId: string) {
+  return `play-space-alpha-room-snapshot-v1:${normalizeRoomId(roomId)}`;
+}
+
+function normalizeRoomId(roomId: string) {
+  return roomId.trim().replace(/\s+/g, " ").toLowerCase();
 }

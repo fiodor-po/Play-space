@@ -495,7 +495,8 @@ export default function BoardStage({
     (nextObjects: BoardObject[], options?: LocalObjectsChangeOptions) => {
       if (
         options?.commitBoundary !== "image-drag-end" &&
-        options?.commitBoundary !== "image-transform-end"
+        options?.commitBoundary !== "image-transform-end" &&
+        options?.commitBoundary !== "image-draw-commit"
       ) {
         return;
       }
@@ -605,10 +606,12 @@ export default function BoardStage({
     string | null
   >(null);
   const currentUserColor = participantSession.color;
-  const sharedTokenCount = objects.filter((object) => object.kind === "token").length;
+  const sharedTokenObjects = objects.filter((object) => object.kind === "token");
+  const sharedTokenCount = sharedTokenObjects.length;
   const sharedImageObjects = objects.filter((object) => object.kind === "image");
   const sharedImageCount = sharedImageObjects.length;
-  const sharedNoteCount = objects.filter((object) => isNoteCardObject(object)).length;
+  const sharedNoteObjects = objects.filter((object) => isNoteCardObject(object));
+  const sharedNoteCount = sharedNoteObjects.length;
   const sharedObjectCount =
     sharedTokenCount + sharedImageCount + sharedNoteCount;
   const getLiveCreatorColor = (object: BoardObject) => {
@@ -2558,6 +2561,18 @@ export default function BoardStage({
           (object) => object.id === selectedObjectId && object.kind === "image"
         ) ?? null
       : null;
+  const selectedTokenObject =
+    selectedObjectId && !editingTextCardId
+      ? objects.find(
+          (object) => object.id === selectedObjectId && object.kind === "token"
+        ) ?? null
+      : null;
+  const selectedNoteCardObject =
+    selectedObjectId && !editingTextCardId
+      ? objects.find(
+          (object) => object.id === selectedObjectId && isNoteCardObject(object)
+        ) ?? null
+      : null;
   const selectedImageLock = selectedImageObject
     ? getImageDrawingLock(selectedImageObject.id)
     : null;
@@ -2593,10 +2608,75 @@ export default function BoardStage({
         height: Math.round(inspectableImageObject.height),
       }
     : null;
+  const inspectableImageStrokeStats = inspectableImageObject
+    ? {
+        total: inspectableImageObject.imageStrokes?.length ?? 0,
+        own:
+          inspectableImageObject.imageStrokes?.filter(
+            (stroke) => stroke.creatorId === participantSession.id
+          ).length ?? 0,
+        points:
+          inspectableImageObject.imageStrokes?.reduce(
+            (pointCount, stroke) => pointCount + Math.round(stroke.points.length / 2),
+            0
+          ) ?? 0,
+      }
+    : null;
   const inspectableImageTarget =
     selectedImageObject && inspectableImageObject
       ? "selected"
       : inspectableImageObject
+        ? "sole"
+        : "none";
+  const participantInspectableToken =
+    sharedTokenObjects.filter(
+      (object) => object.creatorId === participantSession.id
+    ).length === 1
+      ? sharedTokenObjects.find(
+          (object) => object.creatorId === participantSession.id
+        ) ?? null
+      : null;
+  const inspectableTokenObject =
+    selectedTokenObject ??
+    participantInspectableToken ??
+    (sharedTokenObjects.length === 1 ? sharedTokenObjects[0] : null);
+  const inspectableTokenPosition = inspectableTokenObject
+    ? getTokenAnchorPosition(inspectableTokenObject)
+    : null;
+  const inspectableTokenTarget =
+    selectedTokenObject && inspectableTokenObject
+      ? "selected"
+      : participantInspectableToken &&
+          inspectableTokenObject === participantInspectableToken
+        ? "participant-marker"
+        : inspectableTokenObject
+          ? "sole"
+          : "none";
+  const inspectableNoteCardObject =
+    selectedNoteCardObject ??
+    (sharedNoteObjects.filter(
+      (object) => object.creatorId === participantSession.id
+    ).length === 1
+      ? sharedNoteObjects.find(
+          (object) => object.creatorId === participantSession.id
+        ) ?? null
+      : null) ??
+    (sharedNoteObjects.length === 1 ? sharedNoteObjects[0] : null);
+  const inspectableNoteCardBounds = inspectableNoteCardObject
+    ? {
+        x: Math.round(inspectableNoteCardObject.x),
+        y: Math.round(inspectableNoteCardObject.y),
+        width: Math.round(inspectableNoteCardObject.width),
+        height: Math.round(inspectableNoteCardObject.height),
+      }
+    : null;
+  const inspectableNoteCardTarget =
+    selectedNoteCardObject && inspectableNoteCardObject
+      ? "selected"
+      : inspectableNoteCardObject &&
+          inspectableNoteCardObject.creatorId === participantSession.id
+        ? "participant-owned"
+      : inspectableNoteCardObject
         ? "sole"
         : "none";
 
@@ -2740,6 +2820,101 @@ export default function BoardStage({
       (Math.abs(scaleX) + Math.abs(scaleY)) / 2
     );
     selectBoardObject(inspectableImageObject);
+  };
+
+  const drawSmokeStrokeOnInspectableImage = () => {
+    if (!inspectableImageObject) {
+      return;
+    }
+
+    const horizontalInset = Math.max(
+      Math.min(Math.round(inspectableImageObject.width * 0.18), 28),
+      10
+    );
+    const verticalInset = Math.max(
+      Math.min(Math.round(inspectableImageObject.height * 0.18), 28),
+      10
+    );
+    const midX = Math.round(inspectableImageObject.width * 0.52);
+    const midY = Math.round(inspectableImageObject.height * 0.44);
+    const endX = Math.max(inspectableImageObject.width - horizontalInset, midX + 8);
+    const endY = Math.max(inspectableImageObject.height - verticalInset, midY + 8);
+
+    updateBoardObject(
+      inspectableImageObject.id,
+      (object) => {
+        if (object.kind !== "image") {
+          return object;
+        }
+
+        return {
+          ...object,
+          imageStrokes: [
+            ...(object.imageStrokes ?? []),
+            {
+              color: currentUserColor,
+              creatorId: participantSession.id,
+              points: [
+                horizontalInset,
+                verticalInset,
+                midX,
+                midY,
+                endX,
+                endY,
+              ],
+              width: DEFAULT_IMAGE_STROKE_WIDTH,
+            },
+          ],
+        };
+      },
+      { commitBoundary: "image-draw-commit" }
+    );
+    window.requestAnimationFrame(() => {
+      syncCurrentImage(inspectableImageObject.id);
+    });
+    selectBoardObject(inspectableImageObject);
+  };
+
+  const moveInspectableTokenForSmoke = () => {
+    if (!inspectableTokenObject || !inspectableTokenPosition) {
+      return;
+    }
+
+    updateTokenPlacementAfterDrop(inspectableTokenObject.id, {
+      x: inspectableTokenPosition.x + 84,
+      y: inspectableTokenPosition.y + 60,
+    });
+    selectBoardObject(inspectableTokenObject);
+  };
+
+  const moveInspectableNoteCardForSmoke = () => {
+    if (!inspectableNoteCardObject) {
+      return;
+    }
+
+    updateObjectPosition(
+      inspectableNoteCardObject.id,
+      inspectableNoteCardObject.x + 112,
+      inspectableNoteCardObject.y + 84
+    );
+    selectBoardObject(inspectableNoteCardObject);
+  };
+
+  const saveInspectableNoteCardTextForSmoke = () => {
+    if (!inspectableNoteCardObject) {
+      return;
+    }
+
+    const nextLabelBase = inspectableNoteCardObject.label.replace(
+      /\s+\[smoke-saved\]$/,
+      ""
+    );
+
+    updateObjectLabel(
+      inspectableNoteCardObject.id,
+      `${nextLabelBase} [smoke-saved]`
+    );
+    selectBoardObject(inspectableNoteCardObject);
   };
 
   const editingTextareaStyle = useMemo<EditingTextareaStyle | null>(() => {
@@ -3138,7 +3313,23 @@ export default function BoardStage({
                   ? `Bounds: x ${inspectableImageBounds.x} · y ${inspectableImageBounds.y} · w ${inspectableImageBounds.width} · h ${inspectableImageBounds.height}`
                   : "Bounds: none"}
               </div>
+              <div data-testid="debug-image-strokes" style={{ color: "#94a3b8" }}>
+                {inspectableImageStrokeStats
+                  ? `Strokes: total ${inspectableImageStrokeStats.total} · own ${inspectableImageStrokeStats.own} · points ${inspectableImageStrokeStats.points}`
+                  : "Strokes: none"}
+              </div>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <button
+                  type="button"
+                  data-testid="debug-smoke-image-draw-button"
+                  disabled={!inspectableImageObject}
+                  onClick={drawSmokeStrokeOnInspectableImage}
+                  className={buttonRecipes.secondary.small.className}
+                  style={buttonRecipes.secondary.small.style}
+                  {...getDesignSystemDebugAttrs(buttonRecipes.secondary.small.debug)}
+                >
+                  Draw stroke
+                </button>
                 <button
                   type="button"
                   data-testid="debug-smoke-image-move-button"
@@ -3160,6 +3351,114 @@ export default function BoardStage({
                   {...getDesignSystemDebugAttrs(buttonRecipes.secondary.small.debug)}
                 >
                   Resize image
+                </button>
+              </div>
+            </div>
+
+            <div
+              className={surfaceRecipes.inset.default.className}
+              style={{
+                ...surfaceRecipes.inset.default.style,
+                gap: 8,
+                fontSize: 12,
+              }}
+              data-testid="debug-token-inspection"
+              {...getDesignSystemDebugAttrs(surfaceRecipes.inset.default.debug)}
+            >
+              <div
+                style={{
+                  fontSize: 11,
+                  fontWeight: 700,
+                  letterSpacing: "0.04em",
+                  textTransform: "uppercase",
+                  color: "#94a3b8",
+                }}
+              >
+                Token inspection
+              </div>
+              <div style={{ color: "#e2e8f0" }}>
+                Target: {inspectableTokenTarget}
+              </div>
+              <div data-testid="debug-token-id" style={{ color: "#94a3b8" }}>
+                Id: {inspectableTokenObject?.id ?? "none"}
+              </div>
+              <div data-testid="debug-token-position" style={{ color: "#94a3b8" }}>
+                {inspectableTokenPosition
+                  ? `Position: x ${Math.round(inspectableTokenPosition.x)} · y ${Math.round(inspectableTokenPosition.y)}`
+                  : "Position: none"}
+              </div>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <button
+                  type="button"
+                  data-testid="debug-smoke-token-move-button"
+                  disabled={!inspectableTokenObject}
+                  onClick={moveInspectableTokenForSmoke}
+                  className={buttonRecipes.secondary.small.className}
+                  style={buttonRecipes.secondary.small.style}
+                  {...getDesignSystemDebugAttrs(buttonRecipes.secondary.small.debug)}
+                >
+                  Move token
+                </button>
+              </div>
+            </div>
+
+            <div
+              className={surfaceRecipes.inset.default.className}
+              style={{
+                ...surfaceRecipes.inset.default.style,
+                gap: 8,
+                fontSize: 12,
+              }}
+              data-testid="debug-note-inspection"
+              {...getDesignSystemDebugAttrs(surfaceRecipes.inset.default.debug)}
+            >
+              <div
+                style={{
+                  fontSize: 11,
+                  fontWeight: 700,
+                  letterSpacing: "0.04em",
+                  textTransform: "uppercase",
+                  color: "#94a3b8",
+                }}
+              >
+                Note inspection
+              </div>
+              <div style={{ color: "#e2e8f0" }}>
+                Target: {inspectableNoteCardTarget}
+              </div>
+              <div data-testid="debug-note-id" style={{ color: "#94a3b8" }}>
+                Id: {inspectableNoteCardObject?.id ?? "none"}
+              </div>
+              <div data-testid="debug-note-label" style={{ color: "#94a3b8" }}>
+                Label: {inspectableNoteCardObject?.label ?? "none"}
+              </div>
+              <div data-testid="debug-note-bounds" style={{ color: "#94a3b8" }}>
+                {inspectableNoteCardBounds
+                  ? `Bounds: x ${inspectableNoteCardBounds.x} · y ${inspectableNoteCardBounds.y} · w ${inspectableNoteCardBounds.width} · h ${inspectableNoteCardBounds.height}`
+                  : "Bounds: none"}
+              </div>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <button
+                  type="button"
+                  data-testid="debug-smoke-note-move-button"
+                  disabled={!inspectableNoteCardObject}
+                  onClick={moveInspectableNoteCardForSmoke}
+                  className={buttonRecipes.secondary.small.className}
+                  style={buttonRecipes.secondary.small.style}
+                  {...getDesignSystemDebugAttrs(buttonRecipes.secondary.small.debug)}
+                >
+                  Move note
+                </button>
+                <button
+                  type="button"
+                  data-testid="debug-smoke-note-edit-button"
+                  disabled={!inspectableNoteCardObject}
+                  onClick={saveInspectableNoteCardTextForSmoke}
+                  className={buttonRecipes.secondary.small.className}
+                  style={buttonRecipes.secondary.small.style}
+                  {...getDesignSystemDebugAttrs(buttonRecipes.secondary.small.debug)}
+                >
+                  Save note text
                 </button>
               </div>
             </div>

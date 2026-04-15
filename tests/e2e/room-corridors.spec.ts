@@ -1,24 +1,41 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./helpers/smokeRuntime";
 import {
+  clearDurableRoomSnapshot,
   clickDebugAddNote,
+  clickSmokeImageDraw,
   clickSmokeImageMove,
   clickSmokeImageResize,
+  clickSmokeNoteEdit,
+  clickSmokeNoteMove,
+  clickSmokeTokenMove,
   createSmokeRoomId,
+  expectBootstrapLocalSource,
   expectImageLabel,
+  expectNoteLabel,
   expectBootstrapBranch,
+  expectLocalReplicaLastRead,
+  expectLocalReplicaWriteSaved,
   expectRoomObjectCounts,
   getImageBounds,
+  getImageStrokeCounts,
+  getNoteBounds,
+  getNoteId,
   getRoomObjectCounts,
+  getTokenPosition,
   joinRoom,
   openDebugTools,
   openEntryPage,
+  reopenRoomForLocalRecovery,
   uploadSmokeImage,
+  waitForRoomOpsState,
+  waitForRoomSnapshotState,
 } from "./helpers/roomSmoke";
 
 test.describe("local room smoke corridors", () => {
   test("syncs a committed note to a second browser context", async ({
     browser,
     page,
+    runtimeFailureMonitor,
   }) => {
     const roomId = createSmokeRoomId("shared-note");
 
@@ -31,6 +48,7 @@ test.describe("local room smoke corridors", () => {
     const initialAliceCounts = await getRoomObjectCounts(page);
 
     const secondContext = await browser.newContext();
+    runtimeFailureMonitor.attachContext(secondContext);
     const secondPage = await secondContext.newPage();
 
     try {
@@ -59,6 +77,7 @@ test.describe("local room smoke corridors", () => {
   test("refreshes an active room while shared live state stays available", async ({
     browser,
     page,
+    runtimeFailureMonitor,
   }) => {
     const roomId = createSmokeRoomId("refresh");
 
@@ -71,6 +90,7 @@ test.describe("local room smoke corridors", () => {
     const countsBeforeCreate = await getRoomObjectCounts(page);
 
     const secondContext = await browser.newContext();
+    runtimeFailureMonitor.attachContext(secondContext);
     const secondPage = await secondContext.newPage();
 
     try {
@@ -109,6 +129,7 @@ test.describe("local room smoke corridors", () => {
   test("syncs committed image move and resize to a second browser context", async ({
     browser,
     page,
+    runtimeFailureMonitor,
   }) => {
     const roomId = createSmokeRoomId("image-sync");
     const imageLabel = `${roomId}.png`;
@@ -122,6 +143,7 @@ test.describe("local room smoke corridors", () => {
     const initialCounts = await getRoomObjectCounts(page);
 
     const secondContext = await browser.newContext();
+    runtimeFailureMonitor.attachContext(secondContext);
     const secondPage = await secondContext.newPage();
 
     try {
@@ -182,6 +204,7 @@ test.describe("local room smoke corridors", () => {
   test("preserves committed image bounds after refresh while room stays live", async ({
     browser,
     page,
+    runtimeFailureMonitor,
   }) => {
     const roomId = createSmokeRoomId("image-refresh");
     const imageLabel = `${roomId}.png`;
@@ -195,6 +218,7 @@ test.describe("local room smoke corridors", () => {
     const initialCounts = await getRoomObjectCounts(page);
 
     const secondContext = await browser.newContext();
+    runtimeFailureMonitor.attachContext(secondContext);
     const secondPage = await secondContext.newPage();
 
     try {
@@ -246,6 +270,374 @@ test.describe("local room smoke corridors", () => {
       );
     } finally {
       await secondContext.close();
+    }
+  });
+
+  test("preserves committed image draw save after refresh while room stays live", async ({
+    browser,
+    page,
+    runtimeFailureMonitor,
+  }) => {
+    const roomId = createSmokeRoomId("image-draw-refresh");
+    const imageLabel = `${roomId}.png`;
+
+    await openEntryPage(page, roomId);
+    await joinRoom(page, {
+      roomId,
+      name: "Smoke Image Draw Reload",
+    });
+    await openDebugTools(page);
+    const initialCounts = await getRoomObjectCounts(page);
+
+    const secondContext = await browser.newContext();
+    runtimeFailureMonitor.attachContext(secondContext);
+    const secondPage = await secondContext.newPage();
+
+    try {
+      await openEntryPage(secondPage, roomId);
+      await joinRoom(secondPage, {
+        roomId,
+        name: "Smoke Image Draw Witness",
+        color: "#0891b2",
+      });
+      await openDebugTools(secondPage);
+
+      await uploadSmokeImage(page, imageLabel);
+      await expectRoomObjectCounts(page, {
+        images: initialCounts.images + 1,
+      });
+      await expectRoomObjectCounts(secondPage, {
+        images: initialCounts.images + 1,
+      });
+
+      await clickSmokeImageDraw(page);
+      await expectLocalReplicaWriteSaved(page, "image-draw-commit");
+      await expect.poll(() => getImageStrokeCounts(page)).toMatchObject({
+        total: 1,
+        own: 1,
+        points: 3,
+      });
+      await expect.poll(() => getImageStrokeCounts(secondPage)).toMatchObject({
+        total: 1,
+        points: 3,
+      });
+
+      await page.reload();
+      await expect(page.getByTestId("session-leave-room-button")).toBeVisible();
+
+      await openDebugTools(page);
+      await expectBootstrapBranch(page, "live-wins");
+      await expectImageLabel(page, imageLabel);
+      await expect.poll(() => getImageStrokeCounts(page)).toMatchObject({
+        total: 1,
+        own: 1,
+        points: 3,
+      });
+      await expect(
+        page.getByTestId("debug-local-replica-inspection")
+      ).not.toContainText("Error:");
+    } finally {
+      await secondContext.close();
+    }
+  });
+
+  test("recovers committed room state through same-browser local recovery without a second live client", async ({
+    page,
+    request,
+  }) => {
+    const roomId = createSmokeRoomId("local-recovery");
+    const imageLabel = `${roomId}.png`;
+    const context = page.context();
+
+    await openEntryPage(page, roomId);
+    await joinRoom(page, {
+      roomId,
+      name: "Smoke Local Recovery",
+    });
+    await openDebugTools(page);
+
+    const initialCounts = await getRoomObjectCounts(page);
+
+    await clickDebugAddNote(page);
+    await expectRoomObjectCounts(page, {
+      notes: initialCounts.notes + 1,
+    });
+
+    await uploadSmokeImage(page, imageLabel);
+    await expectRoomObjectCounts(page, {
+      images: initialCounts.images + 1,
+      notes: initialCounts.notes + 1,
+    });
+
+    await clickSmokeImageMove(page);
+    await clickSmokeImageResize(page);
+    await expectLocalReplicaWriteSaved(page, "image-transform-end");
+
+    const committedBounds = await getImageBounds(page);
+
+    await waitForRoomOpsState(request, roomId, {
+      liveIsActive: true,
+      snapshotExists: true,
+    });
+
+    await page.close();
+
+    await waitForRoomOpsState(request, roomId, {
+      liveIsActive: false,
+    });
+
+    await clearDurableRoomSnapshot(request, roomId);
+    await waitForRoomOpsState(request, roomId, {
+      liveIsActive: false,
+      snapshotExists: false,
+    });
+
+    const recoveredPage = await context.newPage();
+
+    try {
+      await recoveredPage.goto(
+        `/?room=${encodeURIComponent(roomId)}&uiDebugControls=1`
+      );
+      await expect(
+        recoveredPage.getByTestId("session-leave-room-button")
+      ).toBeVisible();
+
+      await openDebugTools(recoveredPage);
+      await expectBootstrapBranch(recoveredPage, "local-recovery");
+      await expectBootstrapLocalSource(recoveredPage, "indexeddb");
+      await expectLocalReplicaLastRead(recoveredPage, "indexeddb");
+      await expectRoomObjectCounts(recoveredPage, {
+        images: initialCounts.images + 1,
+        notes: initialCounts.notes + 1,
+      });
+      await expectImageLabel(recoveredPage, imageLabel);
+      await expect.poll(() => getImageBounds(recoveredPage)).toMatchObject({
+        x: committedBounds.x,
+        y: committedBounds.y,
+        width: committedBounds.width,
+        height: committedBounds.height,
+      });
+      await expect(
+        recoveredPage.getByTestId("debug-local-replica-inspection")
+      ).not.toContainText("Error:");
+    } finally {
+      await recoveredPage.close();
+    }
+  });
+
+  test("recovers committed image draw save through same-browser local recovery", async ({
+    page,
+    request,
+  }) => {
+    const roomId = createSmokeRoomId("image-draw-recovery");
+    const imageLabel = `${roomId}.png`;
+
+    await openEntryPage(page, roomId);
+    await joinRoom(page, {
+      roomId,
+      name: "Smoke Image Draw Recovery",
+    });
+    await openDebugTools(page);
+    const initialCounts = await getRoomObjectCounts(page);
+
+    await uploadSmokeImage(page, imageLabel);
+    await expectRoomObjectCounts(page, {
+      images: initialCounts.images + 1,
+    });
+
+    await clickSmokeImageDraw(page);
+    await expectLocalReplicaWriteSaved(page, "image-draw-commit");
+    await expect.poll(() => getImageStrokeCounts(page)).toMatchObject({
+      total: 1,
+      own: 1,
+      points: 3,
+    });
+
+    const recoveredPage = await reopenRoomForLocalRecovery(page, request, roomId);
+
+    try {
+      await expectBootstrapBranch(recoveredPage, "local-recovery");
+      await expectBootstrapLocalSource(recoveredPage, "indexeddb");
+      await expectLocalReplicaLastRead(recoveredPage, "indexeddb");
+      await expectRoomObjectCounts(recoveredPage, {
+        images: initialCounts.images + 1,
+      });
+      await expectImageLabel(recoveredPage, imageLabel);
+      await expect.poll(() => getImageStrokeCounts(recoveredPage)).toMatchObject({
+        total: 1,
+        own: 1,
+        points: 3,
+      });
+      await expect(
+        recoveredPage.getByTestId("debug-local-replica-inspection")
+      ).not.toContainText("Error:");
+    } finally {
+      await recoveredPage.close();
+    }
+  });
+
+  test("recovers committed token move through same-browser room-snapshot recovery", async ({
+    page,
+    request,
+  }) => {
+    const roomId = createSmokeRoomId("token-recovery");
+
+    await openEntryPage(page, roomId);
+    await joinRoom(page, {
+      roomId,
+      name: "Smoke Token Recovery",
+    });
+    await openDebugTools(page);
+    await expectRoomObjectCounts(page, {
+      tokens: 1,
+    });
+
+    const initialTokenPosition = await getTokenPosition(page);
+
+    await clickSmokeTokenMove(page);
+
+    const movedTokenPosition = await getTokenPosition(page);
+    expect(movedTokenPosition.x).toBe(initialTokenPosition.x + 84);
+    expect(movedTokenPosition.y).toBe(initialTokenPosition.y + 60);
+
+    await waitForRoomSnapshotState(page, roomId, {
+      tokens: 1,
+      tokenPosition: movedTokenPosition,
+    });
+
+    const recoveredPage = await reopenRoomForLocalRecovery(page, request, roomId);
+
+    try {
+      await expectBootstrapBranch(recoveredPage, "local-recovery");
+      await expectBootstrapLocalSource(recoveredPage, "room-snapshot");
+      await expectLocalReplicaLastRead(recoveredPage, "room-snapshot");
+      await expectRoomObjectCounts(recoveredPage, {
+        tokens: 1,
+      });
+      await expect.poll(() => getTokenPosition(recoveredPage)).toMatchObject({
+        x: movedTokenPosition.x,
+        y: movedTokenPosition.y,
+      });
+      await expect(
+        recoveredPage.getByTestId("debug-local-replica-inspection")
+      ).not.toContainText("Error:");
+    } finally {
+      await recoveredPage.close();
+    }
+  });
+
+  test("recovers committed note move through same-browser room-snapshot recovery", async ({
+    page,
+    request,
+  }) => {
+    const roomId = createSmokeRoomId("note-move-recovery");
+
+    await openEntryPage(page, roomId);
+    await joinRoom(page, {
+      roomId,
+      name: "Smoke Note Move",
+    });
+    await openDebugTools(page);
+
+    const initialCounts = await getRoomObjectCounts(page);
+
+    await clickDebugAddNote(page);
+    await expectRoomObjectCounts(page, {
+      notes: initialCounts.notes + 1,
+    });
+
+    const noteId = await getNoteId(page);
+    const initialNoteBounds = await getNoteBounds(page);
+
+    await clickSmokeNoteMove(page);
+
+    const movedNoteBounds = await getNoteBounds(page);
+    expect(movedNoteBounds.x).toBe(initialNoteBounds.x + 112);
+    expect(movedNoteBounds.y).toBe(initialNoteBounds.y + 84);
+    expect(movedNoteBounds.width).toBe(initialNoteBounds.width);
+    expect(movedNoteBounds.height).toBe(initialNoteBounds.height);
+
+    await waitForRoomSnapshotState(page, roomId, {
+      tokens: initialCounts.tokens,
+      notes: initialCounts.notes + 1,
+      noteId,
+      noteBounds: movedNoteBounds,
+      noteLabel: "New note",
+    });
+
+    const recoveredPage = await reopenRoomForLocalRecovery(page, request, roomId);
+
+    try {
+      await expectBootstrapBranch(recoveredPage, "local-recovery");
+      await expectBootstrapLocalSource(recoveredPage, "room-snapshot");
+      await expectLocalReplicaLastRead(recoveredPage, "room-snapshot");
+      await expectRoomObjectCounts(recoveredPage, {
+        tokens: initialCounts.tokens,
+        notes: initialCounts.notes + 1,
+      });
+      await expectNoteLabel(recoveredPage, "New note");
+      await expect.poll(() => getNoteBounds(recoveredPage)).toMatchObject({
+        x: movedNoteBounds.x,
+        y: movedNoteBounds.y,
+        width: movedNoteBounds.width,
+        height: movedNoteBounds.height,
+      });
+      await expect(
+        recoveredPage.getByTestId("debug-local-replica-inspection")
+      ).not.toContainText("Error:");
+    } finally {
+      await recoveredPage.close();
+    }
+  });
+
+  test("recovers saved note text through same-browser room-snapshot recovery", async ({
+    page,
+    request,
+  }) => {
+    const roomId = createSmokeRoomId("note-edit-recovery");
+
+    await openEntryPage(page, roomId);
+    await joinRoom(page, {
+      roomId,
+      name: "Smoke Note Edit",
+    });
+    await openDebugTools(page);
+
+    const initialCounts = await getRoomObjectCounts(page);
+
+    await clickDebugAddNote(page);
+    await expectRoomObjectCounts(page, {
+      notes: initialCounts.notes + 1,
+    });
+    const noteId = await getNoteId(page);
+    await expectNoteLabel(page, "New note");
+
+    await clickSmokeNoteEdit(page);
+    await expectNoteLabel(page, "New note [smoke-saved]");
+
+    await waitForRoomSnapshotState(page, roomId, {
+      tokens: initialCounts.tokens,
+      notes: initialCounts.notes + 1,
+      noteId,
+      noteLabel: "New note [smoke-saved]",
+    });
+
+    const recoveredPage = await reopenRoomForLocalRecovery(page, request, roomId);
+
+    try {
+      await expectBootstrapBranch(recoveredPage, "local-recovery");
+      await expectBootstrapLocalSource(recoveredPage, "room-snapshot");
+      await expectLocalReplicaLastRead(recoveredPage, "room-snapshot");
+      await expectRoomObjectCounts(recoveredPage, {
+        tokens: initialCounts.tokens,
+        notes: initialCounts.notes + 1,
+      });
+      await expectNoteLabel(recoveredPage, "New note [smoke-saved]");
+      await expect(
+        recoveredPage.getByTestId("debug-local-replica-inspection")
+      ).not.toContainText("Error:");
+    } finally {
+      await recoveredPage.close();
     }
   });
 });

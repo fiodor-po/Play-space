@@ -26,7 +26,7 @@
 - documentation workflow разделён на foundation file, roadmap, current-context file и case-study log;
 - work model с AI теперь сознательно формализуется как strategist + executor;
 - minimal capability checklist собран достаточно для first hosted alpha core checkpoint;
-- минимальный локальный Playwright smoke harness теперь покрывает shared note, image commit/recovery и базовый active-room refresh flow;
+- минимальный локальный Playwright smoke harness теперь покрывает shared note, image move/resize recovery, image draw/save recovery, token move recovery, note move/edit recovery, same-browser local-only recovery, active-room refresh flow и runtime failure policy с узким allowlist для принятого local smoke browser baseline;
 - first hosted core deploy поднят;
 - базовая hosted validation core flow подтверждена;
 - hosted video now works as an optional layer via the Vercel token fallback path;
