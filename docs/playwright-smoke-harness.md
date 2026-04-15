@@ -107,7 +107,7 @@ npm run smoke:e2e:headed
 
 Эти assertions фиксируют текущий smoke/debug contract:
 
-- settled bootstrap branch names such as `live-active` and `replica-converged`;
+- settled recovery state names such as `live-active` and `replica-converged`;
 - initial-open status/source strings for local-first recovery inspection;
 - exact local source strings such as `indexeddb` and `none`;
 - exact `Last read:` source strings;
@@ -179,8 +179,8 @@ Harness review обязателен после:
   moves to IndexedDB;
 - exact local source strings;
 - exact `Last read:` strings;
-- exact `replica-converged` bootstrap branch expectations where bootstrap
-  source changes.
+- exact `Settled: replica-converged` expectations where the settled contract
+  changes.
 
 After `Durable write model`:
 
@@ -199,13 +199,13 @@ After `Recovery convergence model`:
 - stale `room-snapshot` assertions that no longer belong to recovery semantics;
 - provisional initial-open assertions;
 - `live-active` assertions;
-- exact `replica-converged` bootstrap branch expectations;
-- bridge-era source split assertions.
+- exact `Settled: replica-converged` expectations;
+- source-centric settled assertions.
 
 After `Core semantic cutover`:
 
-- remove or rewrite bridge-era bootstrap/source assertions;
-- keep stable invariants and convergence-era assertions only.
+- source-centric settled assertions no longer belong to the current contract;
+- stable invariants and convergence-era assertions remain the main smoke surface.
 
 ## Где искать связанные правила
 

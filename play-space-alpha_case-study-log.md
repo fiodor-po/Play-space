@@ -9,6 +9,66 @@
 
 ---
 
+## Phase 0X — Core semantic cutover closed and replica-track completed
+
+### Type
+- milestone
+- decision
+
+### Context
+После closure `Recovery convergence model` проект уже жил через replica
+convergence, но core cutover chapter ещё держал один обязательный вопрос:
+перестала ли recovery semantics действительно зависеть от source-centric runtime
+contract, или старый bootstrap-shaped contract всё ещё остаётся центральной
+частью модели.
+
+### Goal or problem
+Нужно было закрыть chapter честно, без broad cleanup:
+
+- перевести visible debug/smoke contract на replica vocabulary;
+- перевести settled runtime contract на state-first settled recovery shape;
+- подтвердить это human gate'ом;
+- вынести remaining hygiene tails за пределы chapter closure.
+
+### What happened
+Chapter был доведён до closure-ready состояния:
+
+- visible debug/smoke contract now uses `live-active`, `replica-converged`,
+  and `checkpoint`;
+- settled runtime contract now uses `Settled` state and `Settled slices`;
+- source-centric settled fields were removed from the core runtime shape;
+- docs and manual QA wording were aligned to the current recovery model;
+- human gate confirmed `live-active`, `replica-converged`, durable-ahead
+  reopen, and stale `room-snapshot` ignore behavior.
+
+### Decision / change
+`Core semantic cutover from snapshot arbitration` closed after docs alignment
+and human gate.
+
+This also closed the full replica-track migration chain for room document
+persistence / recovery.
+
+### Why
+Core recovery semantics now already live through:
+
+- version-aware local replica;
+- settled replica convergence;
+- slice-level durable catch-up;
+- settled recovery outcome instead of winner-style source contract.
+
+Remaining tails are now hygiene work rather than chapter blockers.
+
+### Result
+The next active chapter is now
+`browser-local participant identity stabilization`.
+
+Optional tails remain outside the closed chapter:
+
+- legacy `room-snapshot` write-cache cleanup;
+- internal recovery naming/log cleanup.
+
+---
+
 ## Phase 0X — Recovery convergence model closed before semantic cutover
 
 ### Type

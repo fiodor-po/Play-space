@@ -37,9 +37,9 @@
 - phase-1 `browser-local replica baseline` checkpoint complete;
 - checkpoint 2 after local and durable replica maturity is complete;
 - checkpoint 3 before final cutover is complete;
-- next internal replica-track step is
-  `Core semantic cutover from snapshot arbitration`;
-- full replica cutover ещё впереди.
+- `Core semantic cutover from snapshot arbitration` is complete;
+- replica-track is complete;
+- next separate chapter is `browser-local participant identity stabilization`.
 
 ## Как это называть
 
@@ -429,7 +429,27 @@ Legacy snapshot winner-picking logic перестаёт быть главной 
 
 **Статус**
 
-- следующий
+- сделано
+
+**Что уже landed**
+
+- visible debug/smoke contract now uses replica vocabulary:
+  - `live-active`
+  - `replica-converged`
+  - `checkpoint`
+- settled recovery inspectability now uses:
+  - `Settled: ...`
+  - `Settled slices: ...`
+- settled runtime contract no longer stores bootstrap branch/source/local
+  source as the primary recovery shape.
+
+**Closure result**
+
+- replica convergence is now the primary recovery model;
+- source-centric settled runtime contract is removed from the core recovery
+  shape;
+- human gate confirmed the settled recovery contract in live, local, durable,
+  and stale-snapshot-ignore corridors.
 
 **Шаг считается завершённым, когда**
 
@@ -485,7 +505,7 @@ checkpoint-complete состояния.
 - поздний storage scaling path
 - Figma-class local update-log engine
 
-### Остаётся обязательным для закрытия migration chain
+### Migration chain now closed through
 
 - local replica semantics
 - durable write model

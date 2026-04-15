@@ -201,10 +201,10 @@
   - убрать live room state scenario настолько, насколько это возможно в текущем dev flow;
   - снова зайти в комнату.
 - Expected result:
-  - если live room уже отсутствует, alpha пытается восстановиться через durable room snapshot;
+  - если live room уже отсутствует, alpha делает local-first open when usable local replica exists and then settles through replica convergence;
   - это best-effort alpha behavior, а не final persistence guarantee.
 - Also verify:
-  - в console/logs видно, какой bootstrap branch реально сработал;
+  - в Dev tools или console/logs видно settled recovery outcome и settled slice sources;
   - если recovery не удался, ошибка выглядит диагностируемой, а не silent.
 - Note:
   - если этот сценарий ведёт себя странно, это уже не "известная нормальность по контракту", а повод перепроверить current durable path.

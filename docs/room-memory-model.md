@@ -347,24 +347,23 @@ This distinction matters because room creator identity is currently used for:
 
 Those behaviors should read from one shared room-level creator id, not from per-browser remembered metadata.
 
-## 5. Bootstrap / recovery priority
+## 5. Bootstrap / recovery model
 
-Практический bootstrap order:
+Практический recovery path:
 
-1. durable room identity
-2. live shared room state
-3. durable room snapshot
-4. local personal room state
-5. empty room / zero state
+1. durable room identity определяет, новая это комната или уже существующая
+2. active room использует live shared room state и приходит в `live-active`
+3. empty-live reopen сначала открывает version-aware local replica
+4. settled recovery сходится через replica convergence и per-slice durable catch-up
+5. empty room / zero state остаётся fallback только когда usable local и durable content отсутствуют
 
-Эта priority chain важнее старого упрощённого тезиса "durable memory ещё не существует".
+Практический смысл этой модели:
 
-Практический смысл этого порядка:
-
-- сначала нужно понять, это новая комната или уже существующая;
-- потом нужно проверить, есть ли у неё живое shared state;
-- потом нужно проверить, есть ли у неё durable content recovery;
-- только после этого local memory может использоваться как convenience layer, а не как identity/content truth.
+- identity resolution идёт раньше content recovery;
+- live shared state остаётся primary settled state для active room;
+- browser-local state участвует как replica path;
+- durable content догоняет settled state через freshness / revision semantics;
+- empty fallback включается только при отсутствии usable recovery content.
 
 Recommended durable creator resolution path:
 
@@ -378,7 +377,8 @@ Client reset boot-order rule:
 1. client checks server-controlled reset policy
 2. if policy changed, client wipes scoped local room-memory state and records local acknowledgement
 3. only after that normal room/session restore may continue
-4. then normal bootstrap priority applies: live -> durable -> local -> empty
+4. then normal recovery path applies: `live-active` when live state exists,
+   otherwise local-first open plus settled replica convergence
 
 This ordering is important.
 Client reset must happen before stale local restore gets a chance to win.

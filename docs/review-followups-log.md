@@ -112,3 +112,14 @@ Recommended statuses:
 - `expected_action`: decide whether to remove the `saveRoomSnapshot` write effect, dead storage helpers, and stale smoke helpers in a separate cleanup pass after cutover or as an optional hygiene step
 - `target_chapter`: `legacy room-snapshot write-cache cleanup`
 - `status`: `planned`
+
+### RF-2026-04-15-05
+
+- `id`: `RF-2026-04-15-05`
+- `date`: `2026-04-15`
+- `source`: strategist closeout review during `Core semantic cutover from snapshot arbitration`
+- `finding`: internal recovery naming and log tags still use `bootstrap-*` vocabulary after the settled recovery contract moved to state-first replica semantics
+- `why_deferred`: visible debug contract, smoke contract, and core runtime state already use settled recovery outcome and settled slice sources; renaming internal refs and log tags is hygiene work and does not block chapter closure
+- `expected_action`: decide whether to rename remaining `bootstrap-*` refs, helper names, and log tags in a separate cleanup pass after cutover
+- `target_chapter`: `internal recovery naming/log cleanup`
+- `status`: `planned`

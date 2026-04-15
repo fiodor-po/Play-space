@@ -72,7 +72,7 @@
 
 ## Phase C — Room document persistence / recovery architecture
 
-**Статус:** active track, `Core semantic cutover from snapshot arbitration` active, checkpoint 3 closed
+**Статус:** replica-track complete, next chapter `browser-local participant identity stabilization`
 
 ### Цель
 Принять `room document replicas` как architecture chapter, перевести
@@ -121,28 +121,27 @@ persistence/recovery от snapshot arbitration к replica model.
      - committed add/remove corridors now survive same-browser reopen through local replica coverage;
      - active-room `live-wins` behavior stays unchanged;
 13. закрыть `Checkpoint 3` before final cutover;
-14. взять `Core semantic cutover from snapshot arbitration` как следующий internal replica-track step;
+14. закрыть `Core semantic cutover from snapshot arbitration` как финальный internal replica-track step:
+   - visible debug/smoke contract now uses replica vocabulary;
+   - settled runtime contract now uses state-first settled recovery shape;
+   - human gate confirms `live-active`, `replica-converged`, durable-ahead reopen, and stale `room-snapshot` ignore behavior;
 15. взять `browser-local participant identity stabilization` как следующий
-    отдельный chapter candidate вне самого replica-track;
+    отдельный active chapter вне самого replica-track;
 16. держать `participant-marker / creator-color` как later chapter после participant identity stabilization;
 17. возвращаться к hosted validation как recurring checkpoint после крупных
     шагов и новых demo snapshots.
 
-### Почему это теперь главный фокус
-Последние runtime и audit passes закрыли старые structural decision points.
-Следующий главный риск теперь лежит в persistence/recovery correctness:
+### Что это теперь значит
+Persistence/recovery spine уже дошёл до финального semantic cutover.
+Следующий главный риск теперь лежит в browser-local participant identity stabilization:
 
-- committed room content всё ещё требует final semantic cutover в core recovery model;
-- current convergence model уже landed, а snapshot-era semantics всё ещё
-  остаются в core cutover boundary;
-- confirmed bugs уже затрагивают базовые product flows:
-  - quick leave / re-enter
-  - refresh
-  - image commit boundaries
+- same-browser repeat join и multi-tab behavior ещё должны стать explicit runtime semantics;
+- foreground-tab-only active presence ещё требует узкого implementation pass;
+- participant-marker / creator-color chapter уже можно держать после participant identity stabilization.
 
-Это делает storage/recovery spine главным active architecture concern.
+Это делает participant identity следующим active architecture concern.
 
-## 5. Что входит в текущий checkpoint
+## 5. Что вошло в этот checkpoint
 
 - удержание core hosted stack в честном рабочем состоянии;
 - удержание working hosted video path как optional layer без лишнего scope creep;
@@ -155,12 +154,14 @@ persistence/recovery от snapshot arbitration к replica model.
 - completed internal replica-track step: `Local replica semantics`;
 - completed internal replica-track step: `Durable write model`;
 - completed internal replica-track step: `Recovery convergence model`;
+- completed internal replica-track step: `Core semantic cutover from snapshot arbitration`;
 - completed checkpoint: `Checkpoint 3`;
-- next internal replica-track step: `Core semantic cutover from snapshot arbitration`;
-- next separate chapter candidate: `browser-local participant identity stabilization`;
+- completed migration track: `room document persistence / recovery architecture`;
+- next active chapter: `browser-local participant identity stabilization`;
 - completed narrow follow-up: `debug-tools usability cleanup`;
 - later follow-up task: `room-ops durability ergonomics`;
 - optional follow-up task: `legacy room-snapshot write-cache cleanup`;
+- optional follow-up task: `internal recovery naming/log cleanup`;
 - later follow-up chapter: `participant-marker / creator-color`;
 - hosted validation как повторяемая проверка после крупных шагов, выкатываний и
   новых demo snapshots.
@@ -184,20 +185,22 @@ persistence/recovery от snapshot arbitration к replica model.
 4. считать `App.tsx` chapter structurally closed;
 5. считать current `BoardStage.tsx` cleanup chapter checkpoint-closed;
 6. считать refreshed architecture/runtime audit completed;
-7. считать `room document persistence / recovery architecture` active migration track with phase-1 checkpoint complete;
+7. считать `room document persistence / recovery architecture` закрытым migration track;
 8. считать `narrow commit-boundary persistence phase` checkpoint-complete;
 9. считать `Local replica semantics` закрытым internal replica-track step;
 10. считать `Durable write model` закрытым internal replica-track step;
 11. считать `Checkpoint 2` закрытым после local и durable maturity;
 12. считать `Recovery convergence model` закрытым internal replica-track step;
 13. считать `Checkpoint 3` закрытым перед final cutover;
-14. взять `Core semantic cutover from snapshot arbitration` как следующий internal replica-track step;
-15. взять `browser-local participant identity stabilization` как следующий отдельный chapter candidate вне replica-track;
-16. считать `debug-tools usability cleanup` закрытым узким inspectability/usability pass;
-17. держать `room-ops durability ergonomics` как later follow-up task after the current replica-track chapter;
-18. держать `legacy room-snapshot write-cache cleanup` как optional hygiene follow-up outside the core recovery semantics;
-19. держать `participant-marker / creator-color` как следующий отдельный follow-up chapter после participant identity stabilization;
-20. возвращаться к hosted validation как checkpoint после больших шагов и новых
+14. считать `Core semantic cutover from snapshot arbitration` закрытым финальным internal replica-track step;
+15. считать `room document persistence / recovery architecture` закрытым migration track;
+16. взять `browser-local participant identity stabilization` как следующий отдельный active chapter вне replica-track;
+17. считать `debug-tools usability cleanup` закрытым узким inspectability/usability pass;
+18. держать `room-ops durability ergonomics` как later follow-up task after the closed replica-track chapter;
+19. держать `legacy room-snapshot write-cache cleanup` как optional hygiene follow-up outside the core recovery semantics;
+20. держать `internal recovery naming/log cleanup` как optional hygiene follow-up outside the core runtime contract;
+21. держать `participant-marker / creator-color` как следующий отдельный follow-up chapter после participant identity stabilization;
+22. возвращаться к hosted validation как checkpoint после больших шагов и новых
    demo snapshots.
 
 ## 8. Backlog
@@ -263,7 +266,10 @@ persistence/recovery от snapshot arbitration к replica model.
   - committed add/remove corridors now survive same-browser reopen through local replica coverage
   - active-room `live-wins` behavior stays unchanged
 - [x] close `Checkpoint 3` before final cutover
-- [ ] take `Core semantic cutover from snapshot arbitration` as the next internal replica-track step
+- [x] close `Core semantic cutover from snapshot arbitration` as the final internal replica-track step
+  - visible debug/smoke contract now uses replica vocabulary
+  - settled runtime contract now uses state-first settled recovery and settled slice sources
+  - human gate confirms `live-active`, `replica-converged`, durable-ahead reopen, and stale `room-snapshot` ignore behavior
 - [ ] использовать hosted validation как recurring checkpoint после крупных
   продуктовых шагов и новых demo snapshots
 

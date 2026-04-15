@@ -50,10 +50,15 @@
   - bootstrap read path now uses version-aware local replica or `none` and no longer reads `room-snapshot`;
   - committed add/remove corridors now survive same-browser reopen through local replica coverage;
   - active-room `live-wins` behavior stays unchanged;
-  - debug inspectability now separates `Initial open` from settled `Bootstrap` and shows slice-level settled sources.
+  - debug inspectability now separates `Initial open` from settled recovery outcome and shows slice-level settled sources.
 - `Checkpoint 3` is now closed before final cutover.
-- current next internal replica-track step is now
-  `Core semantic cutover from snapshot arbitration`.
+- `Core semantic cutover from snapshot arbitration` is now closed after docs
+  alignment and human gate:
+  - visible debug/smoke contract now uses replica vocabulary;
+  - settled recovery now reports through `Settled` state and settled slice
+    sources;
+  - replica-track is now complete.
+- next active chapter is now `browser-local participant identity stabilization`.
 - Dev tools inspectability surface now has a closed usability cleanup checkpoint:
   - the panel stays viewport-bounded on ordinary desktop viewports;
   - lower inspect blocks and controls stay reachable through internal scroll;
@@ -64,6 +69,11 @@
 - legacy `room-snapshot` now has one optional hygiene follow-up:
   - recovery no longer reads it;
   - a separate `legacy room-snapshot write-cache cleanup` task is now recorded for the remaining write-only cache tail.
+- internal recovery naming/log vocabulary now has one optional hygiene
+  follow-up:
+  - core runtime contract already uses settled recovery state;
+  - a separate `internal recovery naming/log cleanup` task is now recorded for
+    remaining `bootstrap-*` internal names and log tags.
 
 Current workflow rule for hosted validation:
 
@@ -1002,11 +1012,14 @@ Working order from here:
 10. treat `Checkpoint 2` as closed after local and durable persistence maturity
 11. treat `Recovery convergence model` as the completed current internal replica-track step
 12. treat `Checkpoint 3` as closed before final cutover
-13. take `Core semantic cutover from snapshot arbitration` as the next internal replica-track step
-14. treat `debug-tools usability cleanup` as a closed separate inspectability/usability pass
-15. keep `room-ops durability ergonomics` as a later follow-up task outside the current replica-track chapter
-16. keep `legacy room-snapshot write-cache cleanup` as an optional hygiene follow-up outside the core recovery semantics
-17. keep participant-marker / creator-color as the following separate semantic/runtime chapter
+13. treat `Core semantic cutover from snapshot arbitration` as the closed final internal replica-track step
+14. treat `room document persistence / recovery architecture` as the closed migration track
+15. take `browser-local participant identity stabilization` as the next active chapter
+16. treat `debug-tools usability cleanup` as a closed separate inspectability/usability pass
+17. keep `room-ops durability ergonomics` as a later follow-up task outside the closed replica-track chapter
+18. keep `legacy room-snapshot write-cache cleanup` as an optional hygiene follow-up outside the core recovery semantics
+19. keep `internal recovery naming/log cleanup` as an optional hygiene follow-up outside the core runtime contract
+20. keep participant-marker / creator-color as the following separate semantic/runtime chapter
 
 Accepted cleanup decisions already made:
 

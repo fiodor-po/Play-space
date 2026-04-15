@@ -63,7 +63,7 @@
 - [ ] refresh in active room
 - [ ] rejoin while room is still live
 - [ ] durable snapshot smoke still behaves plausibly
-- [ ] bootstrap / recovery branch is visible in logs
+- [ ] settled recovery outcome and settled slice sources are visible in Dev tools or logs
 
 ## Dice
 

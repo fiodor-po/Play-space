@@ -71,17 +71,15 @@ Important nuance:
 - that may include room-scoped last-known participant appearance for creator-linked fallback;
 - room creator identity still must stay in durable room identity, not inside snapshot.
 
-## 4. Bootstrap priority
+## 4. Bootstrap / recovery model
 
-Для room recovery при текущем alpha practical priority такая:
+Текущий room bootstrap/recovery path работает так:
 
-1. durable room identity
-2. live shared room state
-3. durable room snapshot
-4. local personal room state
-5. empty room / zero state
-
-Именно так нужно мыслить текущий room bootstrap/recovery path.
+1. durable room identity определяет, новая это комната или уже существующая
+2. live shared room state даёт settled state для active room через `live-active`
+3. empty-live reopen открывает version-aware local replica first
+4. settled recovery сходится через replica convergence и per-slice durable catch-up
+5. empty room / zero state остаётся fallback только когда usable local и durable content отсутствуют
 
 ## 5. Что должно происходить на refresh?
 
@@ -93,7 +91,7 @@ Refresh в той же комнате должен:
 - сохранять participant session в том же браузере для этой комнаты;
 - восстанавливать локальный viewport этой комнаты;
 - заново подключать клиента к current live room state;
-- при необходимости использовать текущий bootstrap priority без ложного seed/reset behavior.
+- при необходимости использовать текущий recovery path без ложного seed/reset behavior.
 
 Важно:
 
@@ -181,7 +179,8 @@ Recommended narrow durable-identity implementation shape:
 - новая комната empty by default;
 - explicit image draw mode с `Draw / Save / Clear`;
 - awareness-based per-image lock;
-- current bootstrap priority: identity -> live -> durable -> local -> empty;
+- current recovery model uses durable identity, `live-active`, local-first open,
+  and settled replica convergence;
 - best-effort durable room snapshot layer как часть alpha.
 
 ### Temporary but acceptable

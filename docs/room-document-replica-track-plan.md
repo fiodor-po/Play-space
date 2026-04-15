@@ -69,9 +69,12 @@
   per-slice settled convergence, add/remove local replica coverage, and human
   gate;
 - `Checkpoint 3` complete before final cutover;
+- `Core semantic cutover from snapshot arbitration` complete after settled
+  state cutover, docs alignment, and human gate;
 - local browser smoke harness baseline exists and is accepted as a machine gate
   for current replica-track steps;
-- current next required step: `Core semantic cutover from snapshot arbitration`;
+- migration chain complete;
+- next separate chapter candidate: `browser-local participant identity stabilization`;
 - human gate still required between major checkpoints.
 
 ## Граница с room identity layer
@@ -339,8 +342,8 @@ freshest shared room document state.
 - bootstrap read path now uses version-aware local replica or `none` and no
   longer reads `room-snapshot`;
 - active-room `live-wins` behavior stays unchanged;
-- debug inspectability now separates `Initial open` from settled `Bootstrap`
-  and shows slice-level settled sources;
+- debug inspectability now separates `Initial open` from settled recovery
+  outcome and shows slice-level settled sources;
 - write-side `room-snapshot` cache is now an optional legacy tail outside
   recovery semantics.
 
@@ -348,7 +351,30 @@ freshest shared room document state.
 
 **Статус**
 
-- не начато
+- сделано
+
+**Что уже landed**
+
+- visible debug/smoke contract now uses replica vocabulary:
+  - `live-active`
+  - `replica-converged`
+  - `checkpoint`
+- settled recovery inspectability now uses state-first contract:
+  - `Settled: ...`
+  - `Settled slices: ...`
+- settled runtime state no longer centers on bootstrap branch/source/local
+  source fields.
+
+**Closure result**
+
+- visible debug/smoke contract now uses replica vocabulary:
+  - `live-active`
+  - `replica-converged`
+  - `checkpoint`
+- settled runtime contract now uses state-first recovery outcome and settled
+  slice composition;
+- human gate confirmed `live-active`, `replica-converged`, durable-ahead
+  reopen, and stale `room-snapshot` ignore behavior.
 
 **Роль**
 
@@ -536,9 +562,10 @@ passes, которые трогают board/runtime/recovery behavior.
 Эти assertions фиксируют текущий contract и подлежат review на следующих
 steps:
 
-- settled bootstrap branch names such as `live-active` and
+- settled recovery state names such as `live-active` and
   `replica-converged`;
-- exact local source strings such as `indexeddb` and `none`;
+- exact initial-open / last-read source strings such as `indexeddb` and
+  `none`;
 - exact `Last read:` source strings;
 - current covered same-browser image/token/note recovery corridors use
   IndexedDB;
@@ -555,9 +582,10 @@ Review:
 
 - legacy `room-snapshot` assertions that become stale when a covered corridor
   moves to IndexedDB;
-- exact `local source ...` assertions;
+- exact `Initial open: ... · source ...` assertions;
 - exact `Last read: ...` assertions;
-- `Bootstrap: replica-converged` expectations where the source contract changes.
+- `Settled: replica-converged` expectations where the settled contract
+  changes.
 
 ### After `Durable write model`
 
@@ -572,15 +600,16 @@ Review:
 Review:
 
 - stale `room-snapshot` assertions that no longer belong to recovery semantics;
-- `Bootstrap: live-active` assertions;
-- exact `replica-converged` bootstrap branch expectations;
-- current bridge-era local-vs-live source split assertions.
+- `Settled: live-active` assertions;
+- exact `Settled: replica-converged` expectations;
+- source-centric settled assertions that no longer match replica-state
+  inspectability.
 
 ### After `Core semantic cutover`
 
 Review:
 
-- every bridge-era bootstrap/source assertion;
+- every remaining source-centric settled assertion;
 - every `room-snapshot` fallback assertion;
 - every allowlist entry that only exists because snapshot-era behavior is still
   visible in the browser.
