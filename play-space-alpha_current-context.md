@@ -112,13 +112,6 @@ In hard sprint mode:
   - core runtime contract already uses settled recovery state;
   - a separate `internal recovery naming/log cleanup` task is now recorded for
     remaining `bootstrap-*` internal names and log tags.
-- same-browser leave propagation now has one narrow runtime-hygiene follow-up:
-  - the current chapter closed with acceptable behavior;
-  - same-browser automation exposed a `yjs` warning during cross-tab leave
-    propagation;
-  - a separate `same-browser leave propagation warning cleanup` task is now
-    recorded for later teardown-order cleanup.
-
 Current workflow rule for hosted validation:
 
 - hosted validation is no longer treated as a mandatory blocking linear phase

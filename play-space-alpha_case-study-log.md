@@ -54,9 +54,7 @@ The remaining work was proof, not a new foundational implementation.
 ### Result
 The next candidate chapter is now `participant-marker / creator-color`.
 
-The remaining runtime tail moved outside the closed chapter:
-
-- same-browser leave propagation warning cleanup.
+The chapter no longer keeps a same-browser leave-propagation teardown tail.
 
 ---
 

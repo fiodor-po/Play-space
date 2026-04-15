@@ -132,5 +132,6 @@ Recommended statuses:
 - `finding`: attempted same-browser cross-tab leave propagation automation emits `yjs` warning `Tried to remove event handler that doesn't exist.`
 - `why_deferred`: chapter closure already has acceptable runtime behavior and honest human proof; the warning is a teardown-order hygiene issue rather than a blocker for the participant identity model
 - `expected_action`: review room/presence/creator teardown ordering during same-browser cross-tab leave propagation and remove the warning in a separate narrow runtime cleanup pass
+- `closure_result`: `roomCreatorRealtime` teardown is now idempotent; the same-browser two-tab leave probe returns both tabs to entry state without the `yjs` warning locally or on the hosted deploy
 - `target_chapter`: `same-browser leave propagation warning cleanup`
-- `status`: `planned`
+- `status`: `closed`

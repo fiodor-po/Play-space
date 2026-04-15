@@ -241,7 +241,6 @@ Current expected execution track before that chapter:
 - later follow-up task: `room-ops durability ergonomics`;
 - optional follow-up task: `legacy room-snapshot write-cache cleanup`;
 - optional follow-up task: `internal recovery naming/log cleanup`;
-- later follow-up task: `same-browser leave propagation warning cleanup`;
 - next execution block: `push to hosted + debug`;
 - next candidate chapter: `participant-marker / creator-color`;
 - hosted validation как повторяемая проверка после крупных шагов, выкатываний и
@@ -280,14 +279,13 @@ Current expected execution track before that chapter:
 18. держать `room-ops durability ergonomics` как later follow-up task after the closed replica-track chapter;
 19. держать `legacy room-snapshot write-cache cleanup` как optional hygiene follow-up outside the core recovery semantics;
 20. держать `internal recovery naming/log cleanup` как optional hygiene follow-up outside the core runtime contract;
-21. держать `same-browser leave propagation warning cleanup` как later runtime-hygiene follow-up outside the closed participant identity chapter;
-22. сначала выполнить следующий execution block: `push to hosted + debug`;
-23. после hosted проверки чинить только реальные hosted rough edges;
-24. после hosted fixes запускать отдельный cleanup sprint:
+21. сначала выполнить следующий execution block: `push to hosted + debug`;
+22. после hosted проверки чинить только реальные hosted rough edges;
+23. после hosted fixes запускать отдельный cleanup sprint:
    - сначала вернуть lint к честному green checkpoint;
    - потом разрезать structural hotspots узкими passes;
-25. держать `participant-marker / creator-color` как следующий candidate chapter после participant identity stabilization;
-26. возвращаться к hosted validation как checkpoint после больших шагов и новых
+24. держать `participant-marker / creator-color` как следующий candidate chapter после participant identity stabilization;
+25. возвращаться к hosted validation как checkpoint после больших шагов и новых
    demo snapshots.
 
 ## 8. Backlog
