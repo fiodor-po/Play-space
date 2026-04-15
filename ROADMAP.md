@@ -126,7 +126,7 @@ Use these statuses in roadmap notes when useful:
 
 ## Phase C — Room document persistence / recovery architecture
 
-**Статус:** persistence/recovery complete, participant identity stabilization closed, next candidate chapter `participant-marker / creator-color`
+**Статус:** persistence/recovery complete, participant identity stabilization closed, next execution block `push to hosted + debug`, next candidate chapter `participant-marker / creator-color`
 
 ### Цель
 Принять `room document replicas` как architecture chapter, перевести
@@ -212,6 +212,14 @@ Current planning-mode candidate for the next strategist step:
 
 Это делает participant-marker / creator-color следующим candidate architecture concern.
 
+Current expected execution track before that chapter:
+
+1. push the current mainline to hosted and verify the real deployed behavior;
+2. fix only the real hosted regressions or rough edges that surface there;
+3. start a separate cleanup sprint after hosted fixes:
+   - first bring lint back to an honest green checkpoint;
+   - then split structural hotspots in narrow passes.
+
 ## 5. Что вошло в этот checkpoint
 
 - удержание core hosted stack в честном рабочем состоянии;
@@ -234,6 +242,7 @@ Current planning-mode candidate for the next strategist step:
 - optional follow-up task: `legacy room-snapshot write-cache cleanup`;
 - optional follow-up task: `internal recovery naming/log cleanup`;
 - later follow-up task: `same-browser leave propagation warning cleanup`;
+- next execution block: `push to hosted + debug`;
 - next candidate chapter: `participant-marker / creator-color`;
 - hosted validation как повторяемая проверка после крупных шагов, выкатываний и
   новых demo snapshots.
@@ -272,8 +281,13 @@ Current planning-mode candidate for the next strategist step:
 19. держать `legacy room-snapshot write-cache cleanup` как optional hygiene follow-up outside the core recovery semantics;
 20. держать `internal recovery naming/log cleanup` как optional hygiene follow-up outside the core runtime contract;
 21. держать `same-browser leave propagation warning cleanup` как later runtime-hygiene follow-up outside the closed participant identity chapter;
-22. держать `participant-marker / creator-color` как следующий candidate chapter после participant identity stabilization;
-23. возвращаться к hosted validation как checkpoint после больших шагов и новых
+22. сначала выполнить следующий execution block: `push to hosted + debug`;
+23. после hosted проверки чинить только реальные hosted rough edges;
+24. после hosted fixes запускать отдельный cleanup sprint:
+   - сначала вернуть lint к честному green checkpoint;
+   - потом разрезать structural hotspots узкими passes;
+25. держать `participant-marker / creator-color` как следующий candidate chapter после participant identity stabilization;
+26. возвращаться к hosted validation как checkpoint после больших шагов и новых
    demo snapshots.
 
 ## 8. Backlog
