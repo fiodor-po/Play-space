@@ -1073,12 +1073,18 @@ export default function BoardStage({
         options.commitBoundary !== "default"
           ? options.commitBoundary
           : null;
+      const localCommitBoundary =
+        commitBoundary ??
+        (options?.durableBoundary === "object-add" ||
+        options?.durableBoundary === "object-remove"
+          ? options.durableBoundary
+          : null);
       const durableBoundary = commitBoundary ?? options?.durableBoundary ?? null;
       const durableSlice =
         options?.durableSlice ?? getDurableSliceForCommitBoundary(commitBoundary);
 
-      if (commitBoundary) {
-        persistLocalReplica(nextObjects, commitBoundary);
+      if (localCommitBoundary) {
+        persistLocalReplica(nextObjects, localCommitBoundary);
       }
 
       if (durableBoundary && durableSlice) {
@@ -3602,6 +3608,15 @@ export default function BoardStage({
     selectBoardObject(inspectableNoteCardObject);
   };
 
+  const deleteInspectableNoteCardForSmoke = () => {
+    if (!inspectableNoteCardObject) {
+      return;
+    }
+
+    removeBoardObject(inspectableNoteCardObject.id);
+    setSelectedObjectId(null);
+  };
+
   const editingTextareaStyle = useMemo<EditingTextareaStyle | null>(() => {
     if (!editingTextCard) {
       return null;
@@ -4117,6 +4132,17 @@ export default function BoardStage({
                   {...getDesignSystemDebugAttrs(buttonRecipes.secondary.small.debug)}
                 >
                   Resize note
+                </button>
+                <button
+                  type="button"
+                  data-testid="debug-smoke-note-delete-button"
+                  disabled={!inspectableNoteCardObject}
+                  onClick={deleteInspectableNoteCardForSmoke}
+                  className={buttonRecipes.secondary.small.className}
+                  style={buttonRecipes.secondary.small.style}
+                  {...getDesignSystemDebugAttrs(buttonRecipes.secondary.small.debug)}
+                >
+                  Delete note
                 </button>
               </div>
             </div>

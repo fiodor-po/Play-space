@@ -437,6 +437,11 @@ export async function clickSmokeNoteResize(page: Page) {
   await page.getByTestId("debug-smoke-note-resize-button").click();
 }
 
+export async function clickSmokeNoteDelete(page: Page) {
+  await expect(page.getByTestId("debug-smoke-note-delete-button")).toBeEnabled();
+  await page.getByTestId("debug-smoke-note-delete-button").click();
+}
+
 export async function clickDebugAddNote(page: Page) {
   await expect(page.getByTestId("debug-add-note-button")).toBeVisible();
   await page.getByTestId("debug-add-note-button").evaluate((element) => {
@@ -703,6 +708,54 @@ export async function waitForRoomSnapshotState(
         noteLabel: expected.noteLabel,
       })
     );
+}
+
+export async function clearLocalRoomDocumentReplica(page: Page, roomId: string) {
+  await page.evaluate(
+    async ({ nextRoomId, legacyStorageKey }) => {
+      window.localStorage.removeItem(legacyStorageKey);
+
+      const database = await new Promise<IDBDatabase>((resolve, reject) => {
+        const request = window.indexedDB.open(
+          "play-space-alpha-browser-storage-v1",
+          1
+        );
+
+        request.onerror = () => {
+          reject(request.error ?? new Error("indexeddb-open-failed"));
+        };
+
+        request.onsuccess = () => {
+          resolve(request.result);
+        };
+      });
+
+      try {
+        const transaction = database.transaction(
+          "room-document-replicas",
+          "readwrite"
+        );
+
+        transaction.objectStore("room-document-replicas").delete(nextRoomId);
+
+        await new Promise<void>((resolve, reject) => {
+          transaction.onerror = () => {
+            reject(transaction.error ?? new Error("indexeddb-delete-failed"));
+          };
+
+          transaction.oncomplete = () => {
+            resolve();
+          };
+        });
+      } finally {
+        database.close();
+      }
+    },
+    {
+      nextRoomId: roomId,
+      legacyStorageKey: getRoomDocumentReplicaStorageKey(roomId),
+    }
+  );
 }
 
 export async function seedEmptyVersionedLocalReplica(
@@ -980,6 +1033,10 @@ async function getRoomOpsDetail(
 
 function getRoomSnapshotStorageKey(roomId: string) {
   return `play-space-alpha-room-snapshot-v1:${normalizeRoomId(roomId)}`;
+}
+
+function getRoomDocumentReplicaStorageKey(roomId: string) {
+  return `play-space-alpha-room-document-replica-v1:${normalizeRoomId(roomId)}`;
 }
 
 function normalizeRoomId(roomId: string) {

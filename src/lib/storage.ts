@@ -51,6 +51,8 @@ export type LocalRoomDocumentReplica = {
 export type LocalRoomDocumentReplicaWriteOptions = {
   commitBoundary?:
     | "default"
+    | "object-add"
+    | "object-remove"
     | "image-drag-end"
     | "image-transform-end"
     | "image-draw-commit"
@@ -70,7 +72,6 @@ export type LocalRoomDocumentReplicaLoadResult = {
 export type LocalRoomDocumentBootstrapReadSource =
   | "indexeddb"
   | "legacy-localstorage"
-  | "room-snapshot"
   | "none";
 
 export type LocalRoomDocumentBootstrapState = {
@@ -303,40 +304,21 @@ export async function loadLocalRoomDocumentBootstrapState(
   const hasVersionAwareLocalReplica =
     typeof localReplica?.revision === "number";
 
-  if (localReplica && (hasVersionAwareLocalReplica || localReplicaObjectCount > 0)) {
-      return {
-        source: localReplicaResult.source,
-        content: localReplica.content,
-        objectCount: localReplicaObjectCount,
-        savedAt: localReplica.savedAt,
-        revision: localReplica.revision,
-        isVersionAware: hasVersionAwareLocalReplica,
-        lastKnownDurableSnapshotRevision:
-          localReplica.lastKnownDurableSnapshotRevision,
-        lastKnownDurableSliceRevisions:
-          localReplica.lastKnownDurableSliceRevisions,
-      };
-    }
-
-  const legacyRoomSnapshot = loadRoomSnapshot(roomId);
-  const legacyRoomSnapshotObjectCount = getRoomSnapshotObjectCount(
-    legacyRoomSnapshot
-  );
-
-  if (legacyRoomSnapshot && legacyRoomSnapshotObjectCount > 0) {
+  if (
+    localReplica &&
+    (hasVersionAwareLocalReplica || localReplicaObjectCount > 0)
+  ) {
     return {
-      source: "room-snapshot",
-      content: {
-        tokens: legacyRoomSnapshot.tokens,
-        images: legacyRoomSnapshot.images,
-        textCards: legacyRoomSnapshot.textCards,
-      },
-      objectCount: legacyRoomSnapshotObjectCount,
-      savedAt: legacyRoomSnapshot.savedAt,
-      revision: null,
-      isVersionAware: false,
-      lastKnownDurableSnapshotRevision: null,
-      lastKnownDurableSliceRevisions: createEmptyDurableSliceRevisions(),
+      source: localReplicaResult.source,
+      content: localReplica.content,
+      objectCount: localReplicaObjectCount,
+      savedAt: localReplica.savedAt,
+      revision: localReplica.revision,
+      isVersionAware: hasVersionAwareLocalReplica,
+      lastKnownDurableSnapshotRevision:
+        localReplica.lastKnownDurableSnapshotRevision,
+      lastKnownDurableSliceRevisions:
+        localReplica.lastKnownDurableSliceRevisions,
     };
   }
 
@@ -617,12 +599,6 @@ function getRoomSnapshotStorageKey(roomId: string) {
 
 function getRoomDocumentReplicaStorageKey(roomId: string) {
   return `${ROOM_DOCUMENT_REPLICA_STORAGE_KEY}:${normalizeRoomId(roomId)}`;
-}
-
-function getRoomSnapshotObjectCount(snapshot: RoomSnapshot | null) {
-  return snapshot
-    ? snapshot.tokens.length + snapshot.images.length + snapshot.textCards.length
-    : 0;
 }
 
 function createEmptyDurableSliceRevisions(): LocalRoomDocumentReplicaDurableSliceRevisions {

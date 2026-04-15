@@ -47,6 +47,8 @@ type BoardObjectSyncOptionsResolver =
 export type LocalObjectsChangeOptions = {
   commitBoundary?:
     | "default"
+    | "object-add"
+    | "object-remove"
     | "image-drag-end"
     | "image-transform-end"
     | "image-draw-commit"

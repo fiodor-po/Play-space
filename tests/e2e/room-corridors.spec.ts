@@ -1,7 +1,9 @@
 import { expect, test } from "./helpers/smokeRuntime";
 import {
+  clearLocalRoomDocumentReplica,
   clearDurableRoomSnapshot,
   clickDebugAddNote,
+  clickSmokeNoteDelete,
   clickSmokeImageDraw,
   clickSmokeImageMove,
   clickSmokeImageResize,
@@ -37,7 +39,6 @@ import {
   openEntryPage,
   reopenRoomForLocalRecovery,
   seedStaleLocalReplicaNoteLabel,
-  seedEmptyVersionedLocalReplica,
   uploadSmokeImage,
   waitForRoomOpsState,
   waitForRoomSnapshotState,
@@ -121,6 +122,7 @@ test.describe("local room smoke corridors", () => {
       await expectRoomObjectCounts(secondPage, {
         notes: countsBeforeCreate.notes + 1,
       });
+      await expectDurableReplicaWriteSaved(page, "object-add", "textCards");
 
       await page.reload();
       await expect(page.getByTestId("session-leave-room-button")).toBeVisible();
@@ -505,16 +507,16 @@ test.describe("local room smoke corridors", () => {
     }
   });
 
-  test("prefers a versioned empty local replica over stale room-snapshot fallback during same-browser reopen", async ({
+  test("recovers committed note create through same-browser IndexedDB local recovery without durable snapshot", async ({
     page,
     request,
   }) => {
-    const roomId = createSmokeRoomId("versioned-empty-local-recovery");
+    const roomId = createSmokeRoomId("note-create-recovery");
 
     await openEntryPage(page, roomId);
     await joinRoom(page, {
       roomId,
-      name: "Smoke Versioned Empty Local",
+      name: "Smoke Note Create Recovery",
     });
     await openDebugTools(page);
 
@@ -524,21 +526,12 @@ test.describe("local room smoke corridors", () => {
     await expectRoomObjectCounts(page, {
       notes: initialCounts.notes + 1,
     });
-    const createdNoteId = await getNoteId(page);
+    await expectNoteLabel(page, "New note");
+    await expectLocalReplicaWriteSaved(page, "object-add");
+    await expectDurableReplicaWriteSaved(page, "object-add", "textCards");
 
-    await clickSmokeNoteMove(page);
-    await expectLocalReplicaWriteSaved(page, "note-drag-end");
     const localRevision = await getLocalReplicaLastWriteRevision(page);
     expect(localRevision).toBeGreaterThan(0);
-
-    await waitForRoomSnapshotState(page, roomId, {
-      notes: initialCounts.notes + 1,
-      noteId: createdNoteId,
-      noteLabel: "New note",
-    });
-
-    const emptyReplicaRevision = localRevision + 1;
-    await seedEmptyVersionedLocalReplica(page, roomId, emptyReplicaRevision);
 
     const recoveredPage = await reopenRoomForLocalRecovery(page, request, roomId);
 
@@ -546,11 +539,118 @@ test.describe("local room smoke corridors", () => {
       await expectLocalReplicaInitialOpen(recoveredPage, "applied", "indexeddb");
       await expectBootstrapBranch(recoveredPage, "converged-recovery");
       await expectBootstrapLocalSource(recoveredPage, "indexeddb");
+      await expectBootstrapSliceSource(recoveredPage, "textCards", "local");
       await expectLocalReplicaLastRead(recoveredPage, "indexeddb");
-      await expectLocalReplicaLastReadRevision(
-        recoveredPage,
-        emptyReplicaRevision
-      );
+      await expectLocalReplicaLastReadRevision(recoveredPage, localRevision);
+      await expectRoomObjectCounts(recoveredPage, {
+        tokens: initialCounts.tokens,
+        images: initialCounts.images,
+        notes: initialCounts.notes + 1,
+      });
+      await expectNoteLabel(recoveredPage, "New note");
+      await expect(
+        recoveredPage.getByTestId("debug-local-replica-inspection")
+      ).not.toContainText("Error:");
+    } finally {
+      await recoveredPage.close();
+    }
+  });
+
+  test("recovers committed note delete through same-browser IndexedDB local recovery without durable snapshot", async ({
+    page,
+    request,
+  }) => {
+    const roomId = createSmokeRoomId("note-delete-recovery");
+
+    await openEntryPage(page, roomId);
+    await joinRoom(page, {
+      roomId,
+      name: "Smoke Note Delete Recovery",
+    });
+    await openDebugTools(page);
+
+    const initialCounts = await getRoomObjectCounts(page);
+
+    await clickDebugAddNote(page);
+    await expectRoomObjectCounts(page, {
+      notes: initialCounts.notes + 1,
+    });
+    await expectNoteLabel(page, "New note");
+    await expectLocalReplicaWriteSaved(page, "object-add");
+    await expectDurableReplicaWriteSaved(page, "object-add", "textCards");
+
+    await clickSmokeNoteDelete(page);
+    await expectRoomObjectCounts(page, {
+      tokens: initialCounts.tokens,
+      images: initialCounts.images,
+      notes: initialCounts.notes,
+    });
+    await expectLocalReplicaWriteSaved(page, "object-remove");
+    await expectDurableReplicaWriteSaved(page, "object-remove", "textCards");
+
+    const localRevision = await getLocalReplicaLastWriteRevision(page);
+    expect(localRevision).toBeGreaterThan(0);
+
+    const recoveredPage = await reopenRoomForLocalRecovery(page, request, roomId);
+
+    try {
+      await expectLocalReplicaInitialOpen(recoveredPage, "applied", "indexeddb");
+      await expectBootstrapBranch(recoveredPage, "converged-recovery");
+      await expectBootstrapLocalSource(recoveredPage, "indexeddb");
+      await expectBootstrapSliceSource(recoveredPage, "textCards", "local");
+      await expectLocalReplicaLastRead(recoveredPage, "indexeddb");
+      await expectLocalReplicaLastReadRevision(recoveredPage, localRevision);
+      await expectRoomObjectCounts(recoveredPage, {
+        tokens: initialCounts.tokens,
+        images: initialCounts.images,
+        notes: initialCounts.notes,
+      });
+      await expect(
+        recoveredPage.getByTestId("debug-local-replica-inspection")
+      ).not.toContainText("Error:");
+    } finally {
+      await recoveredPage.close();
+    }
+  });
+
+  test("ignores stale room-snapshot during same-browser reopen when no local replica exists", async ({
+    page,
+    request,
+  }) => {
+    const roomId = createSmokeRoomId("stale-room-snapshot-ignored");
+
+    await openEntryPage(page, roomId);
+    await joinRoom(page, {
+      roomId,
+      name: "Smoke Stale Room Snapshot",
+    });
+    await openDebugTools(page);
+
+    const initialCounts = await getRoomObjectCounts(page);
+
+    await clickDebugAddNote(page);
+    await expectRoomObjectCounts(page, {
+      notes: initialCounts.notes + 1,
+    });
+    await expectLocalReplicaWriteSaved(page, "object-add");
+
+    const createdNoteId = await getNoteId(page);
+
+    await waitForRoomSnapshotState(page, roomId, {
+      notes: initialCounts.notes + 1,
+      noteId: createdNoteId,
+      noteLabel: "New note",
+    });
+
+    await clearLocalRoomDocumentReplica(page, roomId);
+
+    const recoveredPage = await reopenRoomForLocalRecovery(page, request, roomId);
+
+    try {
+      await expectLocalReplicaInitialOpen(recoveredPage, "skipped", "none");
+      await expectBootstrapBranch(recoveredPage, "empty-room");
+      await expectBootstrapLocalSource(recoveredPage, "none");
+      await expectLocalReplicaLastRead(recoveredPage, "none");
       await expectRoomObjectCounts(recoveredPage, {
         tokens: initialCounts.tokens,
         images: initialCounts.images,
