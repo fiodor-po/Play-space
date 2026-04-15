@@ -140,6 +140,41 @@ test.describe("local room smoke corridors", () => {
     }
   });
 
+  test("attaches a same-browser second tab to the active room session", async ({
+    page,
+  }) => {
+    const roomId = createSmokeRoomId("same-browser-tabs");
+
+    await openEntryPage(page, roomId);
+    await joinRoom(page, {
+      roomId,
+      name: "Smoke Same Browser",
+    });
+    await openDebugTools(page);
+    const countsBeforeCreate = await getRoomObjectCounts(page);
+
+    await clickDebugAddNote(page);
+    await expectRoomObjectCounts(page, {
+      notes: countsBeforeCreate.notes + 1,
+    });
+
+    const secondPage = await page.context().newPage();
+
+    try {
+      await secondPage.goto(`/?room=${encodeURIComponent(roomId)}&uiDebugControls=1`);
+      await expect(secondPage.getByTestId("session-leave-room-button")).toBeVisible();
+
+      await openDebugTools(secondPage);
+      await expectRoomObjectCounts(secondPage, {
+        notes: countsBeforeCreate.notes + 1,
+      });
+      await expectSettledRecoveryState(secondPage, "live-active");
+      await expectSettledRecoverySliceSource(secondPage, "textCards", "live");
+    } finally {
+      await secondPage.close();
+    }
+  });
+
   test("syncs committed image move and resize to a second browser context", async ({
     browser,
     page,
