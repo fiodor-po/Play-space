@@ -184,6 +184,9 @@ Then read only the directly relevant focused docs, for example:
 
 - `docs/color-model-design.md`
 - `docs/indication-design.md`
+- `docs/room-document-replica-map.md`
+- `docs/room-document-replica-track-plan.md`
+- `docs/room-document-persistence-target-memo.md`
 - `docs/room-behavior-spec.md`
 - `docs/room-memory-model.md`
 - `docs/dev-workflows.md`
@@ -194,9 +197,14 @@ Then read only the directly relevant focused docs, for example:
 Historical baseline docs:
 
 - `docs/refactor-audit.md`
+
+Supporting migration companion:
+
 - `docs/refactor-plan.md`
 
-Treat those as historical architecture baseline, not as unquestioned current truth.
+Treat `docs/refactor-audit.md` as historical architecture baseline.
+Treat `docs/refactor-plan.md` as supporting architecture migration context, not
+as the primary current control doc.
 
 ## Quick repo map
 
@@ -549,6 +557,7 @@ Scope this narrowly:
 - room lifecycle / recovery: `docs/room-behavior-spec.md`, `docs/room-memory-model.md`
 - color / participant semantics: `docs/color-model-design.md`
 - indication / multiplayer cues: `docs/indication-design.md`
+- replica migration control: `docs/room-document-replica-map.md`, `docs/room-document-replica-track-plan.md`, `docs/room-document-persistence-target-memo.md`
 - local startup and ops: `docs/dev-workflows.md`
 - LiveKit specifics: `docs/livekit-local-dev.md`
 - hosted deploy/runtime assumptions: `docs/hosted-alpha-deployment-plan.md`

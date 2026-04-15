@@ -32,6 +32,8 @@ This is the fastest index for the repo's working docs.
 - `../PLANS.md` — ExecPlan rules for larger work
 - `../play-space-project-foundation.md` — stable product/architecture frame
 - `../play-space-alpha_current-context.md` — current handoff/operational context
+- `room-document-replica-map.md` — canonical human-facing control map for the room-document replica migration track
+- `room-document-replica-track-plan.md` — canonical agent-facing execution/control plan for the room-document replica migration track
 - `task-brief-template.md` — strategist to executor brief template
 - `task-brief-indexeddb-local-replica-phase-1.md` — narrow implementation brief for the current local-replica storage phase
 - `executor-report-template.md` — executor return format
@@ -43,7 +45,8 @@ This is the fastest index for the repo's working docs.
 
 ## Historical / Narrative Documents
 
-- `refactor-audit.md` and `refactor-plan.md` — historical architecture baseline, not current truth
+- `refactor-audit.md` — historical architecture baseline
+- `refactor-plan.md` — supporting architecture migration companion, not the primary current control doc
 - `../play-space-alpha_case-study-log.md` — decisions, milestones, bugs, workflow lessons
 - `project-health-audit-2026-04-13.md` — repo health snapshot
 - `project-health-audit-2026-04-13-agent-readiness-followup.md` — follow-up findings for onboarding/agent readiness

@@ -1,25 +1,34 @@
 # Refactor Plan
 
-Status: current target-oriented architecture plan  
+Status: supporting architecture migration companion  
 Last updated: 2026-04-15
 
-This document is the current architecture migration plan for the repo.
+This document is a supporting architecture migration companion for the repo.
+
+Primary current control docs are:
+
+- `ROADMAP.md` for live priorities and chapter order;
+- `play-space-alpha_current-context.md` for operational handoff state;
+- `docs/room-document-replica-map.md` for the human-facing control map of the
+  replica migration track.
 
 It is no longer the older broad leaf-extraction-first ladder.
 It now follows the accepted post-`App` / post-narrow-`BoardStage` checkpoint framing:
 
 - `App.tsx` structural hotspot is closed for the current phase;
 - narrow `BoardStage.tsx` cleanup chapter is checkpoint-closed;
-- the next main chapter is `room document persistence / recovery architecture`;
+- `room document persistence / recovery architecture` is now the active migration track;
 - the chosen strategy is `parallel replacement`:
   - keep the current product surface;
   - build the target room-document replica model beside the current snapshot-arbitration model;
   - cut over by phases;
+- the first narrow `IndexedDB` local-replica checkpoint is complete;
 - `participant-marker / creator-color` remains a later follow-up chapter after persistence/recovery stabilization;
 - backend/runtime reshaping stays later unless it becomes the main blocker again.
 
 `ROADMAP.md` remains the live project-plan and priority source.
-This file is the architecture-specific migration companion.
+This file remains architecture-oriented reference context, not the primary
+current control document.
 
 ## 1. Goal
 
@@ -178,7 +187,7 @@ Stop conditions:
 
 Status:
 
-- next chapter
+- active migration track
 
 Purpose:
 
@@ -186,6 +195,16 @@ Purpose:
 - keep the product surface stable while persistence and recovery move under it;
 - establish the phased bridge from the current model to the accepted target
   model.
+
+Current state inside this phase:
+
+- `Phase 1A — Narrow commit-boundary persistence phase` is checkpoint-complete;
+- the broader migration track remains open;
+- next required internal replica-track steps are:
+  - local replica semantics;
+  - durable write model;
+  - recovery convergence model;
+  - final cutover from snapshot arbitration.
 
 Likely focus areas:
 
@@ -282,6 +301,11 @@ Current concrete slice for Phase 1A:
 - keep active-room `live-wins` behavior;
 - add a narrow same-browser recovery bridge that can read the IndexedDB replica
   before durable/live convergence finishes.
+
+Phase 1A current result:
+
+- complete as the first narrow checkpoint;
+- not equivalent to closing the full room-document replica migration track.
 
 ### Phase 2 — Local replica semantics
 

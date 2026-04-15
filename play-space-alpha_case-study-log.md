@@ -2527,6 +2527,7 @@ The core product corridor is now usable and materially safer:
 ### Result
 The persistence/recovery chapter reached a real checkpoint:
 
-- `narrow commit-boundary persistence phase` is complete enough to close in the roadmap;
-- the next chapter can move to browser-local participant identity stabilization;
+- `narrow commit-boundary persistence phase` is complete enough to close as the first replica-track checkpoint;
+- the broader room-document replica migration track remains open;
+- the next separate chapter can move to browser-local participant identity stabilization;
 - durable snapshot conflict handling remains a later refinement, not a blocker.

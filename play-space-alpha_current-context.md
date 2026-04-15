@@ -263,7 +263,7 @@ Required deferred follow-up is now explicit:
 - accepted target is snapshot-backed room-scoped last-known participant appearance as the non-live creator fallback by `creatorId`;
 - `creatorId` remains durable room identity truth, while participant appearance fallback belongs to durable room snapshot;
 
-### 3.18. Persistence/recovery reached a working checkpoint
+### 3.18. Persistence/recovery track reached its first working checkpoint
 
 `room document persistence / recovery architecture` reached a working
 checkpoint.
@@ -319,7 +319,15 @@ Checkpoint result now confirmed manually:
 - the current remaining durable `409 conflict` entries are occasional commit-time
   conflicts and the room flow stays intact.
 
-Next chapter candidate:
+Track status now reads like this:
+
+- the first `IndexedDB` local-replica checkpoint is closed;
+- the broader replica migration chain remains open;
+- later required replica-track steps still include local replica semantics,
+  durable write model, recovery convergence, and final cutover from snapshot
+  arbitration.
+
+Next separate chapter candidate:
 
 - `browser-local participant identity stabilization`
 
