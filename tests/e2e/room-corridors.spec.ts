@@ -11,6 +11,8 @@ import {
   clickSmokeTokenMove,
   createSmokeRoomId,
   expectBootstrapLocalSource,
+  expectDurableReplicaWriteSaved,
+  expectDurableReplicaWriteSavedWithoutRetry,
   expectImageLabel,
   expectNoteLabel,
   expectBootstrapBranch,
@@ -188,6 +190,11 @@ test.describe("local room smoke corridors", () => {
       });
 
       await clickSmokeImageResize(page);
+      await expectDurableReplicaWriteSaved(
+        page,
+        "image-transform-end",
+        "images"
+      );
 
       const resizedBounds = await getImageBounds(page);
       expect(resizedBounds.x).toBe(movedBounds.x);
@@ -201,6 +208,68 @@ test.describe("local room smoke corridors", () => {
         width: resizedBounds.width,
         height: resizedBounds.height,
       });
+    } finally {
+      await secondContext.close();
+    }
+  });
+
+  test("completes a cross-slice durable write without retry after a remote covered commit", async ({
+    browser,
+    page,
+    runtimeFailureMonitor,
+  }) => {
+    const roomId = createSmokeRoomId("durable-cross-slice");
+    const imageLabel = `${roomId}.png`;
+
+    await openEntryPage(page, roomId);
+    await joinRoom(page, {
+      roomId,
+      name: "Smoke Cross Slice Alpha",
+    });
+    await openDebugTools(page);
+    const initialCounts = await getRoomObjectCounts(page);
+
+    const secondContext = await browser.newContext();
+    runtimeFailureMonitor.attachContext(secondContext);
+    const secondPage = await secondContext.newPage();
+
+    try {
+      await openEntryPage(secondPage, roomId);
+      await joinRoom(secondPage, {
+        roomId,
+        name: "Smoke Cross Slice Beta",
+        color: "#0891b2",
+      });
+      await openDebugTools(secondPage);
+
+      await clickDebugAddNote(secondPage);
+      await expectRoomObjectCounts(secondPage, {
+        images: initialCounts.images,
+        notes: initialCounts.notes + 1,
+      });
+      await expectRoomObjectCounts(page, {
+        images: initialCounts.images,
+        notes: initialCounts.notes + 1,
+      });
+
+      await uploadSmokeImage(page, imageLabel);
+      await expectRoomObjectCounts(page, {
+        images: initialCounts.images + 1,
+        notes: initialCounts.notes + 1,
+      });
+      await expectRoomObjectCounts(secondPage, {
+        images: initialCounts.images + 1,
+        notes: initialCounts.notes + 1,
+      });
+      await expectImageLabel(secondPage, imageLabel);
+
+      await clickSmokeNoteEdit(secondPage);
+      await expectDurableReplicaWriteSavedWithoutRetry(
+        secondPage,
+        "note-text-save",
+        "textCards"
+      );
+      await expectNoteLabel(secondPage, "New note [smoke-saved]");
     } finally {
       await secondContext.close();
     }
@@ -559,6 +628,7 @@ test.describe("local room smoke corridors", () => {
 
     await clickSmokeTokenMove(page);
     await expectLocalReplicaWriteSaved(page, "token-drop");
+    await expectDurableReplicaWriteSaved(page, "token-drop", "tokens");
     const localRevision = await getLocalReplicaLastWriteRevision(page);
     expect(localRevision).toBeGreaterThan(0);
     await expectLocalReplicaLastWriteRevision(page, localRevision);
@@ -613,6 +683,7 @@ test.describe("local room smoke corridors", () => {
 
     await clickSmokeNoteMove(page);
     await expectLocalReplicaWriteSaved(page, "note-drag-end");
+    await expectDurableReplicaWriteSaved(page, "note-drag-end", "textCards");
     const localRevision = await getLocalReplicaLastWriteRevision(page);
     expect(localRevision).toBeGreaterThan(0);
     await expectLocalReplicaLastWriteRevision(page, localRevision);
@@ -672,6 +743,7 @@ test.describe("local room smoke corridors", () => {
 
     await clickSmokeNoteEdit(page);
     await expectLocalReplicaWriteSaved(page, "note-text-save");
+    await expectDurableReplicaWriteSaved(page, "note-text-save", "textCards");
     const localRevision = await getLocalReplicaLastWriteRevision(page);
     expect(localRevision).toBeGreaterThan(0);
     await expectLocalReplicaLastWriteRevision(page, localRevision);
@@ -721,6 +793,7 @@ test.describe("local room smoke corridors", () => {
 
     await clickSmokeNoteResize(page);
     await expectLocalReplicaWriteSaved(page, "note-resize-end");
+    await expectDurableReplicaWriteSaved(page, "note-resize-end", "textCards");
     const localRevision = await getLocalReplicaLastWriteRevision(page);
     expect(localRevision).toBeGreaterThan(0);
     await expectLocalReplicaLastWriteRevision(page, localRevision);

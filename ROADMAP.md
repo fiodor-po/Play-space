@@ -106,10 +106,17 @@ persistence/recovery от snapshot arbitration к replica model.
 10. зафиксировать, что первый `IndexedDB`-baseline checkpoint закрыт, но сам
    replica-track ещё не завершён;
 11. взять `Durable write model` как следующий internal replica-track step;
-12. взять `browser-local participant identity stabilization` как следующий
+   - step is now closed:
+     - covered local token/image/note commits own durable writes through a narrow update corridor;
+     - ordinary runtime durable writes now belong to commit-owned corridors instead of broad snapshot timing;
+     - durable ack/revision handling is explicit and inspectable;
+     - covered multi-client durable corridors no longer rely on browser-visible `409` resource noise;
+     - covered durable `PATCH` corridors use per-slice revision discipline and avoid cross-slice stale-base conflicts;
+12. взять `Recovery convergence model` как следующий internal replica-track step;
+13. взять `browser-local participant identity stabilization` как следующий
     отдельный chapter candidate вне самого replica-track;
-13. держать `participant-marker / creator-color` как later chapter после participant identity stabilization;
-14. возвращаться к hosted validation как recurring checkpoint после крупных
+14. держать `participant-marker / creator-color` как later chapter после participant identity stabilization;
+15. возвращаться к hosted validation как recurring checkpoint после крупных
     шагов и новых demo snapshots.
 
 ### Почему это теперь главный фокус
@@ -136,8 +143,11 @@ persistence/recovery от snapshot arbitration к replica model.
 - active migration track: `room document persistence / recovery architecture`;
 - completed implementation checkpoint: `narrow commit-boundary persistence phase`;
 - completed internal replica-track step: `Local replica semantics`;
-- next internal replica-track step: `Durable write model`;
+- completed internal replica-track step: `Durable write model`;
+- next internal replica-track step: `Recovery convergence model`;
 - next separate chapter candidate: `browser-local participant identity stabilization`;
+- later chapter candidate: `debug-tools usability cleanup`;
+- later follow-up task: `room-ops durability ergonomics`;
 - later follow-up chapter: `participant-marker / creator-color`;
 - hosted validation как повторяемая проверка после крупных шагов, выкатываний и
   новых demo snapshots.
@@ -164,10 +174,14 @@ persistence/recovery от snapshot arbitration к replica model.
 7. считать `room document persistence / recovery architecture` active migration track with phase-1 checkpoint complete;
 8. считать `narrow commit-boundary persistence phase` checkpoint-complete;
 9. считать `Local replica semantics` закрытым internal replica-track step;
-10. взять `Durable write model` как следующий internal replica-track step;
-11. взять `browser-local participant identity stabilization` как следующий отдельный chapter candidate вне replica-track;
-12. держать `participant-marker / creator-color` как следующий отдельный follow-up chapter после participant identity stabilization;
-13. возвращаться к hosted validation как checkpoint после больших шагов и новых
+10. считать `Durable write model` закрытым internal replica-track step;
+11. считать `Checkpoint 2` закрытым после local и durable maturity;
+12. взять `Recovery convergence model` как следующий internal replica-track step;
+13. взять `browser-local participant identity stabilization` как следующий отдельный chapter candidate вне replica-track;
+14. держать `debug-tools usability cleanup` как отдельный later chapter candidate for inspectability ergonomics;
+15. держать `room-ops durability ergonomics` как later follow-up task after the current replica-track chapter;
+16. держать `participant-marker / creator-color` как следующий отдельный follow-up chapter после participant identity stabilization;
+17. возвращаться к hosted validation как checkpoint после больших шагов и новых
    demo snapshots.
 
 ## 8. Backlog
@@ -214,7 +228,14 @@ persistence/recovery от snapshot arbitration к replica model.
   - local replica now has monotonic local revision identity
   - covered committed image/token/note corridors now write into IndexedDB local replica
   - version-aware empty local replica now keeps same-browser reopen on the empty local document instead of stale `room-snapshot` or baseline fallback
-- [ ] run `Durable write model` as the next internal replica-track step
+- [x] close `Durable write model` as the next internal replica-track step
+  - covered local token/image/note commits now use a commit-owned durable update corridor
+  - commit-owned durable corridors now own ordinary runtime durable writes
+  - durable checkpoint/bootstrap read path keeps the current behavior
+  - covered multi-client durable update corridors now finish without accepted `409` resource-error baseline noise
+  - covered durable `PATCH` corridors now use per-slice revision discipline to avoid cross-slice stale-base conflicts
+- [x] close `Checkpoint 2` after local replica semantics and durable write model
+- [ ] run `Recovery convergence model` as the next internal replica-track step
 - [ ] использовать hosted validation как recurring checkpoint после крупных
   продуктовых шагов и новых demo snapshots
 
@@ -239,6 +260,9 @@ persistence/recovery от snapshot arbitration к replica model.
   - list existing rooms on the server
   - inspect room contents / snapshot state
   - reset / delete / repair problematic rooms
+- [ ] decide room-ops durability ergonomics after destructive snapshot delete:
+  - choose between immediate durable reseed, explicit leave-time flush, or clearer destructive semantics for the ops path
+  - keep this out of `Recovery convergence model` unless the decision starts changing recovery semantics
 - [ ] add server-controlled client reset policy for stale browser-local room memory:
   - backend-published reset marker
   - early boot check before local restore

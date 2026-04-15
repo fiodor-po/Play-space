@@ -4,6 +4,7 @@ import {
   removeBoardObjectById,
   updateBoardObjectById,
 } from "../../lib/boardObjects";
+import type { DurableRoomSnapshotSlice } from "../../lib/durableRoomSnapshot";
 import type {
   ImageDrawingLock,
   RoomImageConnection,
@@ -53,6 +54,12 @@ export type LocalObjectsChangeOptions = {
     | "note-drag-end"
     | "note-resize-end"
     | "note-text-save";
+  durableBoundary?:
+    | "object-add"
+    | "object-remove"
+    | "image-clear-all"
+    | "image-clear-own";
+  durableSlice?: DurableRoomSnapshotSlice;
 };
 
 type LocalObjectsChangeOptionsResolver =
@@ -76,6 +83,24 @@ export function getRoomScopedBoardObjects(roomId: string) {
       object.kind !== "image" &&
       !isNoteCardObject(object)
   );
+}
+
+function getDurableRoomSnapshotSliceForObject(
+  object: BoardObject | undefined
+): DurableRoomSnapshotSlice | null {
+  if (object?.kind === "token") {
+    return "tokens";
+  }
+
+  if (object?.kind === "image") {
+    return "images";
+  }
+
+  if (object && isNoteCardObject(object)) {
+    return "textCards";
+  }
+
+  return null;
 }
 
 export function useBoardObjectRuntime({
@@ -181,9 +206,17 @@ export function useBoardObjectRuntime({
 
   const addBoardObject = useCallback(
     (object: BoardObject) => {
+      const durableSlice = getDurableRoomSnapshotSliceForObject(object);
+
       applyBoardObjectsUpdate(
         (currentObjects) => [...currentObjects, object],
-        getAddBoardObjectSyncOptions(object)
+        getAddBoardObjectSyncOptions(object),
+        durableSlice
+          ? {
+              durableBoundary: "object-add",
+              durableSlice,
+            }
+          : undefined
       );
     },
     [applyBoardObjectsUpdate]
@@ -208,7 +241,19 @@ export function useBoardObjectRuntime({
     (id: string) => {
       applyBoardObjectsUpdate(
         (currentObjects) => removeBoardObjectById(currentObjects, id),
-        (currentObjects) => getRemoveBoardObjectSyncOptions(currentObjects, id)
+        (currentObjects) => getRemoveBoardObjectSyncOptions(currentObjects, id),
+        (currentObjects) => {
+          const durableSlice = getDurableRoomSnapshotSliceForObject(
+            currentObjects.find((candidate) => candidate.id === id)
+          );
+
+          return durableSlice
+            ? {
+                durableBoundary: "object-remove",
+                durableSlice,
+              }
+            : undefined;
+        }
       );
     },
     [applyBoardObjectsUpdate]

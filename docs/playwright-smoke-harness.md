@@ -117,8 +117,7 @@ Smoke suite now fails when:
 
 Current accepted allowlist stays narrow and covers only:
 
-- `[room-recovery][durable-snapshot][save-conflict]`
-- durable snapshot browser resource errors `404/409`
+- durable snapshot browser resource errors `404`
 - transient local `y-websocket` close-before-established warnings
 - Chromium headless `ReadPixels` WebGL warning
 
@@ -175,7 +174,13 @@ After `Durable write model`:
 
 - durable warning allowlist;
 - browser resource error expectations tied to current durable snapshot timing;
-- helper logic that assumes snapshot-era durable behavior.
+- helper logic that assumes snapshot-era durable behavior;
+- current single-writer covered corridors should finish without accepted durable
+  `save-conflict` warning noise;
+- covered multi-client durable update corridors should finish without accepted
+  `409` resource-error noise;
+- covered cross-slice durable happy paths should finish without logical
+  conflict/retry on the acting writer.
 
 After `Recovery convergence model`:
 

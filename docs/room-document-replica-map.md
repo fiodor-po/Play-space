@@ -35,6 +35,8 @@
 
 - migration chain active;
 - phase-1 `browser-local replica baseline` checkpoint complete;
+- checkpoint 2 after local and durable replica maturity is complete;
+- next internal replica-track step is `Recovery convergence model`;
 - full replica cutover ещё впереди.
 
 ## Как это называть
@@ -281,7 +283,7 @@ replica model, а не просто improved recovery.
 
 **Статус**
 
-- не начато
+- сделано
 
 **Шаг считается завершённым, когда**
 
@@ -317,7 +319,7 @@ discipline.
 
 **Статус**
 
-- не начато
+- сделано
 
 **Шаг считается завершённым, когда**
 
@@ -343,7 +345,7 @@ snapshot-timing corridor и стали version-aware persistence layers.
 
 **Статус**
 
-- позже
+- сделано
 
 ### Шаг 6. Recovery convergence model
 

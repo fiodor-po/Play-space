@@ -63,10 +63,12 @@
 - phase-1 `browser-local replica baseline` checkpoint complete;
 - `Local replica semantics` complete after write-side and read-side local
   replica slices plus human gate;
+- `Durable write model` complete after commit-owned update slices, per-slice
+  durable revision discipline, and human gate;
 - local browser smoke harness baseline exists and is accepted as a machine gate
   for current replica-track steps;
-- current next required step: `Durable write model`;
-- current nearest checkpoint: `Checkpoint 2`;
+- current next required step: `Recovery convergence model`;
+- current nearest checkpoint: `Checkpoint 3`;
 - human gate still required between major checkpoints.
 
 ## Граница с room identity layer
@@ -217,7 +219,7 @@ Browser-local state становится version-aware local replica, а не fa
 
 **Статус**
 
-- не начато
+- сделано
 
 **Роль**
 
@@ -257,6 +259,22 @@ Durable persistence становится version-aware durable replica path.
 - step requires broad room transport redesign;
 - step starts rewriting `BoardStage` broadly;
 - step mixes participant identity or unrelated multiplayer semantics.
+
+**Closure result**
+
+- covered committed token/image/note corridors now own durable writes through a
+  family-scoped update corridor on commit boundary;
+- ordinary runtime durable writes no longer depend on broad whole-room snapshot
+  timing;
+- durable acknowledgement / revision handling became explicit runtime data with
+  inspectability for boundary, slice, snapshot revision, slice revision, and
+  retry/conflict state;
+- covered multi-client durable corridors no longer rely on browser-visible
+  `409` noise as the accepted baseline;
+- covered cross-slice durable writes now use per-slice revision discipline and
+  avoid stale-base logical conflicts from unrelated slices;
+- bootstrap/read behavior, `live-wins`, and local fallback semantics stayed
+  unchanged.
 
 ### Шаг 6. Recovery convergence model
 
@@ -386,9 +404,9 @@ Replica convergence становится основной recovery model.
 
 **Статус**
 
-- позже
+- сделано
 
-**Что должен подтвердить**
+**Что подтвердили**
 
 - local and durable persistence layers are version-aware;
 - local bootstrap no longer behaves like snapshot fallback arbitration;

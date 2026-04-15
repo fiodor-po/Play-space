@@ -28,12 +28,6 @@ export type RuntimeFailureMonitor = {
 
 const ACCEPTED_RUNTIME_ALLOWLIST: RuntimeAllowRule[] = [
   {
-    id: "durable-snapshot-save-conflict",
-    severity: "warning",
-    match: (violation) =>
-      violation.text.includes("[room-recovery][durable-snapshot][save-conflict]"),
-  },
-  {
     id: "local-yjs-websocket-close-before-connect",
     severity: "warning",
     match: (violation) =>
@@ -58,14 +52,6 @@ const ACCEPTED_RUNTIME_ALLOWLIST: RuntimeAllowRule[] = [
       violation.location?.includes("/api/room-snapshots/") === true &&
       violation.text ===
         "Failed to load resource: the server responded with a status of 404 (Not Found)",
-  },
-  {
-    id: "durable-snapshot-save-conflict-resource-error",
-    severity: "error",
-    match: (violation) =>
-      violation.location?.includes("/api/room-snapshots/") === true &&
-      violation.text ===
-        "Failed to load resource: the server responded with a status of 409 (Conflict)",
   },
 ];
 

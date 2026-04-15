@@ -104,6 +104,7 @@ export async function openDebugTools(page: Page) {
   await expect(page.getByTestId("debug-token-inspection")).toBeVisible();
   await expect(page.getByTestId("debug-note-inspection")).toBeVisible();
   await expect(page.getByTestId("debug-local-replica-inspection")).toBeVisible();
+  await expect(page.getByTestId("debug-durable-replica-inspection")).toBeVisible();
 }
 
 export async function expectRoomObjectCounts(
@@ -171,6 +172,48 @@ export async function expectLocalReplicaWriteSaved(
 
   await expect(inspection).toContainText("Last write: saved");
   await expect(inspection).toContainText(`boundary ${commitBoundary}`);
+}
+
+export async function expectDurableReplicaWriteSaved(
+  page: Page,
+  boundary: string,
+  slice: string
+) {
+  const inspection = page.getByTestId("debug-durable-replica-last-write");
+
+  await expect(inspection).toContainText("Last write: saved");
+  await expect(inspection).toContainText(`boundary ${boundary}`);
+  await expect(inspection).toContainText(`slice ${slice}`);
+}
+
+export async function expectDurableReplicaWriteSavedWithoutRetry(
+  page: Page,
+  boundary: string,
+  slice: string
+) {
+  await expectDurableReplicaWriteSaved(page, boundary, slice);
+
+  const writeInspection = page.getByTestId("debug-durable-replica-last-write");
+  const knownRevisions = page.getByTestId("debug-durable-replica-known-revisions");
+
+  await expect(writeInspection).toContainText("retry count 0");
+  await expect(writeInspection).toContainText("retry resolved no");
+  await expect(writeInspection).toContainText("conflict slice rev none");
+
+  const writeText = await writeInspection.innerText();
+  const ackSnapshotMatch = writeText.match(/ack snapshot rev\s+(\d+)/);
+  const ackSliceMatch = writeText.match(/ack slice rev\s+(\d+)/);
+
+  if (!ackSnapshotMatch || !ackSliceMatch) {
+    throw new Error(
+      `Failed to read durable ack revisions from debug output: ${writeText}`
+    );
+  }
+
+  const knownText = await knownRevisions.innerText();
+
+  expect(knownText).toContain(`snapshot ${ackSnapshotMatch[1]}`);
+  expect(knownText).toContain(`${slice} ${ackSliceMatch[1]}`);
 }
 
 export async function expectLocalReplicaLastReadRevision(

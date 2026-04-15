@@ -37,6 +37,19 @@
 - narrow `BoardStage` cleanup chapter is checkpoint-closed;
 - refreshed architecture/runtime audit is completed;
 - current active architecture hotspot is now persistence/recovery correctness.
+- `Durable write model` is now closed after human gate:
+  - covered local token/image/note commits write durable updates through a narrow slice corridor;
+  - commit-owned durable corridors now own ordinary runtime durable writes;
+  - covered multi-client durable update corridors no longer rely on browser-visible `409` resource noise;
+  - covered durable `PATCH` corridors now use per-slice revision discipline to avoid cross-slice stale-base conflicts.
+- `Checkpoint 2` is now closed after local and durable persistence maturity.
+- current next internal replica-track step is now `Recovery convergence model`.
+- Dev tools inspectability surface now has one recorded usability follow-up:
+  - current panel height hides lower controls on ordinary desktop viewport sizes;
+  - a separate `debug-tools usability cleanup` chapter candidate is now recorded for viewport-bounded scroll behavior.
+- room ops now have one recorded durability ergonomics follow-up:
+  - destructive snapshot delete leaves the room without durable recoverability until the next covered commit;
+  - a separate `room-ops durability ergonomics` task is now recorded for reseed or leave-flush policy.
 
 Current workflow rule for hosted validation:
 
@@ -971,8 +984,12 @@ Working order from here:
 6. open `room document persistence / recovery architecture` as the active chapter
 7. treat `narrow commit-boundary persistence phase` as the completed first implementation checkpoint
 8. treat `Local replica semantics` as the completed next internal replica-track step
-9. take `Durable write model` as the next internal replica-track step
-10. keep participant-marker / creator-color as the following separate semantic/runtime chapter
+9. treat `Durable write model` as the completed next internal replica-track step
+10. treat `Checkpoint 2` as closed after local and durable persistence maturity
+11. take `Recovery convergence model` as the next internal replica-track step
+12. keep `debug-tools usability cleanup` as a later inspectability/usability chapter candidate
+13. keep `room-ops durability ergonomics` as a later follow-up task outside the current replica-track chapter
+14. keep participant-marker / creator-color as the following separate semantic/runtime chapter
 
 Accepted cleanup decisions already made:
 

@@ -73,7 +73,29 @@ Recommended statuses:
 - `date`: `2026-04-15`
 - `source`: strategist review after the read-side `Local replica semantics` slice
 - `finding`: legacy `room-snapshot` remains as a compatibility fallback after version-aware local replica adoption
-- `why_deferred`: current slice intentionally stopped at local read semantics and did not remove the compatibility path
-- `expected_action`: keep the fallback as a compatibility path for now and review whether it should narrow further during `Durable write model`
-- `target_chapter`: `Durable write model`
+- `why_deferred`: `Durable write model` closed without needing fallback removal; the remaining decision belongs to the recovery-side chapter where bootstrap and convergence semantics are already in scope
+- `expected_action`: keep the fallback as a compatibility path for now and review whether it should narrow further during `Recovery convergence model`
+- `target_chapter`: `Recovery convergence model`
+- `status`: `planned`
+
+### RF-2026-04-15-02
+
+- `id`: `RF-2026-04-15-02`
+- `date`: `2026-04-15`
+- `source`: strategist review after manual runtime check of the new durable inspectability surface
+- `finding`: Dev tools panel now overflows the viewport and hides lower debug actions because the panel has no human-usable scroll behavior
+- `why_deferred`: current pass is about durable write semantics; the inspectability surface still works for automation, and the layout fix belongs to a separate narrow usability pass
+- `expected_action`: add viewport-bounded layout and internal scroll behavior so the full Dev tools panel remains reachable on ordinary desktop viewports
+- `target_chapter`: `debug-tools usability cleanup`
+- `status`: `planned`
+
+### RF-2026-04-15-03
+
+- `id`: `RF-2026-04-15-03`
+- `date`: `2026-04-15`
+- `source`: strategist review during `Durable write model` closure after manual ops/admin validation
+- `finding`: destructive ops delete removes the durable snapshot until the next covered commit, and leave-to-entry during that window can temporarily leave the room without durable recoverability
+- `why_deferred`: ordinary durable write corridors and recovery order are already validated; reseed or leave-flush policy is a separate room-ops/runtime ergonomics decision
+- `expected_action`: decide whether destructive snapshot delete should trigger immediate durable reseed, explicit leave-time flush, or clearer destructive semantics in the ops path
+- `target_chapter`: `room-ops durability ergonomics`
 - `status`: `planned`

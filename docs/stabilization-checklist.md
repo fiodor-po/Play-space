@@ -22,8 +22,9 @@
 - [ ] same-browser reopen без второго live client всё ещё восстанавливает committed image draw/save через local-recovery corridor
 - [ ] same-browser reopen без второго live client всё ещё восстанавливает committed token move через `local-recovery` / IndexedDB corridor
 - [ ] same-browser reopen без второго live client всё ещё восстанавливает committed note move, committed note resize и saved note text через `local-recovery` / IndexedDB corridor
+- [ ] covered two-browser cross-slice durable corridor finishes with durable `saved` and without retry/conflict on the acting writer
 - [ ] smoke harness валит suite на uncaught page errors и на console warning/error вне явного allowlist
-- [ ] accepted runtime allowlist остаётся узким и сейчас покрывает только `durable-snapshot save-conflict`, durable snapshot `404/409` resource errors, transient local `y-websocket` close-before-established и Chromium `ReadPixels` warning
+- [ ] accepted runtime allowlist остаётся узким и сейчас покрывает только durable snapshot `404` resource errors, transient local `y-websocket` close-before-established и Chromium `ReadPixels` warning
 
 ## Hosted smoke minimum
 

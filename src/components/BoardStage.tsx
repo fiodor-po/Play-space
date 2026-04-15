@@ -99,6 +99,8 @@ import {
 import {
   loadDurableRoomSnapshot,
   saveDurableRoomSnapshot,
+  saveDurableRoomSnapshotSlice,
+  type DurableRoomSnapshotSlice,
 } from "../lib/durableRoomSnapshot";
 import {
   updateBoardObjectById,
@@ -267,7 +269,56 @@ function getReplicaObjectCount(content: {
   return content.tokens.length + content.images.length + content.textCards.length;
 }
 
+function getDurableSliceObjects(
+  nextObjects: BoardObject[],
+  slice: DurableRoomSnapshotSlice
+) {
+  if (slice === "tokens") {
+    return nextObjects.filter((object) => object.kind === "token");
+  }
+
+  if (slice === "images") {
+    return nextObjects.filter((object) => object.kind === "image");
+  }
+
+  return nextObjects.filter((object) => isNoteCardObject(object));
+}
+
+function getDurableSliceForCommitBoundary(
+  commitBoundary: LocalObjectsChangeOptions["commitBoundary"] | null | undefined
+): DurableRoomSnapshotSlice | null {
+  if (commitBoundary === "token-drop") {
+    return "tokens";
+  }
+
+  if (
+    commitBoundary === "image-drag-end" ||
+    commitBoundary === "image-transform-end" ||
+    commitBoundary === "image-draw-commit"
+  ) {
+    return "images";
+  }
+
+  if (
+    commitBoundary === "note-drag-end" ||
+    commitBoundary === "note-resize-end" ||
+    commitBoundary === "note-text-save"
+  ) {
+    return "textCards";
+  }
+
+  return null;
+}
+
 function formatDebugTimestamp(timestamp: number | null) {
+  if (timestamp === null) {
+    return "none";
+  }
+
+  return new Date(timestamp).toLocaleString();
+}
+
+function formatIsoDebugTimestamp(timestamp: string | null) {
   if (timestamp === null) {
     return "none";
   }
@@ -360,6 +411,113 @@ type LocalReplicaInspectionState = {
   lastError: string | null;
 };
 
+type DurableDebugBoundary =
+  | "image-drag-end"
+  | "image-transform-end"
+  | "image-draw-commit"
+  | "token-drop"
+  | "note-drag-end"
+  | "note-resize-end"
+  | "note-text-save"
+  | "object-add"
+  | "object-remove"
+  | "image-clear-all"
+  | "image-clear-own"
+  | "room-reset";
+
+type DurableSliceRevisionState = Record<DurableRoomSnapshotSlice, number | null>;
+
+type DurableReplicaInspectionState = {
+  currentRevision: number | null;
+  currentSliceRevisions: DurableSliceRevisionState;
+  lastWriteStatus: "idle" | "writing" | "saved" | "conflict" | "failed";
+  lastWriteBoundary: DurableDebugBoundary | null;
+  lastWriteSlice: DurableRoomSnapshotSlice | "snapshot" | null;
+  lastKnownSliceRevision: number | null;
+  lastBaseRevision: number | null;
+  lastBaseSliceRevision: number | null;
+  lastAckSnapshotRevision: number | null;
+  lastAckSliceRevision: number | null;
+  lastConflictRevision: number | null;
+  lastConflictSliceRevision: number | null;
+  lastRetryCount: number;
+  lastResolvedViaRetry: boolean;
+  lastAckSavedAt: string | null;
+  lastWriteObjectCount: number;
+  lastError: string | null;
+};
+
+function createInitialLocalReplicaInspectionState(): LocalReplicaInspectionState {
+  return {
+    lastWriteStatus: "idle",
+    lastWriteCommitBoundary: null,
+    lastWriteRevision: null,
+    lastWriteSavedAt: null,
+    lastWriteObjectCount: 0,
+    lastReadSource: "idle",
+    lastReadRevision: null,
+    lastReadSavedAt: null,
+    lastReadObjectCount: 0,
+    lastBootstrapBranch: null,
+    lastBootstrapLocalSource: null,
+    lastError: null,
+  };
+}
+
+function createInitialDurableSliceRevisionState(): DurableSliceRevisionState {
+  return {
+    tokens: null,
+    images: null,
+    textCards: null,
+  };
+}
+
+function cloneDurableSliceRevisionState(
+  state: DurableSliceRevisionState
+): DurableSliceRevisionState {
+  return {
+    tokens: state.tokens,
+    images: state.images,
+    textCards: state.textCards,
+  };
+}
+
+function getDurableSliceRevisionStateFromSnapshot(snapshot: {
+  sliceRevisions: Record<DurableRoomSnapshotSlice, number>;
+} | null): DurableSliceRevisionState {
+  if (!snapshot) {
+    return createInitialDurableSliceRevisionState();
+  }
+
+  return {
+    tokens: snapshot.sliceRevisions.tokens,
+    images: snapshot.sliceRevisions.images,
+    textCards: snapshot.sliceRevisions.textCards,
+  };
+}
+
+function createInitialDurableReplicaInspectionState(): DurableReplicaInspectionState {
+  return {
+    currentRevision: null,
+    currentSliceRevisions: createInitialDurableSliceRevisionState(),
+    lastWriteStatus: "idle",
+    lastWriteBoundary: null,
+    lastWriteSlice: null,
+    lastKnownSliceRevision: null,
+    lastBaseRevision: null,
+    lastBaseSliceRevision: null,
+    lastAckSnapshotRevision: null,
+    lastAckSliceRevision: null,
+    lastConflictRevision: null,
+    lastConflictSliceRevision: null,
+    lastRetryCount: 0,
+    lastResolvedViaRetry: false,
+    lastAckSavedAt: null,
+    lastWriteObjectCount: 0,
+    lastError: null,
+  };
+}
+
 export default function BoardStage({
   participantSession,
   participantPresences,
@@ -388,20 +546,11 @@ export default function BoardStage({
     height: window.innerHeight,
   });
   const [localReplicaInspection, setLocalReplicaInspection] =
-    useState<LocalReplicaInspectionState>({
-      lastWriteStatus: "idle",
-      lastWriteCommitBoundary: null,
-      lastWriteRevision: null,
-      lastWriteSavedAt: null,
-      lastWriteObjectCount: 0,
-      lastReadSource: "idle",
-      lastReadRevision: null,
-      lastReadSavedAt: null,
-      lastReadObjectCount: 0,
-      lastBootstrapBranch: null,
-      lastBootstrapLocalSource: null,
-      lastError: null,
-    });
+    useState<LocalReplicaInspectionState>(createInitialLocalReplicaInspectionState);
+  const [durableReplicaInspection, setDurableReplicaInspection] =
+    useState<DurableReplicaInspectionState>(
+      createInitialDurableReplicaInspectionState
+    );
 
   const [stagePosition, setStagePosition] = useState(() => {
     const savedViewport = loadViewportState(roomId);
@@ -491,21 +640,321 @@ export default function BoardStage({
     }
   );
 
+  const queueDurableWriteTask = useEffectEvent((task: () => Promise<void>) => {
+    durableWriteQueueRef.current = durableWriteQueueRef.current
+      .catch(() => undefined)
+      .then(task);
+  });
+
+  const persistDurableSliceWrite = useEffectEvent(
+    (
+      nextObjects: BoardObject[],
+      boundary: DurableDebugBoundary,
+      slice: DurableRoomSnapshotSlice
+    ) => {
+      const sliceObjects = getDurableSliceObjects(nextObjects, slice);
+      const objectCount = sliceObjects.length;
+
+      queueDurableWriteTask(async () => {
+        if (activeRoomIdRef.current !== roomId) {
+          return;
+        }
+
+        let baseSliceRevision = durableSliceRevisionRef.current[slice];
+        let retryCount = 0;
+
+        setDurableReplicaInspection((current) => ({
+          ...current,
+          currentRevision: durableSnapshotRevisionRef.current,
+          currentSliceRevisions: cloneDurableSliceRevisionState(
+            durableSliceRevisionRef.current
+          ),
+          lastWriteStatus: "writing",
+          lastWriteBoundary: boundary,
+          lastWriteSlice: slice,
+          lastKnownSliceRevision: durableSliceRevisionRef.current[slice],
+          lastBaseRevision: null,
+          lastBaseSliceRevision: baseSliceRevision,
+          lastAckSnapshotRevision: null,
+          lastAckSliceRevision: null,
+          lastConflictRevision: null,
+          lastConflictSliceRevision: null,
+          lastRetryCount: 0,
+          lastResolvedViaRetry: false,
+          lastAckSavedAt: null,
+          lastWriteObjectCount: objectCount,
+          lastError: null,
+        }));
+
+        for (let attempt = 0; attempt < 2; attempt += 1) {
+          const result = await saveDurableRoomSnapshotSlice(
+            roomId,
+            slice,
+            sliceObjects,
+            baseSliceRevision
+          );
+
+          if (activeRoomIdRef.current !== roomId) {
+            return;
+          }
+
+          if (result.status === "conflict") {
+            durableSnapshotRevisionRef.current = result.currentRevision;
+            durableSliceRevisionRef.current = {
+              ...durableSliceRevisionRef.current,
+              [slice]: result.currentSliceRevision,
+            };
+
+            if (
+              attempt === 0 &&
+              result.currentSliceRevision !== null &&
+              result.currentSliceRevision !== baseSliceRevision
+            ) {
+              baseSliceRevision = result.currentSliceRevision;
+              retryCount = attempt + 1;
+              continue;
+            }
+
+            setDurableReplicaInspection((current) => ({
+              ...current,
+              currentRevision: result.currentRevision,
+              currentSliceRevisions: cloneDurableSliceRevisionState(
+                durableSliceRevisionRef.current
+              ),
+              lastWriteStatus: "conflict",
+              lastWriteBoundary: boundary,
+              lastWriteSlice: slice,
+              lastKnownSliceRevision: durableSliceRevisionRef.current[slice],
+              lastBaseRevision: null,
+              lastBaseSliceRevision: baseSliceRevision,
+              lastAckSnapshotRevision: null,
+              lastAckSliceRevision: null,
+              lastConflictRevision: result.currentRevision,
+              lastConflictSliceRevision: result.currentSliceRevision,
+              lastRetryCount: retryCount,
+              lastResolvedViaRetry: false,
+              lastAckSavedAt: null,
+              lastWriteObjectCount: objectCount,
+              lastError: null,
+            }));
+            return;
+          }
+
+          if (result.status === "saved") {
+            durableSnapshotRevisionRef.current = result.ack.snapshotRevision;
+            durableSliceRevisionRef.current = {
+              ...durableSliceRevisionRef.current,
+              [slice]: result.ack.sliceRevision,
+            };
+            setDurableReplicaInspection((current) => ({
+              ...current,
+              currentRevision: result.ack.snapshotRevision,
+              currentSliceRevisions: cloneDurableSliceRevisionState(
+                durableSliceRevisionRef.current
+              ),
+              lastWriteStatus: "saved",
+              lastWriteBoundary: boundary,
+              lastWriteSlice: slice,
+              lastKnownSliceRevision: result.ack.sliceRevision,
+              lastBaseRevision: null,
+              lastBaseSliceRevision: baseSliceRevision,
+              lastAckSnapshotRevision: result.ack.snapshotRevision,
+              lastAckSliceRevision: result.ack.sliceRevision,
+              lastConflictRevision: null,
+              lastConflictSliceRevision: null,
+              lastRetryCount: retryCount,
+              lastResolvedViaRetry: retryCount > 0,
+              lastAckSavedAt: result.ack.savedAt,
+              lastWriteObjectCount: result.ack.objectCount,
+              lastError: null,
+            }));
+            return;
+          }
+
+          setDurableReplicaInspection((current) => ({
+            ...current,
+            currentRevision: durableSnapshotRevisionRef.current,
+            currentSliceRevisions: cloneDurableSliceRevisionState(
+              durableSliceRevisionRef.current
+            ),
+            lastWriteStatus: "failed",
+            lastWriteBoundary: boundary,
+            lastWriteSlice: slice,
+            lastKnownSliceRevision: durableSliceRevisionRef.current[slice],
+            lastBaseRevision: null,
+            lastBaseSliceRevision: baseSliceRevision,
+            lastAckSnapshotRevision: null,
+            lastAckSliceRevision: null,
+            lastRetryCount: retryCount,
+            lastResolvedViaRetry: false,
+            lastAckSavedAt: null,
+            lastWriteObjectCount: objectCount,
+            lastError: "durable-slice-write-unavailable",
+          }));
+          return;
+        }
+      });
+    }
+  );
+
+  const persistLegacyDurableSnapshot = useEffectEvent(
+    (nextObjects: BoardObject[], boundary: DurableDebugBoundary) => {
+      const objectCount = getSharedBoardObjects(nextObjects).length;
+
+      queueDurableWriteTask(async () => {
+        if (activeRoomIdRef.current !== roomId) {
+          return;
+        }
+
+        let baseRevision = durableSnapshotRevisionRef.current;
+        let retryCount = 0;
+
+        setDurableReplicaInspection((current) => ({
+          ...current,
+          currentRevision: durableSnapshotRevisionRef.current,
+          currentSliceRevisions: cloneDurableSliceRevisionState(
+            durableSliceRevisionRef.current
+          ),
+          lastWriteStatus: "writing",
+          lastWriteBoundary: boundary,
+          lastWriteSlice: "snapshot",
+          lastKnownSliceRevision: null,
+          lastBaseRevision: baseRevision,
+          lastBaseSliceRevision: null,
+          lastAckSnapshotRevision: null,
+          lastAckSliceRevision: null,
+          lastConflictRevision: null,
+          lastConflictSliceRevision: null,
+          lastRetryCount: 0,
+          lastResolvedViaRetry: false,
+          lastAckSavedAt: null,
+          lastWriteObjectCount: objectCount,
+          lastError: null,
+        }));
+
+        for (let attempt = 0; attempt < 2; attempt += 1) {
+          const result = await saveDurableRoomSnapshot(
+            roomId,
+            nextObjects,
+            baseRevision
+          );
+
+          if (activeRoomIdRef.current !== roomId) {
+            return;
+          }
+
+          if (result.status === "conflict") {
+            durableSnapshotRevisionRef.current = result.currentRevision;
+
+            if (
+              attempt === 0 &&
+              result.currentRevision !== null &&
+              result.currentRevision !== baseRevision
+            ) {
+              baseRevision = result.currentRevision;
+              retryCount = attempt + 1;
+              continue;
+            }
+
+            setDurableReplicaInspection((current) => ({
+              ...current,
+              currentRevision: result.currentRevision,
+              currentSliceRevisions: cloneDurableSliceRevisionState(
+                durableSliceRevisionRef.current
+              ),
+              lastWriteStatus: "conflict",
+              lastWriteBoundary: boundary,
+              lastWriteSlice: "snapshot",
+              lastKnownSliceRevision: null,
+              lastBaseRevision: baseRevision,
+              lastBaseSliceRevision: null,
+              lastAckSnapshotRevision: null,
+              lastAckSliceRevision: null,
+              lastConflictRevision: result.currentRevision,
+              lastConflictSliceRevision: null,
+              lastRetryCount: retryCount,
+              lastResolvedViaRetry: false,
+              lastAckSavedAt: null,
+              lastWriteObjectCount: objectCount,
+              lastError: null,
+            }));
+            return;
+          }
+
+          if (result.status === "saved") {
+            durableSnapshotRevisionRef.current = result.snapshot.revision;
+            durableSliceRevisionRef.current = getDurableSliceRevisionStateFromSnapshot(
+              result.snapshot
+            );
+            setDurableReplicaInspection((current) => ({
+              ...current,
+              currentRevision: result.snapshot.revision,
+              currentSliceRevisions: cloneDurableSliceRevisionState(
+                durableSliceRevisionRef.current
+              ),
+              lastWriteStatus: "saved",
+              lastWriteBoundary: boundary,
+              lastWriteSlice: "snapshot",
+              lastKnownSliceRevision: null,
+              lastBaseRevision: baseRevision,
+              lastBaseSliceRevision: null,
+              lastAckSnapshotRevision: result.snapshot.revision,
+              lastAckSliceRevision: null,
+              lastConflictRevision: null,
+              lastConflictSliceRevision: null,
+              lastRetryCount: retryCount,
+              lastResolvedViaRetry: retryCount > 0,
+              lastAckSavedAt: result.snapshot.savedAt,
+              lastWriteObjectCount: objectCount,
+              lastError: null,
+            }));
+            return;
+          }
+
+          setDurableReplicaInspection((current) => ({
+            ...current,
+            currentRevision: durableSnapshotRevisionRef.current,
+            currentSliceRevisions: cloneDurableSliceRevisionState(
+              durableSliceRevisionRef.current
+            ),
+            lastWriteStatus: "failed",
+            lastWriteBoundary: boundary,
+            lastWriteSlice: "snapshot",
+            lastKnownSliceRevision: null,
+            lastBaseRevision: baseRevision,
+            lastBaseSliceRevision: null,
+            lastAckSnapshotRevision: null,
+            lastAckSliceRevision: null,
+            lastRetryCount: retryCount,
+            lastResolvedViaRetry: false,
+            lastAckSavedAt: null,
+            lastWriteObjectCount: objectCount,
+            lastError: "durable-snapshot-write-unavailable",
+          }));
+          return;
+        }
+      });
+    }
+  );
+
   const handleLocalBoardObjectsChange = useEffectEvent(
     (nextObjects: BoardObject[], options?: LocalObjectsChangeOptions) => {
-      if (
-        options?.commitBoundary !== "image-drag-end" &&
-        options?.commitBoundary !== "image-transform-end" &&
-        options?.commitBoundary !== "image-draw-commit" &&
-        options?.commitBoundary !== "token-drop" &&
-        options?.commitBoundary !== "note-drag-end" &&
-        options?.commitBoundary !== "note-resize-end" &&
-        options?.commitBoundary !== "note-text-save"
-      ) {
-        return;
+      const commitBoundary =
+        options?.commitBoundary &&
+        options.commitBoundary !== "default"
+          ? options.commitBoundary
+          : null;
+      const durableBoundary = commitBoundary ?? options?.durableBoundary ?? null;
+      const durableSlice =
+        options?.durableSlice ?? getDurableSliceForCommitBoundary(commitBoundary);
+
+      if (commitBoundary) {
+        persistLocalReplica(nextObjects, commitBoundary);
       }
 
-      persistLocalReplica(nextObjects, options.commitBoundary);
+      if (durableBoundary && durableSlice) {
+        persistDurableSliceWrite(nextObjects, durableBoundary, durableSlice);
+      }
     }
   );
 
@@ -923,8 +1372,10 @@ export default function BoardStage({
   const [resolvedSnapshotBootstrapRoomId, setResolvedSnapshotBootstrapRoomId] =
     useState<string | null>(null);
   const durableSnapshotRevisionRef = useRef<number | null>(null);
-  const pendingDurableSnapshotSaveKeyRef = useRef<string | null>(null);
-  const lastSavedDurableSnapshotKeyRef = useRef<string | null>(null);
+  const durableSliceRevisionRef = useRef<DurableSliceRevisionState>(
+    createInitialDurableSliceRevisionState()
+  );
+  const durableWriteQueueRef = useRef<Promise<void>>(Promise.resolve());
   const governanceInspectionSequenceRef = useRef(0);
   const pendingLocalCursorPresenceFrameRef = useRef<number | null>(null);
   const pendingLocalCursorPresencePointRef = useRef<{
@@ -982,7 +1433,11 @@ export default function BoardStage({
 
     applyBoardObjectsUpdate(
       (currentObjects) => clearImageStrokesInObjects(currentObjects, id),
-      { syncSharedImageIds: [id] }
+      { syncSharedImageIds: [id] },
+      {
+        durableBoundary: "image-clear-all",
+        durableSlice: "images",
+      }
     );
   };
 
@@ -1003,7 +1458,11 @@ export default function BoardStage({
           id,
           participantSession.id
         ),
-      { syncSharedImageIds: [id] }
+      { syncSharedImageIds: [id] },
+      {
+        durableBoundary: "image-clear-own",
+        durableSlice: "images",
+      }
     );
   };
 
@@ -1037,6 +1496,7 @@ export default function BoardStage({
     if (activeStroke) {
       syncCurrentImage(activeStroke.imageId);
       persistLocalReplica(objects, "image-draw-commit");
+      persistDurableSliceWrite(objects, "image-draw-commit", "images");
     }
 
     clearActiveImageStrokeSession();
@@ -1239,25 +1699,16 @@ export default function BoardStage({
     roomBootstrapEntryIdRef.current = nextBootstrapEntryId;
     snapshotRecoveryAttemptedRoomRef.current = null;
     durableSnapshotRevisionRef.current = null;
-    pendingDurableSnapshotSaveKeyRef.current = null;
-    lastSavedDurableSnapshotKeyRef.current = null;
+    durableSliceRevisionRef.current = createInitialDurableSliceRevisionState();
+    durableWriteQueueRef.current = Promise.resolve();
     panStateRef.current = null;
     clearLiveNoteCardResizePreviewSession();
     clearActiveImageStrokeSession();
     setLocalReplicaInspection({
-      lastWriteStatus: "idle",
-      lastWriteCommitBoundary: null,
-      lastWriteRevision: null,
-      lastWriteSavedAt: null,
-      lastWriteObjectCount: 0,
-      lastReadSource: "idle",
-      lastReadRevision: null,
-      lastReadSavedAt: null,
-      lastReadObjectCount: 0,
+      ...createInitialLocalReplicaInspectionState(),
       lastBootstrapBranch: "pending",
-      lastBootstrapLocalSource: null,
-      lastError: null,
     });
+    setDurableReplicaInspection(createInitialDurableReplicaInspectionState());
     queueMicrotask(() => {
       if (isCancelled) {
         return;
@@ -1400,68 +1851,7 @@ export default function BoardStage({
       return;
     }
 
-    const durableSnapshotKey = JSON.stringify({
-      roomId,
-      tokens: objects.filter((object) => object.kind === "token"),
-      images: objects.filter((object) => object.kind === "image"),
-      textCards: objects.filter((object) => isNoteCardObject(object)),
-    });
-
     saveRoomSnapshot(roomId, objects);
-
-    if (
-      pendingDurableSnapshotSaveKeyRef.current === durableSnapshotKey ||
-      lastSavedDurableSnapshotKeyRef.current === durableSnapshotKey
-    ) {
-      return;
-    }
-
-    pendingDurableSnapshotSaveKeyRef.current = durableSnapshotKey;
-    let isCancelled = false;
-
-    const persistDurableSnapshot = async () => {
-      let baseRevision = durableSnapshotRevisionRef.current;
-
-      for (let attempt = 0; attempt < 2; attempt += 1) {
-        const result = await saveDurableRoomSnapshot(roomId, objects, baseRevision);
-
-        if (isCancelled) {
-          return;
-        }
-
-        if (result.status === "conflict") {
-          durableSnapshotRevisionRef.current = result.currentRevision;
-
-          if (
-            attempt === 0 &&
-            result.currentRevision !== null &&
-            result.currentRevision !== baseRevision
-          ) {
-            baseRevision = result.currentRevision;
-            continue;
-          }
-
-          return;
-        }
-
-        if (result.status === "saved") {
-          durableSnapshotRevisionRef.current = result.snapshot.revision;
-          lastSavedDurableSnapshotKeyRef.current = durableSnapshotKey;
-        }
-
-        return;
-      }
-    };
-
-    void persistDurableSnapshot().finally(() => {
-      if (pendingDurableSnapshotSaveKeyRef.current === durableSnapshotKey) {
-        pendingDurableSnapshotSaveKeyRef.current = null;
-      }
-    });
-
-    return () => {
-      isCancelled = true;
-    };
   }, [
     drawingImageId,
     draggingNoteCardId,
@@ -1505,6 +1895,16 @@ export default function BoardStage({
         }
 
         durableSnapshotRevisionRef.current = snapshot?.revision ?? null;
+        durableSliceRevisionRef.current = getDurableSliceRevisionStateFromSnapshot(
+          snapshot
+        );
+        setDurableReplicaInspection((current) => ({
+          ...current,
+          currentRevision: snapshot?.revision ?? null,
+          currentSliceRevisions: cloneDurableSliceRevisionState(
+            durableSliceRevisionRef.current
+          ),
+        }));
         console.info("[room-recovery][board-stage][bootstrap-terminal]", {
           roomId,
           branch: "live-wins",
@@ -1567,6 +1967,16 @@ export default function BoardStage({
       }
 
       durableSnapshotRevisionRef.current = durableSnapshot?.revision ?? null;
+      durableSliceRevisionRef.current = getDurableSliceRevisionStateFromSnapshot(
+        durableSnapshot
+      );
+      setDurableReplicaInspection((current) => ({
+        ...current,
+        currentRevision: durableSnapshot?.revision ?? null,
+        currentSliceRevisions: cloneDurableSliceRevisionState(
+          durableSliceRevisionRef.current
+        ),
+      }));
       setLocalReplicaInspection((current) => ({
         ...current,
         lastReadSource: localRecoverySource,
@@ -2200,7 +2610,11 @@ export default function BoardStage({
 
         return currentObjects.filter((object) => !removeIds.has(object.id));
       },
-      { syncSharedTokens: true }
+      { syncSharedTokens: true },
+      {
+        durableBoundary: "object-remove",
+        durableSlice: "tokens",
+      }
     );
   }, [
     addBoardObject,
@@ -2341,6 +2755,7 @@ export default function BoardStage({
       syncSharedImages: true,
       syncSharedTextCards: true,
     });
+    persistLegacyDurableSnapshot(EMPTY_BOARD_STATE, "room-reset");
     setSelectedObjectIdWithImageDrawingGuard(null);
     clearBoardContentStorage(roomId);
   };
@@ -3629,6 +4044,76 @@ export default function BoardStage({
               {localReplicaInspection.lastError ? (
                 <div style={{ color: "#fca5a5" }}>
                   Error: {localReplicaInspection.lastError}
+                </div>
+              ) : null}
+            </div>
+
+            <div
+              className={surfaceRecipes.inset.default.className}
+              style={{
+                ...surfaceRecipes.inset.default.style,
+                gap: 8,
+                fontSize: 12,
+              }}
+              data-testid="debug-durable-replica-inspection"
+              {...getDesignSystemDebugAttrs(surfaceRecipes.inset.default.debug)}
+            >
+              <div
+                style={{
+                  fontSize: 11,
+                  fontWeight: 700,
+                  letterSpacing: "0.04em",
+                  textTransform: "uppercase",
+                  color: "#94a3b8",
+                }}
+              >
+                Durable replica
+              </div>
+              <div style={{ color: "#e2e8f0" }}>
+                Backend: checkpoint store
+              </div>
+              <div
+                data-testid="debug-durable-replica-known-revisions"
+                style={{ color: "#94a3b8" }}
+              >
+                Known revisions: snapshot {durableReplicaInspection.currentRevision ?? "none"}
+                {" · "}tokens{" "}
+                {durableReplicaInspection.currentSliceRevisions.tokens ?? "none"}
+                {" · "}images{" "}
+                {durableReplicaInspection.currentSliceRevisions.images ?? "none"}
+                {" · "}textCards{" "}
+                {durableReplicaInspection.currentSliceRevisions.textCards ?? "none"}
+              </div>
+              <div
+                data-testid="debug-durable-replica-last-write"
+                style={{ color: "#94a3b8" }}
+              >
+                Last write: {durableReplicaInspection.lastWriteStatus}
+                {" · "}boundary {durableReplicaInspection.lastWriteBoundary ?? "none"}
+                {" · "}slice {durableReplicaInspection.lastWriteSlice ?? "none"}
+                {" · "}known slice rev{" "}
+                {durableReplicaInspection.lastKnownSliceRevision ?? "none"}
+                {" · "}base rev {durableReplicaInspection.lastBaseRevision ?? "none"}
+                {" · "}base slice rev{" "}
+                {durableReplicaInspection.lastBaseSliceRevision ?? "none"}
+                {" · "}ack snapshot rev{" "}
+                {durableReplicaInspection.lastAckSnapshotRevision ?? "none"}
+                {" · "}ack slice rev{" "}
+                {durableReplicaInspection.lastAckSliceRevision ?? "none"}
+                {" · "}conflict rev{" "}
+                {durableReplicaInspection.lastConflictRevision ?? "none"}
+                {" · "}conflict slice rev{" "}
+                {durableReplicaInspection.lastConflictSliceRevision ?? "none"}
+                {" · "}retry count {durableReplicaInspection.lastRetryCount}
+                {" · "}retry resolved{" "}
+                {durableReplicaInspection.lastResolvedViaRetry ? "yes" : "no"}
+                {" · "}objects {durableReplicaInspection.lastWriteObjectCount}
+                {" · "}saved{" "}
+                {formatIsoDebugTimestamp(durableReplicaInspection.lastAckSavedAt)}
+              </div>
+              {durableReplicaInspection.lastError ? (
+                <div style={{ color: "#fca5a5" }}>
+                  Error: {durableReplicaInspection.lastError}
                 </div>
               ) : null}
             </div>

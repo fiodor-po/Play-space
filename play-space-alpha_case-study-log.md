@@ -2583,3 +2583,61 @@ The remaining local follow-up was classified explicitly:
 - legacy `room-snapshot` stays as a compatibility fallback for now;
 - its later fate should be reviewed during `Durable write model`, not reopened
   as another immediate local bootstrap chapter.
+
+---
+
+## Phase 0Y — Durable write model closure
+
+### Type
+- internal replica-track step closure
+
+### Context
+After `Local replica semantics`, the next required internal step was
+`Durable write model`.
+
+The chapter still had three open gaps:
+
+- ordinary runtime durable writes still depended on broad snapshot timing;
+- covered multi-client durable corridors still emitted browser-visible `409`
+  noise;
+- cross-slice durable writes could still hit stale-base logical conflict/retry
+  because the write precondition used one global durable revision.
+
+### What happened
+The project closed this step through several narrow slices:
+
+- covered committed token/image/note corridors took ownership of durable writes
+  on commit boundary;
+- server and client moved ordinary covered durable writes to a family-scoped
+  update corridor;
+- durable acknowledgement and revision handling became explicit and inspectable
+  in runtime;
+- covered multi-client durable conflicts stopped surfacing as browser-visible
+  `409` resource noise;
+- covered durable `PATCH` writes moved to per-slice revision discipline and
+  stopped treating unrelated slice commits as stale-base conflicts.
+
+### Decision / change
+`Durable write model` is now complete as the next internal replica-track step.
+
+### Why
+The durable path now matches the chapter target closely:
+
+- durable writes no longer depend on broad whole-room snapshot timing as the
+  primary ordinary path;
+- update-aware durable discipline is real for covered corridors;
+- durable ack/revision handling is explicit in the runtime corridor;
+- the durable checkpoint/update contract is now shaped for later convergence
+  work.
+
+### Result
+`Checkpoint 2` is now closed after local and durable persistence maturity.
+
+The next internal replica-track step is now `Recovery convergence model`.
+
+The chapter closure also classified two later follow-ups explicitly:
+
+- legacy `room-snapshot` compatibility fallback moves forward to
+  `Recovery convergence model`;
+- destructive ops delete now has a separate `room-ops durability ergonomics`
+  follow-up instead of stretching `Durable write model`.

@@ -534,6 +534,54 @@ async function handleHttpRequest(req, res) {
     return;
   }
 
+  if (req.method === "PATCH") {
+    const body = await readJsonBody(req);
+
+    if (!body || typeof body !== "object") {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Invalid JSON body" }));
+      return;
+    }
+
+    const slice = normalizeDurableRoomSnapshotSlice(body.slice);
+
+    if (!slice) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Invalid durable snapshot slice" }));
+      return;
+    }
+
+    const baseSliceRevision =
+      typeof body.baseSliceRevision === "number" ? body.baseSliceRevision : null;
+    const result = await writeDurableRoomSnapshotSlice(
+      roomId,
+      slice,
+      body.payload,
+      baseSliceRevision
+    );
+
+    if (result.status === "conflict") {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(
+        JSON.stringify({
+          status: "conflict",
+          currentRevision: result.currentRevision,
+          currentSliceRevision: result.currentSliceRevision,
+        })
+      );
+      return;
+    }
+
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(
+      JSON.stringify({
+        status: "saved",
+        ack: result.ack,
+      })
+    );
+    return;
+  }
+
   res.writeHead(405, { "Content-Type": "application/json" });
   res.end(JSON.stringify({ error: "Method not allowed" }));
 }
@@ -572,10 +620,12 @@ async function writeDurableRoomSnapshot(snapshot, baseRevision) {
     };
   }
 
+  const nextRevision = (currentRevision ?? 0) + 1;
   const nextSnapshot = {
     ...snapshot,
-    revision: (currentRevision ?? 0) + 1,
+    revision: nextRevision,
     savedAt: new Date().toISOString(),
+    sliceRevisions: createUniformDurableRoomSnapshotSliceRevisions(nextRevision),
   };
 
   store[snapshot.roomId] = nextSnapshot;
@@ -584,6 +634,55 @@ async function writeDurableRoomSnapshot(snapshot, baseRevision) {
   return {
     status: "saved",
     snapshot: nextSnapshot,
+  };
+}
+
+async function writeDurableRoomSnapshotSlice(
+  roomId,
+  slice,
+  payload,
+  baseSliceRevision
+) {
+  const store = await readDurableSnapshotStore();
+  const currentSnapshot = normalizeDurableRoomSnapshot(roomId, store[roomId]);
+  const currentRevision = currentSnapshot?.revision ?? null;
+  const currentSliceRevision = currentSnapshot?.sliceRevisions[slice] ?? null;
+
+  if (currentSliceRevision !== baseSliceRevision) {
+    return {
+      status: "conflict",
+      currentRevision,
+      currentSliceRevision,
+    };
+  }
+
+  const nextRevision = (currentRevision ?? 0) + 1;
+  const nextSliceRevision = (currentSliceRevision ?? 0) + 1;
+  const nextSnapshot = {
+    ...(currentSnapshot ?? createEmptyDurableRoomSnapshot(roomId)),
+    [slice]: normalizeRoomObjects(payload, getDurableRoomSnapshotSliceKind(slice)),
+    revision: nextRevision,
+    savedAt: new Date().toISOString(),
+    sliceRevisions: {
+      ...(currentSnapshot?.sliceRevisions ??
+        createUniformDurableRoomSnapshotSliceRevisions(0)),
+      [slice]: nextSliceRevision,
+    },
+  };
+
+  store[roomId] = nextSnapshot;
+  await writeDurableSnapshotStore(store);
+
+  return {
+    status: "saved",
+    ack: {
+      roomId,
+      slice,
+      snapshotRevision: nextSnapshot.revision,
+      sliceRevision: nextSnapshot.sliceRevisions[slice],
+      savedAt: nextSnapshot.savedAt,
+      objectCount: nextSnapshot[slice].length,
+    },
   };
 }
 
@@ -703,6 +802,7 @@ function createDurableRoomSnapshot(roomId, body) {
     roomId,
     revision: 0,
     savedAt: new Date(0).toISOString(),
+    sliceRevisions: createUniformDurableRoomSnapshotSliceRevisions(0),
     roomCreatorId:
       typeof body.roomCreatorId === "string" && body.roomCreatorId.trim().length > 0
         ? body.roomCreatorId.trim()
@@ -711,6 +811,47 @@ function createDurableRoomSnapshot(roomId, body) {
     images: normalizeRoomObjects(body.images, "image"),
     textCards: normalizeRoomObjects(body.textCards, "note-card"),
   };
+}
+
+function createEmptyDurableRoomSnapshot(roomId) {
+  return {
+    roomId,
+    revision: 0,
+    savedAt: new Date(0).toISOString(),
+    sliceRevisions: createUniformDurableRoomSnapshotSliceRevisions(0),
+    roomCreatorId: null,
+    tokens: [],
+    images: [],
+    textCards: [],
+  };
+}
+
+function createUniformDurableRoomSnapshotSliceRevisions(revision) {
+  return {
+    tokens: revision,
+    images: revision,
+    textCards: revision,
+  };
+}
+
+function normalizeDurableRoomSnapshotSlice(slice) {
+  if (slice === "tokens" || slice === "images" || slice === "textCards") {
+    return slice;
+  }
+
+  return null;
+}
+
+function getDurableRoomSnapshotSliceKind(slice) {
+  if (slice === "tokens") {
+    return "token";
+  }
+
+  if (slice === "images") {
+    return "image";
+  }
+
+  return "note-card";
 }
 
 function normalizeDurableRoomSnapshot(roomId, snapshot) {
@@ -725,6 +866,10 @@ function normalizeDurableRoomSnapshot(roomId, snapshot) {
       typeof snapshot.savedAt === "string"
         ? snapshot.savedAt
         : new Date(0).toISOString(),
+    sliceRevisions: normalizeDurableRoomSnapshotSliceRevisions(
+      snapshot.sliceRevisions,
+      typeof snapshot.revision === "number" ? snapshot.revision : 0
+    ),
     roomCreatorId:
       typeof snapshot.roomCreatorId === "string" &&
       snapshot.roomCreatorId.trim().length > 0
@@ -733,6 +878,23 @@ function normalizeDurableRoomSnapshot(roomId, snapshot) {
     tokens: normalizeRoomObjects(snapshot.tokens, "token"),
     images: normalizeRoomObjects(snapshot.images, "image"),
     textCards: normalizeRoomObjects(snapshot.textCards, "note-card"),
+  };
+}
+
+function normalizeDurableRoomSnapshotSliceRevisions(sliceRevisions, fallbackRevision) {
+  return {
+    tokens:
+      sliceRevisions && typeof sliceRevisions.tokens === "number"
+        ? sliceRevisions.tokens
+        : fallbackRevision,
+    images:
+      sliceRevisions && typeof sliceRevisions.images === "number"
+        ? sliceRevisions.images
+        : fallbackRevision,
+    textCards:
+      sliceRevisions && typeof sliceRevisions.textCards === "number"
+        ? sliceRevisions.textCards
+        : fallbackRevision,
   };
 }
 
@@ -1000,7 +1162,7 @@ function getLiveDocSharedObjectCount(doc, kind) {
 
 function setCorsHeaders(res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET,PUT,POST,DELETE,OPTIONS");
+  res.setHeader("Access-Control-Allow-Methods", "GET,PUT,PATCH,POST,DELETE,OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, X-Play-Space-Ops-Key");
 }
 
