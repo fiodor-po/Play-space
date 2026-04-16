@@ -29,13 +29,14 @@ In hard sprint mode:
 - the chosen slice order may be written as the working sprint sequence;
 - other future work remains `candidate`, `backlog`, or `optional`.
 
-Current branch is now in hard sprint mode:
+Current branch reached its cleanup sprint checkpoint:
 
 - branch: `sprint/cleanup-lint-boardstage-foundation`
 - `main` stays the stable hosted/demo line
-- first active cleanup slice: `lint green baseline`
-- second cleanup slice: `BoardStage structural reduction phase 1`
+- `lint green baseline` is closed
+- `BoardStage` structural reduction phases `1–4` are closed
 - `participant-marker / creator-color` stays the next candidate product/runtime chapter
+- hosted validation is required after this cleanup checkpoint lands
 
 Проект остаётся в стадии `play-space-alpha`.
 
@@ -104,7 +105,7 @@ Current branch is now in hard sprint mode:
   - local smoke now also covers same-browser second-tab attach in one browser
     profile.
 - next candidate chapter is now `participant-marker / creator-color`.
-- hard sprint is now active in branch `sprint/cleanup-lint-boardstage-foundation`.
+- cleanup sprint checkpoint is now closed in branch `sprint/cleanup-lint-boardstage-foundation`.
 - Dev tools inspectability surface now has a closed usability cleanup checkpoint:
   - the panel stays viewport-bounded on ordinary desktop viewports;
   - lower inspect blocks and controls stay reachable through internal scroll;
@@ -130,12 +131,10 @@ Current workflow rule for hosted validation:
 Current expected order from here:
 
 1. keep `main` as the stable hosted/demo line;
-2. use this branch for cleanup-only work;
-3. take `lint green baseline` as the first active cleanup slice;
-4. take `BoardStage structural reduction phase 1` as the next cleanup slice
-   after lint;
-5. keep `participant-marker / creator-color` as the next candidate chapter
-   rather than mixing it into the cleanup sprint.
+2. treat this branch as a closed cleanup checkpoint until it is pushed or merged;
+3. run hosted validation after the cleanup checkpoint lands;
+4. keep `participant-marker / creator-color` as the next candidate chapter;
+5. avoid reopening `BoardStage` cleanup micro-slices unless a new sprint is started explicitly.
 
 Current agreed `BoardStage` target model for this cleanup sprint:
 

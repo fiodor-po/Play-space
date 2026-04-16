@@ -135,3 +135,25 @@ Recommended statuses:
 - `closure_result`: `roomCreatorRealtime` teardown is now idempotent; the same-browser two-tab leave probe returns both tabs to entry state without the `yjs` warning locally or on the hosted deploy
 - `target_chapter`: `same-browser leave propagation warning cleanup`
 - `status`: `closed`
+
+### RF-2026-04-16-02
+
+- `id`: `RF-2026-04-16-02`
+- `date`: `2026-04-16`
+- `source`: strategist review after `sprint/cleanup-lint-boardstage-foundation` reached its `BoardStage` checkpoint
+- `finding`: cleanup sprint brought `BoardStage` close to the agreed orchestration-shell target, and the next deferred semantic/runtime review item is still `participant-marker / creator-color`
+- `why_deferred`: cleanup sprint intentionally stayed out of participant-marker semantics, creator-color fallback truth, and creator-linked rendering behavior
+- `expected_action`: review `participant-marker / creator-color` as the next candidate chapter and decide whether the accepted creator-color fallback gap is real in current runtime behavior before implementing the durable room-scoped last-known participant appearance fallback by `creatorId`
+- `target_chapter`: `participant-marker / creator-color`
+- `status`: `planned`
+
+### RF-2026-04-16-03
+
+- `id`: `RF-2026-04-16-03`
+- `date`: `2026-04-16`
+- `source`: strategist review after `BoardStage` cleanup sprint checkpoint closure
+- `finding`: the cleanup branch changed `BoardStage` structure substantially through scene, shell, dev-tools, and helper extraction, but hosted truth for that checkpoint is still unverified
+- `why_deferred`: the sprint was intentionally local and branch-scoped; hosted validation belongs after the checkpoint is pushed or merged
+- `expected_action`: run hosted playable-session validation against the cleanup checkpoint after deploy, with explicit checks for board scene rendering, shell overlays, note editor overlay, selected-image controls, and dice/top-layer behavior
+- `target_chapter`: `hosted validation after BoardStage cleanup checkpoint`
+- `status`: `planned`

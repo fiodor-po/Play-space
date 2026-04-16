@@ -212,14 +212,14 @@ Current planning-mode candidate for the next strategist step:
 
 Это делает participant-marker / creator-color следующим candidate architecture concern.
 
-Current hard sprint in this branch:
+Current cleanup sprint result in this branch:
 
 1. keep `main` as the stable hosted/demo line;
-2. use this branch for cleanup-only work;
-3. first active slice: `lint green baseline`;
-4. second slice after that: `BoardStage structural reduction phase 1`;
-5. keep `participant-marker / creator-color` outside this sprint as the next
-   product/runtime candidate chapter.
+2. keep `sprint/cleanup-lint-boardstage-foundation` as a cleanup-only branch checkpoint;
+3. treat `lint green baseline` as closed;
+4. treat `BoardStage` structural reduction phases `1–4` as closed;
+5. keep `participant-marker / creator-color` as the next candidate chapter after this sprint;
+6. run hosted validation after this cleanup checkpoint is pushed or merged.
 
 Agreed cleanup target model for this branch:
 
@@ -250,9 +250,11 @@ Agreed cleanup target model for this branch:
 - optional follow-up task: `legacy room-snapshot write-cache cleanup`;
 - optional follow-up task: `internal recovery naming/log cleanup`;
 - hard sprint branch: `sprint/cleanup-lint-boardstage-foundation`;
-- first active cleanup slice: `lint green baseline`;
-- second cleanup slice: `BoardStage structural reduction phase 1`;
+- closed cleanup sprint checkpoint:
+  - `lint green baseline`
+  - `BoardStage structural reduction phases 1–4`
 - next candidate chapter: `participant-marker / creator-color`;
+- required follow-up checkpoint: hosted validation after the cleanup branch lands;
 - hosted validation как повторяемая проверка после крупных шагов, выкатываний и
   новых demo snapshots.
 
@@ -291,10 +293,11 @@ Agreed cleanup target model for this branch:
 20. держать `internal recovery naming/log cleanup` как optional hygiene follow-up outside the core runtime contract;
 21. держать `main` как стабильную hosted/demo линию;
 22. вести cleanup-only work в branch `sprint/cleanup-lint-boardstage-foundation`;
-23. взять `lint green baseline` как первый active cleanup slice;
-24. взять `BoardStage structural reduction phase 1` как следующий cleanup slice после lint;
-25. держать `participant-marker / creator-color` как следующий candidate chapter после participant identity stabilization;
-26. возвращаться к hosted validation как checkpoint после больших шагов и новых
+23. считать `lint green baseline` закрытым cleanup checkpoint;
+24. считать `BoardStage` structural reduction phases `1–4` закрытым cleanup checkpoint;
+25. держать `participant-marker / creator-color` как следующий candidate chapter после cleanup sprint;
+26. пройти hosted validation после выката cleanup checkpoint;
+27. возвращаться к hosted validation как checkpoint после больших шагов и новых
    demo snapshots.
 
 ## 8. Backlog

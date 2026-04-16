@@ -2798,3 +2798,66 @@ The chapter closure also classified two later follow-ups explicitly:
   `Recovery convergence model`;
 - destructive ops delete now has a separate `room-ops durability ergonomics`
   follow-up instead of stretching `Durable write model`.
+
+---
+
+## Phase 0Z — BoardStage cleanup sprint checkpoint
+
+### Type
+- structural cleanup sprint checkpoint
+
+### Context
+After the persistence/recovery and participant-identity chapters closed, the
+project opened `sprint/cleanup-lint-boardstage-foundation` as a hard cleanup
+branch.
+
+The sprint target was narrow:
+
+- return lint to green;
+- reduce `BoardStage` toward its target orchestration-shell shape;
+- avoid mixing cleanup with the deferred `participant-marker / creator-color`
+  semantics chapter.
+
+### What happened
+The sprint closed through a sequence of narrow structural slices:
+
+- `lint green baseline` was restored;
+- dev tools and inspection UI moved into `BoardStageDevToolsContent`;
+- shell overlays moved into `BoardStageShellOverlays`;
+- Konva scene composition moved into `BoardStageScene`;
+- pure inspectability and control derivation moved into
+  `boardStageInspectability`.
+
+### Decision / change
+`BoardStage` is now close enough to the agreed target shape for this sprint.
+
+The accepted target model is now explicit:
+
+- `BoardStage` acts as the orchestration shell and keeps runtime ownership;
+- `BoardStageScene` is the scene render boundary;
+- `BoardStageShellOverlays` owns shell chrome and scene-attached HTML overlays;
+- `BoardStageDevToolsContent` owns debug and inspection UI;
+- shared 3D dice stay the top app-owned visual layer.
+
+### Why
+The remaining weight in `BoardStage` is now mostly real orchestration work:
+
+- persistence and recovery coordination;
+- realtime slice wiring;
+- stage pan/zoom and empty-space behavior;
+- cursor presence scheduling;
+- mutating runtime callbacks and ownership state.
+
+Another cleanup micro-slice would have little structural payoff and would start
+leaning into riskier runtime territory.
+
+### Result
+The cleanup sprint reached a good checkpoint pause.
+
+Deferred follow-ups were classified more precisely:
+
+- hosted validation is required after this cleanup checkpoint lands;
+- `participant-marker / creator-color` stays the next candidate chapter;
+- the unresolved creator-color fallback question stays a required deferred
+  review item inside that later chapter rather than an automatic next
+  implementation step.
