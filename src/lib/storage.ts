@@ -5,6 +5,12 @@ import {
   normalizeNoteCardObject,
 } from "../board/objects/noteCard/sizing";
 import type { DurableRoomSnapshotSlice } from "./durableRoomSnapshot";
+import {
+  normalizeRoomParticipantAppearanceMap,
+  upsertRoomParticipantAppearance,
+  type RoomParticipantAppearance,
+  type RoomParticipantAppearanceMap,
+} from "./participantColors";
 import { normalizeRoomId } from "./roomId";
 
 export const BOARD_STORAGE_KEY = "play-space-alpha-board-v1";
@@ -32,6 +38,7 @@ export type RoomDocumentContent = {
   tokens: BoardObject[];
   images: BoardObject[];
   textCards: BoardObject[];
+  participantAppearance: RoomParticipantAppearanceMap;
 };
 
 export type LocalRoomDocumentReplicaDurableSliceRevisions = Record<
@@ -60,6 +67,7 @@ export type LocalRoomDocumentReplicaWriteOptions = {
     | "note-drag-end"
     | "note-resize-end"
     | "note-text-save";
+  participantAppearance?: RoomParticipantAppearanceMap;
   lastKnownDurableSnapshotRevision?: number | null;
   lastKnownDurableSliceRevisions?: LocalRoomDocumentReplicaDurableSliceRevisions;
 };
@@ -244,6 +252,46 @@ export async function saveLocalRoomDocumentReplica(
 
     throw error;
   }
+}
+
+export async function saveLocalRoomParticipantAppearance(
+  roomId: string,
+  appearance: RoomParticipantAppearance,
+  objects: BoardObject[],
+  options?: Omit<LocalRoomDocumentReplicaWriteOptions, "commitBoundary">
+) {
+  const legacyReplica = loadLegacyLocalRoomDocumentReplica(roomId);
+  const database = await openRoomDocumentReplicaDatabase();
+  const transaction = database.transaction(
+    ROOM_DOCUMENT_REPLICA_INDEXED_DB_STORE_NAME,
+    "readwrite"
+  );
+  const store = transaction.objectStore(ROOM_DOCUMENT_REPLICA_INDEXED_DB_STORE_NAME);
+  const rawReplica = await waitForRequest<LocalRoomDocumentReplica | undefined>(
+    store.get(roomId)
+  );
+  const currentReplica = rawReplica
+    ? parseLocalRoomDocumentReplica(roomId, JSON.stringify(rawReplica))
+    : legacyReplica;
+  const currentContent = currentReplica?.content ?? createRoomDocumentContent(objects);
+  const nextContent = {
+    ...currentContent,
+    participantAppearance: upsertRoomParticipantAppearance(
+      currentContent.participantAppearance,
+      appearance
+    ),
+  };
+  const nextReplica = createLocalRoomDocumentReplicaFromContent(
+    roomId,
+    nextContent,
+    currentReplica,
+    options
+  );
+
+  await waitForRequest(store.put(nextReplica));
+  await waitForTransaction(transaction);
+
+  return nextReplica;
 }
 
 export async function loadLocalRoomDocumentReplica(
@@ -634,19 +682,29 @@ function createLocalRoomDocumentReplica(
   previousReplica?: LocalRoomDocumentReplica | null,
   options?: LocalRoomDocumentReplicaWriteOptions
 ): LocalRoomDocumentReplica {
+  return createLocalRoomDocumentReplicaFromContent(
+    roomId,
+    createRoomDocumentContent(
+      objects,
+      options?.participantAppearance ??
+        previousReplica?.content.participantAppearance
+    ),
+    previousReplica,
+    options
+  );
+}
+
+function createLocalRoomDocumentReplicaFromContent(
+  roomId: string,
+  content: RoomDocumentContent,
+  previousReplica?: LocalRoomDocumentReplica | null,
+  options?: Omit<LocalRoomDocumentReplicaWriteOptions, "commitBoundary">
+): LocalRoomDocumentReplica {
   return {
     roomId,
     revision: getNextLocalRoomDocumentReplicaRevision(previousReplica),
     savedAt: Date.now(),
-    content: {
-      tokens: normalizeTokenObjects(
-        objects.filter((object) => object.kind === "token")
-      ),
-      images: objects.filter((object) => object.kind === "image"),
-      textCards: normalizeTextCardObjects(
-        objects.filter((object) => object.kind === "note-card")
-      ),
-    },
+    content,
     lastKnownDurableSnapshotRevision:
       options?.lastKnownDurableSnapshotRevision ??
       previousReplica?.lastKnownDurableSnapshotRevision ??
@@ -715,6 +773,9 @@ function parseLocalRoomDocumentReplica(roomId: string, raw: string) {
               )
             )
           : [],
+        participantAppearance: normalizeRoomParticipantAppearanceMap(
+          parsed.content.participantAppearance
+        ),
       },
       lastKnownDurableSnapshotRevision: normalizeDurableSliceRevision(
         parsed.lastKnownDurableSnapshotRevision
@@ -899,6 +960,24 @@ function waitForRequest<T>(request: IDBRequest<T>) {
       reject(request.error ?? new Error("indexeddb-request-failed"));
     };
   });
+}
+
+function createRoomDocumentContent(
+  objects: BoardObject[],
+  participantAppearance?: RoomParticipantAppearanceMap
+): RoomDocumentContent {
+  return {
+    tokens: normalizeTokenObjects(
+      objects.filter((object) => object.kind === "token")
+    ),
+    images: objects.filter((object) => object.kind === "image"),
+    textCards: normalizeTextCardObjects(
+      objects.filter((object) => object.kind === "note-card")
+    ),
+    participantAppearance: normalizeRoomParticipantAppearanceMap(
+      participantAppearance
+    ),
+  };
 }
 
 function waitForTransaction(transaction: IDBTransaction) {

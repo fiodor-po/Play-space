@@ -79,6 +79,7 @@ import {
 } from "../lib/boardImage";
 import {
   loadDurableRoomSnapshot,
+  saveDurableRoomParticipantAppearance,
   saveDurableRoomSnapshot,
   saveDurableRoomSnapshotSlice,
   type DurableRoomSnapshotSlice,
@@ -91,6 +92,7 @@ import {
 import {
   clearBoardContentStorage,
   loadLocalRoomDocumentBootstrapState,
+  saveLocalRoomParticipantAppearance,
   saveLocalRoomDocumentReplica,
   loadViewportState,
   saveBoardObjects,
@@ -120,7 +122,14 @@ import {
   type RoomOccupancyMap,
 } from "../lib/roomSession";
 import { getRoomBaselinePayload } from "../lib/roomBaseline";
-import { resolveCurrentParticipantColor } from "../lib/participantColors";
+import {
+  createRoomParticipantAppearance,
+  resolveCurrentParticipantColor,
+  resolveCurrentParticipantColorResolution,
+  upsertRoomParticipantAppearance,
+  type RoomParticipantAppearance,
+  type RoomParticipantAppearanceMap,
+} from "../lib/participantColors";
 import {
   createBoardObjectGovernedEntityRef,
   createRoomGovernedEntityRef,
@@ -152,6 +161,7 @@ function getReplicaObjectCount(content: {
   tokens: BoardObject[];
   images: BoardObject[];
   textCards: BoardObject[];
+  participantAppearance: RoomParticipantAppearanceMap;
 }) {
   return content.tokens.length + content.images.length + content.textCards.length;
 }
@@ -318,6 +328,7 @@ type DurableDebugBoundary =
   | "object-remove"
   | "image-clear-all"
   | "image-clear-own"
+  | "participant-appearance"
   | "room-reset";
 
 type DurableSliceRevisionState = Record<DurableRoomSnapshotSlice, number | null>;
@@ -340,6 +351,19 @@ type DurableReplicaInspectionState = {
   lastAckSavedAt: string | null;
   lastWriteObjectCount: number;
   lastError: string | null;
+};
+
+type CreatorColorSource =
+  | "local-session"
+  | "live-occupancy"
+  | "live-presence"
+  | "room-document"
+  | "legacy-fill"
+  | "unresolved";
+
+type CreatorColorResolution = {
+  color: string | null;
+  source: CreatorColorSource;
 };
 
 function createInitialSharedBootstrapSliceCounts(): SharedBootstrapSliceCounts {
@@ -402,6 +426,10 @@ function cloneDurableSliceRevisionState(
   };
 }
 
+function createEmptyRoomParticipantAppearance() {
+  return {} satisfies RoomParticipantAppearanceMap;
+}
+
 function getDurableSliceRevisionStateFromSnapshot(snapshot: {
   sliceRevisions: Record<DurableRoomSnapshotSlice, number>;
 } | null): DurableSliceRevisionState {
@@ -421,6 +449,7 @@ function getRoomDocumentSliceObjects(
     tokens: BoardObject[];
     images: BoardObject[];
     textCards: BoardObject[];
+    participantAppearance: RoomParticipantAppearanceMap;
   },
   slice: DurableRoomSnapshotSlice
 ) {
@@ -450,13 +479,17 @@ function resolveSettledRecoveryConvergence(params: {
     tokens: BoardObject[];
     images: BoardObject[];
     textCards: BoardObject[];
+    participantAppearance: RoomParticipantAppearanceMap;
   } | null;
+  localRecoveryKnownDurableSnapshotRevision: number | null;
   localRecoveryKnownDurableSliceRevisions: DurableSliceRevisionState;
   durableSnapshot: {
+    revision: number;
     sliceRevisions: Record<DurableRoomSnapshotSlice, number>;
     tokens: BoardObject[];
     images: BoardObject[];
     textCards: BoardObject[];
+    participantAppearance: RoomParticipantAppearanceMap;
   } | null;
 }) {
   const sliceSources = createInitialSettledRecoverySliceSourceState();
@@ -464,6 +497,7 @@ function resolveSettledRecoveryConvergence(params: {
     tokens: [] as BoardObject[],
     images: [] as BoardObject[],
     textCards: [] as BoardObject[],
+    participantAppearance: createEmptyRoomParticipantAppearance(),
   };
 
   (["tokens", "images", "textCards"] as const).forEach((slice) => {
@@ -483,6 +517,25 @@ function resolveSettledRecoveryConvergence(params: {
     content[slice] = nextSliceObjects;
     sliceSources[slice] = shouldUseDurableSlice ? "durable" : "local";
   });
+
+  const localParticipantAppearance =
+    params.localRecoverySnapshot?.participantAppearance ??
+    createEmptyRoomParticipantAppearance();
+  const durableParticipantAppearance =
+    params.durableSnapshot?.participantAppearance ??
+    createEmptyRoomParticipantAppearance();
+  const shouldUseDurableParticipantAppearance =
+    !params.localRecoverySnapshot ||
+    isDurableSliceAhead(
+      params.localRecoveryKnownDurableSnapshotRevision,
+      params.durableSnapshot?.revision ?? null
+    ) ||
+    (Object.keys(localParticipantAppearance).length === 0 &&
+      Object.keys(durableParticipantAppearance).length > 0);
+
+  content.participantAppearance = shouldUseDurableParticipantAppearance
+    ? durableParticipantAppearance
+    : localParticipantAppearance;
 
   return {
     content,
@@ -545,6 +598,10 @@ export default function BoardStage({
     useState<DurableReplicaInspectionState>(
       createInitialDurableReplicaInspectionState
     );
+  const [roomParticipantAppearance, setRoomParticipantAppearance] =
+    useState<RoomParticipantAppearanceMap>(createEmptyRoomParticipantAppearance);
+  const lastPersistedParticipantAppearanceKeyRef = useRef<string | null>(null);
+  const pendingParticipantAppearanceKeyRef = useRef<string | null>(null);
 
   const [stagePosition, setStagePosition] = useState(() => {
     const savedViewport = loadViewportState(roomId);
@@ -588,6 +645,24 @@ export default function BoardStage({
     activeRoomIdRef.current = roomId;
   }, [roomId]);
 
+  useEffect(() => {
+    let isCancelled = false;
+
+    queueMicrotask(() => {
+      if (isCancelled) {
+        return;
+      }
+
+      setRoomParticipantAppearance(createEmptyRoomParticipantAppearance());
+      lastPersistedParticipantAppearanceKeyRef.current = null;
+      pendingParticipantAppearanceKeyRef.current = null;
+    });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [roomId]);
+
   const persistLocalReplica = useCallback(
     (
       nextObjects: BoardObject[],
@@ -603,6 +678,7 @@ export default function BoardStage({
 
       void saveLocalRoomDocumentReplica(roomId, nextObjects, {
         commitBoundary,
+        participantAppearance: roomParticipantAppearance,
         lastKnownDurableSnapshotRevision:
           durableTrackingRef.current.snapshotRevision,
         lastKnownDurableSliceRevisions: cloneDurableSliceRevisionState(
@@ -637,7 +713,7 @@ export default function BoardStage({
           }));
         });
     },
-    [roomId]
+    [roomId, roomParticipantAppearance]
   );
 
   const queueDurableWriteTask = useCallback((task: () => Promise<void>) => {
@@ -843,7 +919,10 @@ export default function BoardStage({
           const result = await saveDurableRoomSnapshot(
             roomId,
             nextObjects,
-            baseRevision
+            baseRevision,
+            {
+              participantAppearance: roomParticipantAppearance,
+            }
           );
 
           if (activeRoomIdRef.current !== roomId) {
@@ -941,7 +1020,7 @@ export default function BoardStage({
         }
       });
     },
-    [queueDurableWriteTask, roomId]
+    [queueDurableWriteTask, roomId, roomParticipantAppearance]
   );
 
   const handleLocalBoardObjectsChange = useCallback(
@@ -1003,7 +1082,166 @@ export default function BoardStage({
     onLocalObjectsChange: handleLocalBoardObjectsChange,
     roomId,
   });
-  const objectsRef = useRef<BoardObject[]>(objects);
+
+  const persistDurableParticipantAppearance = useCallback(
+    (
+      appearance: RoomParticipantAppearance,
+      nextParticipantAppearance: RoomParticipantAppearanceMap
+    ) => {
+      return new Promise<boolean>((resolve) => {
+        queueDurableWriteTask(async () => {
+          if (activeRoomIdRef.current !== roomId) {
+            resolve(false);
+            return;
+          }
+
+          let retryCount = 0;
+          let baseRevision = durableTrackingRef.current.snapshotRevision;
+
+          setDurableReplicaInspection((current) => ({
+            ...current,
+            currentRevision: durableTrackingRef.current.snapshotRevision,
+            currentSliceRevisions: cloneDurableSliceRevisionState(
+              durableTrackingRef.current.sliceRevisions
+            ),
+            lastWriteStatus: "writing",
+            lastWriteBoundary: "participant-appearance",
+            lastWriteSlice: "checkpoint",
+            lastKnownSliceRevision: null,
+            lastBaseRevision: baseRevision,
+            lastBaseSliceRevision: null,
+            lastAckSnapshotRevision: null,
+            lastAckSliceRevision: null,
+            lastConflictRevision: null,
+            lastConflictSliceRevision: null,
+            lastRetryCount: 0,
+            lastResolvedViaRetry: false,
+            lastAckSavedAt: null,
+            lastWriteObjectCount: Object.keys(nextParticipantAppearance).length,
+            lastError: null,
+          }));
+
+          for (let attempt = 0; attempt < 2; attempt += 1) {
+            const result =
+              baseRevision === null
+                ? await saveDurableRoomSnapshot(
+                    roomId,
+                    objects,
+                    null,
+                    {
+                      participantAppearance: nextParticipantAppearance,
+                    }
+                  )
+                : await saveDurableRoomParticipantAppearance(
+                    roomId,
+                    appearance,
+                    baseRevision
+                  );
+
+            if (activeRoomIdRef.current !== roomId) {
+              resolve(false);
+              return;
+            }
+
+            if (result.status === "conflict") {
+              durableTrackingRef.current.snapshotRevision = result.currentRevision;
+
+              if (
+                attempt === 0 &&
+                result.currentRevision !== null &&
+                result.currentRevision !== baseRevision
+              ) {
+                baseRevision = result.currentRevision;
+                retryCount = attempt + 1;
+                continue;
+              }
+
+              setDurableReplicaInspection((current) => ({
+                ...current,
+                currentRevision: result.currentRevision,
+                currentSliceRevisions: cloneDurableSliceRevisionState(
+                  durableTrackingRef.current.sliceRevisions
+                ),
+                lastWriteStatus: "conflict",
+                lastWriteBoundary: "participant-appearance",
+                lastWriteSlice: "checkpoint",
+                lastKnownSliceRevision: null,
+                lastBaseRevision: baseRevision,
+                lastBaseSliceRevision: null,
+                lastAckSnapshotRevision: null,
+                lastAckSliceRevision: null,
+                lastConflictRevision: result.currentRevision,
+                lastConflictSliceRevision: null,
+                lastRetryCount: retryCount,
+                lastResolvedViaRetry: false,
+                lastAckSavedAt: null,
+                lastWriteObjectCount: Object.keys(nextParticipantAppearance).length,
+                lastError: null,
+              }));
+              resolve(false);
+              return;
+            }
+
+            if (result.status === "saved") {
+              durableTrackingRef.current.snapshotRevision = result.snapshot.revision;
+              durableTrackingRef.current.sliceRevisions =
+                getDurableSliceRevisionStateFromSnapshot(result.snapshot);
+              setDurableReplicaInspection((current) => ({
+                ...current,
+                currentRevision: result.snapshot.revision,
+                currentSliceRevisions: cloneDurableSliceRevisionState(
+                  durableTrackingRef.current.sliceRevisions
+                ),
+                lastWriteStatus: "saved",
+                lastWriteBoundary: "participant-appearance",
+                lastWriteSlice: "checkpoint",
+                lastKnownSliceRevision: null,
+                lastBaseRevision: baseRevision,
+                lastBaseSliceRevision: null,
+                lastAckSnapshotRevision: result.snapshot.revision,
+                lastAckSliceRevision: null,
+                lastConflictRevision: null,
+                lastConflictSliceRevision: null,
+                lastRetryCount: retryCount,
+                lastResolvedViaRetry: retryCount > 0,
+                lastAckSavedAt: result.snapshot.savedAt,
+                lastWriteObjectCount: Object.keys(
+                  result.snapshot.participantAppearance
+                ).length,
+                lastError: null,
+              }));
+              resolve(true);
+              return;
+            }
+
+            setDurableReplicaInspection((current) => ({
+              ...current,
+              currentRevision: durableTrackingRef.current.snapshotRevision,
+              currentSliceRevisions: cloneDurableSliceRevisionState(
+                durableTrackingRef.current.sliceRevisions
+              ),
+              lastWriteStatus: "failed",
+              lastWriteBoundary: "participant-appearance",
+              lastWriteSlice: "checkpoint",
+              lastKnownSliceRevision: null,
+              lastBaseRevision: baseRevision,
+              lastBaseSliceRevision: null,
+              lastAckSnapshotRevision: null,
+              lastAckSliceRevision: null,
+              lastRetryCount: retryCount,
+              lastResolvedViaRetry: false,
+              lastAckSavedAt: null,
+              lastWriteObjectCount: Object.keys(nextParticipantAppearance).length,
+              lastError: "durable-participant-appearance-write-unavailable",
+            }));
+            resolve(false);
+            return;
+          }
+        });
+      });
+    },
+    [objects, queueDurableWriteTask, roomId]
+  );
 
   const [selectedObjectId, setSelectedObjectId] = useState<string | null>(null);
   const [editingTextCardId, setEditingTextCardId] = useState<string | null>(null);
@@ -1086,8 +1324,16 @@ export default function BoardStage({
   const sharedNoteCount = sharedNoteObjects.length;
   const sharedObjectCount =
     sharedTokenCount + sharedImageCount + sharedNoteCount;
-  const getLiveCreatorColor = (object: BoardObject) => {
-    return resolveCurrentParticipantColor({
+  const getRoomDocumentCreatorAppearance = (creatorId: string | null | undefined) => {
+    if (!creatorId) {
+      return null;
+    }
+
+    return roomParticipantAppearance[creatorId] ?? null;
+  };
+
+  const getLiveCreatorColorResolution = (object: BoardObject) => {
+    return resolveCurrentParticipantColorResolution({
       participantId: object.creatorId,
       localParticipantSession: participantSession,
       participantPresences,
@@ -1095,8 +1341,39 @@ export default function BoardStage({
     });
   };
 
+  const getCreatorColorResolution = (object: BoardObject): CreatorColorResolution => {
+    const liveCreatorColorResolution = getLiveCreatorColorResolution(object);
+
+    if (liveCreatorColorResolution.color) {
+      return liveCreatorColorResolution;
+    }
+
+    const roomDocumentCreatorColor = getRoomDocumentCreatorAppearance(
+      object.creatorId
+    )?.lastKnownColor;
+
+    if (roomDocumentCreatorColor) {
+      return {
+        color: roomDocumentCreatorColor,
+        source: "room-document",
+      };
+    }
+
+    if (object.fill) {
+      return {
+        color: object.fill,
+        source: "legacy-fill",
+      };
+    }
+
+    return {
+      color: null,
+      source: "unresolved",
+    };
+  };
+
   const getTokenFillColor = (object: BoardObject) => {
-    return getLiveCreatorColor(object) ?? object.fill;
+    return getCreatorColorResolution(object).color ?? object.fill;
   };
 
   const getParticipantMarkerTokens = (
@@ -1407,10 +1684,6 @@ export default function BoardStage({
   );
 
   useLayoutEffect(() => {
-    objectsRef.current = objects;
-  }, [objects]);
-
-  useLayoutEffect(() => {
     localCursorViewportRef.current = {
       stageX: stagePosition.x,
       stageY: stagePosition.y,
@@ -1529,16 +1802,12 @@ export default function BoardStage({
 
     if (activeStroke) {
       syncCurrentImage(activeStroke.imageId);
-      persistLocalReplica(objectsRef.current, "image-draw-commit");
-      persistDurableSliceWrite(
-        objectsRef.current,
-        "image-draw-commit",
-        "images"
-      );
+      persistLocalReplica(objects, "image-draw-commit");
+      persistDurableSliceWrite(objects, "image-draw-commit", "images");
     }
 
     clearActiveImageStrokeSession();
-  }, [persistDurableSliceWrite, persistLocalReplica, syncCurrentImage]);
+  }, [objects, persistDurableSliceWrite, persistLocalReplica, syncCurrentImage]);
 
   const finishImageDrawingMode = useCallback(() => {
     endImageStroke();
@@ -1956,6 +2225,9 @@ export default function BoardStage({
       snapshot: Awaited<ReturnType<typeof loadDurableRoomSnapshot>>
     ) => {
       applyDurableSnapshotInspection(snapshot);
+      setRoomParticipantAppearance(
+        snapshot?.participantAppearance ?? createEmptyRoomParticipantAppearance()
+      );
       console.info("[room-recovery][board-stage][bootstrap-terminal]", {
         roomId,
         settledState: "live-active",
@@ -2095,6 +2367,7 @@ export default function BoardStage({
         tokens: baselineObjects.filter((object) => object.kind === "token"),
         images: baselineObjects.filter((object) => object.kind === "image"),
         textCards: baselineObjects.filter((object) => isNoteCardObject(object)),
+        participantAppearance: createEmptyRoomParticipantAppearance(),
       };
       const shouldRunConvergence =
         hasLocalRecoveryDocument || durableSnapshotObjectCount > 0;
@@ -2110,6 +2383,7 @@ export default function BoardStage({
         tokens: BoardObject[];
         images: BoardObject[];
         textCards: BoardObject[];
+        participantAppearance: RoomParticipantAppearanceMap;
       } | null = null;
       let settledState: Exclude<SettledRecoveryState, "pending"> = "empty-room";
       let settledSliceSources = createInitialSettledRecoverySliceSourceState();
@@ -2135,6 +2409,7 @@ export default function BoardStage({
           localRecoverySnapshot: hasLocalRecoveryDocument
             ? localRecoverySnapshot
             : null,
+          localRecoveryKnownDurableSnapshotRevision,
           localRecoveryKnownDurableSliceRevisions,
           durableSnapshot,
         });
@@ -2171,6 +2446,10 @@ export default function BoardStage({
         lastSettledRecoveryState: settledState,
         lastSettledRecoverySliceSources: settledSliceSources,
       }));
+      setRoomParticipantAppearance(
+        terminalContent?.participantAppearance ??
+          createEmptyRoomParticipantAppearance()
+      );
 
       snapshotRecoveryAttemptedRoomRef.current = roomBootstrapEntryIdRef.current;
 
@@ -2205,6 +2484,158 @@ export default function BoardStage({
     roomBaselineToApply,
     roomId,
     sharedBootstrapObjectCount,
+  ]);
+
+  useEffect(() => {
+    let isCancelled = false;
+
+    queueMicrotask(() => {
+      if (isCancelled) {
+        return;
+      }
+
+      setRoomParticipantAppearance((current) => {
+        let nextParticipantAppearance = current;
+        const upsertObservedAppearance = (
+          participantId: string | null | undefined,
+          name: string | null | undefined,
+          color: string | null | undefined
+        ) => {
+          const nextAppearance = createRoomParticipantAppearance({
+            participantId: participantId ?? "",
+            name: name ?? "",
+            color: color ?? "",
+          });
+
+          if (!nextAppearance) {
+            return;
+          }
+
+          nextParticipantAppearance = upsertRoomParticipantAppearance(
+            nextParticipantAppearance,
+            nextAppearance
+          );
+        };
+
+        upsertObservedAppearance(
+          participantSession.id,
+          participantSession.name,
+          participantSession.color
+        );
+
+        Object.values(roomOccupancies).forEach((occupancy) => {
+          upsertObservedAppearance(
+            occupancy.participantId,
+            occupancy.name,
+            occupancy.color
+          );
+        });
+
+        Object.values(participantPresences).forEach((presence) => {
+          if (roomOccupancies[presence.participantId]) {
+            return;
+          }
+
+          upsertObservedAppearance(
+            presence.participantId,
+            presence.name,
+            presence.color
+          );
+        });
+
+        return nextParticipantAppearance;
+      });
+    });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [
+    participantPresences,
+    participantSession.color,
+    participantSession.id,
+    participantSession.name,
+    roomOccupancies,
+  ]);
+
+  useEffect(() => {
+    if (resolvedSnapshotBootstrapRoomId !== roomId) {
+      return;
+    }
+
+    const nextAppearance = createRoomParticipantAppearance({
+      participantId: participantSession.id,
+      name: participantSession.name,
+      color: participantSession.color,
+    });
+
+    if (!nextAppearance) {
+      return;
+    }
+
+    const nextPersistenceKey = [
+      roomId,
+      nextAppearance.participantId,
+      nextAppearance.lastKnownName,
+      nextAppearance.lastKnownColor,
+    ].join(":");
+
+    if (lastPersistedParticipantAppearanceKeyRef.current === nextPersistenceKey) {
+      return;
+    }
+
+    if (pendingParticipantAppearanceKeyRef.current === nextPersistenceKey) {
+      return;
+    }
+
+    const nextParticipantAppearance = upsertRoomParticipantAppearance(
+      roomParticipantAppearance,
+      nextAppearance
+    );
+
+    pendingParticipantAppearanceKeyRef.current = nextPersistenceKey;
+
+    queueMicrotask(() => {
+      if (nextParticipantAppearance !== roomParticipantAppearance) {
+        setRoomParticipantAppearance(nextParticipantAppearance);
+      }
+    });
+
+    void Promise.all([
+      saveLocalRoomParticipantAppearance(roomId, nextAppearance, objects, {
+        lastKnownDurableSnapshotRevision:
+          durableTrackingRef.current.snapshotRevision,
+        lastKnownDurableSliceRevisions: cloneDurableSliceRevisionState(
+          durableTrackingRef.current.sliceRevisions
+        ),
+      })
+        .then(() => true)
+        .catch(() => false),
+      persistDurableParticipantAppearance(nextAppearance, nextParticipantAppearance),
+    ]).then(([isLocalWriteSaved, isDurableWriteSaved]) => {
+      if (activeRoomIdRef.current !== roomId) {
+        return;
+      }
+
+      if (pendingParticipantAppearanceKeyRef.current !== nextPersistenceKey) {
+        return;
+      }
+
+      pendingParticipantAppearanceKeyRef.current = null;
+
+      if (isLocalWriteSaved && isDurableWriteSaved) {
+        lastPersistedParticipantAppearanceKeyRef.current = nextPersistenceKey;
+      }
+    });
+  }, [
+    objects,
+    participantSession.color,
+    participantSession.id,
+    participantSession.name,
+    persistDurableParticipantAppearance,
+    resolvedSnapshotBootstrapRoomId,
+    roomId,
+    roomParticipantAppearance,
   ]);
 
   useEffect(() => {
@@ -3132,7 +3563,8 @@ export default function BoardStage({
     objects,
     objectSemanticsHoverState,
     isObjectInspectionEnabled,
-    getCreatorColor: getLiveCreatorColor,
+    getCreatorColor: (object) => getCreatorColorResolution(object).color,
+    getCreatorColorSource: (object) => getCreatorColorResolution(object).source,
   });
   const {
     governanceRoomSummary,

@@ -126,6 +126,7 @@ type BoardStageObjectSemanticsViewModelParams = {
   objectSemanticsHoverState: BoardStageObjectSemanticsHoverState;
   isObjectInspectionEnabled: boolean;
   getCreatorColor: (object: BoardObject) => string | null;
+  getCreatorColorSource: (object: BoardObject) => string;
 };
 
 type BoardStageInspectableViewModelParams = {
@@ -216,15 +217,18 @@ export function getBoardStageSelectedObjectsViewModel({
 export function getBoardStageObjectSemanticsRows({
   object,
   creatorColor,
+  creatorColorSource,
 }: {
   object: BoardObject;
   creatorColor: string | null;
+  creatorColorSource: string;
 }): BoardStageObjectSemanticsRow[] {
   const rows = [
     { label: "Kind", value: object.kind },
     { label: "Id", value: object.id },
     { label: "Creator", value: object.creatorId ?? "none" },
     { label: "Creator color", value: creatorColor ?? "unresolved" },
+    { label: "Creator color source", value: creatorColorSource },
     { label: "Author color", value: object.authorColor ?? "none" },
   ];
 
@@ -249,6 +253,7 @@ export function getBoardStageObjectSemanticsViewModel({
   objectSemanticsHoverState,
   isObjectInspectionEnabled,
   getCreatorColor,
+  getCreatorColorSource,
 }: BoardStageObjectSemanticsViewModelParams) {
   const inspectedObject = objectSemanticsHoverState
     ? objects.find((object) => object.id === objectSemanticsHoverState.objectId) ??
@@ -258,6 +263,7 @@ export function getBoardStageObjectSemanticsViewModel({
     ? getBoardStageObjectSemanticsRows({
         object: inspectedObject,
         creatorColor: getCreatorColor(inspectedObject),
+        creatorColorSource: getCreatorColorSource(inspectedObject),
       })
     : [];
 

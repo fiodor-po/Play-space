@@ -543,6 +543,40 @@ async function handleHttpRequest(req, res) {
       return;
     }
 
+    const participantAppearance = normalizeRoomParticipantAppearance(
+      body.participantAppearance
+    );
+    const baseRevision =
+      typeof body.baseRevision === "number" ? body.baseRevision : null;
+
+    if (participantAppearance) {
+      const result = await writeDurableRoomParticipantAppearance(
+        roomId,
+        participantAppearance,
+        baseRevision
+      );
+
+      if (result.status === "conflict") {
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(
+          JSON.stringify({
+            status: "conflict",
+            currentRevision: result.currentRevision,
+          })
+        );
+        return;
+      }
+
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(
+        JSON.stringify({
+          status: "saved",
+          snapshot: result.snapshot,
+        })
+      );
+      return;
+    }
+
     const slice = normalizeDurableRoomSnapshotSlice(body.slice);
 
     if (!slice) {
@@ -686,6 +720,42 @@ async function writeDurableRoomSnapshotSlice(
   };
 }
 
+async function writeDurableRoomParticipantAppearance(
+  roomId,
+  participantAppearance,
+  baseRevision
+) {
+  const store = await readDurableSnapshotStore();
+  const currentSnapshot = normalizeDurableRoomSnapshot(roomId, store[roomId]);
+  const currentRevision = currentSnapshot?.revision ?? null;
+
+  if (currentRevision !== baseRevision) {
+    return {
+      status: "conflict",
+      currentRevision,
+    };
+  }
+
+  const nextRevision = (currentRevision ?? 0) + 1;
+  const nextSnapshot = {
+    ...(currentSnapshot ?? createEmptyDurableRoomSnapshot(roomId)),
+    revision: nextRevision,
+    savedAt: new Date().toISOString(),
+    participantAppearance: {
+      ...(currentSnapshot?.participantAppearance ?? {}),
+      [participantAppearance.participantId]: participantAppearance,
+    },
+  };
+
+  store[roomId] = nextSnapshot;
+  await writeDurableSnapshotStore(store);
+
+  return {
+    status: "saved",
+    snapshot: nextSnapshot,
+  };
+}
+
 async function deleteDurableRoomSnapshot(roomId) {
   const store = await readDurableSnapshotStore();
 
@@ -810,6 +880,9 @@ function createDurableRoomSnapshot(roomId, body) {
     tokens: normalizeRoomObjects(body.tokens, "token"),
     images: normalizeRoomObjects(body.images, "image"),
     textCards: normalizeRoomObjects(body.textCards, "note-card"),
+    participantAppearance: normalizeRoomParticipantAppearanceMap(
+      body.participantAppearance
+    ),
   };
 }
 
@@ -823,6 +896,7 @@ function createEmptyDurableRoomSnapshot(roomId) {
     tokens: [],
     images: [],
     textCards: [],
+    participantAppearance: {},
   };
 }
 
@@ -878,6 +952,9 @@ function normalizeDurableRoomSnapshot(roomId, snapshot) {
     tokens: normalizeRoomObjects(snapshot.tokens, "token"),
     images: normalizeRoomObjects(snapshot.images, "image"),
     textCards: normalizeRoomObjects(snapshot.textCards, "note-card"),
+    participantAppearance: normalizeRoomParticipantAppearanceMap(
+      snapshot.participantAppearance
+    ),
   };
 }
 
@@ -895,6 +972,65 @@ function normalizeDurableRoomSnapshotSliceRevisions(sliceRevisions, fallbackRevi
       sliceRevisions && typeof sliceRevisions.textCards === "number"
         ? sliceRevisions.textCards
         : fallbackRevision,
+  };
+}
+
+function normalizeRoomParticipantAppearanceMap(participantAppearance) {
+  if (!participantAppearance || typeof participantAppearance !== "object") {
+    return {};
+  }
+
+  return Object.fromEntries(
+    Object.entries(participantAppearance)
+      .map(([participantId, appearance]) => {
+        const normalizedAppearance = normalizeRoomParticipantAppearance({
+          participantId,
+          ...appearance,
+        });
+
+        if (!normalizedAppearance) {
+          return null;
+        }
+
+        return [participantId, normalizedAppearance];
+      })
+      .filter((entry) => entry !== null)
+  );
+}
+
+function normalizeRoomParticipantAppearance(appearance) {
+  if (!appearance || typeof appearance !== "object") {
+    return null;
+  }
+
+  const participantId =
+    typeof appearance.participantId === "string" &&
+    appearance.participantId.trim().length > 0
+      ? appearance.participantId.trim()
+      : null;
+  const lastKnownName =
+    typeof appearance.lastKnownName === "string" &&
+    appearance.lastKnownName.trim().length > 0
+      ? appearance.lastKnownName.trim()
+      : null;
+  const lastKnownColor =
+    typeof appearance.lastKnownColor === "string" &&
+    appearance.lastKnownColor.trim().length > 0
+      ? appearance.lastKnownColor.trim()
+      : null;
+
+  if (!participantId || !lastKnownName || !lastKnownColor) {
+    return null;
+  }
+
+  return {
+    participantId,
+    lastKnownName,
+    lastKnownColor,
+    lastSeenAt:
+      typeof appearance.lastSeenAt === "number"
+        ? appearance.lastSeenAt
+        : Date.now(),
   };
 }
 

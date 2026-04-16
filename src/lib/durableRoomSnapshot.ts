@@ -4,6 +4,11 @@ import {
   isNoteCardObject,
   normalizeNoteCardObject,
 } from "../board/objects/noteCard/sizing";
+import {
+  normalizeRoomParticipantAppearanceMap,
+  type RoomParticipantAppearance,
+  type RoomParticipantAppearanceMap,
+} from "./participantColors";
 import { getApiServerBaseUrl } from "./runtimeConfig";
 
 export type DurableRoomSnapshot = {
@@ -14,6 +19,7 @@ export type DurableRoomSnapshot = {
   tokens: BoardObject[];
   images: BoardObject[];
   textCards: BoardObject[];
+  participantAppearance: RoomParticipantAppearanceMap;
 };
 
 export type DurableRoomSnapshotSlice = "tokens" | "images" | "textCards";
@@ -28,12 +34,18 @@ type DurableRoomSnapshotWritePayload = {
   tokens: BoardObject[];
   images: BoardObject[];
   textCards: BoardObject[];
+  participantAppearance?: RoomParticipantAppearanceMap;
 };
 
 type DurableRoomSnapshotSliceWritePayload = {
   slice: DurableRoomSnapshotSlice;
   baseSliceRevision: number | null;
   payload: BoardObject[];
+};
+
+type DurableRoomParticipantAppearanceWritePayload = {
+  baseRevision: number | null;
+  participantAppearance: RoomParticipantAppearance;
 };
 
 type DurableRoomSnapshotSliceWriteResponse =
@@ -45,6 +57,16 @@ type DurableRoomSnapshotSliceWriteResponse =
       status: "conflict";
       currentRevision?: number | null;
       currentSliceRevision?: number | null;
+    };
+
+type DurableRoomParticipantAppearanceWriteResponse =
+  | {
+      status: "saved";
+      snapshot?: Partial<DurableRoomSnapshot> | null;
+    }
+  | {
+      status: "conflict";
+      currentRevision?: number | null;
     };
 
 export type DurableRoomSnapshotUpdateAck = {
@@ -123,7 +145,10 @@ export async function loadDurableRoomSnapshot(
 export async function saveDurableRoomSnapshot(
   roomId: string,
   objects: BoardObject[],
-  baseRevision: number | null
+  baseRevision: number | null,
+  options?: {
+    participantAppearance?: RoomParticipantAppearanceMap;
+  }
 ): Promise<DurableRoomSnapshotSaveResult> {
   const snapshotUrl = getDurableRoomSnapshotUrl(roomId);
   const payload: DurableRoomSnapshotWritePayload = {
@@ -131,6 +156,7 @@ export async function saveDurableRoomSnapshot(
     tokens: objects.filter((object) => object.kind === "token"),
     images: objects.filter((object) => object.kind === "image"),
     textCards: objects.filter((object) => isNoteCardObject(object)),
+    participantAppearance: options?.participantAppearance,
   };
 
   try {
@@ -278,6 +304,76 @@ export async function saveDurableRoomSnapshotSlice(
   }
 }
 
+export async function saveDurableRoomParticipantAppearance(
+  roomId: string,
+  participantAppearance: RoomParticipantAppearance,
+  baseRevision: number | null
+): Promise<DurableRoomSnapshotSaveResult> {
+  const snapshotUrl = getDurableRoomSnapshotUrl(roomId);
+  const writePayload: DurableRoomParticipantAppearanceWritePayload = {
+    baseRevision,
+    participantAppearance,
+  };
+
+  try {
+    const response = await fetch(snapshotUrl, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(writePayload),
+    });
+
+    if (!response.ok) {
+      throw new Error(
+        `Failed to save durable room participant appearance: ${response.status}`
+      );
+    }
+
+    const parsed =
+      (await response.json()) as DurableRoomParticipantAppearanceWriteResponse;
+
+    if (parsed.status === "conflict") {
+      return {
+        status: "conflict",
+        currentRevision:
+          typeof parsed.currentRevision === "number"
+            ? parsed.currentRevision
+            : null,
+      };
+    }
+
+    const snapshot = normalizeDurableRoomSnapshot(roomId, parsed.snapshot ?? null);
+
+    if (!snapshot) {
+      console.warn(
+        "[room-recovery][durable-snapshot][participant-appearance-save-invalid]",
+        {
+          roomId,
+          snapshotUrl,
+          participantId: participantAppearance.participantId,
+          baseRevision,
+        }
+      );
+      return { status: "unavailable" };
+    }
+
+    return { status: "saved", snapshot };
+  } catch (error) {
+    console.warn(
+      "[room-recovery][durable-snapshot][participant-appearance-save-failed]",
+      {
+        roomId,
+        snapshotUrl,
+        participantId: participantAppearance.participantId,
+        baseRevision,
+        reason: error instanceof DOMException ? error.name : "request-failed",
+      }
+    );
+    return { status: "unavailable" };
+  }
+}
+
 function normalizeDurableRoomSnapshot(
   roomId: string,
   snapshot: Partial<DurableRoomSnapshot> | null
@@ -310,6 +406,9 @@ function normalizeDurableRoomSnapshot(
           .filter((object) => object?.kind === "note-card")
           .map((object) => normalizeNoteCardObject(object as BoardObject))
       : [],
+    participantAppearance: normalizeRoomParticipantAppearanceMap(
+      snapshot.participantAppearance
+    ),
   };
 }
 
