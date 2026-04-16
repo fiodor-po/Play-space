@@ -137,6 +137,16 @@ Current expected order from here:
 5. keep `participant-marker / creator-color` as the next candidate chapter
    rather than mixing it into the cleanup sprint.
 
+Current agreed `BoardStage` target model for this cleanup sprint:
+
+- `BoardStage` stays the orchestration shell and keeps runtime ownership.
+- `BoardStageScene` is the next target render boundary for Konva scene composition.
+- `BoardStageShellOverlays` owns shell chrome and scene-attached HTML overlays.
+- `BoardStageDevToolsContent` owns debug and inspection UI.
+- shared 3D dice stay the top app-owned visual layer above the board stack and overlays.
+
+Canonical wording for this target now lives in `docs/ARCHITECTURE.md`.
+
 ## 1.1. Future room-flow split to remember
 
 This is not current implementation work, but it is now an explicit future product direction:

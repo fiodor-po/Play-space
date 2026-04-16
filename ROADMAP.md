@@ -221,6 +221,13 @@ Current hard sprint in this branch:
 5. keep `participant-marker / creator-color` outside this sprint as the next
    product/runtime candidate chapter.
 
+Agreed cleanup target model for this branch:
+
+- `BoardStage` stays the orchestration shell;
+- `BoardStageScene` is the next structural render boundary;
+- `BoardStageShellOverlays` owns shell chrome and scene-attached HTML overlays;
+- shared 3D dice stay the top app-owned visual layer.
+
 ## 5. Что вошло в этот checkpoint
 
 - удержание core hosted stack в честном рабочем состоянии;
