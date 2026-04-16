@@ -20,11 +20,9 @@ import {
 import type Konva from "konva";
 import {
   BoardStageDevToolsContent,
-  BoardStageObjectSemanticsTooltip,
   type BoardStageGovernanceInspectionEntry,
 } from "../board/components/BoardStageDevToolsContent";
-import { CursorOverlay } from "../board/components/CursorOverlay";
-import { ParticipantSessionPanel } from "../board/components/ParticipantSessionPanel";
+import { BoardStageShellOverlays } from "../board/components/BoardStageShellOverlays";
 import { RemoteInteractionIndicator } from "../board/components/RemoteInteractionIndicator";
 import { createNoteCardObject } from "../board/objects/noteCard/createNoteCardObject";
 import { NoteCardRenderer } from "../board/objects/noteCard/NoteCardRenderer";
@@ -39,17 +37,13 @@ import { createTokenObject } from "../board/objects/token/createTokenObject";
 import { TokenRenderer } from "../board/objects/token/TokenRenderer";
 import {
   buttonRecipes,
-  createParticipantAccentButtonRecipe,
   createParticipantAccentButtonRecipeWithMode,
   interactionButtonRecipes,
   resolveCanvasButtonMetrics,
   resolveCanvasButtonTone,
   type ButtonRecipe,
 } from "../ui/system/families/button";
-import {
-  getDesignSystemDebugAttrs,
-  isDesignSystemHoverDebugEnabled,
-} from "../ui/system/debugMeta";
+import { isDesignSystemHoverDebugEnabled } from "../ui/system/debugMeta";
 import {
   boardMaterials,
   resolveBoardCanvasMaterials,
@@ -3829,6 +3823,77 @@ export default function BoardStage({
   ]);
 
   const canvasBoardMaterials = useMemo(() => resolveBoardCanvasMaterials(), []);
+  const roomCreatorLiveColor =
+    roomCreatorId && roomCreatorId !== participantSession.id
+      ? resolveCurrentParticipantColor({
+          participantId: roomCreatorId,
+          localParticipantSession: participantSession,
+          participantPresences,
+          roomOccupancies,
+        })
+      : null;
+  const devToolsContent = (
+    <BoardStageDevToolsContent
+      sharedObjectCount={sharedObjectCount}
+      sharedTokenCount={sharedTokenCount}
+      sharedImageCount={sharedImageCount}
+      sharedNoteCount={sharedNoteCount}
+      inspectableImageTarget={inspectableImageTarget}
+      inspectableImageLabel={inspectableImageObject?.label ?? null}
+      inspectableImageId={inspectableImageObject?.id ?? null}
+      inspectableImageBounds={inspectableImageBounds}
+      inspectableImageStrokeStats={inspectableImageStrokeStats}
+      hasInspectableImage={!!inspectableImageObject}
+      onMoveInspectableImageForSmoke={moveInspectableImageForSmoke}
+      onDrawSmokeStrokeOnInspectableImage={drawSmokeStrokeOnInspectableImage}
+      onResizeInspectableImageForSmoke={resizeInspectableImageForSmoke}
+      inspectableTokenTarget={inspectableTokenTarget}
+      inspectableTokenId={inspectableTokenObject?.id ?? null}
+      inspectableTokenPosition={inspectableTokenPosition}
+      hasInspectableToken={!!inspectableTokenObject}
+      onMoveInspectableTokenForSmoke={moveInspectableTokenForSmoke}
+      inspectableNoteCardTarget={inspectableNoteCardTarget}
+      inspectableNoteCardId={inspectableNoteCardObject?.id ?? null}
+      inspectableNoteCardLabel={inspectableNoteCardObject?.label ?? null}
+      inspectableNoteCardBounds={inspectableNoteCardBounds}
+      hasInspectableNoteCard={!!inspectableNoteCardObject}
+      onMoveInspectableNoteCardForSmoke={moveInspectableNoteCardForSmoke}
+      onSaveInspectableNoteCardTextForSmoke={saveInspectableNoteCardTextForSmoke}
+      onResizeInspectableNoteCardForSmoke={resizeInspectableNoteCardForSmoke}
+      onDeleteInspectableNoteCardForSmoke={deleteInspectableNoteCardForSmoke}
+      participantColor={participantSession.color}
+      onParticipantColorChange={(color) => {
+        onUpdateParticipantSession((session) => ({
+          ...session,
+          color,
+        }));
+      }}
+      isObjectInspectionEnabled={isObjectInspectionEnabled}
+      onObjectInspectionEnabledChange={(isEnabled) => {
+        setIsObjectInspectionEnabled(isEnabled);
+
+        if (!isEnabled) {
+          clearObjectSemanticsHover();
+        }
+      }}
+      localReplicaInspection={localReplicaInspection}
+      durableReplicaInspection={durableReplicaInspection}
+      governanceRoomSummary={governanceRoomSummary}
+      governanceSelectedObjectSummary={governanceSelectedObjectSummary}
+      governanceSelectedImageClearSummary={governanceSelectedImageClearSummary}
+      governanceSelectedImageClearOwnSummary={
+        governanceSelectedImageClearOwnSummary
+      }
+      governanceInspectionEntries={governanceInspectionEntries}
+      onAddImage={() => {
+        imageInputRef.current?.click();
+      }}
+      onAddNote={createNote}
+      onResetBoard={resetBoard}
+    />
+  );
+  const isObjectSemanticsTooltipVisible =
+    isObjectInspectionEnabled && !!inspectedObject && !!objectSemanticsHoverState;
 
   return (
     <div
@@ -3893,61 +3958,17 @@ export default function BoardStage({
         createImageFromFile(file, boardPosition);
       }}
     >
-      <CursorOverlay cursors={participantCursorScreenPositions} />
-
-      <button
-        type="button"
-        onClick={() => {
+      <BoardStageShellOverlays
+        cursors={participantCursorScreenPositions}
+        addImageButtonColor={participantSession.color}
+        onAddImageButtonClick={() => {
           imageInputRef.current?.click();
         }}
-        aria-label="Add image"
-        className={createParticipantAccentButtonRecipe(
-          buttonRecipes.secondary.small,
-          participantSession.color
-        ).className}
-        {...getDesignSystemDebugAttrs(
-          createParticipantAccentButtonRecipe(
-            buttonRecipes.secondary.small,
-            participantSession.color
-          ).debug
-        )}
-        style={{
-          ...createParticipantAccentButtonRecipe(
-            buttonRecipes.secondary.small,
-            participantSession.color
-          ).style,
-          position: "fixed",
-          top: 20,
-          right: 20,
-          zIndex: 30,
-          pointerEvents: "auto",
-          width: 32,
-          minWidth: 32,
-          height: 32,
-          minHeight: 32,
-          padding: 0,
-          fontSize: 18,
-          lineHeight: 1,
-        }}
-      >
-        +
-      </button>
-
-      <ParticipantSessionPanel
-        ref={sessionPanelRef}
+        sessionPanelRef={sessionPanelRef}
         roomId={roomId}
         isCurrentParticipantRoomCreator={isCurrentParticipantRoomCreator}
         roomCreatorName={roomCreatorName}
-        roomCreatorColor={
-          roomCreatorId && roomCreatorId !== participantSession.id
-            ? resolveCurrentParticipantColor({
-                participantId: roomCreatorId,
-                localParticipantSession: participantSession,
-                participantPresences,
-                roomOccupancies,
-              })
-            : null
-        }
+        roomCreatorColor={roomCreatorLiveColor}
         participantName={participantSession.name}
         participantColor={participantSession.color}
         participantNameDraft={participantNameDraft}
@@ -3977,81 +3998,9 @@ export default function BoardStage({
           setParticipantNameDraft(participantSession.name);
           setIsEditingParticipantName(true);
         }}
-        devToolsContent={
-          <BoardStageDevToolsContent
-            sharedObjectCount={sharedObjectCount}
-            sharedTokenCount={sharedTokenCount}
-            sharedImageCount={sharedImageCount}
-            sharedNoteCount={sharedNoteCount}
-            inspectableImageTarget={inspectableImageTarget}
-            inspectableImageLabel={inspectableImageObject?.label ?? null}
-            inspectableImageId={inspectableImageObject?.id ?? null}
-            inspectableImageBounds={inspectableImageBounds}
-            inspectableImageStrokeStats={inspectableImageStrokeStats}
-            hasInspectableImage={!!inspectableImageObject}
-            onMoveInspectableImageForSmoke={moveInspectableImageForSmoke}
-            onDrawSmokeStrokeOnInspectableImage={drawSmokeStrokeOnInspectableImage}
-            onResizeInspectableImageForSmoke={resizeInspectableImageForSmoke}
-            inspectableTokenTarget={inspectableTokenTarget}
-            inspectableTokenId={inspectableTokenObject?.id ?? null}
-            inspectableTokenPosition={inspectableTokenPosition}
-            hasInspectableToken={!!inspectableTokenObject}
-            onMoveInspectableTokenForSmoke={moveInspectableTokenForSmoke}
-            inspectableNoteCardTarget={inspectableNoteCardTarget}
-            inspectableNoteCardId={inspectableNoteCardObject?.id ?? null}
-            inspectableNoteCardLabel={inspectableNoteCardObject?.label ?? null}
-            inspectableNoteCardBounds={inspectableNoteCardBounds}
-            hasInspectableNoteCard={!!inspectableNoteCardObject}
-            onMoveInspectableNoteCardForSmoke={moveInspectableNoteCardForSmoke}
-            onSaveInspectableNoteCardTextForSmoke={
-              saveInspectableNoteCardTextForSmoke
-            }
-            onResizeInspectableNoteCardForSmoke={
-              resizeInspectableNoteCardForSmoke
-            }
-            onDeleteInspectableNoteCardForSmoke={
-              deleteInspectableNoteCardForSmoke
-            }
-            participantColor={participantSession.color}
-            onParticipantColorChange={(color) => {
-              onUpdateParticipantSession((session) => ({
-                ...session,
-                color,
-              }));
-            }}
-            isObjectInspectionEnabled={isObjectInspectionEnabled}
-            onObjectInspectionEnabledChange={(isEnabled) => {
-              setIsObjectInspectionEnabled(isEnabled);
-
-              if (!isEnabled) {
-                clearObjectSemanticsHover();
-              }
-            }}
-            localReplicaInspection={localReplicaInspection}
-            durableReplicaInspection={durableReplicaInspection}
-            governanceRoomSummary={governanceRoomSummary}
-            governanceSelectedObjectSummary={governanceSelectedObjectSummary}
-            governanceSelectedImageClearSummary={governanceSelectedImageClearSummary}
-            governanceSelectedImageClearOwnSummary={
-              governanceSelectedImageClearOwnSummary
-            }
-            governanceInspectionEntries={governanceInspectionEntries}
-            onAddImage={() => {
-              imageInputRef.current?.click();
-            }}
-            onAddNote={createNote}
-            onResetBoard={resetBoard}
-          />
-        }
-      />
-
-      <input
-        ref={imageInputRef}
-        type="file"
-        accept="image/*"
-        data-testid="image-file-input"
-        style={{ display: "none" }}
-        onChange={(event) => {
+        devToolsContent={devToolsContent}
+        imageInputRef={imageInputRef}
+        onImageInputChange={(event) => {
           const file = event.target.files?.[0];
 
           if (file) {
@@ -4060,6 +4009,37 @@ export default function BoardStage({
 
           event.target.value = "";
         }}
+        isEditingTextCardVisible={!!editingTextCard}
+        textareaRef={textareaRef}
+        editingDraft={editingDraft}
+        editingTextareaStyle={editingTextareaStyle}
+        onEditingDraftChange={(event) => {
+          setEditingDraft(event.target.value);
+        }}
+        onEditingTextareaBlur={() => {
+          if (ignoreNextBlurRef.current) {
+            ignoreNextBlurRef.current = false;
+            return;
+          }
+
+          saveEditingTextCard();
+        }}
+        onEditingTextareaKeyDown={(event) => {
+          if (event.key === "Escape") {
+            event.preventDefault();
+            ignoreNextBlurRef.current = true;
+            cancelEditingTextCard();
+            return;
+          }
+
+          if (event.key === "Enter" && !event.shiftKey) {
+            event.preventDefault();
+            saveEditingTextCard();
+          }
+        }}
+        objectSemanticsHoverState={objectSemanticsHoverState}
+        objectSemanticsRows={inspectedObjectSemanticsRows}
+        isObjectSemanticsTooltipVisible={isObjectSemanticsTooltipVisible}
       />
 
       <div ref={stageWrapperRef}>
@@ -4852,72 +4832,6 @@ export default function BoardStage({
       </Stage>
       </div>
 
-      {editingTextCard && editingTextareaStyle && (
-        <textarea
-          ref={textareaRef}
-          value={editingDraft}
-          onChange={(event) => {
-            setEditingDraft(event.target.value);
-          }}
-          onBlur={() => {
-            if (ignoreNextBlurRef.current) {
-              ignoreNextBlurRef.current = false;
-              return;
-            }
-
-            saveEditingTextCard();
-          }}
-          onKeyDown={(event) => {
-            if (event.key === "Escape") {
-              event.preventDefault();
-              ignoreNextBlurRef.current = true;
-              cancelEditingTextCard();
-              return;
-            }
-
-            if (event.key === "Enter" && !event.shiftKey) {
-              event.preventDefault();
-              saveEditingTextCard();
-            }
-          }}
-          style={{
-            position: "absolute",
-            left: editingTextareaStyle.left,
-            top: editingTextareaStyle.top,
-            width: editingTextareaStyle.width,
-            height: editingTextareaStyle.height,
-            padding: 0,
-            margin: 0,
-            border: "none",
-            outline: "none",
-            appearance: "none",
-            WebkitAppearance: "none",
-            borderRadius: 0,
-            boxShadow: "none",
-            resize: "none",
-            overflow: "hidden",
-            fontFamily: editingTextareaStyle.fontFamily,
-            fontSize: editingTextareaStyle.fontSize,
-            fontWeight: "normal",
-            lineHeight: editingTextareaStyle.lineHeight,
-            color: editingTextareaStyle.color,
-            background: "transparent",
-            caretColor: editingTextareaStyle.color,
-            boxSizing: "border-box",
-            whiteSpace: "pre-wrap",
-          }}
-        />
-      )}
-
-      <BoardStageObjectSemanticsTooltip
-        hoverState={objectSemanticsHoverState}
-        rows={inspectedObjectSemanticsRows}
-        isVisible={
-          isObjectInspectionEnabled &&
-          !!inspectedObject &&
-          !!objectSemanticsHoverState
-        }
-      />
     </div>
   );
 }
