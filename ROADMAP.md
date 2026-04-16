@@ -112,6 +112,9 @@ Use these statuses in roadmap notes when useful:
 ### Что важно держать в голове
 
 - проект остаётся **board-first shared play space**, а не heavy VTT;
+- room data on the alpha stage is disposable;
+- schema-changing semantic/runtime chapters may require room wipe;
+- legacy room compatibility is optional unless a current demo or validation checkpoint explicitly needs it;
 - не делать broad rewrite `BoardStage.tsx`;
 - не ломать manual empty-space panning;
 - image interaction — чувствительная зона;
@@ -124,113 +127,45 @@ Use these statuses in roadmap notes when useful:
 
 ## 4. Текущий активный этап
 
-## Phase C — Room document persistence / recovery architecture
+## Phase C — Planning mode after cleanup and creator-color checkpoints
 
-**Статус:** persistence/recovery complete, participant identity stabilization closed, hard sprint active in branch `sprint/cleanup-lint-boardstage-foundation`
+**Статус:** persistence/recovery complete, participant identity stabilization closed, BoardStage cleanup checkpoint closed, creator-color room-document fallback checkpoint closed, planning mode on `main`
 
 ### Цель
-Принять `room document replicas` как architecture chapter, перевести
-persistence/recovery от snapshot arbitration к replica model.
-
-Первый узкий `commit-boundary persistence` checkpoint уже закрыт.
-Сам replica-track остаётся активным до full cutover from snapshot arbitration.
+Держать проект в planning mode после серии закрытых checkpoints и не смешивать
+новый chapter selection с уже закрытыми migration и cleanup tracks.
 
 ### Основная последовательность
-1. удерживать hosted core + optional video checkpoint как baseline;
-2. считать `App.tsx` chapter closed;
-3. считать narrow `BoardStage.tsx` cleanup checkpoint closed;
-4. считать refreshed architecture/runtime audit completed;
-5. считать `next runtime/object chapter` временно blocked by persistence/recovery correctness;
-6. открыть новый active chapter: `room document persistence / recovery architecture`;
-7. принять `parallel replacement` как strategy:
-   - current product surface stays;
-   - new room-document replica model grows beside current snapshot-arbitration model;
-   - cutover happens by phases;
-8. завершить первую implementation phase: `narrow commit-boundary persistence phase`;
-   completed first slice:
-   - browser-local room-document replica storage moved to `IndexedDB`;
-   - one full local room-document replica per room accepted as the first baseline;
-   - narrow same-browser recovery read bridge added;
-   - local delta-log / compaction design remains deferred;
-9. закрыть `Local replica semantics` как следующий internal replica-track step:
-   - local replica now has monotonic local revision identity;
-   - covered committed image/token/note corridors now write into IndexedDB local replica;
-   - bootstrap now treats version-aware local replica as the local document source even when local content is empty;
-   - legacy `room-snapshot` still remained as a temporary compatibility fallback and moved forward to later recovery work;
-10. зафиксировать, что первый `IndexedDB`-baseline checkpoint закрыт, но сам
-   replica-track ещё не завершён;
-11. взять `Durable write model` как следующий internal replica-track step;
-   - step is now closed:
-     - covered local token/image/note commits own durable writes through a narrow update corridor;
-     - ordinary runtime durable writes now belong to commit-owned corridors instead of broad snapshot timing;
-     - durable ack/revision handling is explicit and inspectable;
-     - covered multi-client durable corridors no longer rely on browser-visible `409` resource noise;
-     - covered durable `PATCH` corridors use per-slice revision discipline and avoid cross-slice stale-base conflicts;
-12. закрыть `Recovery convergence model` как текущий internal replica-track step;
-   - step is now closed:
-     - empty-live bootstrap opens the version-aware local replica first;
-     - empty-live settled recovery converges per slice after provisional local-open;
-     - durable slice catches up only when its durable slice revision is ahead of the local handoff metadata;
-     - bootstrap read path now uses version-aware local replica or `none` and no longer reads `room-snapshot`;
-     - committed add/remove corridors now survive same-browser reopen through local replica coverage;
-     - active-room `live-wins` behavior stays unchanged;
-13. закрыть `Checkpoint 3` before final cutover;
-14. закрыть `Core semantic cutover from snapshot arbitration` как финальный internal replica-track step:
-   - visible debug/smoke contract now uses replica vocabulary;
-   - settled runtime contract now uses state-first settled recovery shape;
-   - human gate confirms `live-active`, `replica-converged`, durable-ahead reopen, and stale `room-snapshot` ignore behavior;
-15. закрыть `browser-local participant identity stabilization` как следующий
-    отдельный chapter после replica-track:
-   - browser-local `participantId`, room-local saved session, foreground-tab
-     live carrier, shared active room session, and remembered room defaults now
-     behave as one coherent browser-local identity model;
-   - human gate confirmed same-browser repeat join, foreground/background tab
-     behavior, cross-tab attach, leave propagation, and previous color
-     preselect behavior;
-   - smoke now includes a same-browser second-tab attach corridor in one browser
-     profile;
-16. держать `participant-marker / creator-color` как next candidate chapter
-    after participant identity stabilization;
-17. возвращаться к hosted validation как recurring checkpoint после крупных
-    шагов и новых demo snapshots.
+1. держать hosted core + optional video checkpoint как current baseline;
+2. считать `room document persistence / recovery architecture` закрытым migration track;
+3. считать `browser-local participant identity stabilization` закрытым chapter;
+4. считать cleanup sprint `sprint/cleanup-lint-boardstage-foundation` закрытым checkpoint;
+5. считать `participant-marker / creator-color` room-document fallback закрытым chapter checkpoint;
+6. вернуть проект в planning mode на `main`;
+7. держать hosted validation как повторяемый checkpoint после крупных шагов и новых demo snapshots;
+8. выбирать следующий chapter отдельно, без смешивания с закрытыми cleanup и fallback checkpoints.
 
 ### Что это теперь значит
 Persistence/recovery spine уже дошёл до финального semantic cutover.
-Browser-local participant identity stabilization теперь тоже закрыт.
-Следующий большой semantic/runtime candidate теперь лежит в participant-marker /
-creator-color:
+Browser-local participant identity stabilization закрыт.
+BoardStage cleanup sprint закрыт.
+Creator-color fallback checkpoint тоже закрыт.
 
-- creator-linked rendering still needs truthful non-live fallback semantics;
-- creator color fallback still mixes current live state and stale object-local
-  values;
-- participant-marker / creator-color chapter already has its own analysis note
-  and separate design scope.
+Current creator-color truth now looks like this:
 
-Current planning-mode candidate for the next strategist step:
+- room-scoped `participantAppearance` now stores last-known participant color and
+  name;
+- creator color resolution now uses `live -> room-document -> legacy-fill`;
+- creator-color inspectability now shows exact source labels;
+- explicit `Leave room` now switches creator-colored participant-marker tokens
+  to `room-document` fallback as intended.
 
-- analysis-first pass for `participant-marker / creator-color`
+Remaining deferred runtime tail from this chapter:
 
-Это делает participant-marker / creator-color следующим candidate architecture concern.
-
-Current cleanup sprint result in this branch:
-
-1. keep `main` as the stable hosted/demo line;
-2. keep `sprint/cleanup-lint-boardstage-foundation` as a cleanup-only branch checkpoint;
-3. treat `lint green baseline` as closed;
-4. treat `BoardStage` structural reduction phases `1–4` as closed;
-5. keep `participant-marker / creator-color` as the next candidate chapter after this sprint;
-6. treat hosted validation after this cleanup checkpoint as closed.
-
-Required deferred hosted/runtime follow-up from this checkpoint:
-
-- investigate staged hosted room hydration waves and multi-context slowdown as one general runtime follow-up; current live and the cleanup preview show the same pattern, so this is not treated as a branch-specific blocker
-
-Agreed cleanup target model for this branch:
-
-- `BoardStage` stays the orchestration shell;
-- `BoardStageScene` is the next structural render boundary;
-- `BoardStageShellOverlays` owns shell chrome and scene-attached HTML overlays;
-- shared 3D dice stay the top app-owned visual layer.
+- abrupt tab close still leaves stale `live-occupancy`, so `room-document`
+  fallback does not activate there yet;
+- this is now treated as a separate room-occupancy liveness follow-up rather
+  than as an open creator-color fallback blocker.
 
 ## 5. Что вошло в этот checkpoint
 
@@ -257,10 +192,12 @@ Agreed cleanup target model for this branch:
 - closed cleanup sprint checkpoint:
   - `lint green baseline`
   - `BoardStage structural reduction phases 1–4`
-- next candidate chapter: `participant-marker / creator-color`;
+- closed chapter checkpoint:
+  - `participant-marker / creator-color` room-document fallback;
 - completed follow-up checkpoint: hosted validation after the cleanup branch deploy;
 - later hosted/runtime follow-up:
   - staged hydration waves and multi-context slowdown during room open;
+  - stale `live-occupancy` after abrupt tab close;
 - hosted validation как повторяемая проверка после крупных шагов, выкатываний и
   новых demo snapshots.
 
@@ -301,10 +238,11 @@ Agreed cleanup target model for this branch:
 22. вести cleanup-only work в branch `sprint/cleanup-lint-boardstage-foundation`;
 23. считать `lint green baseline` закрытым cleanup checkpoint;
 24. считать `BoardStage` structural reduction phases `1–4` закрытым cleanup checkpoint;
-25. держать `participant-marker / creator-color` как следующий candidate chapter после cleanup sprint;
+25. считать `participant-marker / creator-color` room-document fallback checkpoint закрытым;
 26. считать hosted validation after the cleanup checkpoint закрытым;
 27. держать staged hydration waves и multi-context slowdown как отдельный hosted/runtime follow-up, а не как cleanup-branch blocker;
-28. возвращаться к hosted validation как checkpoint после больших шагов и новых
+28. держать stale `live-occupancy` after abrupt tab close как отдельный room-liveness follow-up;
+29. возвращаться к hosted validation как checkpoint после больших шагов и новых
    demo snapshots.
 
 ## 8. Backlog
@@ -399,12 +337,20 @@ Agreed cleanup target model for this branch:
   - resulting risk: user can briefly choose a color that is actually occupied before room availability state settles
   - preferred fix shape: gate final join on initial entry availability readiness instead of treating early empty awareness state as final truth
   - keep this as a narrow hotfix outside the current runtime/object chapter unless the repro becomes a stable blocker
-- [ ] resolve creator-color fallback gap for participant-marker tokens and creator-colored token rendering:
-  - refresh/leave wrong-color behavior currently comes from fallback to stale token-local `fill` after live creator color disappears
-  - accepted target: use snapshot-backed room-scoped last-known participant appearance as the non-live fallback by `creatorId`
-  - `creatorId` stays in durable room identity; participant appearance fallback belongs to durable room snapshot
-  - treat this as required participant-marker / creator-color chapter work, not polish
+- [ ] make the entry room-name field empty by default when the URL does not specify a room:
+  - current `alpha` default reads like an implied canonical room rather than an empty draft
+  - expected behavior: no explicit room in the URL means an empty room-name field on entry
+  - keep URL-provided room names as entry prefill
+- [x] close the creator-color room-document fallback checkpoint for participant-marker tokens:
+  - room-scoped `participantAppearance` now stores last-known participant appearance
+  - creator color now resolves as `live -> room-document -> legacy-fill`
+  - creator-color inspectability now shows exact source labels
+  - explicit `Leave room` now reaches `room-document` fallback
   - analysis note: [docs/creator-color-fallback-analysis-2026-04-14.md](docs/creator-color-fallback-analysis-2026-04-14.md)
+- [ ] fix stale `live-occupancy` after abrupt tab close:
+  - current truth: explicit `Leave room` switches to `room-document`, plain tab close still leaves creator as `live-occupancy`
+  - unload cleanup and occupancy freshness attempts were reverted after failing manual truth
+  - this is now a separate room-occupancy liveness follow-up, not an open creator-color fallback blocker
 - [ ] minimal hosted-alpha room operations panel:
   - list existing rooms on the server
   - inspect room contents / snapshot state

@@ -144,8 +144,9 @@ Recommended statuses:
 - `finding`: cleanup sprint brought `BoardStage` close to the agreed orchestration-shell target, and the next deferred semantic/runtime review item is still `participant-marker / creator-color`
 - `why_deferred`: cleanup sprint intentionally stayed out of participant-marker semantics, creator-color fallback truth, and creator-linked rendering behavior
 - `expected_action`: review `participant-marker / creator-color` as the next candidate chapter and decide whether the accepted creator-color fallback gap is real in current runtime behavior before implementing the durable room-scoped last-known participant appearance fallback by `creatorId`
+- `closure_result`: the gap was partially confirmed; room-scoped `participantAppearance` now provides `room-document` fallback, creator color now resolves as `live -> room-document -> legacy-fill`, precise creator-color source inspectability exists, and the remaining abrupt-tab-close liveness issue was split into a separate follow-up
 - `target_chapter`: `participant-marker / creator-color`
-- `status`: `planned`
+- `status`: `closed`
 
 ### RF-2026-04-16-03
 
@@ -180,4 +181,15 @@ Recommended statuses:
 - `why_deferred`: cleanup checkpoint is safe to merge; the remaining issue belongs to general hosted/runtime coordination rather than to branch-specific cleanup regressions
 - `expected_action`: inspect bootstrap coordination, separate token/image/text-card shared-slice connection startup, and durable snapshot failure noise during room open before opening a broader hosted performance chapter
 - `target_chapter`: `hosted room hydration and bootstrap coordination`
+- `status`: `planned`
+
+### RF-2026-04-16-06
+
+- `id`: `RF-2026-04-16-06`
+- `date`: `2026-04-16`
+- `source`: strategist closeout review after the creator-color room-document fallback checkpoint
+- `finding`: creator-color fallback now works through `room-document`, but abrupt tab close still leaves stale `live-occupancy`, so `room-document` fallback does not activate in that path
+- `why_deferred`: creator-color fallback itself reached an honest checkpoint; unload-cleanup and occupancy-freshness experiments did not close the abrupt-close liveness path and were reverted
+- `expected_action`: open a separate room-occupancy liveness follow-up for abrupt tab close, verify which source still keeps occupancy alive, and implement a truthful teardown/staleness model there instead of mixing more liveness hacks into the closed creator-color checkpoint
+- `target_chapter`: `tab-close room-occupancy liveness`
 - `status`: `planned`

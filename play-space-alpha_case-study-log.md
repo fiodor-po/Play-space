@@ -58,6 +58,61 @@ The chapter no longer keeps a same-browser leave-propagation teardown tail.
 
 ---
 
+## Phase 0X — Creator-color room-document fallback reached a working checkpoint
+
+### Type
+- milestone
+- decision
+
+### Context
+После closure browser-local participant identity stabilization chapter
+`participant-marker / creator-color` сузился до одного честного semantic gap:
+creator-colored participant-marker tokens теряли truthful non-live fallback и
+падали в stale object-local color.
+
+### Goal or problem
+Нужно было закрыть fallback gap без broad room-liveness redesign:
+
+- сохранить `creatorId` как object truth;
+- перестать зависеть только от live creator color;
+- добавить inspectability для source-of-truth;
+- не смешивать это с полной переделкой tab-close teardown.
+
+### What happened
+Chapter дошёл до working checkpoint:
+
+- room-scoped `participantAppearance` now stores last-known participant name and
+  color;
+- creator color now resolves as `live -> room-document -> legacy-fill`;
+- creator-color inspectability now shows exact source labels;
+- explicit `Leave room` now switches selected participant-marker tokens to
+  `room-document` fallback as intended;
+- retry/ack semantics for `participantAppearance` persistence were tightened so
+  the same payload is not treated as persisted before local and durable ack;
+- two later attempts to hide abrupt-tab-close liveness issues through unload
+  cleanup and occupancy freshness were reverted after manual truth stayed wrong.
+
+### Decision / change
+The creator-color room-document fallback checkpoint is closed.
+
+The remaining abrupt-tab-close `live-occupancy` issue is now a separate
+room-liveness follow-up, not an open blocker inside this checkpoint.
+
+### Why
+The fallback gap itself is now closed.
+The remaining bug belongs to room-occupancy liveness truth after abrupt tab
+close.
+
+### Result
+`participant-marker / creator-color` no longer remains the active deferred
+chapter from the cleanup sprint.
+
+The new later runtime tail is explicit:
+
+- stale `live-occupancy` after abrupt tab close.
+
+---
+
 ## Phase 0X — Core semantic cutover closed and replica-track completed
 
 ### Type
@@ -2923,3 +2978,38 @@ The cleanup branch can merge without carrying a hosted regression blocker.
 The remaining later follow-up is now:
 
 - hosted room hydration and bootstrap coordination.
+
+---
+
+## Phase 0Z — Room data on the alpha stage is now explicitly disposable
+
+### Type
+- decision
+- product/runtime policy
+
+### Context
+Legacy-room concerns kept reappearing after semantic/runtime changes even though
+the project still has no real user data to protect.
+
+### Goal or problem
+Нужно было перестать считать old-room compatibility скрытым требованием по
+умолчанию.
+
+### What happened
+The project accepted a direct alpha rule:
+
+- room data on the alpha stage is disposable;
+- schema-changing semantic/runtime chapters may require room wipe;
+- legacy room compatibility is optional unless a current demo or validation
+  checkpoint explicitly needs it.
+
+### Decision / change
+Room wipe is now an accepted operational tool.
+
+### Why
+Current product progress benefits more from clean room truth than from carrying
+stale compatibility behavior for rooms that do not belong to real users yet.
+
+### Result
+Future chapter closeout should explicitly decide whether a room wipe is
+required, instead of silently preserving old rooms by default.

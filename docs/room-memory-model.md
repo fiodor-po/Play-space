@@ -33,6 +33,13 @@ Hosted-status caveat that is now explicitly known:
 - поэтому current hosted durability should be treated as restart-stable but not deploy-stable;
 - until this is fixed, durable room snapshots remain operationally useful but not fully reliable as hosted deployment-persistent room memory.
 
+Current alpha room-data policy:
+
+- room data on the alpha stage is disposable;
+- semantic/runtime chapters may require room wipe after room-document shape or recovery truth changes;
+- legacy room compatibility is optional unless a current demo or validation checkpoint explicitly depends on it;
+- wipe decisions should be made explicitly per chapter instead of silently preserving stale rooms by default.
+
 Текущая рабочая модель такая:
 
 - у комнаты есть **durable room identity layer** для room-level identity facts;
@@ -173,6 +180,17 @@ Target rendering consequence:
 - он не должен побеждать durable room identity;
 - он не должен побеждать более новый durable room snapshot;
 - он не должен диктовать shared room truth после исчезновения live state.
+
+## E.1. Alpha wipe policy
+
+Для текущего alpha room wipe is an accepted operational tool.
+
+Practical rule:
+
+- if a chapter changes room-document shape, recovery semantics, or shared creator/color truth, existing rooms may be reset instead of preserved through compatibility code;
+- chapter closeout should decide `wipe required` or `wipe not required`;
+- room wipe may target durable room snapshots, local room replicas, and scoped browser-local room state for affected rooms;
+- browser-local participant identity should stay intact unless the chapter explicitly changes that model.
 
 Сейчас сюда относятся вещи вроде:
 

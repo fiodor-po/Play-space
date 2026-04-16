@@ -71,6 +71,13 @@ Important nuance:
 - that may include room-scoped last-known participant appearance for creator-linked fallback;
 - room creator identity still must stay in durable room identity, not inside snapshot.
 
+Alpha room-data policy:
+
+- current alpha does not promise default compatibility for old rooms;
+- semantic/runtime chapters may require room wipe;
+- wipe becomes an accepted operational step when room-document shape or room truth changes;
+- legacy room compatibility matters only when a current demo or validation checkpoint explicitly needs it.
+
 ## 4. Bootstrap / recovery model
 
 Текущий room bootstrap/recovery path работает так:
@@ -170,6 +177,20 @@ Recommended narrow durable-identity implementation shape:
   - `createdAt`
 - resolve room identity before content restore;
 - treat durable snapshot as recoverable room-state layer, not room identity authority.
+
+## 7.2. Room wipe decision
+
+Chapter closeout should state whether old rooms require wipe.
+
+Accepted wipe targets for current alpha:
+
+- durable room snapshots;
+- local room replicas;
+- scoped browser-local room memory for affected rooms.
+
+Default exception:
+
+- browser-local participant identity stays intact unless the chapter explicitly changes that model.
 
 ## 8. Что сейчас считается intentional / temporary / bug
 

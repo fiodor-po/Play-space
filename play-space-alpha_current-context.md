@@ -33,12 +33,16 @@ Current branch reached its cleanup sprint checkpoint:
 
 - branch: `sprint/cleanup-lint-boardstage-foundation`
 - `main` stays the stable hosted/demo line
+- room data on the alpha stage is now treated as disposable state rather than as compatibility-protected user data
+- schema-changing semantic/runtime chapters may require room wipe
+- legacy room compatibility is optional unless a current demo or validation checkpoint explicitly needs it
 - `lint green baseline` is closed
 - `BoardStage` structural reduction phases `1–4` are closed
-- `participant-marker / creator-color` stays the next candidate product/runtime chapter
+- `participant-marker / creator-color` room-document fallback checkpoint is closed
 - hosted validation after this cleanup checkpoint is closed
 - note editor overlay and hosted debug gate hotfixes are verified on the exact preview deploy
 - current live and the cleanup preview show the same staged hydration pattern, so the remaining room-open timing concern is a general hosted/runtime follow-up rather than a branch-specific blocker
+- explicit `Leave room` now switches creator-colored participant-marker tokens to `room-document`, while abrupt tab close still leaves stale `live-occupancy`
 
 Проект остаётся в стадии `play-space-alpha`.
 
@@ -106,7 +110,7 @@ Current branch reached its cleanup sprint checkpoint:
     preselect behavior;
   - local smoke now also covers same-browser second-tab attach in one browser
     profile.
-- next candidate chapter is now `participant-marker / creator-color`.
+- `participant-marker / creator-color` room-document fallback checkpoint is now closed.
 - cleanup sprint checkpoint is now closed in branch `sprint/cleanup-lint-boardstage-foundation`.
 - Dev tools inspectability surface now has a closed usability cleanup checkpoint:
   - the panel stays viewport-bounded on ordinary desktop viewports;
@@ -134,9 +138,10 @@ Current expected order from here:
 
 1. keep `main` as the stable hosted/demo line;
 2. treat this branch as a merge-ready cleanup checkpoint after closed hosted validation;
-3. keep `participant-marker / creator-color` as the next candidate chapter;
+3. return to planning mode after the closed creator-color checkpoint;
 4. carry forward staged hosted hydration waves and multi-context slowdown as a separate hosted/runtime follow-up;
-5. avoid reopening `BoardStage` cleanup micro-slices unless a new sprint is started explicitly.
+5. carry forward stale `live-occupancy` after abrupt tab close as a separate room-liveness follow-up;
+6. avoid reopening `BoardStage` cleanup micro-slices unless a new sprint is started explicitly.
 
 Current agreed `BoardStage` target model for this cleanup sprint:
 
@@ -359,13 +364,18 @@ Token chapter теперь уже не только design-only.
 - marker no longer behaves like a normal selectable/deletable board object;
 - current token flow is now much closer to a product-facing participant marker than to a debug-only generic token.
 
-Required deferred follow-up is now explicit:
+This participant-marker phase now reached a creator-color checkpoint:
 
-- refresh/leave wrong-color behavior for participant-marker tokens comes from a real fallback path, not from incidental rendering noise;
-- current token color resolution still falls back from live creator color by `creatorId` to token-local stored `fill`;
-- that stored `fill` can become stale after later participant color changes;
-- accepted target is snapshot-backed room-scoped last-known participant appearance as the non-live creator fallback by `creatorId`;
-- `creatorId` remains durable room identity truth, while participant appearance fallback belongs to durable room snapshot;
+- room-scoped `participantAppearance` now stores last-known participant color and name;
+- creator color resolution now uses `live -> room-document -> legacy-fill`;
+- creator-color inspectability now shows exact source labels;
+- explicit `Leave room` now reaches `room-document` fallback.
+
+Deferred runtime follow-up from this chapter:
+
+- abrupt tab close still leaves stale `live-occupancy`;
+- manual truth showed that unload cleanup and occupancy freshness hacks did not close this path;
+- room-occupancy teardown after abrupt close now lives as a separate runtime follow-up.
 
 ### 3.18. Persistence/recovery track reached its first working checkpoint
 
@@ -1086,7 +1096,7 @@ Working order from here:
 18. keep `legacy room-snapshot write-cache cleanup` as an optional hygiene follow-up outside the core recovery semantics
 19. keep `internal recovery naming/log cleanup` as an optional hygiene follow-up outside the core runtime contract
 20. keep `same-browser leave propagation warning cleanup` as a later runtime-hygiene follow-up outside the closed participant identity chapter
-21. keep participant-marker / creator-color as the next candidate semantic/runtime chapter
+21. treat the creator-color room-document fallback checkpoint as closed and keep abrupt tab-close room-occupancy liveness as a separate later runtime follow-up
 
 Accepted cleanup decisions already made:
 
