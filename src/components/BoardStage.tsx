@@ -7,41 +7,26 @@ import {
   useRef,
   useState,
 } from "react";
-import {
-  Group,
-  Image as KonvaImage,
-  Layer,
-  Line,
-  Rect,
-  Stage,
-  Text,
-  Transformer,
-} from "react-konva";
 import type Konva from "konva";
 import {
   BoardStageDevToolsContent,
   type BoardStageGovernanceInspectionEntry,
 } from "../board/components/BoardStageDevToolsContent";
+import {
+  BoardStageScene,
+  type BoardStageSceneImageControlButton,
+} from "../board/components/BoardStageScene";
 import { BoardStageShellOverlays } from "../board/components/BoardStageShellOverlays";
-import { RemoteInteractionIndicator } from "../board/components/RemoteInteractionIndicator";
 import { createNoteCardObject } from "../board/objects/noteCard/createNoteCardObject";
-import { NoteCardRenderer } from "../board/objects/noteCard/NoteCardRenderer";
 import {
   clampNoteCardWidth,
   getNoteCardHeightForLabel,
-  MIN_NOTE_CARD_HEIGHT,
-  MIN_NOTE_CARD_WIDTH,
   isNoteCardObject,
 } from "../board/objects/noteCard/sizing";
 import { createTokenObject } from "../board/objects/token/createTokenObject";
-import { TokenRenderer } from "../board/objects/token/TokenRenderer";
 import {
-  buttonRecipes,
   createParticipantAccentButtonRecipeWithMode,
   interactionButtonRecipes,
-  resolveCanvasButtonMetrics,
-  resolveCanvasButtonTone,
-  type ButtonRecipe,
 } from "../ui/system/families/button";
 import { isDesignSystemHoverDebugEnabled } from "../ui/system/debugMeta";
 import {
@@ -61,9 +46,6 @@ import {
   useBoardObjectRuntime,
 } from "../board/runtime/useBoardObjectRuntime";
 import {
-  BOARD_HEIGHT,
-  BOARD_WIDTH,
-  HTML_UI_FONT_FAMILY,
   MAX_INITIAL_IMAGE_DISPLAY_HEIGHT,
   MAX_INITIAL_IMAGE_DISPLAY_WIDTH,
   MAX_SCALE,
@@ -154,100 +136,7 @@ import {
 import type { RoomBaselineDescriptor, RoomBaselineId } from "../lib/roomMetadata";
 import type { BoardObject, TokenAttachment } from "../types/board";
 
-type SmallFloatingActionButtonProps = {
-  x: number;
-  y: number;
-  label: string;
-  recipe?: ButtonRecipe;
-  onClick: () => void;
-};
-
-const IMAGE_ATTACHED_CONTROLS_GAP = 8;
-const IMAGE_ATTACHED_CONTROLS_OUTER_OFFSET_Y = 12;
 const LOCAL_CURSOR_PRESENCE_MIN_INTERVAL_MS = 33;
-
-function getSmallFloatingActionButtonWidth(
-  label: string,
-  metrics: ReturnType<typeof resolveCanvasButtonMetrics>
-) {
-  let measuredTextWidth = label.length * metrics.fontSize * 0.58;
-
-  if (typeof document !== "undefined") {
-    const canvas = document.createElement("canvas");
-    const context = canvas.getContext("2d");
-
-    if (context) {
-      const fontWeight =
-        typeof metrics.fontWeight === "number"
-          ? String(metrics.fontWeight)
-          : metrics.fontWeight;
-      context.font = `${fontWeight} ${metrics.fontSize}px ${metrics.fontFamily}`;
-      measuredTextWidth = context.measureText(label).width;
-    }
-  }
-
-  const contentWidth = measuredTextWidth + metrics.paddingX * 2;
-  const minimumWidth = metrics.minWidth ?? metrics.minHeight;
-
-  return Math.max(minimumWidth, Math.ceil(contentWidth));
-}
-
-function SmallFloatingActionButton({
-  x,
-  y,
-  label,
-  recipe = buttonRecipes.secondary.small,
-  onClick,
-}: SmallFloatingActionButtonProps) {
-  const metrics = resolveCanvasButtonMetrics(recipe);
-  const width = getSmallFloatingActionButtonWidth(label, metrics);
-  const height = metrics.minHeight;
-  const toneStyles = resolveCanvasButtonTone(recipe);
-  const textLineHeightPx = metrics.fontSize * metrics.lineHeight;
-  const textYOffset = Math.max(0, (height - textLineHeightPx) / 2);
-
-  return (
-    <Group
-      x={x}
-      y={y}
-      onMouseDown={(event) => {
-        event.cancelBubble = true;
-      }}
-      onTouchStart={(event) => {
-        event.cancelBubble = true;
-      }}
-      onClick={(event) => {
-        event.cancelBubble = true;
-        onClick();
-      }}
-      onTap={(event) => {
-        event.cancelBubble = true;
-        onClick();
-      }}
-    >
-      <Rect
-        width={width}
-        height={height}
-        cornerRadius={metrics.borderRadius}
-        fill={toneStyles.fill}
-        stroke={toneStyles.stroke}
-        strokeWidth={1}
-      />
-      <Text
-        x={0}
-        y={textYOffset}
-        width={width}
-        align="center"
-        text={label}
-        fontSize={metrics.fontSize}
-        fontStyle={String(metrics.fontWeight) === "600" || Number(metrics.fontWeight) >= 600 ? "bold" : "normal"}
-        fontFamily={metrics.fontFamily || HTML_UI_FONT_FAMILY}
-        fill={toneStyles.textColor}
-        listening={false}
-      />
-    </Group>
-  );
-}
 
 function getSharedBoardObjects(nextObjects: BoardObject[]) {
   return nextObjects.filter(
@@ -3413,11 +3302,7 @@ export default function BoardStage({
         participantId: participantSession.id,
       })
     : null;
-  const selectedImageControlButtons: Array<{
-    key: string;
-    label: string;
-    recipe?: ButtonRecipe;
-  }> = [];
+  const selectedImageControlButtons: BoardStageSceneImageControlButton[] = [];
 
   if (selectedImageObject) {
     selectedImageControlButtons.push({
@@ -3894,6 +3779,113 @@ export default function BoardStage({
   );
   const isObjectSemanticsTooltipVisible =
     isObjectInspectionEnabled && !!inspectedObject && !!objectSemanticsHoverState;
+  const handleBoardBackgroundMouseDown = () => {
+    if (drawingImageId) {
+      finishImageDrawingMode();
+    }
+
+    setSelectedObjectId(null);
+  };
+  const handleStageMouseDown = (event: {
+    target: Konva.Node;
+  }) => {
+    const stage = event.target.getStage();
+    const pointer = stage?.getPointerPosition();
+    const clickedOnEmptyStage =
+      event.target === stage || event.target === boardBackgroundRef.current;
+
+    if (clickedOnEmptyStage) {
+      if (drawingImageId) {
+        finishImageDrawingMode();
+      }
+
+      setSelectedObjectId(null);
+    }
+
+    if (!clickedOnEmptyStage || !pointer) {
+      return;
+    }
+
+    panStateRef.current = {
+      isPanning: true,
+      startPointerX: pointer.x,
+      startPointerY: pointer.y,
+      startStageX: stagePosition.x,
+      startStageY: stagePosition.y,
+    };
+  };
+  const handleStageMouseMove = (event: {
+    target: Konva.Node;
+  }) => {
+    const pointer = event.target.getStage()?.getPointerPosition();
+    const panState = panStateRef.current;
+
+    if (!panState?.isPanning || !pointer) {
+      return;
+    }
+
+    setStagePosition({
+      x: panState.startStageX + (pointer.x - panState.startPointerX),
+      y: panState.startStageY + (pointer.y - panState.startPointerY),
+    });
+  };
+  const handleStageMouseUp = () => {
+    panStateRef.current = null;
+    endImageStroke();
+  };
+  const handleStageTouchStart = handleStageMouseDown;
+  const handleStageTouchMove = handleStageMouseMove;
+  const handleStageTouchEnd = handleStageMouseUp;
+  const handleStageWheel = (event: {
+    evt: WheelEvent;
+    target: Konva.Node;
+  }) => {
+    event.evt.preventDefault();
+
+    const oldScale = stageScale;
+    const pointer = event.target.getStage()?.getPointerPosition();
+
+    if (!pointer) {
+      return;
+    }
+
+    const direction = event.evt.deltaY > 0 ? -1 : 1;
+    let newScale = direction > 0 ? oldScale * SCALE_BY : oldScale / SCALE_BY;
+
+    newScale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, newScale));
+
+    const newPosition = getZoomedViewport({
+      pointerX: pointer.x,
+      pointerY: pointer.y,
+      stageX: stagePosition.x,
+      stageY: stagePosition.y,
+      oldScale,
+      newScale,
+    });
+
+    setStageScale(newScale);
+    setStagePosition(newPosition);
+  };
+  const handleSelectedImageControlClick = (buttonKey: string, imageId: string) => {
+    if (buttonKey === "draw") {
+      if (drawingImageId === imageId) {
+        finishImageDrawingMode();
+        return;
+      }
+
+      startImageDrawingMode(imageId);
+      return;
+    }
+
+    if (buttonKey === "clear-own") {
+      clearOwnImageDrawing(imageId);
+      return;
+    }
+
+    if (buttonKey === "clear-all") {
+      clearImageDrawing(imageId);
+    }
+  };
 
   return (
     <div
@@ -4042,795 +4034,83 @@ export default function BoardStage({
         isObjectSemanticsTooltipVisible={isObjectSemanticsTooltipVisible}
       />
 
-      <div ref={stageWrapperRef}>
-        <Stage
-          width={stageSize.width}
-          height={stageSize.height}
-          x={stagePosition.x}
-          y={stagePosition.y}
-          scaleX={stageScale}
-          scaleY={stageScale}
-          onMouseDown={(event) => {
-          const stage = event.target.getStage();
-          const pointer = stage?.getPointerPosition();
-          const clickedOnEmptyStage =
-            event.target === stage || event.target === boardBackgroundRef.current;
-
-          if (clickedOnEmptyStage) {
-            if (drawingImageId) {
-              finishImageDrawingMode();
-            }
-            setSelectedObjectId(null);
-          }
-
-          if (!clickedOnEmptyStage || !pointer) {
-            return;
-          }
-
-          panStateRef.current = {
-            isPanning: true,
-            startPointerX: pointer.x,
-            startPointerY: pointer.y,
-            startStageX: stagePosition.x,
-            startStageY: stagePosition.y,
-          };
-          }}
-          onMouseMove={(event) => {
-          const pointer = event.target.getStage()?.getPointerPosition();
-          const panState = panStateRef.current;
-
-          if (!panState?.isPanning || !pointer) {
-            return;
-          }
-
-          setStagePosition({
-            x: panState.startStageX + (pointer.x - panState.startPointerX),
-            y: panState.startStageY + (pointer.y - panState.startPointerY),
-          });
-        }}
-        onMouseUp={() => {
-          panStateRef.current = null;
-          endImageStroke();
-        }}
-        onMouseLeave={() => {
-          panStateRef.current = null;
-          endImageStroke();
-        }}
-        onTouchStart={(event) => {
-          const stage = event.target.getStage();
-          const pointer = stage?.getPointerPosition();
-          const touchedEmptyStage =
-            event.target === stage || event.target === boardBackgroundRef.current;
-
-          if (touchedEmptyStage) {
-            if (drawingImageId) {
-              finishImageDrawingMode();
-            }
-            setSelectedObjectId(null);
-          }
-
-          if (!touchedEmptyStage || !pointer) {
-            return;
-          }
-
-          panStateRef.current = {
-            isPanning: true,
-            startPointerX: pointer.x,
-            startPointerY: pointer.y,
-            startStageX: stagePosition.x,
-            startStageY: stagePosition.y,
-          };
-        }}
-        onTouchMove={(event) => {
-          const pointer = event.target.getStage()?.getPointerPosition();
-          const panState = panStateRef.current;
-
-          if (!panState?.isPanning || !pointer) {
-            return;
-          }
-
-          setStagePosition({
-            x: panState.startStageX + (pointer.x - panState.startPointerX),
-            y: panState.startStageY + (pointer.y - panState.startPointerY),
-          });
-        }}
-        onTouchEnd={() => {
-          panStateRef.current = null;
-          endImageStroke();
-        }}
-        onWheel={(event) => {
-          event.evt.preventDefault();
-
-          const oldScale = stageScale;
-          const pointer = event.target.getStage()?.getPointerPosition();
-
-          if (!pointer) return;
-
-          const direction = event.evt.deltaY > 0 ? -1 : 1;
-          let newScale =
-            direction > 0 ? oldScale * SCALE_BY : oldScale / SCALE_BY;
-
-          newScale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, newScale));
-
-          const newPosition = getZoomedViewport({
-            pointerX: pointer.x,
-            pointerY: pointer.y,
-            stageX: stagePosition.x,
-            stageY: stagePosition.y,
-            oldScale,
-            newScale,
-          });
-
-          setStageScale(newScale);
-          setStagePosition(newPosition);
-        }}
-      >
-        <Layer>
-          <Rect
-            ref={boardBackgroundRef}
-            x={0}
-            y={0}
-            width={BOARD_WIDTH}
-            height={BOARD_HEIGHT}
-            fill={canvasBoardMaterials.surface}
-            cornerRadius={canvasBoardMaterials.surfaceRadius}
-            onMouseDown={() => {
-              if (drawingImageId) {
-                finishImageDrawingMode();
-              }
-              setSelectedObjectId(null);
-            }}
-          />
-
-          {sortedObjects.map((object) => {
-            const isImage = object.kind === "image";
-            const isNoteCard = object.kind === "note-card";
-
-            if (isImage) {
-              const loadedImage = object.src ? loadedImages[object.src] : undefined;
-              const isDrawing = drawingImageId === object.id;
-              const imageDrawingLock = getImageDrawingLock(object.id);
-              const isLockedByAnotherParticipant =
-                !!imageDrawingLock &&
-                imageDrawingLock.participantId !== participantSession.id;
-              const previewPosition = remoteImagePreviewPositions[object.id];
-              const isRemoteDragPreviewActive =
-                draggingImageId !== object.id &&
-                !isLockedByAnotherParticipant &&
-                transformingImageId !== object.id &&
-                !!previewPosition &&
-                (previewPosition.x !== object.x ||
-                  previewPosition.y !== object.y ||
-                  previewPosition.width !== undefined ||
-                  previewPosition.height !== undefined);
-
-              return (
-                <Group
-                  key={object.id}
-                  onMouseEnter={(event) => {
-                    updateObjectSemanticsHover(object, event);
-                  }}
-                  onMouseMove={(event) => {
-                    updateObjectSemanticsHover(object, event);
-                  }}
-                  onMouseLeave={() => {
-                    clearObjectSemanticsHover();
-                  }}
-                >
-                  {isRemoteDragPreviewActive && (
-                    <RemoteInteractionIndicator
-                      x={previewPosition.x}
-                      y={previewPosition.y}
-                      width={previewPosition.width ?? object.width}
-                      height={previewPosition.height ?? object.height}
-                      participantColor={previewPosition.participantColor ?? "#94a3b8"}
-                      variant="preview"
-                    />
-                  )}
-
-                  <KonvaImage
-                    ref={(node) => {
-                      imageRefs.current[object.id] = node;
-                    }}
-                    x={object.x}
-                    y={object.y}
-                    image={loadedImage}
-                    width={object.width}
-                    height={object.height}
-                    fill={loadedImage ? undefined : object.fill}
-                    opacity={isRemoteDragPreviewActive ? 0.28 : 1}
-                    shadowBlur={8}
-                    draggable={
-                      !isDrawing &&
-                      transformingImageId !== object.id &&
-                      !isLockedByAnotherParticipant
-                    }
-                    onMouseDown={(event) => {
-                      event.cancelBubble = true;
-
-                      if (drawingImageId && drawingImageId !== object.id) {
-                        finishImageDrawingMode();
-                      }
-
-                      if (isLockedByAnotherParticipant) {
-                        return;
-                      }
-
-                      selectBoardObject(object);
-
-                      if (!isDrawing) {
-                        return;
-                      }
-
-                      const point = event.target.getRelativePointerPosition();
-
-                      if (!point) {
-                        return;
-                      }
-
-                      startImageStroke(object.id, point, currentUserColor);
-                    }}
-                    onMouseMove={(event) => {
-                      if (!isDrawing || isLockedByAnotherParticipant) {
-                        return;
-                      }
-
-                      const point = event.target.getRelativePointerPosition();
-
-                      if (!point) {
-                        return;
-                      }
-
-                      appendStrokePoint(object.id, point);
-                    }}
-                    onMouseUp={() => {
-                      endImageStroke();
-                    }}
-                    onDragStart={(event) => {
-                      event.cancelBubble = true;
-
-                      if (isLockedByAnotherParticipant) {
-                        event.target.stopDrag();
-                        return;
-                      }
-
-                      if (drawingImageId && drawingImageId !== object.id) {
-                        finishImageDrawingMode();
-                      }
-
-                      selectBoardObject(object);
-                      setDraggingImageId(object.id);
-                      updateLiveSelectedImageControlAnchor(
-                        object.id,
-                        event.target as Konva.Image
-                      );
-                      syncImageStrokeLayerPosition(
-                        object.id,
-                        event.target.x(),
-                        event.target.y()
-                      );
-                    }}
-                    onDragMove={(event) => {
-                      event.cancelBubble = true;
-                      updateLiveSelectedImageControlAnchor(
-                        object.id,
-                        event.target as Konva.Image
-                      );
-                      syncImageStrokeLayerPosition(
-                        object.id,
-                        event.target.x(),
-                        event.target.y()
-                      );
-                      previewImagePosition(
-                        object.id,
-                        event.target.x(),
-                        event.target.y()
-                      );
-                    }}
-                    onDragEnd={(event) => {
-                      event.cancelBubble = true;
-                      updateLiveSelectedImageControlAnchor(
-                        object.id,
-                        event.target as Konva.Image
-                      );
-                      setDraggingImageId(null);
-                      syncImageStrokeLayerPosition(
-                        object.id,
-                        event.target.x(),
-                        event.target.y()
-                      );
-                      updateObjectPosition(
-                        object.id,
-                        event.target.x(),
-                        event.target.y(),
-                        { commitBoundary: "image-drag-end" }
-                      );
-                    }}
-                    onTransformStart={(event) => {
-                      event.cancelBubble = true;
-
-                      if (isLockedByAnotherParticipant) {
-                        return;
-                      }
-
-                      if (drawingImageId && drawingImageId !== object.id) {
-                        finishImageDrawingMode();
-                      }
-
-                      selectBoardObject(object);
-                      setTransformingImageId(object.id);
-                      transformingImageSnapshotRef.current[object.id] = object;
-                      event.target.draggable(false);
-                      updateLiveSelectedImageControlAnchor(
-                        object.id,
-                        event.target as Konva.Image
-                      );
-                      syncImageStrokeLayerTransform(
-                        object.id,
-                        event.target.x(),
-                        event.target.y(),
-                        event.target.scaleX(),
-                        event.target.scaleY()
-                      );
-                    }}
-                    onTransform={(event) => {
-                      event.cancelBubble = true;
-                      updateLiveSelectedImageControlAnchor(
-                        object.id,
-                        event.target as Konva.Image
-                      );
-                      syncImageStrokeLayerTransform(
-                        object.id,
-                        event.target.x(),
-                        event.target.y(),
-                        event.target.scaleX(),
-                        event.target.scaleY()
-                      );
-
-                      const snapshot =
-                        transformingImageSnapshotRef.current[object.id];
-
-                      if (snapshot) {
-                        publishImageTransformPreview(
-                          event.target as Konva.Image,
-                          snapshot
-                        );
-                      }
-                    }}
-                    onTransformEnd={(event) => {
-                      event.cancelBubble = true;
-
-                      const node = event.target;
-                      updateLiveSelectedImageControlAnchor(
-                        object.id,
-                        node as Konva.Image
-                      );
-                      const scaleX = node.scaleX();
-                      const scaleY = node.scaleY();
-                      const strokeWidthScale = (Math.abs(scaleX) + Math.abs(scaleY)) / 2;
-                      const nextWidth = Math.max(node.width() * node.scaleX(), MIN_IMAGE_SIZE);
-                      const nextHeight = Math.max(
-                        node.height() * node.scaleY(),
-                        MIN_IMAGE_SIZE
-                      );
-
-                      node.scaleX(1);
-                      node.scaleY(1);
-                      node.draggable(true);
-                      resizeImageObject(
-                        object.id,
-                        {
-                          x: node.x(),
-                          y: node.y(),
-                          width: nextWidth,
-                          height: nextHeight,
-                        },
-                        { x: scaleX, y: scaleY },
-                        strokeWidthScale
-                      );
-                      syncImageStrokeLayerTransform(object.id, node.x(), node.y(), 1, 1);
-                      delete transformingImageSnapshotRef.current[object.id];
-                      setTransformingImageId(null);
-                    }}
-                  />
-
-                  <Group
-                    ref={(node) => {
-                      imageStrokeLayerRefs.current[object.id] = node;
-                    }}
-                    x={object.x}
-                    y={object.y}
-                    listening={false}
-                  >
-                    {(object.imageStrokes ?? []).map((stroke, strokeIndex) => (
-                      <Line
-                        key={`${object.id}-stroke-${strokeIndex}`}
-                        x={0}
-                        y={0}
-                        points={stroke.points}
-                        stroke={getLiveStrokeColor(stroke)}
-                        strokeWidth={stroke.width ?? DEFAULT_IMAGE_STROKE_WIDTH}
-                        lineCap="round"
-                        lineJoin="round"
-                        listening={false}
-                      />
-                    ))}
-                  </Group>
-
-                  {isLockedByAnotherParticipant && imageDrawingLock && (
-                    <RemoteInteractionIndicator
-                      x={object.x}
-                      y={object.y}
-                      width={object.width}
-                      height={object.height}
-                      participantColor={imageDrawingLock.participantColor}
-                    />
-                  )}
-                </Group>
-              );
-            }
-
-            if (isNoteCard) {
-              const isEditing = object.id === editingTextCardId;
-              const noteCardPreviewBounds = getNoteCardPreviewBounds(object);
-              const remoteEditingState = remoteTextCardEditingStates[object.id];
-              const remoteResizeState = remoteTextCardResizeStates[object.id];
-              const remoteEditingIndicator =
-                remoteEditingState &&
-                remoteEditingState.participantId !== participantSession.id
-                  ? {
-                      participantName: remoteEditingState.participantName,
-                      participantColor: remoteEditingState.participantColor,
-                    }
-                  : null;
-              const remoteResizeIndicator =
-                remoteResizeState &&
-                remoteResizeState.participantId !== participantSession.id
-                  ? {
-                      participantName: remoteResizeState.participantName,
-                      participantColor: remoteResizeState.participantColor,
-                    }
-                  : null;
-
-              return (
-                <NoteCardRenderer
-                  key={object.id}
-                  object={object}
-                  displayX={noteCardPreviewBounds.x}
-                  displayY={noteCardPreviewBounds.y}
-                  displayWidth={noteCardPreviewBounds.width}
-                  displayHeight={
-                    object.id === editingTextCardId
-                      ? editingTextCardDisplayHeight ?? undefined
-                      : noteCardPreviewBounds.height
-                  }
-                  isEditing={isEditing}
-                  remoteEditingIndicator={remoteEditingIndicator}
-                  remoteResizeIndicator={remoteResizeIndicator}
-                  onHoverStart={(event) => {
-                    updateObjectSemanticsHover(object, event);
-                  }}
-                  onHoverMove={(event) => {
-                    updateObjectSemanticsHover(object, event);
-                  }}
-                  onHoverEnd={() => {
-                    clearObjectSemanticsHover();
-                  }}
-                  onGroupRef={(node) => {
-                    noteCardRefs.current[object.id] = node;
-                  }}
-                  onSelect={(event) => {
-                    event.cancelBubble = true;
-                    selectBoardObject(object);
-                  }}
-                  onDragStart={(event) => {
-                    event.cancelBubble = true;
-                    selectBoardObject(object);
-                    setDraggingNoteCardId(object.id);
-                  }}
-                  onDragMove={(event) => {
-                    event.cancelBubble = true;
-                    updateObjectPosition(object.id, event.target.x(), event.target.y());
-                  }}
-                  onDragEnd={(event) => {
-                    event.cancelBubble = true;
-                    updateObjectPosition(
-                      object.id,
-                      event.target.x(),
-                      event.target.y(),
-                      { commitBoundary: "note-drag-end" }
-                    );
-                    setDraggingNoteCardId(null);
-                  }}
-                  onTransformStart={(event) => {
-                    event.cancelBubble = true;
-                    selectBoardObject(object);
-                    setActiveTextCardResizeState({
-                      textCardId: object.id,
-                      participantId: participantSession.id,
-                      participantName: participantSession.name,
-                      participantColor: participantSession.color,
-                    });
-                    liveNoteCardResizePreviewRef.current = {
-                      noteCardId: object.id,
-                      x: object.x,
-                      y: object.y,
-                      width: object.width,
-                      height: object.height,
-                    };
-                    setLiveNoteCardResizePreview(
-                      liveNoteCardResizePreviewRef.current
-                    );
-                  }}
-                  onTransform={(event) => {
-                    event.cancelBubble = true;
-
-                    const node = event.target as Konva.Group;
-                    const nextWidth = clampNoteCardWidth(
-                      Math.abs(node.width() * node.scaleX())
-                    );
-                    const nextHeight = Math.max(
-                      Math.round(Math.abs(node.height() * node.scaleY())),
-                      MIN_NOTE_CARD_HEIGHT
-                    );
-
-                    liveNoteCardResizePreviewRef.current = {
-                      noteCardId: object.id,
-                      x: node.x(),
-                      y: node.y(),
-                      width: nextWidth,
-                      height: nextHeight,
-                    };
-                    scheduleNoteCardResizePreviewRender();
-
-                    node.scaleX(1);
-                    node.scaleY(1);
-                  }}
-                  onTransformEnd={(event) => {
-                    event.cancelBubble = true;
-
-                    const node = event.target as Konva.Group;
-                    const nextBounds =
-                      liveNoteCardResizePreviewRef.current?.noteCardId === object.id
-                        ? {
-                            x: liveNoteCardResizePreviewRef.current.x,
-                            y: liveNoteCardResizePreviewRef.current.y,
-                            width: liveNoteCardResizePreviewRef.current.width,
-                            height: liveNoteCardResizePreviewRef.current.height,
-                          }
-                        : {
-                            x: node.x(),
-                            y: node.y(),
-                            width: clampNoteCardWidth(
-                              Math.abs(node.width() * node.scaleX())
-                            ),
-                            height: Math.max(
-                              Math.round(Math.abs(node.height() * node.scaleY())),
-                              MIN_NOTE_CARD_HEIGHT
-                            ),
-                          };
-
-                    node.scaleX(1);
-                    node.scaleY(1);
-                    resizeTextCardBounds(object.id, nextBounds, {
-                      commitBoundary: "note-resize-end",
-                    });
-                    setActiveTextCardResizeState(null);
-                    clearLiveNoteCardResizePreviewSession();
-                    setLiveNoteCardResizePreview(null);
-                  }}
-                  onDoubleClick={(event) => {
-                    event.cancelBubble = true;
-                    startEditingTextCard(object);
-                  }}
-                />
-              );
-            }
-
-            return (
-                <TokenRenderer
-                  key={object.id}
-                  object={object}
-                  position={getTokenAnchorPosition(object)}
-                  stageScale={stageScale}
-                  isSelected={false}
-                  selectionColor={currentUserColor}
-                  fillColor={getTokenFillColor(object)}
-                  occupiedIndicatorColor={
-                    getBlockingActiveMove(object.id)?.participantColor ?? null
-                  }
-                  onHoverStart={(event) => {
-                    updateObjectSemanticsHover(object, event);
-                  }}
-                  onHoverMove={(event) => {
-                    updateObjectSemanticsHover(object, event);
-                  }}
-                  onHoverEnd={() => {
-                    clearObjectSemanticsHover();
-                  }}
-                  onSelect={(event) => {
-                    event.cancelBubble = true;
-                  }}
-                onDragStart={(event) => {
-                  event.cancelBubble = true;
-
-                  const blockingMove = getBlockingActiveMove(object.id);
-
-                  if (blockingMove) {
-                    event.target.stopDrag();
-                    return;
-                  }
-
-                  setDraggingTokenId(object.id);
-
-                  if (getTokenAttachment(object).mode === "attached") {
-                    const anchorPosition = getTokenAnchorPosition(object);
-
-                    updateTokenAnchorPosition(
-                      object.id,
-                      anchorPosition.x,
-                      anchorPosition.y
-                    );
-                  }
-
-                  setActiveTokenMove({
-                    objectId: object.id,
-                    objectKind: object.kind,
-                    participantId: participantSession.id,
-                    participantName: participantSession.name,
-                    participantColor: participantSession.color,
-                    startedAt: Date.now(),
-                  });
-                }}
-                onDragMove={(event) => {
-                  event.cancelBubble = true;
-
-                  if (object.kind !== "token") {
-                    return;
-                  }
-
-                  updateTokenAnchorPosition(
-                    object.id,
-                    event.target.x(),
-                    event.target.y()
-                  );
-                }}
-                onDragEnd={(event) => {
-                  event.cancelBubble = true;
-                  setActiveTokenMove(null);
-                  updateTokenPlacementAfterDrop(object.id, {
-                    x: event.target.x(),
-                    y: event.target.y(),
-                  });
-                  setDraggingTokenId(null);
-                }}
-              />
-            );
-          })}
-
-          {selectedImageObject &&
-            selectedImageControlAnchor &&
-            selectedImageControlButtons.length > 0 &&
-            !isSelectedImageLockedByAnotherParticipant && (
-              <Group
-                x={selectedImageControlAnchor.x}
-                y={selectedImageControlAnchor.y}
-                scaleX={1 / stageScale}
-                scaleY={1 / stageScale}
-              >
-                {selectedImageControlButtons.map((button, buttonIndex) => {
-                  const buttonMetrics = resolveCanvasButtonMetrics(
-                    button.recipe ?? buttonRecipes.secondary.small
-                  );
-                  const x = selectedImageControlButtons
-                    .slice(0, buttonIndex)
-                    .reduce(
-                      (offset, currentButton) =>
-                        offset +
-                        getSmallFloatingActionButtonWidth(
-                          currentButton.label,
-                          resolveCanvasButtonMetrics(
-                            currentButton.recipe ?? buttonRecipes.secondary.small
-                          )
-                        ) +
-                        IMAGE_ATTACHED_CONTROLS_GAP,
-                      0
-                    );
-
-                  return (
-                    <SmallFloatingActionButton
-                      key={button.key}
-                      x={x}
-                      y={-(buttonMetrics.minHeight + IMAGE_ATTACHED_CONTROLS_OUTER_OFFSET_Y)}
-                      label={button.label}
-                      recipe={button.recipe}
-                      onClick={() => {
-                        if (!selectedImageObject) {
-                          return;
-                        }
-
-                        if (button.key === "draw") {
-                          if (drawingImageId === selectedImageObject.id) {
-                            finishImageDrawingMode();
-                            return;
-                          }
-
-                          startImageDrawingMode(selectedImageObject.id);
-                          return;
-                        }
-
-                        if (button.key === "clear-own") {
-                          clearOwnImageDrawing(selectedImageObject.id);
-                          return;
-                        }
-
-                        if (button.key === "clear-all") {
-                          clearImageDrawing(selectedImageObject.id);
-                        }
-                      }}
-                    />
-                  );
-                })}
-              </Group>
-            )}
-
-          <Transformer
-            ref={noteCardTransformerRef}
-            rotateEnabled={false}
-            flipEnabled={false}
-            keepRatio={false}
-            borderStroke={currentUserColor}
-            borderStrokeWidth={3}
-            anchorStroke={currentUserColor}
-            anchorFill="#f8fafc"
-            anchorCornerRadius={999}
-            enabledAnchors={[
-              "top-left",
-              "top-right",
-              "bottom-left",
-              "bottom-right",
-            ]}
-            boundBoxFunc={(oldBox, newBox) => {
-              if (
-                Math.abs(newBox.width) < MIN_NOTE_CARD_WIDTH ||
-                Math.abs(newBox.height) < MIN_NOTE_CARD_HEIGHT
-              ) {
-                return oldBox;
-              }
-
-              return newBox;
-            }}
-          />
-
-          <Transformer
-            ref={imageTransformerRef}
-            rotateEnabled={false}
-            flipEnabled={false}
-            borderStroke={currentUserColor}
-            borderStrokeWidth={3}
-            anchorStroke={currentUserColor}
-            anchorFill="#f8fafc"
-            anchorCornerRadius={999}
-            enabledAnchors={[
-              "top-left",
-              "top-right",
-              "bottom-left",
-              "bottom-right",
-            ]}
-            boundBoxFunc={(oldBox, newBox) => {
-              if (
-                Math.abs(newBox.width) < MIN_IMAGE_SIZE ||
-                Math.abs(newBox.height) < MIN_IMAGE_SIZE
-              ) {
-                return oldBox;
-              }
-
-              return newBox;
-            }}
-          />
-        </Layer>
-      </Stage>
-      </div>
+      <BoardStageScene
+        stageWrapperRef={stageWrapperRef}
+        stageSize={stageSize}
+        stagePosition={stagePosition}
+        stageScale={stageScale}
+        participantSession={participantSession}
+        boardBackgroundRef={boardBackgroundRef}
+        noteCardRefs={noteCardRefs}
+        imageRefs={imageRefs}
+        imageStrokeLayerRefs={imageStrokeLayerRefs}
+        noteCardTransformerRef={noteCardTransformerRef}
+        imageTransformerRef={imageTransformerRef}
+        liveNoteCardResizePreviewRef={liveNoteCardResizePreviewRef}
+        transformingImageSnapshotRef={transformingImageSnapshotRef}
+        boardSurfaceFill={canvasBoardMaterials.surface}
+        boardSurfaceRadius={canvasBoardMaterials.surfaceRadius}
+        sortedObjects={sortedObjects}
+        loadedImages={loadedImages}
+        drawingImageId={drawingImageId}
+        draggingImageId={draggingImageId}
+        transformingImageId={transformingImageId}
+        editingTextCardId={editingTextCardId}
+        editingTextCardDisplayHeight={editingTextCardDisplayHeight}
+        remoteImagePreviewPositions={remoteImagePreviewPositions}
+        remoteTextCardEditingStates={remoteTextCardEditingStates}
+        remoteTextCardResizeStates={remoteTextCardResizeStates}
+        selectedImageObject={selectedImageObject}
+        selectedImageControlAnchor={selectedImageControlAnchor}
+        selectedImageControlButtons={selectedImageControlButtons}
+        isSelectedImageLockedByAnotherParticipant={
+          isSelectedImageLockedByAnotherParticipant
+        }
+        onStageMouseDown={handleStageMouseDown}
+        onStageMouseMove={handleStageMouseMove}
+        onStageMouseUp={handleStageMouseUp}
+        onStageMouseLeave={handleStageMouseUp}
+        onStageTouchStart={handleStageTouchStart}
+        onStageTouchMove={handleStageTouchMove}
+        onStageTouchEnd={handleStageTouchEnd}
+        onStageWheel={handleStageWheel}
+        onBoardBackgroundMouseDown={handleBoardBackgroundMouseDown}
+        updateObjectSemanticsHover={updateObjectSemanticsHover}
+        clearObjectSemanticsHover={clearObjectSemanticsHover}
+        getImageDrawingLock={getImageDrawingLock}
+        finishImageDrawingMode={finishImageDrawingMode}
+        selectBoardObject={selectBoardObject}
+        startImageStroke={startImageStroke}
+        appendStrokePoint={appendStrokePoint}
+        endImageStroke={endImageStroke}
+        updateLiveSelectedImageControlAnchor={updateLiveSelectedImageControlAnchor}
+        syncImageStrokeLayerPosition={syncImageStrokeLayerPosition}
+        syncImageStrokeLayerTransform={syncImageStrokeLayerTransform}
+        previewImagePosition={previewImagePosition}
+        updateObjectPosition={updateObjectPosition}
+        setDraggingImageId={setDraggingImageId}
+        setTransformingImageId={setTransformingImageId}
+        resizeImageObject={resizeImageObject}
+        publishImageTransformPreview={publishImageTransformPreview}
+        getLiveStrokeColor={getLiveStrokeColor}
+        getNoteCardPreviewBounds={getNoteCardPreviewBounds}
+        setDraggingNoteCardId={setDraggingNoteCardId}
+        setActiveTextCardResizeState={setActiveTextCardResizeState}
+        scheduleNoteCardResizePreviewRender={scheduleNoteCardResizePreviewRender}
+        resizeTextCardBounds={resizeTextCardBounds}
+        clearLiveNoteCardResizePreviewSession={clearLiveNoteCardResizePreviewSession}
+        setLiveNoteCardResizePreview={setLiveNoteCardResizePreview}
+        startEditingTextCard={startEditingTextCard}
+        getTokenAnchorPosition={getTokenAnchorPosition}
+        getTokenFillColor={getTokenFillColor}
+        getBlockingActiveMove={getBlockingActiveMove}
+        setDraggingTokenId={setDraggingTokenId}
+        getTokenAttachment={getTokenAttachment}
+        updateTokenAnchorPosition={updateTokenAnchorPosition}
+        setActiveTokenMove={setActiveTokenMove}
+        updateTokenPlacementAfterDrop={updateTokenPlacementAfterDrop}
+        onSelectedImageControlClick={handleSelectedImageControlClick}
+      />
 
     </div>
   );
