@@ -156,7 +156,8 @@ Recommended statuses:
 - `why_deferred`: the sprint was intentionally local and branch-scoped; hosted validation belongs after the checkpoint is pushed or merged
 - `expected_action`: run hosted playable-session validation against the cleanup checkpoint after deploy, with explicit checks for board scene rendering, shell overlays, note editor overlay, selected-image controls, and dice/top-layer behavior
 - `target_chapter`: `hosted validation after BoardStage cleanup checkpoint`
-- `status`: `planned`
+- `closure_result`: exact preview deploy was verified against branch `HEAD`; note editor overlay and hosted debug gate hotfixes were confirmed there; hosted probes and manual checks did not show a branch-specific blocker, so the cleanup checkpoint is merge-ready
+- `status`: `closed`
 
 ### RF-2026-04-16-04
 
@@ -167,4 +168,16 @@ Recommended statuses:
 - `why_deferred`: current evidence points to a branch-specific or preview-specific regression candidate rather than a proven general hosted performance problem; the hotfix batch should stay narrow and fix the concrete regressions first
 - `expected_action`: compare cleanup preview against current live on fresh room ids and determine whether the delayed participant-marker and staged note/image arrival come from branch-specific hydration behavior, preview config, or room-state noise before opening a broader performance pass
 - `target_chapter`: `cleanup preview room-hydration regression investigation`
+- `closure_result`: preview and current live show the same staged hydration waves and the same multi-context slowdown pattern; same-tab `1 -> 2 -> 3` reopening does not degrade monotonically on the cleanup preview, so branch-specific regression is not confirmed
+- `status`: `closed`
+
+### RF-2026-04-16-05
+
+- `id`: `RF-2026-04-16-05`
+- `date`: `2026-04-16`
+- `source`: strategist review after hosted comparison between the cleanup preview and current live
+- `finding`: hosted room open still arrives in staged waves across token/image/note slices, and slowdown becomes more visible when multiple room contexts stay live in the same browser session
+- `why_deferred`: cleanup checkpoint is safe to merge; the remaining issue belongs to general hosted/runtime coordination rather than to branch-specific cleanup regressions
+- `expected_action`: inspect bootstrap coordination, separate token/image/text-card shared-slice connection startup, and durable snapshot failure noise during room open before opening a broader hosted performance chapter
+- `target_chapter`: `hosted room hydration and bootstrap coordination`
 - `status`: `planned`

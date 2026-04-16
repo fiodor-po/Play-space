@@ -36,8 +36,9 @@ Current branch reached its cleanup sprint checkpoint:
 - `lint green baseline` is closed
 - `BoardStage` structural reduction phases `1–4` are closed
 - `participant-marker / creator-color` stays the next candidate product/runtime chapter
-- hosted validation is required after this cleanup checkpoint lands
-- cleanup preview room-hydration delay now has one required deferred investigation item
+- hosted validation after this cleanup checkpoint is closed
+- note editor overlay and hosted debug gate hotfixes are verified on the exact preview deploy
+- current live and the cleanup preview show the same staged hydration pattern, so the remaining room-open timing concern is a general hosted/runtime follow-up rather than a branch-specific blocker
 
 Проект остаётся в стадии `play-space-alpha`.
 
@@ -132,9 +133,9 @@ Current workflow rule for hosted validation:
 Current expected order from here:
 
 1. keep `main` as the stable hosted/demo line;
-2. treat this branch as a closed cleanup checkpoint until it is pushed or merged;
-3. run hosted validation after the cleanup checkpoint lands;
-4. keep `participant-marker / creator-color` as the next candidate chapter;
+2. treat this branch as a merge-ready cleanup checkpoint after closed hosted validation;
+3. keep `participant-marker / creator-color` as the next candidate chapter;
+4. carry forward staged hosted hydration waves and multi-context slowdown as a separate hosted/runtime follow-up;
 5. avoid reopening `BoardStage` cleanup micro-slices unless a new sprint is started explicitly.
 
 Current agreed `BoardStage` target model for this cleanup sprint:

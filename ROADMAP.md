@@ -219,11 +219,11 @@ Current cleanup sprint result in this branch:
 3. treat `lint green baseline` as closed;
 4. treat `BoardStage` structural reduction phases `1–4` as closed;
 5. keep `participant-marker / creator-color` as the next candidate chapter after this sprint;
-6. run hosted validation after this cleanup checkpoint is pushed or merged.
+6. treat hosted validation after this cleanup checkpoint as closed.
 
-Required deferred hosted follow-up from this checkpoint:
+Required deferred hosted/runtime follow-up from this checkpoint:
 
-- investigate the cleanup preview room-hydration delay against current live before opening any broader hosted performance pass
+- investigate staged hosted room hydration waves and multi-context slowdown as one general runtime follow-up; current live and the cleanup preview show the same pattern, so this is not treated as a branch-specific blocker
 
 Agreed cleanup target model for this branch:
 
@@ -258,7 +258,9 @@ Agreed cleanup target model for this branch:
   - `lint green baseline`
   - `BoardStage structural reduction phases 1–4`
 - next candidate chapter: `participant-marker / creator-color`;
-- required follow-up checkpoint: hosted validation after the cleanup branch lands;
+- completed follow-up checkpoint: hosted validation after the cleanup branch deploy;
+- later hosted/runtime follow-up:
+  - staged hydration waves and multi-context slowdown during room open;
 - hosted validation как повторяемая проверка после крупных шагов, выкатываний и
   новых demo snapshots.
 
@@ -300,8 +302,9 @@ Agreed cleanup target model for this branch:
 23. считать `lint green baseline` закрытым cleanup checkpoint;
 24. считать `BoardStage` structural reduction phases `1–4` закрытым cleanup checkpoint;
 25. держать `participant-marker / creator-color` как следующий candidate chapter после cleanup sprint;
-26. пройти hosted validation после выката cleanup checkpoint;
-27. возвращаться к hosted validation как checkpoint после больших шагов и новых
+26. считать hosted validation after the cleanup checkpoint закрытым;
+27. держать staged hydration waves и multi-context slowdown как отдельный hosted/runtime follow-up, а не как cleanup-branch blocker;
+28. возвращаться к hosted validation как checkpoint после больших шагов и новых
    demo snapshots.
 
 ## 8. Backlog
@@ -379,6 +382,11 @@ Agreed cleanup target model for this branch:
 - [ ] прогонять hosted playable-session validation после крупных шагов и новых
   demo snapshots
 - [ ] фиксировать реальные rough edges после таких hosted checkpoint'ов
+- [ ] investigate staged hosted room hydration waves and multi-context slowdown:
+  - current live and the cleanup preview both show staged token/image/note arrival
+  - same-tab reopening does not show monotonic degradation
+  - slowdown is more visible with multiple simultaneously live room contexts
+  - first suspects are bootstrap coordination, three independent shared slice connections, and durable snapshot failure noise during open
 - [x] close browser-local participant identity stabilization
   - browser-local `participantId` is now the intended participant carrier
   - room-local saved session layers `name/color` on top of that identity

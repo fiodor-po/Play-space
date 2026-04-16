@@ -2861,3 +2861,65 @@ Deferred follow-ups were classified more precisely:
 - the unresolved creator-color fallback question stays a required deferred
   review item inside that later chapter rather than an automatic next
   implementation step.
+
+---
+
+## Phase 0Z — Hosted validation cleared the BoardStage cleanup checkpoint
+
+### Type
+- milestone
+- validation
+- decision
+
+### Context
+После cleanup sprint checkpoint проекту нужна была hosted truth по exact preview
+deploy, а не по локальной ветке или по GitHub PR page.
+
+Дополнительно всплыли два конкретных хвоста:
+
+- note editor overlay потерял правильный верхний слой;
+- hosted debug gate не открывался через `?uiDebugControls=1`.
+
+### Goal or problem
+Нужно было понять две вещи:
+
+- есть ли у cleanup branch собственный hosted blocker перед merge;
+- остаётся ли room-hydration concern branch-specific regression или это общий
+  hosted/runtime паттерн.
+
+### What happened
+Checkpoint был доведён до hosted-ready truth:
+
+- note editor overlay hotfix restored visible text during note edit;
+- hosted debug gate now works through `?uiDebugControls=1` on preview;
+- exact preview deploy was verified against current branch `HEAD`;
+- preview and current live then went through repeated room-open comparison on
+  fresh room ids;
+- both hosted environments showed the same staged token/image/note arrival;
+- both hosted environments showed the same slowdown shape when multiple room
+  contexts stayed live;
+- preview did not show a monotonic same-tab `1 -> 2 -> 3` degradation.
+
+### Decision / change
+`BoardStage` cleanup checkpoint is now accepted as merge-ready.
+
+The hydration concern was reclassified:
+
+- branch-specific cleanup regression is not confirmed;
+- the remaining room-open timing issue belongs to a general hosted/runtime
+  follow-up.
+
+### Why
+Hosted comparison removed the main suspicion:
+
+- current live and the cleanup preview behave the same way on the tested room
+  open matrix;
+- the remaining signal points to bootstrap coordination and separate shared
+  slice startup, not to the cleanup refactor itself.
+
+### Result
+The cleanup branch can merge without carrying a hosted regression blocker.
+
+The remaining later follow-up is now:
+
+- hosted room hydration and bootstrap coordination.
