@@ -41,7 +41,8 @@ Current branch reached its cleanup sprint checkpoint:
 - `participant-marker / creator-color` room-document fallback checkpoint is closed
 - hosted validation after this cleanup checkpoint is closed
 - note editor overlay and hosted debug gate hotfixes are verified on the exact preview deploy
-- current live and the cleanup preview show the same staged hydration pattern, so the remaining room-open timing concern is a general hosted/runtime follow-up rather than a branch-specific blocker
+- hosted room hydration and bootstrap coordination checkpoint is closed after the `scene-usable` split and hosted re-benchmark
+- staged room-open waves remain a visible product rough edge, but there is no current hydration implementation pass active
 - explicit `Leave room` now switches creator-colored participant-marker tokens to `room-document`, while abrupt tab close still leaves stale `live-occupancy`
 
 Проект остаётся в стадии `play-space-alpha`.

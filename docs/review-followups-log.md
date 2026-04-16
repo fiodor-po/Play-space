@@ -180,8 +180,9 @@ Recommended statuses:
 - `finding`: hosted room open still arrives in staged waves across token/image/note slices, and slowdown becomes more visible when multiple room contexts stay live in the same browser session
 - `why_deferred`: cleanup checkpoint is safe to merge; the remaining issue belongs to general hosted/runtime coordination rather than to branch-specific cleanup regressions
 - `expected_action`: inspect bootstrap coordination, separate token/image/text-card shared-slice connection startup, and durable snapshot failure noise during room open before opening a broader hosted performance chapter
+- `closure_result`: measurement identified bootstrap coordination as the main bottleneck; a narrow `scene-usable` split and a live-attach follow-up materially moved the early usable boundary on hosted deploys; post-split re-benchmark confirmed the main attach/live mismatch is closed, and no further hydration implementation slice is active now
 - `target_chapter`: `hosted room hydration and bootstrap coordination`
-- `status`: `planned`
+- `status`: `closed`
 
 ### RF-2026-04-16-06
 

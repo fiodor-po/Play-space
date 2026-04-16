@@ -194,9 +194,12 @@ Remaining deferred runtime tail from this chapter:
   - `BoardStage structural reduction phases 1–4`
 - closed chapter checkpoint:
   - `participant-marker / creator-color` room-document fallback;
+- closed chapter checkpoint:
+  - `hosted room hydration and bootstrap coordination`;
 - completed follow-up checkpoint: hosted validation after the cleanup branch deploy;
 - later hosted/runtime follow-up:
-  - staged hydration waves and multi-context slowdown during room open;
+  - loading placeholders and async-state polish around room open and other delayed surfaces;
+  - large-image add benchmarks and later optimization;
   - stale `live-occupancy` after abrupt tab close;
 - hosted validation как повторяемая проверка после крупных шагов, выкатываний и
   новых demo snapshots.
@@ -320,16 +323,22 @@ Remaining deferred runtime tail from this chapter:
 - [ ] прогонять hosted playable-session validation после крупных шагов и новых
   demo snapshots
 - [ ] фиксировать реальные rough edges после таких hosted checkpoint'ов
-- [ ] investigate staged hosted room hydration waves and multi-context slowdown:
-  - current live and the cleanup preview both show staged token/image/note arrival
-  - same-tab reopening does not show monotonic degradation
-  - slowdown is more visible with multiple simultaneously live room contexts
-  - first suspects are bootstrap coordination, three independent shared slice connections, and durable snapshot failure noise during open
+- [x] close `hosted room hydration and bootstrap coordination` as a good checkpoint:
+  - measurement identified bootstrap coordination as the main bottleneck
+  - a narrow `scene-usable` split moved the early usable boundary forward
+  - a live-attach follow-up moved `scene-usable` materially closer to first visible live scene
+  - late `bootstrap-terminal` / `live-active` truth stayed intentionally later
 - [ ] add loading placeholders and polish async state transitions around room open and other delayed surfaces:
   - make loading and settling states visible instead of leaving silent empty gaps
   - add placeholders or equivalent lightweight loading affordances where delayed content arrival is expected
   - align state transitions for entry, room open, recovery, media, and other async surfaces so the UI reads as one coherent system
   - do this after the current hydration timing and bootstrap coordination work has a clear baseline and a chosen runtime boundary
+- [ ] benchmark large-image add flow and optimize around it as a separate pass:
+  - measure add-image timing for heavy image payloads, including very large files such as `40 MB`
+  - distinguish early visible feedback, usable preview time, and full ready time
+  - verify whether the board stays responsive while the image is being added
+  - decide whether the next improvement should be preview generation, decoding strategy, compression/resizing, upload/persistence sequencing, or clearer loading affordances
+  - keep this as a later optimization pass; current behavior is acceptable enough for now
 - [x] close browser-local participant identity stabilization
   - browser-local `participantId` is now the intended participant carrier
   - room-local saved session layers `name/color` on top of that identity

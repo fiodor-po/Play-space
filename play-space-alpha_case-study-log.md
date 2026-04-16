@@ -3013,3 +3013,55 @@ stale compatibility behavior for rooms that do not belong to real users yet.
 ### Result
 Future chapter closeout should explicitly decide whether a room wipe is
 required, instead of silently preserving old rooms by default.
+
+---
+
+## Phase 0Z — Hosted hydration coordination reached a good checkpoint
+
+### Type
+- milestone
+- decision
+
+### Context
+После merge-ready cleanup checkpoint hosted room open всё ещё приходил волнами:
+
+- `tokens`
+- `images`
+- `textCards`
+
+Следующий вопрос был узким: bottleneck сидит в transport contracts или в
+bootstrap coordination.
+
+### Goal or problem
+Нужно было вынести раннюю usable scene boundary вперёд, не ломая позднюю
+settled truth.
+
+### What happened
+Chapter прошёл через measurement-first path:
+
+- hosted benchmark показал, что главный bottleneck сидит в bootstrap
+  coordination;
+- ранний `scene-usable` split был введён до позднего
+  `replica-converged / live-active`;
+- attach/live paths получили отдельный follow-up, чтобы `scene-usable` больше
+  не ждал `initialSync complete`;
+- hosted re-benchmark подтвердил:
+  - ordinary durable paths получили более ранний usable boundary;
+  - live attach paths приблизили `scene-usable` к first visible live scene;
+  - late terminal truth осталась честной и более поздней.
+
+### Decision / change
+`hosted room hydration and bootstrap coordination` достиг хорошего checkpoint и
+не держит активный implementation pass сейчас.
+
+### Why
+Главный coordination mismatch закрыт без transport rewrite и без broad
+persistence changes.
+
+### Result
+Дальнейшие related tails теперь живут как later work:
+
+- loading placeholders and async-state polish
+- large-image add benchmarks and later optimization
+
+Проект может идти дальше без нового hydration fix pass прямо сейчас.
