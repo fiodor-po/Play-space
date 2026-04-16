@@ -295,11 +295,22 @@ type SettledRecoverySliceSourceState = Record<
   SettledRecoverySliceSource
 >;
 
+type SceneUsableSource =
+  | "live"
+  | "local"
+  | "converged"
+  | "baseline"
+  | "empty";
+
 type LocalReplicaInspectionState = {
   initialOpenStatus: "idle" | "pending" | "applied" | "skipped";
   initialOpenSource: Exclude<LocalReplicaReadSource, "idle"> | null;
   initialOpenRevision: number | null;
   initialOpenObjectCount: number;
+  sceneUsableStatus: "idle" | "pending" | "ready";
+  sceneUsableSource: SceneUsableSource | null;
+  sceneUsableObjectCount: number;
+  sceneUsableAt: number | null;
   lastWriteStatus: "idle" | "writing" | "saved" | "failed";
   lastWriteCommitBoundary: LocalObjectsChangeOptions["commitBoundary"] | null;
   lastWriteRevision: number | null;
@@ -390,6 +401,10 @@ function createInitialLocalReplicaInspectionState(): LocalReplicaInspectionState
     initialOpenSource: null,
     initialOpenRevision: null,
     initialOpenObjectCount: 0,
+    sceneUsableStatus: "idle",
+    sceneUsableSource: null,
+    sceneUsableObjectCount: 0,
+    sceneUsableAt: null,
     lastWriteStatus: "idle",
     lastWriteCommitBoundary: null,
     lastWriteRevision: null,
@@ -1315,6 +1330,15 @@ export default function BoardStage({
     string | null
   >(null);
   const sharedBootstrapObjectCountRef = useRef(0);
+  const sharedBootstrapSlicesRef = useRef<{
+    tokens: BoardObject[];
+    images: BoardObject[];
+    textCards: BoardObject[];
+  }>({
+    tokens: [],
+    images: [],
+    textCards: [],
+  });
   const currentUserColor = participantSession.color;
   const sharedTokenObjects = objects.filter((object) => object.kind === "token");
   const sharedTokenCount = sharedTokenObjects.length;
@@ -1650,6 +1674,7 @@ export default function BoardStage({
   const transformingImageSnapshotRef = useRef<Record<string, BoardObject>>({});
   const roomBootstrapEntryIdRef = useRef(0);
   const snapshotRecoveryAttemptedRoomRef = useRef<number | null>(null);
+  const sceneUsableBootstrapEntryRef = useRef<number | null>(null);
   const [resolvedSnapshotBootstrapRoomId, setResolvedSnapshotBootstrapRoomId] =
     useState<string | null>(null);
   const durableTrackingRef = useRef<{
@@ -1724,6 +1749,66 @@ export default function BoardStage({
   useEffect(() => {
     sharedBootstrapObjectCountRef.current = sharedBootstrapObjectCount;
   }, [sharedBootstrapObjectCount]);
+
+  const markSceneUsable = useEffectEvent(
+    (source: SceneUsableSource, objectCount: number) => {
+      if (activeRoomIdRef.current !== roomId) {
+        return;
+      }
+
+      if (sceneUsableBootstrapEntryRef.current === roomBootstrapEntryIdRef.current) {
+        return;
+      }
+
+      const sceneUsableAt = Date.now();
+
+      sceneUsableBootstrapEntryRef.current = roomBootstrapEntryIdRef.current;
+
+      console.info("[room-recovery][board-stage][scene-usable]", {
+        roomId,
+        bootstrapEntryId: roomBootstrapEntryIdRef.current,
+        source,
+        objectCount,
+      });
+
+      setLocalReplicaInspection((current) => ({
+        ...current,
+        sceneUsableStatus: "ready",
+        sceneUsableSource: source,
+        sceneUsableObjectCount: objectCount,
+        sceneUsableAt,
+      }));
+    }
+  );
+
+  const composeCurrentSharedRoomObjects = useEffectEvent(() => {
+    const sharedBootstrapSlices = sharedBootstrapSlicesRef.current;
+
+    return [
+      ...getRoomScopedBoardObjects(roomId),
+      ...sharedBootstrapSlices.tokens,
+      ...sharedBootstrapSlices.images,
+      ...sharedBootstrapSlices.textCards,
+    ];
+  });
+
+  useEffect(() => {
+    if (!hasSharedRoomContentLoaded || sharedBootstrapObjectCount === 0) {
+      return;
+    }
+
+    if (resolvedSnapshotBootstrapRoomId !== roomId) {
+      replaceBoardObjects(composeCurrentSharedRoomObjects());
+    }
+
+    markSceneUsable("live", sharedBootstrapObjectCount);
+  }, [
+    hasSharedRoomContentLoaded,
+    replaceBoardObjects,
+    resolvedSnapshotBootstrapRoomId,
+    roomId,
+    sharedBootstrapObjectCount,
+  ]);
 
   const clearImageDrawing = (id: string) => {
     const clearAccess = resolveObjectActionAccess(
@@ -2026,6 +2111,7 @@ export default function BoardStage({
       setLocalReplicaInspection({
         ...createInitialLocalReplicaInspectionState(),
         initialOpenStatus: "pending",
+        sceneUsableStatus: "pending",
         lastSettledRecoveryState: "pending",
       });
       setDurableReplicaInspection(createInitialDurableReplicaInspectionState());
@@ -2054,6 +2140,12 @@ export default function BoardStage({
       setRemoteTextCardResizeStates({});
       setLiveSelectedImageControlAnchor(null);
       setSharedBootstrapSliceCounts(createInitialSharedBootstrapSliceCounts());
+      sharedBootstrapSlicesRef.current = {
+        tokens: [],
+        images: [],
+        textCards: [],
+      };
+      sceneUsableBootstrapEntryRef.current = null;
       setTokenInitialSyncRoomId(null);
       setImageInitialSyncRoomId(null);
       setTextCardInitialSyncRoomId(null);
@@ -2224,6 +2316,8 @@ export default function BoardStage({
     const settleLiveWinsBootstrap = (
       snapshot: Awaited<ReturnType<typeof loadDurableRoomSnapshot>>
     ) => {
+      replaceBoardObjects(composeCurrentSharedRoomObjects());
+      markSceneUsable("live", sharedBootstrapObjectCountRef.current);
       applyDurableSnapshotInspection(snapshot);
       setRoomParticipantAppearance(
         snapshot?.participantAppearance ?? createEmptyRoomParticipantAppearance()
@@ -2299,6 +2393,9 @@ export default function BoardStage({
         cloneDurableSliceRevisionState(
           localBootstrapState.lastKnownDurableSliceRevisions
         );
+      const baselineObjects = roomBaselineToApply
+        ? getRoomBaselinePayload(roomBaselineToApply)
+        : [];
       const shouldApplyProvisionalLocalOpen =
         localRecoverySnapshot !== null &&
         localRecoveryIsVersionAware &&
@@ -2335,6 +2432,14 @@ export default function BoardStage({
             textCards: localRecoverySnapshot.textCards,
           })
         );
+        markSceneUsable("local", localRecoveryObjectCount);
+      } else if (
+        sharedBootstrapObjectCountRef.current === 0 &&
+        localRecoverySnapshot === null &&
+        baselineObjects.length > 0
+      ) {
+        replaceBoardObjects(composeBaselineRoomObjects(roomId, baselineObjects));
+        markSceneUsable("baseline", baselineObjects.length);
       }
 
       let durableSnapshot = null;
@@ -2360,9 +2465,6 @@ export default function BoardStage({
       const hasLocalRecoveryDocument =
         localRecoverySnapshot !== null &&
         (localRecoveryObjectCount > 0 || localRecoveryRevision !== null);
-      const baselineObjects = roomBaselineToApply
-        ? getRoomBaselinePayload(roomBaselineToApply)
-        : [];
       const baselineContent = {
         tokens: baselineObjects.filter((object) => object.kind === "token"),
         images: baselineObjects.filter((object) => object.kind === "image"),
@@ -2449,6 +2551,14 @@ export default function BoardStage({
       setRoomParticipantAppearance(
         terminalContent?.participantAppearance ??
           createEmptyRoomParticipantAppearance()
+      );
+      markSceneUsable(
+        shouldRunConvergence
+          ? "converged"
+          : shouldApplyBaseline
+            ? "baseline"
+            : "empty",
+        terminalContent ? getReplicaObjectCount(terminalContent) : 0
       );
 
       snapshotRecoveryAttemptedRoomRef.current = roomBootstrapEntryIdRef.current;
@@ -2643,6 +2753,7 @@ export default function BoardStage({
       roomId,
       onActiveMovesChange: setRemoteActiveObjectMoves,
       onTokensChange: (tokens) => {
+        sharedBootstrapSlicesRef.current.tokens = tokens;
         setSharedBootstrapSliceCounts((current) =>
           current.tokens === tokens.length
             ? current
@@ -2669,6 +2780,7 @@ export default function BoardStage({
     const connection = createRoomImageConnection({
       roomId,
       onImagesChange: (sharedImages) => {
+        sharedBootstrapSlicesRef.current.images = sharedImages;
         setSharedBootstrapSliceCounts((current) =>
           current.images === sharedImages.length
             ? current
@@ -2718,6 +2830,7 @@ export default function BoardStage({
     const connection = createRoomTextCardConnection({
       roomId,
       onTextCardsChange: (textCards) => {
+        sharedBootstrapSlicesRef.current.textCards = textCards;
         setSharedBootstrapSliceCounts((current) =>
           current.textCards === textCards.length
             ? current

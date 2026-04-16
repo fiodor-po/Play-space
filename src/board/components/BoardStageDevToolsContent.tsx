@@ -39,6 +39,10 @@ type LocalReplicaInspectionViewModel = {
   initialOpenSource: string | null;
   initialOpenRevision: number | null;
   initialOpenObjectCount: number;
+  sceneUsableStatus: string;
+  sceneUsableSource: string | null;
+  sceneUsableObjectCount: number;
+  sceneUsableAt: number | null;
   lastWriteStatus: string;
   lastWriteCommitBoundary: string | null | undefined;
   lastWriteRevision: number | null;
@@ -524,6 +528,15 @@ export function BoardStageDevToolsContent({
           {" · "}source {localReplicaInspection.initialOpenSource ?? "none"}
           {" · "}rev {localReplicaInspection.initialOpenRevision ?? "none"}
           {" · "}objects {localReplicaInspection.initialOpenObjectCount}
+        </div>
+        <div
+          data-testid="debug-local-replica-scene-usable"
+          style={{ color: "#94a3b8" }}
+        >
+          Scene usable: {localReplicaInspection.sceneUsableStatus}
+          {" · "}source {localReplicaInspection.sceneUsableSource ?? "none"}
+          {" · "}objects {localReplicaInspection.sceneUsableObjectCount}
+          {" · "}at {formatDebugTimestamp(localReplicaInspection.sceneUsableAt)}
         </div>
         <div
           data-testid="debug-local-replica-settled-recovery"
