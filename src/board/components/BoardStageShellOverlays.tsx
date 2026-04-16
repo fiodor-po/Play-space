@@ -181,6 +181,7 @@ export function BoardStageShellOverlays({
             position: "absolute",
             left: editingTextareaStyle.left,
             top: editingTextareaStyle.top,
+            zIndex: 20,
             width: editingTextareaStyle.width,
             height: editingTextareaStyle.height,
             padding: 0,

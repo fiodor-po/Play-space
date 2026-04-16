@@ -73,7 +73,6 @@ const DEFAULT_ROOM_BASELINE_DESCRIPTOR: RoomBaselineDescriptor =
   });
 const JOIN_CLAIM_TTL_MS = 5000;
 const JOIN_CLAIM_SETTLE_MS = 220;
-const IS_DEV = import.meta.env.DEV;
 const entryDebugActionButtonRecipe = buttonRecipes.secondary.compact;
 
 type JoinedRoomActivationState = {
@@ -364,7 +363,7 @@ function EntryModeScreen({
             </div>
           </div>
 
-          {IS_DEV && isDebugControlsEnabled ? (
+          {isDebugControlsEnabled ? (
             <details
               open={isEntryDebugOpen}
               onToggle={(event) => {

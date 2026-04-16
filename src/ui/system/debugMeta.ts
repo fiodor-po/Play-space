@@ -26,7 +26,7 @@ export function getDesignSystemDebugAttrs(meta?: DesignSystemDebugMeta) {
 }
 
 export function isDesignSystemHoverDebugEnabled() {
-  if (!import.meta.env.DEV || typeof window === "undefined") {
+  if (typeof window === "undefined") {
     return false;
   }
 
