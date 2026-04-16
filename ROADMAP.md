@@ -325,6 +325,11 @@ Remaining deferred runtime tail from this chapter:
   - same-tab reopening does not show monotonic degradation
   - slowdown is more visible with multiple simultaneously live room contexts
   - first suspects are bootstrap coordination, three independent shared slice connections, and durable snapshot failure noise during open
+- [ ] add loading placeholders and polish async state transitions around room open and other delayed surfaces:
+  - make loading and settling states visible instead of leaving silent empty gaps
+  - add placeholders or equivalent lightweight loading affordances where delayed content arrival is expected
+  - align state transitions for entry, room open, recovery, media, and other async surfaces so the UI reads as one coherent system
+  - do this after the current hydration timing and bootstrap coordination work has a clear baseline and a chosen runtime boundary
 - [x] close browser-local participant identity stabilization
   - browser-local `participantId` is now the intended participant carrier
   - room-local saved session layers `name/color` on top of that identity

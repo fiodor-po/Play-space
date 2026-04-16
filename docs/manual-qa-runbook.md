@@ -237,6 +237,55 @@
   - fallback assumptions не остаются полностью silent;
   - media/token failure не схлопывается в полностью безликую ошибку.
 
+### 3.8. Hosted hydration benchmark checklist
+
+Этот сценарий нужен для measurement-first pass по room-open timing и staged
+hydration shape.
+
+- Capture these user-facing timings for each scenario:
+  - `join click -> room shell visible`
+  - `join click -> board surface visible`
+  - `join click -> first object visible`
+  - `join click -> first token visible`
+  - `join click -> first note visible`
+  - `join click -> first image visible`
+  - `join click -> all expected objects visible`
+  - `join click -> room feels usable`
+- Also capture these phase gaps:
+  - `room shell -> board surface`
+  - `board surface -> first object`
+  - `first object -> first token`
+  - `first token -> first note`
+  - `first note -> first image`
+  - `first object -> all expected objects`
+- Also record these internal runtime events when inspectability or logs make
+  them visible:
+  - local replica read start / end
+  - durable snapshot read start / end / fail
+  - tokens realtime connection start / ready
+  - images realtime connection start / ready
+  - textCards realtime connection start / ready
+  - settled recovery reached
+  - first token visible in scene
+  - first note visible in scene
+  - first image visible in scene
+- Run the benchmark on these scenarios:
+  - fresh empty room
+  - fresh room with token only
+  - fresh room with note + image
+  - same tab reopen
+  - new tab in the same browser
+  - fresh incognito / fresh browser context
+  - two live room contexts in one browser session
+  - room with many images
+  - room with many large images
+- Record these qualitative observations:
+  - one-block hydration vs staged waves
+  - which slice consistently appears first
+  - which slice consistently lags
+  - whether many-images and large-images rooms amplify the tail
+  - whether multi-context scenarios amplify the tail
+
 ---
 
 ## 4. Image draw-mode checks
