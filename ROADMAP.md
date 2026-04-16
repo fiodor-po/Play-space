@@ -126,7 +126,7 @@ Use these statuses in roadmap notes when useful:
 
 ## Phase C — Room document persistence / recovery architecture
 
-**Статус:** persistence/recovery complete, participant identity stabilization closed, next execution block `push to hosted + debug`, next candidate chapter `participant-marker / creator-color`
+**Статус:** persistence/recovery complete, participant identity stabilization closed, hard sprint active in branch `sprint/cleanup-lint-boardstage-foundation`
 
 ### Цель
 Принять `room document replicas` как architecture chapter, перевести
@@ -212,13 +212,25 @@ Current planning-mode candidate for the next strategist step:
 
 Это делает participant-marker / creator-color следующим candidate architecture concern.
 
-Current expected execution track before that chapter:
+Current cleanup sprint result in this branch:
 
-1. push the current mainline to hosted and verify the real deployed behavior;
-2. fix only the real hosted regressions or rough edges that surface there;
-3. start a separate cleanup sprint after hosted fixes:
-   - first bring lint back to an honest green checkpoint;
-   - then split structural hotspots in narrow passes.
+1. keep `main` as the stable hosted/demo line;
+2. keep `sprint/cleanup-lint-boardstage-foundation` as a cleanup-only branch checkpoint;
+3. treat `lint green baseline` as closed;
+4. treat `BoardStage` structural reduction phases `1–4` as closed;
+5. keep `participant-marker / creator-color` as the next candidate chapter after this sprint;
+6. treat hosted validation after this cleanup checkpoint as closed.
+
+Required deferred hosted/runtime follow-up from this checkpoint:
+
+- investigate staged hosted room hydration waves and multi-context slowdown as one general runtime follow-up; current live and the cleanup preview show the same pattern, so this is not treated as a branch-specific blocker
+
+Agreed cleanup target model for this branch:
+
+- `BoardStage` stays the orchestration shell;
+- `BoardStageScene` is the next structural render boundary;
+- `BoardStageShellOverlays` owns shell chrome and scene-attached HTML overlays;
+- shared 3D dice stay the top app-owned visual layer.
 
 ## 5. Что вошло в этот checkpoint
 
@@ -241,8 +253,14 @@ Current expected execution track before that chapter:
 - later follow-up task: `room-ops durability ergonomics`;
 - optional follow-up task: `legacy room-snapshot write-cache cleanup`;
 - optional follow-up task: `internal recovery naming/log cleanup`;
-- next execution block: `push to hosted + debug`;
+- hard sprint branch: `sprint/cleanup-lint-boardstage-foundation`;
+- closed cleanup sprint checkpoint:
+  - `lint green baseline`
+  - `BoardStage structural reduction phases 1–4`
 - next candidate chapter: `participant-marker / creator-color`;
+- completed follow-up checkpoint: hosted validation after the cleanup branch deploy;
+- later hosted/runtime follow-up:
+  - staged hydration waves and multi-context slowdown during room open;
 - hosted validation как повторяемая проверка после крупных шагов, выкатываний и
   новых demo snapshots.
 
@@ -279,13 +297,14 @@ Current expected execution track before that chapter:
 18. держать `room-ops durability ergonomics` как later follow-up task after the closed replica-track chapter;
 19. держать `legacy room-snapshot write-cache cleanup` как optional hygiene follow-up outside the core recovery semantics;
 20. держать `internal recovery naming/log cleanup` как optional hygiene follow-up outside the core runtime contract;
-21. сначала выполнить следующий execution block: `push to hosted + debug`;
-22. после hosted проверки чинить только реальные hosted rough edges;
-23. после hosted fixes запускать отдельный cleanup sprint:
-   - сначала вернуть lint к честному green checkpoint;
-   - потом разрезать structural hotspots узкими passes;
-24. держать `participant-marker / creator-color` как следующий candidate chapter после participant identity stabilization;
-25. возвращаться к hosted validation как checkpoint после больших шагов и новых
+21. держать `main` как стабильную hosted/demo линию;
+22. вести cleanup-only work в branch `sprint/cleanup-lint-boardstage-foundation`;
+23. считать `lint green baseline` закрытым cleanup checkpoint;
+24. считать `BoardStage` structural reduction phases `1–4` закрытым cleanup checkpoint;
+25. держать `participant-marker / creator-color` как следующий candidate chapter после cleanup sprint;
+26. считать hosted validation after the cleanup checkpoint закрытым;
+27. держать staged hydration waves и multi-context slowdown как отдельный hosted/runtime follow-up, а не как cleanup-branch blocker;
+28. возвращаться к hosted validation как checkpoint после больших шагов и новых
    demo snapshots.
 
 ## 8. Backlog
@@ -363,6 +382,11 @@ Current expected execution track before that chapter:
 - [ ] прогонять hosted playable-session validation после крупных шагов и новых
   demo snapshots
 - [ ] фиксировать реальные rough edges после таких hosted checkpoint'ов
+- [ ] investigate staged hosted room hydration waves and multi-context slowdown:
+  - current live and the cleanup preview both show staged token/image/note arrival
+  - same-tab reopening does not show monotonic degradation
+  - slowdown is more visible with multiple simultaneously live room contexts
+  - first suspects are bootstrap coordination, three independent shared slice connections, and durable snapshot failure noise during open
 - [x] close browser-local participant identity stabilization
   - browser-local `participantId` is now the intended participant carrier
   - room-local saved session layers `name/color` on top of that identity
@@ -566,6 +590,13 @@ Current expected execution track before that chapter:
     - image = canonical box/media interaction object
     - note-card = canonical text-box interaction object
     - token = canonical pin exception
+- [ ] reduce local drag inertia for image-attached dependents:
+  - attached tokens and image-attached controls should stay visually glued to
+    the image during local drag
+  - current visible catch-up after parent bounds recompute should be reduced to
+    near-zero
+  - keep this as a narrow local interaction-loop / dependent-follow task, not
+    as a scene-graph rewrite
 - [ ] hosted deploy hardening only if product validation justifies it
 - [ ] behavior indication model chapter
 - [ ] cross-user action visibility model chapter

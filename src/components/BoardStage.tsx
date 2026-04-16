@@ -1,55 +1,31 @@
-import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 import {
-  Group,
-  Image as KonvaImage,
-  Layer,
-  Line,
-  Rect,
-  Stage,
-  Text,
-  Transformer,
-} from "react-konva";
+  useCallback,
+  useEffect,
+  useEffectEvent,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import type Konva from "konva";
-import { BoardToolbar } from "../board/components/BoardToolbar";
-import { CursorOverlay } from "../board/components/CursorOverlay";
-import { ParticipantSessionPanel } from "../board/components/ParticipantSessionPanel";
-import { RemoteInteractionIndicator } from "../board/components/RemoteInteractionIndicator";
+import {
+  BoardStageDevToolsContent,
+  type BoardStageGovernanceInspectionEntry,
+} from "../board/components/BoardStageDevToolsContent";
+import { BoardStageScene } from "../board/components/BoardStageScene";
+import { BoardStageShellOverlays } from "../board/components/BoardStageShellOverlays";
 import { createNoteCardObject } from "../board/objects/noteCard/createNoteCardObject";
-import { NoteCardRenderer } from "../board/objects/noteCard/NoteCardRenderer";
 import {
   clampNoteCardWidth,
   getNoteCardHeightForLabel,
-  MIN_NOTE_CARD_HEIGHT,
-  MIN_NOTE_CARD_WIDTH,
   isNoteCardObject,
 } from "../board/objects/noteCard/sizing";
 import { createTokenObject } from "../board/objects/token/createTokenObject";
-import { TokenRenderer } from "../board/objects/token/TokenRenderer";
-import {
-  buttonRecipes,
-  createParticipantAccentButtonRecipe,
-  createParticipantAccentButtonRecipeWithMode,
-  interactionButtonRecipes,
-  resolveCanvasButtonMetrics,
-  resolveCanvasButtonTone,
-  type ButtonRecipe,
-} from "../ui/system/families/button";
-import { boardSurfaceRecipes } from "../ui/system/boardSurfaces";
-import {
-  getDesignSystemDebugAttrs,
-  isDesignSystemHoverDebugEnabled,
-} from "../ui/system/debugMeta";
-import { rowRecipes } from "../ui/system/families/row";
-import { selectionControlRecipes } from "../ui/system/families/selectionControls";
-import {
-  getSwatchButtonProps,
-  swatchPillRecipes,
-} from "../ui/system/families/swatchPill";
+import { isDesignSystemHoverDebugEnabled } from "../ui/system/debugMeta";
 import {
   boardMaterials,
   resolveBoardCanvasMaterials,
 } from "../ui/system/boardMaterials";
-import { surfaceRecipes } from "../ui/system/surfaces";
 import {
   resolveEffectiveImageBounds,
   type ImageEffectiveBounds,
@@ -63,9 +39,14 @@ import {
   useBoardObjectRuntime,
 } from "../board/runtime/useBoardObjectRuntime";
 import {
-  BOARD_HEIGHT,
-  BOARD_WIDTH,
-  HTML_UI_FONT_FAMILY,
+  getBoardStageDevToolsViewModel,
+  getBoardStageGovernanceViewModel,
+  getBoardStageInspectabilityViewModel,
+  getBoardStageObjectSemanticsViewModel,
+  getBoardStageSelectedImageControlsViewModel,
+  getBoardStageSelectedObjectsViewModel,
+} from "../board/viewModels/boardStageInspectability";
+import {
   MAX_INITIAL_IMAGE_DISPLAY_HEIGHT,
   MAX_INITIAL_IMAGE_DISPLAY_WIDTH,
   MAX_SCALE,
@@ -133,7 +114,6 @@ import {
   type TextCardResizePresence,
 } from "../lib/roomTextCardsRealtime";
 import {
-  PARTICIPANT_COLOR_OPTIONS,
   type LocalParticipantSession,
   type ParticipantPresence,
   type ParticipantPresenceMap,
@@ -157,100 +137,7 @@ import {
 import type { RoomBaselineDescriptor, RoomBaselineId } from "../lib/roomMetadata";
 import type { BoardObject, TokenAttachment } from "../types/board";
 
-type SmallFloatingActionButtonProps = {
-  x: number;
-  y: number;
-  label: string;
-  recipe?: ButtonRecipe;
-  onClick: () => void;
-};
-
-const IMAGE_ATTACHED_CONTROLS_GAP = 8;
-const IMAGE_ATTACHED_CONTROLS_OUTER_OFFSET_Y = 12;
 const LOCAL_CURSOR_PRESENCE_MIN_INTERVAL_MS = 33;
-
-function getSmallFloatingActionButtonWidth(
-  label: string,
-  metrics: ReturnType<typeof resolveCanvasButtonMetrics>
-) {
-  let measuredTextWidth = label.length * metrics.fontSize * 0.58;
-
-  if (typeof document !== "undefined") {
-    const canvas = document.createElement("canvas");
-    const context = canvas.getContext("2d");
-
-    if (context) {
-      const fontWeight =
-        typeof metrics.fontWeight === "number"
-          ? String(metrics.fontWeight)
-          : metrics.fontWeight;
-      context.font = `${fontWeight} ${metrics.fontSize}px ${metrics.fontFamily}`;
-      measuredTextWidth = context.measureText(label).width;
-    }
-  }
-
-  const contentWidth = measuredTextWidth + metrics.paddingX * 2;
-  const minimumWidth = metrics.minWidth ?? metrics.minHeight;
-
-  return Math.max(minimumWidth, Math.ceil(contentWidth));
-}
-
-function SmallFloatingActionButton({
-  x,
-  y,
-  label,
-  recipe = buttonRecipes.secondary.small,
-  onClick,
-}: SmallFloatingActionButtonProps) {
-  const metrics = resolveCanvasButtonMetrics(recipe);
-  const width = getSmallFloatingActionButtonWidth(label, metrics);
-  const height = metrics.minHeight;
-  const toneStyles = resolveCanvasButtonTone(recipe);
-  const textLineHeightPx = metrics.fontSize * metrics.lineHeight;
-  const textYOffset = Math.max(0, (height - textLineHeightPx) / 2);
-
-  return (
-    <Group
-      x={x}
-      y={y}
-      onMouseDown={(event) => {
-        event.cancelBubble = true;
-      }}
-      onTouchStart={(event) => {
-        event.cancelBubble = true;
-      }}
-      onClick={(event) => {
-        event.cancelBubble = true;
-        onClick();
-      }}
-      onTap={(event) => {
-        event.cancelBubble = true;
-        onClick();
-      }}
-    >
-      <Rect
-        width={width}
-        height={height}
-        cornerRadius={metrics.borderRadius}
-        fill={toneStyles.fill}
-        stroke={toneStyles.stroke}
-        strokeWidth={1}
-      />
-      <Text
-        x={0}
-        y={textYOffset}
-        width={width}
-        align="center"
-        text={label}
-        fontSize={metrics.fontSize}
-        fontStyle={String(metrics.fontWeight) === "600" || Number(metrics.fontWeight) >= 600 ? "bold" : "normal"}
-        fontFamily={metrics.fontFamily || HTML_UI_FONT_FAMILY}
-        fill={toneStyles.textColor}
-        listening={false}
-      />
-    </Group>
-  );
-}
 
 function getSharedBoardObjects(nextObjects: BoardObject[]) {
   return nextObjects.filter(
@@ -310,22 +197,6 @@ function getDurableSliceForCommitBoundary(
   return null;
 }
 
-function formatDebugTimestamp(timestamp: number | null) {
-  if (timestamp === null) {
-    return "none";
-  }
-
-  return new Date(timestamp).toLocaleString();
-}
-
-function formatIsoDebugTimestamp(timestamp: string | null) {
-  if (timestamp === null) {
-    return "none";
-  }
-
-  return new Date(timestamp).toLocaleString();
-}
-
 function getErrorMessage(error: unknown) {
   if (error instanceof Error) {
     return error.message;
@@ -360,12 +231,6 @@ type ObjectSemanticsHoverState = {
   clientY: number;
 };
 
-type GovernanceInspectionEntry = {
-  id: string;
-  resolution: GovernedActionAccessResolution;
-  timestamp: number;
-};
-
 type ActiveImageStrokeSession = {
   imageId: string;
   strokeIndex: number;
@@ -385,6 +250,12 @@ type EditingTextareaStyle = {
 type ContainerRect = {
   left: number;
   top: number;
+};
+
+type LocalCursorViewportState = {
+  stageX: number;
+  stageY: number;
+  stageScale: number;
 };
 
 type LocalReplicaReadSource = "idle" | LocalRoomDocumentBootstrapReadSource;
@@ -717,7 +588,7 @@ export default function BoardStage({
     activeRoomIdRef.current = roomId;
   }, [roomId]);
 
-  const persistLocalReplica = useEffectEvent(
+  const persistLocalReplica = useCallback(
     (
       nextObjects: BoardObject[],
       commitBoundary: NonNullable<LocalObjectsChangeOptions["commitBoundary"]>
@@ -732,9 +603,10 @@ export default function BoardStage({
 
       void saveLocalRoomDocumentReplica(roomId, nextObjects, {
         commitBoundary,
-        lastKnownDurableSnapshotRevision: durableSnapshotRevisionRef.current,
+        lastKnownDurableSnapshotRevision:
+          durableTrackingRef.current.snapshotRevision,
         lastKnownDurableSliceRevisions: cloneDurableSliceRevisionState(
-          durableSliceRevisionRef.current
+          durableTrackingRef.current.sliceRevisions
         ),
       })
         .then((replica) => {
@@ -764,16 +636,21 @@ export default function BoardStage({
             lastError: getErrorMessage(error),
           }));
         });
-    }
+    },
+    [roomId]
   );
 
-  const queueDurableWriteTask = useEffectEvent((task: () => Promise<void>) => {
-    durableWriteQueueRef.current = durableWriteQueueRef.current
-      .catch(() => undefined)
-      .then(task);
-  });
+  const queueDurableWriteTask = useCallback((task: () => Promise<void>) => {
+    const enqueueDurableWriteTask = () => {
+      durableTrackingRef.current.writeQueue = durableTrackingRef.current.writeQueue
+        .catch(() => undefined)
+        .then(task);
+    };
 
-  const persistDurableSliceWrite = useEffectEvent(
+    enqueueDurableWriteTask();
+  }, []);
+
+  const persistDurableSliceWrite = useCallback(
     (
       nextObjects: BoardObject[],
       boundary: DurableDebugBoundary,
@@ -787,19 +664,19 @@ export default function BoardStage({
           return;
         }
 
-        let baseSliceRevision = durableSliceRevisionRef.current[slice];
+        let baseSliceRevision = durableTrackingRef.current.sliceRevisions[slice];
         let retryCount = 0;
 
         setDurableReplicaInspection((current) => ({
           ...current,
-          currentRevision: durableSnapshotRevisionRef.current,
+          currentRevision: durableTrackingRef.current.snapshotRevision,
           currentSliceRevisions: cloneDurableSliceRevisionState(
-            durableSliceRevisionRef.current
+            durableTrackingRef.current.sliceRevisions
           ),
           lastWriteStatus: "writing",
           lastWriteBoundary: boundary,
           lastWriteSlice: slice,
-          lastKnownSliceRevision: durableSliceRevisionRef.current[slice],
+          lastKnownSliceRevision: durableTrackingRef.current.sliceRevisions[slice],
           lastBaseRevision: null,
           lastBaseSliceRevision: baseSliceRevision,
           lastAckSnapshotRevision: null,
@@ -826,9 +703,9 @@ export default function BoardStage({
           }
 
           if (result.status === "conflict") {
-            durableSnapshotRevisionRef.current = result.currentRevision;
-            durableSliceRevisionRef.current = {
-              ...durableSliceRevisionRef.current,
+            durableTrackingRef.current.snapshotRevision = result.currentRevision;
+            durableTrackingRef.current.sliceRevisions = {
+              ...durableTrackingRef.current.sliceRevisions,
               [slice]: result.currentSliceRevision,
             };
 
@@ -846,12 +723,13 @@ export default function BoardStage({
               ...current,
               currentRevision: result.currentRevision,
               currentSliceRevisions: cloneDurableSliceRevisionState(
-                durableSliceRevisionRef.current
+                durableTrackingRef.current.sliceRevisions
               ),
               lastWriteStatus: "conflict",
               lastWriteBoundary: boundary,
               lastWriteSlice: slice,
-              lastKnownSliceRevision: durableSliceRevisionRef.current[slice],
+              lastKnownSliceRevision:
+                durableTrackingRef.current.sliceRevisions[slice],
               lastBaseRevision: null,
               lastBaseSliceRevision: baseSliceRevision,
               lastAckSnapshotRevision: null,
@@ -868,16 +746,17 @@ export default function BoardStage({
           }
 
           if (result.status === "saved") {
-            durableSnapshotRevisionRef.current = result.ack.snapshotRevision;
-            durableSliceRevisionRef.current = {
-              ...durableSliceRevisionRef.current,
+            durableTrackingRef.current.snapshotRevision =
+              result.ack.snapshotRevision;
+            durableTrackingRef.current.sliceRevisions = {
+              ...durableTrackingRef.current.sliceRevisions,
               [slice]: result.ack.sliceRevision,
             };
             setDurableReplicaInspection((current) => ({
               ...current,
               currentRevision: result.ack.snapshotRevision,
               currentSliceRevisions: cloneDurableSliceRevisionState(
-                durableSliceRevisionRef.current
+                durableTrackingRef.current.sliceRevisions
               ),
               lastWriteStatus: "saved",
               lastWriteBoundary: boundary,
@@ -900,14 +779,14 @@ export default function BoardStage({
 
           setDurableReplicaInspection((current) => ({
             ...current,
-            currentRevision: durableSnapshotRevisionRef.current,
+            currentRevision: durableTrackingRef.current.snapshotRevision,
             currentSliceRevisions: cloneDurableSliceRevisionState(
-              durableSliceRevisionRef.current
+              durableTrackingRef.current.sliceRevisions
             ),
             lastWriteStatus: "failed",
             lastWriteBoundary: boundary,
             lastWriteSlice: slice,
-            lastKnownSliceRevision: durableSliceRevisionRef.current[slice],
+            lastKnownSliceRevision: durableTrackingRef.current.sliceRevisions[slice],
             lastBaseRevision: null,
             lastBaseSliceRevision: baseSliceRevision,
             lastAckSnapshotRevision: null,
@@ -921,10 +800,11 @@ export default function BoardStage({
           return;
         }
       });
-    }
+    },
+    [queueDurableWriteTask, roomId]
   );
 
-  const persistLegacyDurableSnapshot = useEffectEvent(
+  const persistLegacyDurableSnapshot = useCallback(
     (nextObjects: BoardObject[], boundary: DurableDebugBoundary) => {
       const objectCount = getSharedBoardObjects(nextObjects).length;
 
@@ -933,14 +813,14 @@ export default function BoardStage({
           return;
         }
 
-        let baseRevision = durableSnapshotRevisionRef.current;
+        let baseRevision = durableTrackingRef.current.snapshotRevision;
         let retryCount = 0;
 
         setDurableReplicaInspection((current) => ({
           ...current,
-          currentRevision: durableSnapshotRevisionRef.current,
+          currentRevision: durableTrackingRef.current.snapshotRevision,
           currentSliceRevisions: cloneDurableSliceRevisionState(
-            durableSliceRevisionRef.current
+            durableTrackingRef.current.sliceRevisions
           ),
           lastWriteStatus: "writing",
           lastWriteBoundary: boundary,
@@ -971,7 +851,7 @@ export default function BoardStage({
           }
 
           if (result.status === "conflict") {
-            durableSnapshotRevisionRef.current = result.currentRevision;
+            durableTrackingRef.current.snapshotRevision = result.currentRevision;
 
             if (
               attempt === 0 &&
@@ -987,7 +867,7 @@ export default function BoardStage({
               ...current,
               currentRevision: result.currentRevision,
               currentSliceRevisions: cloneDurableSliceRevisionState(
-                durableSliceRevisionRef.current
+                durableTrackingRef.current.sliceRevisions
               ),
               lastWriteStatus: "conflict",
               lastWriteBoundary: boundary,
@@ -1009,15 +889,14 @@ export default function BoardStage({
           }
 
           if (result.status === "saved") {
-            durableSnapshotRevisionRef.current = result.snapshot.revision;
-            durableSliceRevisionRef.current = getDurableSliceRevisionStateFromSnapshot(
-              result.snapshot
-            );
+            durableTrackingRef.current.snapshotRevision = result.snapshot.revision;
+            durableTrackingRef.current.sliceRevisions =
+              getDurableSliceRevisionStateFromSnapshot(result.snapshot);
             setDurableReplicaInspection((current) => ({
               ...current,
               currentRevision: result.snapshot.revision,
               currentSliceRevisions: cloneDurableSliceRevisionState(
-                durableSliceRevisionRef.current
+                durableTrackingRef.current.sliceRevisions
               ),
               lastWriteStatus: "saved",
               lastWriteBoundary: boundary,
@@ -1040,9 +919,9 @@ export default function BoardStage({
 
           setDurableReplicaInspection((current) => ({
             ...current,
-            currentRevision: durableSnapshotRevisionRef.current,
+            currentRevision: durableTrackingRef.current.snapshotRevision,
             currentSliceRevisions: cloneDurableSliceRevisionState(
-              durableSliceRevisionRef.current
+              durableTrackingRef.current.sliceRevisions
             ),
             lastWriteStatus: "failed",
             lastWriteBoundary: boundary,
@@ -1061,10 +940,11 @@ export default function BoardStage({
           return;
         }
       });
-    }
+    },
+    [queueDurableWriteTask, roomId]
   );
 
-  const handleLocalBoardObjectsChange = useEffectEvent(
+  const handleLocalBoardObjectsChange = useCallback(
     (nextObjects: BoardObject[], options?: LocalObjectsChangeOptions) => {
       const commitBoundary =
         options?.commitBoundary &&
@@ -1088,7 +968,8 @@ export default function BoardStage({
       if (durableBoundary && durableSlice) {
         persistDurableSliceWrite(nextObjects, durableBoundary, durableSlice);
       }
-    }
+    },
+    [persistDurableSliceWrite, persistLocalReplica]
   );
 
   const {
@@ -1122,6 +1003,7 @@ export default function BoardStage({
     onLocalObjectsChange: handleLocalBoardObjectsChange,
     roomId,
   });
+  const objectsRef = useRef<BoardObject[]>(objects);
 
   const [selectedObjectId, setSelectedObjectId] = useState<string | null>(null);
   const [editingTextCardId, setEditingTextCardId] = useState<string | null>(null);
@@ -1149,11 +1031,10 @@ export default function BoardStage({
   );
   const [isDevToolsOpen, setIsDevToolsOpen] = useState(false);
   const [isObjectInspectionEnabled, setIsObjectInspectionEnabled] = useState(false);
-  const objectInspectionSelectionRecipe = selectionControlRecipes.checkbox.small;
   const [objectSemanticsHoverState, setObjectSemanticsHoverState] =
     useState<ObjectSemanticsHoverState | null>(null);
   const [governanceInspectionEntries, setGovernanceInspectionEntries] = useState<
-    GovernanceInspectionEntry[]
+    BoardStageGovernanceInspectionEntry[]
   >([]);
   const [remoteImagePreviewPositions, setRemoteImagePreviewPositions] = useState<
     Record<
@@ -1350,31 +1231,6 @@ export default function BoardStage({
       ? snapshot.tokens.length + snapshot.images.length + snapshot.textCards.length
       : 0;
 
-  const getObjectSemanticsRows = (object: BoardObject) => {
-    const rows = [
-      { label: "Kind", value: object.kind },
-      { label: "Id", value: object.id },
-      { label: "Creator", value: object.creatorId ?? "none" },
-      { label: "Creator color", value: getLiveCreatorColor(object) ?? "unresolved" },
-      { label: "Author color", value: object.authorColor ?? "none" },
-    ];
-
-    if (object.kind === "image") {
-      rows.push({
-        label: "Stroke creators",
-        value: String(
-          new Set(
-            (object.imageStrokes ?? [])
-              .map((stroke) => stroke.creatorId)
-              .filter((creatorId): creatorId is string => typeof creatorId === "string")
-          ).size
-        ),
-      });
-    }
-
-    return rows;
-  };
-
   const getLiveStrokeColor = (stroke: {
     color: string;
     creatorId?: string;
@@ -1408,77 +1264,87 @@ export default function BoardStage({
     setObjectSemanticsHoverState(null);
   };
 
-  const recordGovernanceResolution = (
-    resolution: GovernedActionAccessResolution
-  ) => {
-    const nextEntryId = governanceInspectionSequenceRef.current + 1;
-    governanceInspectionSequenceRef.current = nextEntryId;
+  const recordGovernanceResolution = useCallback(
+    (resolution: GovernedActionAccessResolution) => {
+      const nextEntryId = governanceInspectionSequenceRef.current + 1;
+      governanceInspectionSequenceRef.current = nextEntryId;
 
-    setGovernanceInspectionEntries((currentEntries) => [
-      {
-        id: `governance-${nextEntryId}`,
-        resolution,
-        timestamp: Date.now(),
-      },
-      ...currentEntries,
-    ].slice(0, 8));
-  };
+      setGovernanceInspectionEntries((currentEntries) => [
+        {
+          id: `governance-${nextEntryId}`,
+          resolution,
+          timestamp: Date.now(),
+        },
+        ...currentEntries,
+      ].slice(0, 8));
+    },
+    []
+  );
 
-  const resolveRoomActionAccess = (actionKey: GovernanceActionKey) => {
-    const resolution = resolveGovernedActionAccess({
-      entity: createRoomGovernedEntityRef({
-        roomId,
-        creatorId: roomCreatorId,
-      }),
-      actionKey,
-      participantId: participantSession.id,
-      explicitAccessLevel: roomEffectiveAccessLevel,
-      defaultAccessLevel: "full",
-    });
-    recordGovernanceResolution(resolution);
+  const resolveRoomActionAccess = useCallback(
+    (actionKey: GovernanceActionKey) => {
+      const resolution = resolveGovernedActionAccess({
+        entity: createRoomGovernedEntityRef({
+          roomId,
+          creatorId: roomCreatorId,
+        }),
+        actionKey,
+        participantId: participantSession.id,
+        explicitAccessLevel: roomEffectiveAccessLevel,
+        defaultAccessLevel: "full",
+      });
+      recordGovernanceResolution(resolution);
 
-    return resolution;
-  };
+      return resolution;
+    },
+    [
+      participantSession.id,
+      recordGovernanceResolution,
+      roomCreatorId,
+      roomEffectiveAccessLevel,
+      roomId,
+    ]
+  );
 
-  const resolveObjectActionAccess = (
-    objectId: string,
-    actionKey: GovernanceActionKey
-  ) => {
-    const object = objects.find((candidate) => candidate.id === objectId);
+  const resolveObjectActionAccess = useCallback(
+    (objectId: string, actionKey: GovernanceActionKey) => {
+      const object = objects.find((candidate) => candidate.id === objectId);
 
-    if (!object) {
-      return null;
-    }
+      if (!object) {
+        return null;
+      }
 
-    const resolution =
-      actionKey === "board-object.delete"
-        ? resolveBoardObjectDeletePolicyAccess({
-            object,
-            participantId: participantSession.id,
-            roomCreatorId,
-          })
-        : actionKey === "board-object.clear-all-drawing"
-          ? resolveImageClearAllDrawingPolicyAccess({
+      const resolution =
+        actionKey === "board-object.delete"
+          ? resolveBoardObjectDeletePolicyAccess({
               object,
               participantId: participantSession.id,
               roomCreatorId,
             })
-        : actionKey === "board-object.clear-own-drawing"
-          ? resolveImageClearOwnDrawingPolicyAccess({
-              object,
-              participantId: participantSession.id,
-            })
-        : resolveGovernedActionAccess({
-            entity: createBoardObjectGovernedEntityRef(object),
-            actionKey,
-            participantId: participantSession.id,
-            defaultAccessLevel: "full",
-          });
+          : actionKey === "board-object.clear-all-drawing"
+            ? resolveImageClearAllDrawingPolicyAccess({
+                object,
+                participantId: participantSession.id,
+                roomCreatorId,
+              })
+            : actionKey === "board-object.clear-own-drawing"
+              ? resolveImageClearOwnDrawingPolicyAccess({
+                  object,
+                  participantId: participantSession.id,
+                })
+              : resolveGovernedActionAccess({
+                  entity: createBoardObjectGovernedEntityRef(object),
+                  actionKey,
+                  participantId: participantSession.id,
+                  defaultAccessLevel: "full",
+                });
 
-    recordGovernanceResolution(resolution);
+      recordGovernanceResolution(resolution);
 
-    return resolution;
-  };
+      return resolution;
+    },
+    [objects, participantSession.id, recordGovernanceResolution, roomCreatorId]
+  );
 
   const noteCardRefs = useRef<Record<string, Konva.Group | null>>({});
   const imageRefs = useRef<Record<string, Konva.Image | null>>({});
@@ -1509,11 +1375,15 @@ export default function BoardStage({
   const snapshotRecoveryAttemptedRoomRef = useRef<number | null>(null);
   const [resolvedSnapshotBootstrapRoomId, setResolvedSnapshotBootstrapRoomId] =
     useState<string | null>(null);
-  const durableSnapshotRevisionRef = useRef<number | null>(null);
-  const durableSliceRevisionRef = useRef<DurableSliceRevisionState>(
-    createInitialDurableSliceRevisionState()
-  );
-  const durableWriteQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const durableTrackingRef = useRef<{
+    snapshotRevision: number | null;
+    sliceRevisions: DurableSliceRevisionState;
+    writeQueue: Promise<void>;
+  }>({
+    snapshotRevision: null,
+    sliceRevisions: createInitialDurableSliceRevisionState(),
+    writeQueue: Promise.resolve(),
+  });
   const governanceInspectionSequenceRef = useRef(0);
   const pendingLocalCursorPresenceFrameRef = useRef<number | null>(null);
   const pendingLocalCursorPresencePointRef = useRef<{
@@ -1525,9 +1395,29 @@ export default function BoardStage({
     y: number;
   } | null>(null);
   const lastLocalCursorPresenceSentAtRef = useRef(0);
+  const flushLocalCursorPresenceRef = useRef<() => void>(() => undefined);
+  const localCursorViewportRef = useRef<LocalCursorViewportState>({
+    stageX: stagePosition.x,
+    stageY: stagePosition.y,
+    stageScale,
+  });
+  const onUpdateLocalPresenceRef = useRef(onUpdateLocalPresence);
   const [loadedImages, setLoadedImages] = useState<Record<string, HTMLImageElement>>(
     {}
   );
+
+  useLayoutEffect(() => {
+    objectsRef.current = objects;
+  }, [objects]);
+
+  useLayoutEffect(() => {
+    localCursorViewportRef.current = {
+      stageX: stagePosition.x,
+      stageY: stagePosition.y,
+      stageScale,
+    };
+    onUpdateLocalPresenceRef.current = onUpdateLocalPresence;
+  }, [onUpdateLocalPresence, stagePosition.x, stagePosition.y, stageScale]);
 
   const scheduleNoteCardResizePreviewRender = () => {
     if (liveNoteCardResizeFrameRef.current !== null) {
@@ -1607,9 +1497,9 @@ export default function BoardStage({
     );
   };
 
-  const releaseImageDrawingLock = () => {
+  const releaseImageDrawingLock = useCallback(() => {
     setActiveImageDrawingLock(null);
-  };
+  }, [setActiveImageDrawingLock]);
 
   const setDrawingImageSessionImageId = (nextImageId: string | null) => {
     drawingImageIdRef.current = nextImageId;
@@ -1620,10 +1510,6 @@ export default function BoardStage({
     activeImageStrokeRef.current = null;
   };
 
-  const getImageDrawingLock = (imageId: string) => {
-    return remoteImageDrawingLocks[imageId] ?? null;
-  };
-
   const isImageLocallyDrawingInProgress = (imageId: string) => {
     return (
       drawingImageIdRef.current === imageId ||
@@ -1631,23 +1517,34 @@ export default function BoardStage({
     );
   };
 
-  const endImageStroke = () => {
+  const getImageDrawingLock = useCallback(
+    (imageId: string) => {
+      return remoteImageDrawingLocks[imageId] ?? null;
+    },
+    [remoteImageDrawingLocks]
+  );
+
+  const endImageStroke = useCallback(() => {
     const activeStroke = activeImageStrokeRef.current;
 
     if (activeStroke) {
       syncCurrentImage(activeStroke.imageId);
-      persistLocalReplica(objects, "image-draw-commit");
-      persistDurableSliceWrite(objects, "image-draw-commit", "images");
+      persistLocalReplica(objectsRef.current, "image-draw-commit");
+      persistDurableSliceWrite(
+        objectsRef.current,
+        "image-draw-commit",
+        "images"
+      );
     }
 
     clearActiveImageStrokeSession();
-  };
+  }, [persistDurableSliceWrite, persistLocalReplica, syncCurrentImage]);
 
-  const finishImageDrawingMode = () => {
+  const finishImageDrawingMode = useCallback(() => {
     endImageStroke();
     releaseImageDrawingLock();
     setDrawingImageSessionImageId(null);
-  };
+  }, [endImageStroke, releaseImageDrawingLock]);
 
   const setSelectedObjectIdWithImageDrawingGuard = (
     nextSelectedObjectId: string | null
@@ -1662,11 +1559,14 @@ export default function BoardStage({
     setSelectedObjectId(nextSelectedObjectId);
   };
 
-  const isImageLockedByAnotherParticipant = (imageId: string) => {
-    const lock = getImageDrawingLock(imageId);
+  const isImageLockedByAnotherParticipant = useCallback(
+    (imageId: string) => {
+      const lock = remoteImageDrawingLocks[imageId] ?? null;
 
-    return !!lock && lock.participantId !== participantSession.id;
-  };
+      return !!lock && lock.participantId !== participantSession.id;
+    },
+    [participantSession.id, remoteImageDrawingLocks]
+  );
 
   const startImageDrawingMode = (imageId: string) => {
     const drawAccess = resolveObjectActionAccess(imageId, "board-object.draw");
@@ -1819,6 +1719,12 @@ export default function BoardStage({
 
   useEffect(() => {
     let isCancelled = false;
+    const resetDurableWriteTracking = () => {
+      durableTrackingRef.current.snapshotRevision = null;
+      durableTrackingRef.current.sliceRevisions =
+        createInitialDurableSliceRevisionState();
+      durableTrackingRef.current.writeQueue = Promise.resolve();
+    };
     const savedViewport = loadViewportState(roomId);
     const initialRoomViewport = getInitialRoomViewport(
       window.innerWidth,
@@ -1839,23 +1745,21 @@ export default function BoardStage({
 
     roomBootstrapEntryIdRef.current = nextBootstrapEntryId;
     snapshotRecoveryAttemptedRoomRef.current = null;
-    durableSnapshotRevisionRef.current = null;
-    durableSliceRevisionRef.current = createInitialDurableSliceRevisionState();
-    durableWriteQueueRef.current = Promise.resolve();
+    resetDurableWriteTracking();
     panStateRef.current = null;
     clearLiveNoteCardResizePreviewSession();
     clearActiveImageStrokeSession();
-    setLocalReplicaInspection({
-      ...createInitialLocalReplicaInspectionState(),
-      initialOpenStatus: "pending",
-      lastSettledRecoveryState: "pending",
-    });
-    setDurableReplicaInspection(createInitialDurableReplicaInspectionState());
     queueMicrotask(() => {
       if (isCancelled) {
         return;
       }
 
+      setLocalReplicaInspection({
+        ...createInitialLocalReplicaInspectionState(),
+        initialOpenStatus: "pending",
+        lastSettledRecoveryState: "pending",
+      });
+      setDurableReplicaInspection(createInitialDurableReplicaInspectionState());
       replaceBoardObjects(getRoomScopedBoardObjects(roomId));
       setStagePosition(
         hasSavedViewport
@@ -2037,15 +1941,14 @@ export default function BoardStage({
     const applyDurableSnapshotInspection = (
       snapshot: Awaited<ReturnType<typeof loadDurableRoomSnapshot>>
     ) => {
-      durableSnapshotRevisionRef.current = snapshot?.revision ?? null;
-      durableSliceRevisionRef.current = getDurableSliceRevisionStateFromSnapshot(
-        snapshot
-      );
+      durableTrackingRef.current.snapshotRevision = snapshot?.revision ?? null;
+      durableTrackingRef.current.sliceRevisions =
+        getDurableSliceRevisionStateFromSnapshot(snapshot);
       setDurableReplicaInspection((current) => ({
         ...current,
         currentRevision: snapshot?.revision ?? null,
         currentSliceRevisions: cloneDurableSliceRevisionState(
-          durableSliceRevisionRef.current
+          durableTrackingRef.current.sliceRevisions
         ),
       }));
     };
@@ -2757,30 +2660,42 @@ export default function BoardStage({
     });
   };
 
-  const createParticipantMarker = (position?: { x: number; y: number }) => {
-    const createTokenAccess = resolveRoomActionAccess("room.add-token");
+  const createParticipantMarker = useCallback(
+    (position?: { x: number; y: number }) => {
+      const createTokenAccess = resolveRoomActionAccess("room.add-token");
 
-    if (!createTokenAccess.isAllowed) {
-      return null;
-    }
+      if (!createTokenAccess.isAllowed) {
+        return null;
+      }
 
-    const markerPosition =
-      position ??
-      getViewportCenterInBoardCoords({
-        stageWidth: stageSize.width,
-        stageHeight: stageSize.height,
-        stageX: stagePosition.x,
-        stageY: stagePosition.y,
-        stageScale,
+      const markerPosition =
+        position ??
+        getViewportCenterInBoardCoords({
+          stageWidth: stageSize.width,
+          stageHeight: stageSize.height,
+          stageX: stagePosition.x,
+          stageY: stagePosition.y,
+          stageScale,
+        });
+
+      return createTokenObject({
+        id: `token-${createClientId()}`,
+        color: currentUserColor,
+        creatorId: participantSession.id,
+        position: markerPosition,
       });
-
-    return createTokenObject({
-      id: `token-${createClientId()}`,
-      color: currentUserColor,
-      creatorId: participantSession.id,
-      position: markerPosition,
-    });
-  };
+    },
+    [
+      currentUserColor,
+      participantSession.id,
+      resolveRoomActionAccess,
+      stagePosition.x,
+      stagePosition.y,
+      stageScale,
+      stageSize.height,
+      stageSize.width,
+    ]
+  );
 
   useEffect(() => {
     if (tokenInitialSyncRoomId !== roomId) {
@@ -2836,6 +2751,7 @@ export default function BoardStage({
   }, [
     addBoardObject,
     applyBoardObjectsUpdate,
+    createParticipantMarker,
     currentUserColor,
     objects,
     participantSession.id,
@@ -3108,7 +3024,7 @@ export default function BoardStage({
   }, [
     drawingImageId,
     editingTextCardId,
-    remoteImageDrawingLocks,
+    isImageLockedByAnotherParticipant,
     selectedObjectId,
   ]);
 
@@ -3138,13 +3054,13 @@ export default function BoardStage({
       window.removeEventListener("mousedown", handlePointerDown);
       window.removeEventListener("touchstart", handlePointerDown);
     };
-  }, [drawingImageId]);
+  }, [drawingImageId, finishImageDrawingMode]);
 
   useEffect(() => {
     return () => {
       releaseImageDrawingLock();
     };
-  }, []);
+  }, [releaseImageDrawingLock]);
 
   const editingTextCard = editingTextCardId
     ? objects.find(
@@ -3187,24 +3103,15 @@ export default function BoardStage({
         )
       )
     : null;
-  const selectedImageObject =
-    selectedObjectId && !editingTextCardId
-      ? objects.find(
-          (object) => object.id === selectedObjectId && object.kind === "image"
-        ) ?? null
-      : null;
-  const selectedTokenObject =
-    selectedObjectId && !editingTextCardId
-      ? objects.find(
-          (object) => object.id === selectedObjectId && object.kind === "token"
-        ) ?? null
-      : null;
-  const selectedNoteCardObject =
-    selectedObjectId && !editingTextCardId
-      ? objects.find(
-          (object) => object.id === selectedObjectId && isNoteCardObject(object)
-        ) ?? null
-      : null;
+  const {
+    selectedImageObject,
+    selectedTokenObject,
+    selectedNoteCardObject,
+  } = getBoardStageSelectedObjectsViewModel({
+    objects,
+    selectedObjectId,
+    editingTextCardId,
+  });
   const selectedImageLock = selectedImageObject
     ? getImageDrawingLock(selectedImageObject.id)
     : null;
@@ -3218,216 +3125,68 @@ export default function BoardStage({
   const selectedImageEffectiveBounds = selectedImageObject
     ? getEffectiveImageBoundsForImageId(selectedImageObject.id)
     : null;
-  const selectedImageLiveControlAnchor =
-    selectedImageObject &&
-    isSelectedImageLocallyInteracting &&
-    liveSelectedImageControlAnchor?.imageId === selectedImageObject.id
-      ? liveSelectedImageControlAnchor
-      : null;
-  const selectedImageControlAnchor =
-    selectedImageLiveControlAnchor ??
-    (selectedImageEffectiveBounds
-      ? getImageControlsAnchorFromBounds(selectedImageEffectiveBounds)
-      : null);
-  const inspectableImageObject =
-    selectedImageObject ??
-    (sharedImageObjects.length === 1 ? sharedImageObjects[0] : null);
-  const inspectableImageBounds = inspectableImageObject
-    ? {
-        x: Math.round(inspectableImageObject.x),
-        y: Math.round(inspectableImageObject.y),
-        width: Math.round(inspectableImageObject.width),
-        height: Math.round(inspectableImageObject.height),
-      }
-    : null;
-  const inspectableImageStrokeStats = inspectableImageObject
-    ? {
-        total: inspectableImageObject.imageStrokes?.length ?? 0,
-        own:
-          inspectableImageObject.imageStrokes?.filter(
-            (stroke) => stroke.creatorId === participantSession.id
-          ).length ?? 0,
-        points:
-          inspectableImageObject.imageStrokes?.reduce(
-            (pointCount, stroke) => pointCount + Math.round(stroke.points.length / 2),
-            0
-          ) ?? 0,
-      }
-    : null;
-  const inspectableImageTarget =
-    selectedImageObject && inspectableImageObject
-      ? "selected"
-      : inspectableImageObject
-        ? "sole"
-        : "none";
-  const participantInspectableToken =
-    sharedTokenObjects.filter(
-      (object) => object.creatorId === participantSession.id
-    ).length === 1
-      ? sharedTokenObjects.find(
-          (object) => object.creatorId === participantSession.id
-        ) ?? null
-      : null;
-  const inspectableTokenObject =
-    selectedTokenObject ??
-    participantInspectableToken ??
-    (sharedTokenObjects.length === 1 ? sharedTokenObjects[0] : null);
-  const inspectableTokenPosition = inspectableTokenObject
-    ? getTokenAnchorPosition(inspectableTokenObject)
-    : null;
-  const inspectableTokenTarget =
-    selectedTokenObject && inspectableTokenObject
-      ? "selected"
-      : participantInspectableToken &&
-          inspectableTokenObject === participantInspectableToken
-        ? "participant-marker"
-        : inspectableTokenObject
-          ? "sole"
-          : "none";
-  const inspectableNoteCardObject =
-    selectedNoteCardObject ??
-    (sharedNoteObjects.filter(
-      (object) => object.creatorId === participantSession.id
-    ).length === 1
-      ? sharedNoteObjects.find(
-          (object) => object.creatorId === participantSession.id
-        ) ?? null
-      : null) ??
-    (sharedNoteObjects.length === 1 ? sharedNoteObjects[0] : null);
-  const inspectableNoteCardBounds = inspectableNoteCardObject
-    ? {
-        x: Math.round(inspectableNoteCardObject.x),
-        y: Math.round(inspectableNoteCardObject.y),
-        width: Math.round(inspectableNoteCardObject.width),
-        height: Math.round(inspectableNoteCardObject.height),
-      }
-    : null;
-  const inspectableNoteCardTarget =
-    selectedNoteCardObject && inspectableNoteCardObject
-      ? "selected"
-      : inspectableNoteCardObject &&
-          inspectableNoteCardObject.creatorId === participantSession.id
-        ? "participant-owned"
-      : inspectableNoteCardObject
-        ? "sole"
-        : "none";
-
-  const inspectedObject = objectSemanticsHoverState
-    ? objects.find((object) => object.id === objectSemanticsHoverState.objectId) ?? null
-    : null;
-  const governanceRoomSummary = useMemo(
+  const {
+    inspectedObjectSemanticsRows,
+    isObjectSemanticsTooltipVisible,
+  } = getBoardStageObjectSemanticsViewModel({
+    objects,
+    objectSemanticsHoverState,
+    isObjectInspectionEnabled,
+    getCreatorColor: getLiveCreatorColor,
+  });
+  const {
+    governanceRoomSummary,
+    governanceSelectedObjectSummary,
+    governanceSelectedImageClearSummary,
+    governanceSelectedImageClearOwnSummary,
+  } = useMemo(
     () =>
-      resolveGovernedActionAccess({
-        entity: createRoomGovernedEntityRef({
-          roomId,
-          creatorId: roomCreatorId,
-        }),
-        actionKey: "room.add-image",
-        participantId: participantSession.id,
-        explicitAccessLevel: roomEffectiveAccessLevel,
-        defaultAccessLevel: "full",
-      }),
-    [participantSession.id, roomCreatorId, roomEffectiveAccessLevel, roomId]
-  );
-  const governanceSelectedObjectSummary = useMemo(() => {
-    if (!selectedObjectId) {
-      return null;
-    }
-
-    const selectedObject = objects.find((object) => object.id === selectedObjectId);
-
-    if (!selectedObject) {
-      return null;
-    }
-
-    return resolveBoardObjectDeletePolicyAccess({
-      object: selectedObject,
-      participantId: participantSession.id,
-      roomCreatorId,
-    });
-  }, [objects, participantSession.id, roomCreatorId, selectedObjectId]);
-  const governanceSelectedImageClearSummary = selectedImageObject
-    ? resolveImageClearAllDrawingPolicyAccess({
-        object: selectedImageObject,
-        participantId: participantSession.id,
+      getBoardStageGovernanceViewModel({
+        roomId,
         roomCreatorId,
-      })
-    : null;
-  const governanceSelectedImageClearOwnSummary = selectedImageObject
-    ? resolveImageClearOwnDrawingPolicyAccess({
-        object: selectedImageObject,
+        roomEffectiveAccessLevel,
         participantId: participantSession.id,
-      })
-    : null;
-  const debugPanelSectionHeadingStyle = {
-    paddingLeft: 2,
-    fontSize: 11,
-    fontWeight: 700,
-    letterSpacing: "0.06em",
-    textTransform: "uppercase",
-    color: "#cbd5e1",
-  };
-  const debugInsetCardStyle = {
-    ...surfaceRecipes.inset.default.style,
-    gap: 8,
-    minWidth: 0,
-    fontSize: 12,
-    overflowWrap: "anywhere" as const,
-  };
-  const debugInsetCardTitleStyle = {
-    fontSize: 11,
-    fontWeight: 700,
-    letterSpacing: "0.04em",
-    textTransform: "uppercase",
-    color: "#94a3b8",
-  };
-  const selectedImageControlButtons: Array<{
-    key: string;
-    label: string;
-    recipe?: ButtonRecipe;
-  }> = [];
-
-  if (selectedImageObject) {
-    selectedImageControlButtons.push({
-      key: "draw",
-      label: drawingImageId === selectedImageObject.id ? "Save" : "Draw",
-      recipe:
-        drawingImageId === selectedImageObject.id
-          ? createParticipantAccentButtonRecipeWithMode(
-              interactionButtonRecipes.primary.pill,
-              participantSession.color,
-              "fill"
-            )
-          : createParticipantAccentButtonRecipeWithMode(
-              interactionButtonRecipes.secondary.pill,
-              participantSession.color,
-              "border"
-            ),
-    });
-
-    if (
-      drawingImageId !== selectedImageObject.id &&
-      governanceSelectedImageClearOwnSummary?.isAllowed
-    ) {
-      selectedImageControlButtons.push({
-        key: "clear-own",
-        label: "Clear",
-        recipe: interactionButtonRecipes.danger.pill,
-      });
-    }
-
-    if (
-      drawingImageId !== selectedImageObject.id &&
-      governanceSelectedImageClearSummary?.isAllowed &&
-      (selectedImageObject.imageStrokes?.length ?? 0) > 0
-    ) {
-      selectedImageControlButtons.push({
-        key: "clear-all",
-        label: "Clear all",
-        recipe: interactionButtonRecipes.danger.pill,
-      });
-    }
-  }
+        selectedObjectId,
+        objects,
+      }),
+    [
+      objects,
+      participantSession.id,
+      roomCreatorId,
+      roomEffectiveAccessLevel,
+      roomId,
+      selectedObjectId,
+    ]
+  );
+  const {
+    selectedImageControlAnchor,
+    selectedImageControlButtons,
+  } = getBoardStageSelectedImageControlsViewModel({
+    selectedImageObject,
+    selectedImageEffectiveBounds,
+    liveSelectedImageControlAnchor,
+    isSelectedImageLocallyInteracting,
+    drawingImageId,
+    participantColor: participantSession.color,
+    governanceSelectedImageClearSummary,
+    governanceSelectedImageClearOwnSummary,
+  });
+  const inspectabilityViewModel = getBoardStageInspectabilityViewModel({
+    selectedImageObject,
+    selectedTokenObject,
+    selectedNoteCardObject,
+    sharedImageObjects,
+    sharedTokenObjects,
+    sharedNoteObjects,
+    participantId: participantSession.id,
+    getTokenAnchorPosition,
+  });
+  const {
+    inspectableImageObject,
+    inspectableTokenObject,
+    inspectableTokenPosition,
+    inspectableNoteCardObject,
+  } = inspectabilityViewModel;
 
   const moveInspectableImageForSmoke = () => {
     if (!inspectableImageObject) {
@@ -3648,7 +3407,7 @@ export default function BoardStage({
     stageScale,
   ]);
 
-  const flushLocalCursorPresence = useEffectEvent(() => {
+  const flushLocalCursorPresence = useCallback(() => {
     pendingLocalCursorPresenceFrameRef.current = null;
 
     const nextPoint = pendingLocalCursorPresencePointRef.current;
@@ -3658,14 +3417,16 @@ export default function BoardStage({
       return;
     }
 
+    const { stageX, stageY, stageScale: currentStageScale } =
+      localCursorViewportRef.current;
     const cursor = getBoardPointFromScreen({
       clientX: nextPoint.clientX,
       clientY: nextPoint.clientY,
       containerLeft: containerRect.left,
       containerTop: containerRect.top,
-      stageX: stagePosition.x,
-      stageY: stagePosition.y,
-      stageScale,
+      stageX,
+      stageY,
+      stageScale: currentStageScale,
     });
     const lastPublishedCursor = lastPublishedLocalCursorRef.current;
     const now = Date.now();
@@ -3678,9 +3439,10 @@ export default function BoardStage({
       LOCAL_CURSOR_PRESENCE_MIN_INTERVAL_MS;
 
     if (cursorChanged && !isPublishIntervalReady) {
-      pendingLocalCursorPresenceFrameRef.current = window.requestAnimationFrame(() =>
-        flushLocalCursorPresence()
-      );
+      pendingLocalCursorPresenceFrameRef.current =
+        window.requestAnimationFrame(() => {
+          flushLocalCursorPresenceRef.current();
+        });
       return;
     }
 
@@ -3691,7 +3453,7 @@ export default function BoardStage({
     lastPublishedLocalCursorRef.current = cursor;
     lastLocalCursorPresenceSentAtRef.current = now;
 
-    onUpdateLocalPresence((presence) =>
+    onUpdateLocalPresenceRef.current((presence) =>
       presence
         ? {
             ...presence,
@@ -3700,7 +3462,11 @@ export default function BoardStage({
           }
         : null
     );
-  });
+  }, []);
+
+  useLayoutEffect(() => {
+    flushLocalCursorPresenceRef.current = flushLocalCursorPresence;
+  }, [flushLocalCursorPresence]);
 
   const scheduleLocalCursorPresencePublish = (
     clientX: number,
@@ -3715,12 +3481,13 @@ export default function BoardStage({
       return;
     }
 
-    pendingLocalCursorPresenceFrameRef.current = window.requestAnimationFrame(() =>
-      flushLocalCursorPresence()
-    );
+    pendingLocalCursorPresenceFrameRef.current =
+      window.requestAnimationFrame(() => {
+        flushLocalCursorPresenceRef.current();
+      });
   };
 
-  const clearLocalCursorPresence = useEffectEvent(() => {
+  const clearLocalCursorPresence = useCallback(() => {
     pendingLocalCursorPresencePointRef.current = null;
 
     if (pendingLocalCursorPresenceFrameRef.current !== null) {
@@ -3728,19 +3495,20 @@ export default function BoardStage({
       pendingLocalCursorPresenceFrameRef.current = null;
     }
 
+    const now = Date.now();
     lastPublishedLocalCursorRef.current = null;
-    lastLocalCursorPresenceSentAtRef.current = Date.now();
+    lastLocalCursorPresenceSentAtRef.current = now;
 
-    onUpdateLocalPresence((presence) =>
+    onUpdateLocalPresenceRef.current((presence) =>
       presence
         ? {
             ...presence,
             cursor: null,
-            lastActiveAt: Date.now(),
+            lastActiveAt: now,
           }
         : null
     );
-  });
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -3782,6 +3550,169 @@ export default function BoardStage({
   ]);
 
   const canvasBoardMaterials = useMemo(() => resolveBoardCanvasMaterials(), []);
+  const roomCreatorLiveColor =
+    roomCreatorId && roomCreatorId !== participantSession.id
+      ? resolveCurrentParticipantColor({
+          participantId: roomCreatorId,
+          localParticipantSession: participantSession,
+          participantPresences,
+          roomOccupancies,
+        })
+      : null;
+  const devToolsViewModel = getBoardStageDevToolsViewModel({
+    sharedObjectCount,
+    sharedTokenCount,
+    sharedImageCount,
+    sharedNoteCount,
+    inspectability: inspectabilityViewModel,
+    participantColor: participantSession.color,
+    isObjectInspectionEnabled,
+    localReplicaInspection,
+    durableReplicaInspection,
+    governanceRoomSummary,
+    governanceSelectedObjectSummary,
+    governanceSelectedImageClearSummary,
+    governanceSelectedImageClearOwnSummary,
+    governanceInspectionEntries,
+  });
+  const devToolsContent = (
+    <BoardStageDevToolsContent
+      {...devToolsViewModel}
+      onMoveInspectableImageForSmoke={moveInspectableImageForSmoke}
+      onDrawSmokeStrokeOnInspectableImage={drawSmokeStrokeOnInspectableImage}
+      onResizeInspectableImageForSmoke={resizeInspectableImageForSmoke}
+      onMoveInspectableTokenForSmoke={moveInspectableTokenForSmoke}
+      onMoveInspectableNoteCardForSmoke={moveInspectableNoteCardForSmoke}
+      onSaveInspectableNoteCardTextForSmoke={saveInspectableNoteCardTextForSmoke}
+      onResizeInspectableNoteCardForSmoke={resizeInspectableNoteCardForSmoke}
+      onDeleteInspectableNoteCardForSmoke={deleteInspectableNoteCardForSmoke}
+      onParticipantColorChange={(color) => {
+        onUpdateParticipantSession((session) => ({
+          ...session,
+          color,
+        }));
+      }}
+      onObjectInspectionEnabledChange={(isEnabled) => {
+        setIsObjectInspectionEnabled(isEnabled);
+
+        if (!isEnabled) {
+          clearObjectSemanticsHover();
+        }
+      }}
+      onAddImage={() => {
+        imageInputRef.current?.click();
+      }}
+      onAddNote={createNote}
+      onResetBoard={resetBoard}
+    />
+  );
+  const handleBoardBackgroundMouseDown = () => {
+    if (drawingImageId) {
+      finishImageDrawingMode();
+    }
+
+    setSelectedObjectId(null);
+  };
+  const handleStageMouseDown = (event: {
+    target: Konva.Node;
+  }) => {
+    const stage = event.target.getStage();
+    const pointer = stage?.getPointerPosition();
+    const clickedOnEmptyStage =
+      event.target === stage || event.target === boardBackgroundRef.current;
+
+    if (clickedOnEmptyStage) {
+      if (drawingImageId) {
+        finishImageDrawingMode();
+      }
+
+      setSelectedObjectId(null);
+    }
+
+    if (!clickedOnEmptyStage || !pointer) {
+      return;
+    }
+
+    panStateRef.current = {
+      isPanning: true,
+      startPointerX: pointer.x,
+      startPointerY: pointer.y,
+      startStageX: stagePosition.x,
+      startStageY: stagePosition.y,
+    };
+  };
+  const handleStageMouseMove = (event: {
+    target: Konva.Node;
+  }) => {
+    const pointer = event.target.getStage()?.getPointerPosition();
+    const panState = panStateRef.current;
+
+    if (!panState?.isPanning || !pointer) {
+      return;
+    }
+
+    setStagePosition({
+      x: panState.startStageX + (pointer.x - panState.startPointerX),
+      y: panState.startStageY + (pointer.y - panState.startPointerY),
+    });
+  };
+  const handleStageMouseUp = () => {
+    panStateRef.current = null;
+    endImageStroke();
+  };
+  const handleStageTouchStart = handleStageMouseDown;
+  const handleStageTouchMove = handleStageMouseMove;
+  const handleStageTouchEnd = handleStageMouseUp;
+  const handleStageWheel = (event: {
+    evt: WheelEvent;
+    target: Konva.Node;
+  }) => {
+    event.evt.preventDefault();
+
+    const oldScale = stageScale;
+    const pointer = event.target.getStage()?.getPointerPosition();
+
+    if (!pointer) {
+      return;
+    }
+
+    const direction = event.evt.deltaY > 0 ? -1 : 1;
+    let newScale = direction > 0 ? oldScale * SCALE_BY : oldScale / SCALE_BY;
+
+    newScale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, newScale));
+
+    const newPosition = getZoomedViewport({
+      pointerX: pointer.x,
+      pointerY: pointer.y,
+      stageX: stagePosition.x,
+      stageY: stagePosition.y,
+      oldScale,
+      newScale,
+    });
+
+    setStageScale(newScale);
+    setStagePosition(newPosition);
+  };
+  const handleSelectedImageControlClick = (buttonKey: string, imageId: string) => {
+    if (buttonKey === "draw") {
+      if (drawingImageId === imageId) {
+        finishImageDrawingMode();
+        return;
+      }
+
+      startImageDrawingMode(imageId);
+      return;
+    }
+
+    if (buttonKey === "clear-own") {
+      clearOwnImageDrawing(imageId);
+      return;
+    }
+
+    if (buttonKey === "clear-all") {
+      clearImageDrawing(imageId);
+    }
+  };
 
   return (
     <div
@@ -3846,61 +3777,17 @@ export default function BoardStage({
         createImageFromFile(file, boardPosition);
       }}
     >
-      <CursorOverlay cursors={participantCursorScreenPositions} />
-
-      <button
-        type="button"
-        onClick={() => {
+      <BoardStageShellOverlays
+        cursors={participantCursorScreenPositions}
+        addImageButtonColor={participantSession.color}
+        onAddImageButtonClick={() => {
           imageInputRef.current?.click();
         }}
-        aria-label="Add image"
-        className={createParticipantAccentButtonRecipe(
-          buttonRecipes.secondary.small,
-          participantSession.color
-        ).className}
-        {...getDesignSystemDebugAttrs(
-          createParticipantAccentButtonRecipe(
-            buttonRecipes.secondary.small,
-            participantSession.color
-          ).debug
-        )}
-        style={{
-          ...createParticipantAccentButtonRecipe(
-            buttonRecipes.secondary.small,
-            participantSession.color
-          ).style,
-          position: "fixed",
-          top: 20,
-          right: 20,
-          zIndex: 30,
-          pointerEvents: "auto",
-          width: 32,
-          minWidth: 32,
-          height: 32,
-          minHeight: 32,
-          padding: 0,
-          fontSize: 18,
-          lineHeight: 1,
-        }}
-      >
-        +
-      </button>
-
-      <ParticipantSessionPanel
-        ref={sessionPanelRef}
+        sessionPanelRef={sessionPanelRef}
         roomId={roomId}
         isCurrentParticipantRoomCreator={isCurrentParticipantRoomCreator}
         roomCreatorName={roomCreatorName}
-        roomCreatorColor={
-          roomCreatorId && roomCreatorId !== participantSession.id
-            ? resolveCurrentParticipantColor({
-                participantId: roomCreatorId,
-                localParticipantSession: participantSession,
-                participantPresences,
-                roomOccupancies,
-              })
-            : null
-        }
+        roomCreatorColor={roomCreatorLiveColor}
         participantName={participantSession.name}
         participantColor={participantSession.color}
         participantNameDraft={participantNameDraft}
@@ -3930,513 +3817,9 @@ export default function BoardStage({
           setParticipantNameDraft(participantSession.name);
           setIsEditingParticipantName(true);
         }}
-        devToolsContent={
-          <div style={{ display: "grid", gap: 12, minWidth: 0 }}>
-            <div style={debugPanelSectionHeadingStyle}>Board inspection</div>
-
-            <div
-              className={surfaceRecipes.inset.default.className}
-              style={debugInsetCardStyle}
-              {...getDesignSystemDebugAttrs(surfaceRecipes.inset.default.debug)}
-            >
-              <div style={debugInsetCardTitleStyle}>Board actions</div>
-              <BoardToolbar
-                onAddImage={() => {
-                  imageInputRef.current?.click();
-                }}
-                addImageRecipe={buttonRecipes.secondary.default}
-                onAddNote={createNote}
-                onResetBoard={resetBoard}
-              />
-            </div>
-
-            <div
-              className={surfaceRecipes.inset.default.className}
-              style={debugInsetCardStyle}
-              data-testid="debug-room-object-counts"
-              {...getDesignSystemDebugAttrs(surfaceRecipes.inset.default.debug)}
-            >
-              <div style={debugInsetCardTitleStyle}>Room objects</div>
-              <div style={{ color: "#e2e8f0" }}>Total: {sharedObjectCount}</div>
-              <div style={{ color: "#94a3b8" }}>
-                tokens {sharedTokenCount}
-                {" · "}images {sharedImageCount}
-                {" · "}notes {sharedNoteCount}
-              </div>
-            </div>
-
-            <div
-              className={surfaceRecipes.inset.default.className}
-              style={debugInsetCardStyle}
-              data-testid="debug-image-inspection"
-              {...getDesignSystemDebugAttrs(surfaceRecipes.inset.default.debug)}
-            >
-              <div style={debugInsetCardTitleStyle}>Image inspection</div>
-              <div style={{ color: "#e2e8f0" }}>
-                Target: {inspectableImageTarget}
-              </div>
-              <div data-testid="debug-image-label" style={{ color: "#94a3b8" }}>
-                Label: {inspectableImageObject?.label ?? "none"}
-              </div>
-              <div data-testid="debug-image-id" style={{ color: "#94a3b8" }}>
-                Id: {inspectableImageObject?.id ?? "none"}
-              </div>
-              <div data-testid="debug-image-bounds" style={{ color: "#94a3b8" }}>
-                {inspectableImageBounds
-                  ? `Bounds: x ${inspectableImageBounds.x} · y ${inspectableImageBounds.y} · w ${inspectableImageBounds.width} · h ${inspectableImageBounds.height}`
-                  : "Bounds: none"}
-              </div>
-              <div data-testid="debug-image-strokes" style={{ color: "#94a3b8" }}>
-                {inspectableImageStrokeStats
-                  ? `Strokes: total ${inspectableImageStrokeStats.total} · own ${inspectableImageStrokeStats.own} · points ${inspectableImageStrokeStats.points}`
-                  : "Strokes: none"}
-              </div>
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                <button
-                  type="button"
-                  data-testid="debug-smoke-image-draw-button"
-                  disabled={!inspectableImageObject}
-                  onClick={drawSmokeStrokeOnInspectableImage}
-                  className={buttonRecipes.secondary.small.className}
-                  style={buttonRecipes.secondary.small.style}
-                  {...getDesignSystemDebugAttrs(buttonRecipes.secondary.small.debug)}
-                >
-                  Draw stroke
-                </button>
-                <button
-                  type="button"
-                  data-testid="debug-smoke-image-move-button"
-                  disabled={!inspectableImageObject}
-                  onClick={moveInspectableImageForSmoke}
-                  className={buttonRecipes.secondary.small.className}
-                  style={buttonRecipes.secondary.small.style}
-                  {...getDesignSystemDebugAttrs(buttonRecipes.secondary.small.debug)}
-                >
-                  Move image
-                </button>
-                <button
-                  type="button"
-                  data-testid="debug-smoke-image-resize-button"
-                  disabled={!inspectableImageObject}
-                  onClick={resizeInspectableImageForSmoke}
-                  className={buttonRecipes.secondary.small.className}
-                  style={buttonRecipes.secondary.small.style}
-                  {...getDesignSystemDebugAttrs(buttonRecipes.secondary.small.debug)}
-                >
-                  Resize image
-                </button>
-              </div>
-            </div>
-
-            <div
-              className={surfaceRecipes.inset.default.className}
-              style={debugInsetCardStyle}
-              data-testid="debug-token-inspection"
-              {...getDesignSystemDebugAttrs(surfaceRecipes.inset.default.debug)}
-            >
-              <div style={debugInsetCardTitleStyle}>Token inspection</div>
-              <div style={{ color: "#e2e8f0" }}>
-                Target: {inspectableTokenTarget}
-              </div>
-              <div data-testid="debug-token-id" style={{ color: "#94a3b8" }}>
-                Id: {inspectableTokenObject?.id ?? "none"}
-              </div>
-              <div data-testid="debug-token-position" style={{ color: "#94a3b8" }}>
-                {inspectableTokenPosition
-                  ? `Position: x ${Math.round(inspectableTokenPosition.x)} · y ${Math.round(inspectableTokenPosition.y)}`
-                  : "Position: none"}
-              </div>
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                <button
-                  type="button"
-                  data-testid="debug-smoke-token-move-button"
-                  disabled={!inspectableTokenObject}
-                  onClick={moveInspectableTokenForSmoke}
-                  className={buttonRecipes.secondary.small.className}
-                  style={buttonRecipes.secondary.small.style}
-                  {...getDesignSystemDebugAttrs(buttonRecipes.secondary.small.debug)}
-                >
-                  Move token
-                </button>
-              </div>
-            </div>
-
-            <div
-              className={surfaceRecipes.inset.default.className}
-              style={debugInsetCardStyle}
-              data-testid="debug-note-inspection"
-              {...getDesignSystemDebugAttrs(surfaceRecipes.inset.default.debug)}
-            >
-              <div style={debugInsetCardTitleStyle}>Note inspection</div>
-              <div style={{ color: "#e2e8f0" }}>
-                Target: {inspectableNoteCardTarget}
-              </div>
-              <div data-testid="debug-note-id" style={{ color: "#94a3b8" }}>
-                Id: {inspectableNoteCardObject?.id ?? "none"}
-              </div>
-              <div data-testid="debug-note-label" style={{ color: "#94a3b8" }}>
-                Label: {inspectableNoteCardObject?.label ?? "none"}
-              </div>
-              <div data-testid="debug-note-bounds" style={{ color: "#94a3b8" }}>
-                {inspectableNoteCardBounds
-                  ? `Bounds: x ${inspectableNoteCardBounds.x} · y ${inspectableNoteCardBounds.y} · w ${inspectableNoteCardBounds.width} · h ${inspectableNoteCardBounds.height}`
-                  : "Bounds: none"}
-              </div>
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                <button
-                  type="button"
-                  data-testid="debug-smoke-note-move-button"
-                  disabled={!inspectableNoteCardObject}
-                  onClick={moveInspectableNoteCardForSmoke}
-                  className={buttonRecipes.secondary.small.className}
-                  style={buttonRecipes.secondary.small.style}
-                  {...getDesignSystemDebugAttrs(buttonRecipes.secondary.small.debug)}
-                >
-                  Move note
-                </button>
-                <button
-                  type="button"
-                  data-testid="debug-smoke-note-edit-button"
-                  disabled={!inspectableNoteCardObject}
-                  onClick={saveInspectableNoteCardTextForSmoke}
-                  className={buttonRecipes.secondary.small.className}
-                  style={buttonRecipes.secondary.small.style}
-                  {...getDesignSystemDebugAttrs(buttonRecipes.secondary.small.debug)}
-                >
-                  Save note text
-                </button>
-                <button
-                  type="button"
-                  data-testid="debug-smoke-note-resize-button"
-                  disabled={!inspectableNoteCardObject}
-                  onClick={resizeInspectableNoteCardForSmoke}
-                  className={buttonRecipes.secondary.small.className}
-                  style={buttonRecipes.secondary.small.style}
-                  {...getDesignSystemDebugAttrs(buttonRecipes.secondary.small.debug)}
-                >
-                  Resize note
-                </button>
-                <button
-                  type="button"
-                  data-testid="debug-smoke-note-delete-button"
-                  disabled={!inspectableNoteCardObject}
-                  onClick={deleteInspectableNoteCardForSmoke}
-                  className={buttonRecipes.secondary.small.className}
-                  style={buttonRecipes.secondary.small.style}
-                  {...getDesignSystemDebugAttrs(buttonRecipes.secondary.small.debug)}
-                >
-                  Delete note
-                </button>
-              </div>
-            </div>
-
-            <div style={debugPanelSectionHeadingStyle}>Utilities</div>
-
-            <div
-              className={surfaceRecipes.inset.default.className}
-              style={debugInsetCardStyle}
-              {...getDesignSystemDebugAttrs(surfaceRecipes.inset.default.debug)}
-            >
-              <div style={debugInsetCardTitleStyle}>Participant color</div>
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                {PARTICIPANT_COLOR_OPTIONS.map((color) => {
-                  const swatchProps = getSwatchButtonProps(
-                    swatchPillRecipes.swatch.small,
-                    {
-                      fillColor: color,
-                      selected: color === participantSession.color,
-                    }
-                  );
-
-                  return (
-                    <button
-                      key={`participant-debug-color-${color}`}
-                      type="button"
-                      onClick={() => {
-                        onUpdateParticipantSession((session) => ({
-                          ...session,
-                          color,
-                        }));
-                      }}
-                      aria-label={`Set participant color ${color}`}
-                      className={swatchProps.className}
-                      style={swatchProps.style}
-                      {...getDesignSystemDebugAttrs(
-                        swatchPillRecipes.swatch.small.debug
-                      )}
-                    />
-                  );
-                })}
-              </div>
-            </div>
-
-            <div
-              className={surfaceRecipes.inset.default.className}
-              style={debugInsetCardStyle}
-              {...getDesignSystemDebugAttrs(surfaceRecipes.inset.default.debug)}
-            >
-              <div style={debugInsetCardTitleStyle}>Object semantics</div>
-              <label
-                style={{
-                  ...objectInspectionSelectionRecipe.row.style,
-                  color: "#cbd5e1",
-                }}
-                className={objectInspectionSelectionRecipe.row.className}
-                {...getDesignSystemDebugAttrs(
-                  objectInspectionSelectionRecipe.row.debug
-                )}
-              >
-                <input
-                  type="checkbox"
-                  checked={isObjectInspectionEnabled}
-                  onChange={(event) => {
-                    const isEnabled = event.target.checked;
-                    setIsObjectInspectionEnabled(isEnabled);
-
-                    if (!isEnabled) {
-                      clearObjectSemanticsHover();
-                    }
-                  }}
-                  style={objectInspectionSelectionRecipe.indicator.style}
-                  className={objectInspectionSelectionRecipe.indicator.className}
-                />
-                <span
-                  style={objectInspectionSelectionRecipe.label.style}
-                  className={objectInspectionSelectionRecipe.label.className}
-                >
-                  Inspect object semantics on hover
-                </span>
-              </label>
-            </div>
-
-            <div style={debugPanelSectionHeadingStyle}>Recovery and runtime</div>
-
-            <div
-              className={surfaceRecipes.inset.default.className}
-              style={debugInsetCardStyle}
-              data-testid="debug-local-replica-inspection"
-              {...getDesignSystemDebugAttrs(surfaceRecipes.inset.default.debug)}
-            >
-              <div style={debugInsetCardTitleStyle}>Local replica</div>
-              <div style={{ color: "#e2e8f0" }}>
-                Backend: IndexedDB
-              </div>
-              <div
-                data-testid="debug-local-replica-initial-open"
-                style={{ color: "#94a3b8" }}
-              >
-                Initial open: {localReplicaInspection.initialOpenStatus}
-                {" · "}source {localReplicaInspection.initialOpenSource ?? "none"}
-                {" · "}rev {localReplicaInspection.initialOpenRevision ?? "none"}
-                {" · "}objects {localReplicaInspection.initialOpenObjectCount}
-              </div>
-              <div
-                data-testid="debug-local-replica-settled-recovery"
-                style={{ color: "#94a3b8" }}
-              >
-                Settled: {localReplicaInspection.lastSettledRecoveryState ?? "none"}
-              </div>
-              <div
-                data-testid="debug-local-replica-last-read"
-                style={{ color: "#94a3b8" }}
-              >
-                Last read: {localReplicaInspection.lastReadSource}
-                {" · "}rev {localReplicaInspection.lastReadRevision ?? "none"}
-                {" · "}objects {localReplicaInspection.lastReadObjectCount}
-                {" · "}saved {formatDebugTimestamp(localReplicaInspection.lastReadSavedAt)}
-              </div>
-              <div
-                data-testid="debug-local-replica-durable-handoff"
-                style={{ color: "#94a3b8" }}
-              >
-                Durable handoff: checkpoint{" "}
-                {localReplicaInspection.lastReadKnownDurableSnapshotRevision ?? "none"}
-                {" · "}tokens{" "}
-                {localReplicaInspection.lastReadKnownDurableSliceRevisions.tokens ??
-                  "none"}
-                {" · "}images{" "}
-                {localReplicaInspection.lastReadKnownDurableSliceRevisions.images ??
-                  "none"}
-                {" · "}textCards{" "}
-                {localReplicaInspection.lastReadKnownDurableSliceRevisions.textCards ??
-                  "none"}
-              </div>
-              <div
-                data-testid="debug-local-replica-settled-slices"
-                style={{ color: "#94a3b8" }}
-              >
-                Settled slices: tokens{" "}
-                {localReplicaInspection.lastSettledRecoverySliceSources.tokens}
-                {" · "}images{" "}
-                {localReplicaInspection.lastSettledRecoverySliceSources.images}
-                {" · "}textCards{" "}
-                {localReplicaInspection.lastSettledRecoverySliceSources.textCards}
-              </div>
-              <div
-                data-testid="debug-local-replica-last-write"
-                style={{ color: "#94a3b8" }}
-              >
-                Last write: {localReplicaInspection.lastWriteStatus}
-                {" · "}boundary{" "}
-                {localReplicaInspection.lastWriteCommitBoundary ?? "none"}
-                {" · "}rev {localReplicaInspection.lastWriteRevision ?? "none"}
-                {" · "}objects {localReplicaInspection.lastWriteObjectCount}
-                {" · "}saved{" "}
-                {formatDebugTimestamp(localReplicaInspection.lastWriteSavedAt)}
-              </div>
-              {localReplicaInspection.lastError ? (
-                <div style={{ color: "#fca5a5" }}>
-                  Error: {localReplicaInspection.lastError}
-                </div>
-              ) : null}
-            </div>
-
-            <div
-              className={surfaceRecipes.inset.default.className}
-              style={debugInsetCardStyle}
-              data-testid="debug-durable-replica-inspection"
-              {...getDesignSystemDebugAttrs(surfaceRecipes.inset.default.debug)}
-            >
-              <div style={debugInsetCardTitleStyle}>Durable replica</div>
-              <div style={{ color: "#e2e8f0" }}>
-                Backend: checkpoint store
-              </div>
-              <div
-                data-testid="debug-durable-replica-known-revisions"
-                style={{ color: "#94a3b8" }}
-              >
-                Known revisions: checkpoint{" "}
-                {durableReplicaInspection.currentRevision ?? "none"}
-                {" · "}tokens{" "}
-                {durableReplicaInspection.currentSliceRevisions.tokens ?? "none"}
-                {" · "}images{" "}
-                {durableReplicaInspection.currentSliceRevisions.images ?? "none"}
-                {" · "}textCards{" "}
-                {durableReplicaInspection.currentSliceRevisions.textCards ?? "none"}
-              </div>
-              <div
-                data-testid="debug-durable-replica-last-write"
-                style={{ color: "#94a3b8" }}
-              >
-                Last write: {durableReplicaInspection.lastWriteStatus}
-                {" · "}boundary {durableReplicaInspection.lastWriteBoundary ?? "none"}
-                {" · "}slice {durableReplicaInspection.lastWriteSlice ?? "none"}
-                {" · "}known slice rev{" "}
-                {durableReplicaInspection.lastKnownSliceRevision ?? "none"}
-                {" · "}base rev {durableReplicaInspection.lastBaseRevision ?? "none"}
-                {" · "}base slice rev{" "}
-                {durableReplicaInspection.lastBaseSliceRevision ?? "none"}
-                {" · "}ack checkpoint rev{" "}
-                {durableReplicaInspection.lastAckSnapshotRevision ?? "none"}
-                {" · "}ack slice rev{" "}
-                {durableReplicaInspection.lastAckSliceRevision ?? "none"}
-                {" · "}conflict rev{" "}
-                {durableReplicaInspection.lastConflictRevision ?? "none"}
-                {" · "}conflict slice rev{" "}
-                {durableReplicaInspection.lastConflictSliceRevision ?? "none"}
-                {" · "}retry count {durableReplicaInspection.lastRetryCount}
-                {" · "}retry resolved{" "}
-                {durableReplicaInspection.lastResolvedViaRetry ? "yes" : "no"}
-                {" · "}objects {durableReplicaInspection.lastWriteObjectCount}
-                {" · "}saved{" "}
-                {formatIsoDebugTimestamp(durableReplicaInspection.lastAckSavedAt)}
-              </div>
-              {durableReplicaInspection.lastError ? (
-                <div style={{ color: "#fca5a5" }}>
-                  Error: {durableReplicaInspection.lastError}
-                </div>
-              ) : null}
-            </div>
-
-            <div
-              className={surfaceRecipes.inset.default.className}
-              style={debugInsetCardStyle}
-              {...getDesignSystemDebugAttrs(surfaceRecipes.inset.default.debug)}
-            >
-              <div style={debugInsetCardTitleStyle}>Governance</div>
-              <div>
-                Room access: {governanceRoomSummary.effectiveAccess?.accessLevel ?? "none"}
-                {" · "}
-                sample action requires {governanceRoomSummary.action.requiredAccessLevel}
-              </div>
-              {governanceSelectedObjectSummary ? (
-                <div style={{ display: "grid", gap: 2 }}>
-                  <div>
-                    Selected object:{" "}
-                    {governanceSelectedObjectSummary.entity.entityType}
-                    {" · "}
-                    access {governanceSelectedObjectSummary.effectiveAccess?.accessLevel ?? "none"}
-                    {" · "}
-                    delete {governanceSelectedObjectSummary.isAllowed ? "allowed" : "blocked"}
-                  </div>
-                  {governanceSelectedImageClearSummary ? (
-                    <div style={{ color: "#94a3b8" }}>
-                      clear all{" "}
-                      {governanceSelectedImageClearSummary.isAllowed
-                        ? "allowed"
-                        : "blocked"}
-                      {" · "}required{" "}
-                      {governanceSelectedImageClearSummary.action.requiredAccessLevel}
-                    </div>
-                  ) : null}
-                  {governanceSelectedImageClearOwnSummary ? (
-                    <div style={{ color: "#94a3b8" }}>
-                      clear own{" "}
-                      {governanceSelectedImageClearOwnSummary.isAllowed
-                        ? "allowed"
-                        : "blocked"}
-                      {" · "}required{" "}
-                      {governanceSelectedImageClearOwnSummary.action.requiredAccessLevel}
-                    </div>
-                  ) : null}
-                </div>
-              ) : (
-                <div style={{ color: "#94a3b8" }}>Selected object: none</div>
-              )}
-              <div style={{ display: "grid", gap: 4 }}>
-                {governanceInspectionEntries.length > 0 ? (
-                  governanceInspectionEntries.map((entry) => (
-                    <div
-                      key={entry.id}
-                      className={surfaceRecipes.infoCard.default.className}
-                      style={surfaceRecipes.infoCard.default.style}
-                      {...getDesignSystemDebugAttrs(
-                        surfaceRecipes.infoCard.default.debug
-                      )}
-                    >
-                      <div style={{ color: "#e2e8f0" }}>
-                        {entry.resolution.action.actionKey}
-                        {" · "}
-                        {entry.resolution.entity.entityType}
-                        {" · "}
-                        {entry.resolution.isAllowed ? "allowed" : "blocked"}
-                      </div>
-                      <div style={{ color: "#94a3b8", fontSize: 11 }}>
-                        effective{" "}
-                        {entry.resolution.effectiveAccess?.accessLevel ?? "none"}
-                        {" · "}required {entry.resolution.action.requiredAccessLevel}
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <div style={{ color: "#94a3b8" }}>
-                    Trigger a room or object action to see governance resolutions here.
-                  </div>
-                )}
-              </div>
-            </div>
-
-          </div>
-        }
-      />
-
-      <input
-        ref={imageInputRef}
-        type="file"
-        accept="image/*"
-        data-testid="image-file-input"
-        style={{ display: "none" }}
-        onChange={(event) => {
+        devToolsContent={devToolsContent}
+        imageInputRef={imageInputRef}
+        onImageInputChange={(event) => {
           const file = event.target.files?.[0];
 
           if (file) {
@@ -4445,911 +3828,117 @@ export default function BoardStage({
 
           event.target.value = "";
         }}
+        isEditingTextCardVisible={!!editingTextCard}
+        textareaRef={textareaRef}
+        editingDraft={editingDraft}
+        editingTextareaStyle={editingTextareaStyle}
+        onEditingDraftChange={(event) => {
+          setEditingDraft(event.target.value);
+        }}
+        onEditingTextareaBlur={() => {
+          if (ignoreNextBlurRef.current) {
+            ignoreNextBlurRef.current = false;
+            return;
+          }
+
+          saveEditingTextCard();
+        }}
+        onEditingTextareaKeyDown={(event) => {
+          if (event.key === "Escape") {
+            event.preventDefault();
+            ignoreNextBlurRef.current = true;
+            cancelEditingTextCard();
+            return;
+          }
+
+          if (event.key === "Enter" && !event.shiftKey) {
+            event.preventDefault();
+            saveEditingTextCard();
+          }
+        }}
+        objectSemanticsHoverState={objectSemanticsHoverState}
+        objectSemanticsRows={inspectedObjectSemanticsRows}
+        isObjectSemanticsTooltipVisible={isObjectSemanticsTooltipVisible}
       />
 
-      <div ref={stageWrapperRef}>
-        <Stage
-          width={stageSize.width}
-          height={stageSize.height}
-          x={stagePosition.x}
-          y={stagePosition.y}
-          scaleX={stageScale}
-          scaleY={stageScale}
-          onMouseDown={(event) => {
-          const stage = event.target.getStage();
-          const pointer = stage?.getPointerPosition();
-          const clickedOnEmptyStage =
-            event.target === stage || event.target === boardBackgroundRef.current;
+      <BoardStageScene
+        stageWrapperRef={stageWrapperRef}
+        stageSize={stageSize}
+        stagePosition={stagePosition}
+        stageScale={stageScale}
+        participantSession={participantSession}
+        boardBackgroundRef={boardBackgroundRef}
+        noteCardRefs={noteCardRefs}
+        imageRefs={imageRefs}
+        imageStrokeLayerRefs={imageStrokeLayerRefs}
+        noteCardTransformerRef={noteCardTransformerRef}
+        imageTransformerRef={imageTransformerRef}
+        liveNoteCardResizePreviewRef={liveNoteCardResizePreviewRef}
+        transformingImageSnapshotRef={transformingImageSnapshotRef}
+        boardSurfaceFill={canvasBoardMaterials.surface}
+        boardSurfaceRadius={canvasBoardMaterials.surfaceRadius}
+        sortedObjects={sortedObjects}
+        loadedImages={loadedImages}
+        drawingImageId={drawingImageId}
+        draggingImageId={draggingImageId}
+        transformingImageId={transformingImageId}
+        editingTextCardId={editingTextCardId}
+        editingTextCardDisplayHeight={editingTextCardDisplayHeight}
+        remoteImagePreviewPositions={remoteImagePreviewPositions}
+        remoteTextCardEditingStates={remoteTextCardEditingStates}
+        remoteTextCardResizeStates={remoteTextCardResizeStates}
+        selectedImageObject={selectedImageObject}
+        selectedImageControlAnchor={selectedImageControlAnchor}
+        selectedImageControlButtons={selectedImageControlButtons}
+        isSelectedImageLockedByAnotherParticipant={
+          isSelectedImageLockedByAnotherParticipant
+        }
+        onStageMouseDown={handleStageMouseDown}
+        onStageMouseMove={handleStageMouseMove}
+        onStageMouseUp={handleStageMouseUp}
+        onStageMouseLeave={handleStageMouseUp}
+        onStageTouchStart={handleStageTouchStart}
+        onStageTouchMove={handleStageTouchMove}
+        onStageTouchEnd={handleStageTouchEnd}
+        onStageWheel={handleStageWheel}
+        onBoardBackgroundMouseDown={handleBoardBackgroundMouseDown}
+        updateObjectSemanticsHover={updateObjectSemanticsHover}
+        clearObjectSemanticsHover={clearObjectSemanticsHover}
+        getImageDrawingLock={getImageDrawingLock}
+        finishImageDrawingMode={finishImageDrawingMode}
+        selectBoardObject={selectBoardObject}
+        startImageStroke={startImageStroke}
+        appendStrokePoint={appendStrokePoint}
+        endImageStroke={endImageStroke}
+        updateLiveSelectedImageControlAnchor={updateLiveSelectedImageControlAnchor}
+        syncImageStrokeLayerPosition={syncImageStrokeLayerPosition}
+        syncImageStrokeLayerTransform={syncImageStrokeLayerTransform}
+        previewImagePosition={previewImagePosition}
+        updateObjectPosition={updateObjectPosition}
+        setDraggingImageId={setDraggingImageId}
+        setTransformingImageId={setTransformingImageId}
+        resizeImageObject={resizeImageObject}
+        publishImageTransformPreview={publishImageTransformPreview}
+        getLiveStrokeColor={getLiveStrokeColor}
+        getNoteCardPreviewBounds={getNoteCardPreviewBounds}
+        setDraggingNoteCardId={setDraggingNoteCardId}
+        setActiveTextCardResizeState={setActiveTextCardResizeState}
+        scheduleNoteCardResizePreviewRender={scheduleNoteCardResizePreviewRender}
+        resizeTextCardBounds={resizeTextCardBounds}
+        clearLiveNoteCardResizePreviewSession={clearLiveNoteCardResizePreviewSession}
+        setLiveNoteCardResizePreview={setLiveNoteCardResizePreview}
+        startEditingTextCard={startEditingTextCard}
+        getTokenAnchorPosition={getTokenAnchorPosition}
+        getTokenFillColor={getTokenFillColor}
+        getBlockingActiveMove={getBlockingActiveMove}
+        setDraggingTokenId={setDraggingTokenId}
+        getTokenAttachment={getTokenAttachment}
+        updateTokenAnchorPosition={updateTokenAnchorPosition}
+        setActiveTokenMove={setActiveTokenMove}
+        updateTokenPlacementAfterDrop={updateTokenPlacementAfterDrop}
+        onSelectedImageControlClick={handleSelectedImageControlClick}
+      />
 
-          if (clickedOnEmptyStage) {
-            if (drawingImageId) {
-              finishImageDrawingMode();
-            }
-            setSelectedObjectId(null);
-          }
-
-          if (!clickedOnEmptyStage || !pointer) {
-            return;
-          }
-
-          panStateRef.current = {
-            isPanning: true,
-            startPointerX: pointer.x,
-            startPointerY: pointer.y,
-            startStageX: stagePosition.x,
-            startStageY: stagePosition.y,
-          };
-          }}
-          onMouseMove={(event) => {
-          const pointer = event.target.getStage()?.getPointerPosition();
-          const panState = panStateRef.current;
-
-          if (!panState?.isPanning || !pointer) {
-            return;
-          }
-
-          setStagePosition({
-            x: panState.startStageX + (pointer.x - panState.startPointerX),
-            y: panState.startStageY + (pointer.y - panState.startPointerY),
-          });
-        }}
-        onMouseUp={() => {
-          panStateRef.current = null;
-          endImageStroke();
-        }}
-        onMouseLeave={() => {
-          panStateRef.current = null;
-          endImageStroke();
-        }}
-        onTouchStart={(event) => {
-          const stage = event.target.getStage();
-          const pointer = stage?.getPointerPosition();
-          const touchedEmptyStage =
-            event.target === stage || event.target === boardBackgroundRef.current;
-
-          if (touchedEmptyStage) {
-            if (drawingImageId) {
-              finishImageDrawingMode();
-            }
-            setSelectedObjectId(null);
-          }
-
-          if (!touchedEmptyStage || !pointer) {
-            return;
-          }
-
-          panStateRef.current = {
-            isPanning: true,
-            startPointerX: pointer.x,
-            startPointerY: pointer.y,
-            startStageX: stagePosition.x,
-            startStageY: stagePosition.y,
-          };
-        }}
-        onTouchMove={(event) => {
-          const pointer = event.target.getStage()?.getPointerPosition();
-          const panState = panStateRef.current;
-
-          if (!panState?.isPanning || !pointer) {
-            return;
-          }
-
-          setStagePosition({
-            x: panState.startStageX + (pointer.x - panState.startPointerX),
-            y: panState.startStageY + (pointer.y - panState.startPointerY),
-          });
-        }}
-        onTouchEnd={() => {
-          panStateRef.current = null;
-          endImageStroke();
-        }}
-        onWheel={(event) => {
-          event.evt.preventDefault();
-
-          const oldScale = stageScale;
-          const pointer = event.target.getStage()?.getPointerPosition();
-
-          if (!pointer) return;
-
-          const direction = event.evt.deltaY > 0 ? -1 : 1;
-          let newScale =
-            direction > 0 ? oldScale * SCALE_BY : oldScale / SCALE_BY;
-
-          newScale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, newScale));
-
-          const newPosition = getZoomedViewport({
-            pointerX: pointer.x,
-            pointerY: pointer.y,
-            stageX: stagePosition.x,
-            stageY: stagePosition.y,
-            oldScale,
-            newScale,
-          });
-
-          setStageScale(newScale);
-          setStagePosition(newPosition);
-        }}
-      >
-        <Layer>
-          <Rect
-            ref={boardBackgroundRef}
-            x={0}
-            y={0}
-            width={BOARD_WIDTH}
-            height={BOARD_HEIGHT}
-            fill={canvasBoardMaterials.surface}
-            cornerRadius={canvasBoardMaterials.surfaceRadius}
-            onMouseDown={() => {
-              if (drawingImageId) {
-                finishImageDrawingMode();
-              }
-              setSelectedObjectId(null);
-            }}
-          />
-
-          {sortedObjects.map((object) => {
-            const isImage = object.kind === "image";
-            const isNoteCard = object.kind === "note-card";
-
-            if (isImage) {
-              const loadedImage = object.src ? loadedImages[object.src] : undefined;
-              const isDrawing = drawingImageId === object.id;
-              const imageDrawingLock = getImageDrawingLock(object.id);
-              const isLockedByAnotherParticipant =
-                !!imageDrawingLock &&
-                imageDrawingLock.participantId !== participantSession.id;
-              const previewPosition = remoteImagePreviewPositions[object.id];
-              const isRemoteDragPreviewActive =
-                draggingImageId !== object.id &&
-                !isLockedByAnotherParticipant &&
-                transformingImageId !== object.id &&
-                !!previewPosition &&
-                (previewPosition.x !== object.x ||
-                  previewPosition.y !== object.y ||
-                  previewPosition.width !== undefined ||
-                  previewPosition.height !== undefined);
-
-              return (
-                <Group
-                  key={object.id}
-                  onMouseEnter={(event) => {
-                    updateObjectSemanticsHover(object, event);
-                  }}
-                  onMouseMove={(event) => {
-                    updateObjectSemanticsHover(object, event);
-                  }}
-                  onMouseLeave={() => {
-                    clearObjectSemanticsHover();
-                  }}
-                >
-                  {isRemoteDragPreviewActive && (
-                    <RemoteInteractionIndicator
-                      x={previewPosition.x}
-                      y={previewPosition.y}
-                      width={previewPosition.width ?? object.width}
-                      height={previewPosition.height ?? object.height}
-                      participantColor={previewPosition.participantColor ?? "#94a3b8"}
-                      variant="preview"
-                    />
-                  )}
-
-                  <KonvaImage
-                    ref={(node) => {
-                      imageRefs.current[object.id] = node;
-                    }}
-                    x={object.x}
-                    y={object.y}
-                    image={loadedImage}
-                    width={object.width}
-                    height={object.height}
-                    fill={loadedImage ? undefined : object.fill}
-                    opacity={isRemoteDragPreviewActive ? 0.28 : 1}
-                    shadowBlur={8}
-                    draggable={
-                      !isDrawing &&
-                      transformingImageId !== object.id &&
-                      !isLockedByAnotherParticipant
-                    }
-                    onMouseDown={(event) => {
-                      event.cancelBubble = true;
-
-                      if (drawingImageId && drawingImageId !== object.id) {
-                        finishImageDrawingMode();
-                      }
-
-                      if (isLockedByAnotherParticipant) {
-                        return;
-                      }
-
-                      selectBoardObject(object);
-
-                      if (!isDrawing) {
-                        return;
-                      }
-
-                      const point = event.target.getRelativePointerPosition();
-
-                      if (!point) {
-                        return;
-                      }
-
-                      startImageStroke(object.id, point, currentUserColor);
-                    }}
-                    onMouseMove={(event) => {
-                      if (!isDrawing || isLockedByAnotherParticipant) {
-                        return;
-                      }
-
-                      const point = event.target.getRelativePointerPosition();
-
-                      if (!point) {
-                        return;
-                      }
-
-                      appendStrokePoint(object.id, point);
-                    }}
-                    onMouseUp={() => {
-                      endImageStroke();
-                    }}
-                    onDragStart={(event) => {
-                      event.cancelBubble = true;
-
-                      if (isLockedByAnotherParticipant) {
-                        event.target.stopDrag();
-                        return;
-                      }
-
-                      if (drawingImageId && drawingImageId !== object.id) {
-                        finishImageDrawingMode();
-                      }
-
-                      selectBoardObject(object);
-                      setDraggingImageId(object.id);
-                      updateLiveSelectedImageControlAnchor(
-                        object.id,
-                        event.target as Konva.Image
-                      );
-                      syncImageStrokeLayerPosition(
-                        object.id,
-                        event.target.x(),
-                        event.target.y()
-                      );
-                    }}
-                    onDragMove={(event) => {
-                      event.cancelBubble = true;
-                      updateLiveSelectedImageControlAnchor(
-                        object.id,
-                        event.target as Konva.Image
-                      );
-                      syncImageStrokeLayerPosition(
-                        object.id,
-                        event.target.x(),
-                        event.target.y()
-                      );
-                      previewImagePosition(
-                        object.id,
-                        event.target.x(),
-                        event.target.y()
-                      );
-                    }}
-                    onDragEnd={(event) => {
-                      event.cancelBubble = true;
-                      updateLiveSelectedImageControlAnchor(
-                        object.id,
-                        event.target as Konva.Image
-                      );
-                      setDraggingImageId(null);
-                      syncImageStrokeLayerPosition(
-                        object.id,
-                        event.target.x(),
-                        event.target.y()
-                      );
-                      updateObjectPosition(
-                        object.id,
-                        event.target.x(),
-                        event.target.y(),
-                        { commitBoundary: "image-drag-end" }
-                      );
-                    }}
-                    onTransformStart={(event) => {
-                      event.cancelBubble = true;
-
-                      if (isLockedByAnotherParticipant) {
-                        return;
-                      }
-
-                      if (drawingImageId && drawingImageId !== object.id) {
-                        finishImageDrawingMode();
-                      }
-
-                      selectBoardObject(object);
-                      setTransformingImageId(object.id);
-                      transformingImageSnapshotRef.current[object.id] = object;
-                      event.target.draggable(false);
-                      updateLiveSelectedImageControlAnchor(
-                        object.id,
-                        event.target as Konva.Image
-                      );
-                      syncImageStrokeLayerTransform(
-                        object.id,
-                        event.target.x(),
-                        event.target.y(),
-                        event.target.scaleX(),
-                        event.target.scaleY()
-                      );
-                    }}
-                    onTransform={(event) => {
-                      event.cancelBubble = true;
-                      updateLiveSelectedImageControlAnchor(
-                        object.id,
-                        event.target as Konva.Image
-                      );
-                      syncImageStrokeLayerTransform(
-                        object.id,
-                        event.target.x(),
-                        event.target.y(),
-                        event.target.scaleX(),
-                        event.target.scaleY()
-                      );
-
-                      const snapshot =
-                        transformingImageSnapshotRef.current[object.id];
-
-                      if (snapshot) {
-                        publishImageTransformPreview(
-                          event.target as Konva.Image,
-                          snapshot
-                        );
-                      }
-                    }}
-                    onTransformEnd={(event) => {
-                      event.cancelBubble = true;
-
-                      const node = event.target;
-                      updateLiveSelectedImageControlAnchor(
-                        object.id,
-                        node as Konva.Image
-                      );
-                      const scaleX = node.scaleX();
-                      const scaleY = node.scaleY();
-                      const strokeWidthScale = (Math.abs(scaleX) + Math.abs(scaleY)) / 2;
-                      const nextWidth = Math.max(node.width() * node.scaleX(), MIN_IMAGE_SIZE);
-                      const nextHeight = Math.max(
-                        node.height() * node.scaleY(),
-                        MIN_IMAGE_SIZE
-                      );
-
-                      node.scaleX(1);
-                      node.scaleY(1);
-                      node.draggable(true);
-                      resizeImageObject(
-                        object.id,
-                        {
-                          x: node.x(),
-                          y: node.y(),
-                          width: nextWidth,
-                          height: nextHeight,
-                        },
-                        { x: scaleX, y: scaleY },
-                        strokeWidthScale
-                      );
-                      syncImageStrokeLayerTransform(object.id, node.x(), node.y(), 1, 1);
-                      delete transformingImageSnapshotRef.current[object.id];
-                      setTransformingImageId(null);
-                    }}
-                  />
-
-                  <Group
-                    ref={(node) => {
-                      imageStrokeLayerRefs.current[object.id] = node;
-                    }}
-                    x={object.x}
-                    y={object.y}
-                    listening={false}
-                  >
-                    {(object.imageStrokes ?? []).map((stroke, strokeIndex) => (
-                      <Line
-                        key={`${object.id}-stroke-${strokeIndex}`}
-                        x={0}
-                        y={0}
-                        points={stroke.points}
-                        stroke={getLiveStrokeColor(stroke)}
-                        strokeWidth={stroke.width ?? DEFAULT_IMAGE_STROKE_WIDTH}
-                        lineCap="round"
-                        lineJoin="round"
-                        listening={false}
-                      />
-                    ))}
-                  </Group>
-
-                  {isLockedByAnotherParticipant && imageDrawingLock && (
-                    <RemoteInteractionIndicator
-                      x={object.x}
-                      y={object.y}
-                      width={object.width}
-                      height={object.height}
-                      participantColor={imageDrawingLock.participantColor}
-                    />
-                  )}
-                </Group>
-              );
-            }
-
-            if (isNoteCard) {
-              const isEditing = object.id === editingTextCardId;
-              const noteCardPreviewBounds = getNoteCardPreviewBounds(object);
-              const remoteEditingState = remoteTextCardEditingStates[object.id];
-              const remoteResizeState = remoteTextCardResizeStates[object.id];
-              const remoteEditingIndicator =
-                remoteEditingState &&
-                remoteEditingState.participantId !== participantSession.id
-                  ? {
-                      participantName: remoteEditingState.participantName,
-                      participantColor: remoteEditingState.participantColor,
-                    }
-                  : null;
-              const remoteResizeIndicator =
-                remoteResizeState &&
-                remoteResizeState.participantId !== participantSession.id
-                  ? {
-                      participantName: remoteResizeState.participantName,
-                      participantColor: remoteResizeState.participantColor,
-                    }
-                  : null;
-
-              return (
-                <NoteCardRenderer
-                  key={object.id}
-                  object={object}
-                  displayX={noteCardPreviewBounds.x}
-                  displayY={noteCardPreviewBounds.y}
-                  displayWidth={noteCardPreviewBounds.width}
-                  displayHeight={
-                    object.id === editingTextCardId
-                      ? editingTextCardDisplayHeight ?? undefined
-                      : noteCardPreviewBounds.height
-                  }
-                  isEditing={isEditing}
-                  remoteEditingIndicator={remoteEditingIndicator}
-                  remoteResizeIndicator={remoteResizeIndicator}
-                  onHoverStart={(event) => {
-                    updateObjectSemanticsHover(object, event);
-                  }}
-                  onHoverMove={(event) => {
-                    updateObjectSemanticsHover(object, event);
-                  }}
-                  onHoverEnd={() => {
-                    clearObjectSemanticsHover();
-                  }}
-                  onGroupRef={(node) => {
-                    noteCardRefs.current[object.id] = node;
-                  }}
-                  onSelect={(event) => {
-                    event.cancelBubble = true;
-                    selectBoardObject(object);
-                  }}
-                  onDragStart={(event) => {
-                    event.cancelBubble = true;
-                    selectBoardObject(object);
-                    setDraggingNoteCardId(object.id);
-                  }}
-                  onDragMove={(event) => {
-                    event.cancelBubble = true;
-                    updateObjectPosition(object.id, event.target.x(), event.target.y());
-                  }}
-                  onDragEnd={(event) => {
-                    event.cancelBubble = true;
-                    updateObjectPosition(
-                      object.id,
-                      event.target.x(),
-                      event.target.y(),
-                      { commitBoundary: "note-drag-end" }
-                    );
-                    setDraggingNoteCardId(null);
-                  }}
-                  onTransformStart={(event) => {
-                    event.cancelBubble = true;
-                    selectBoardObject(object);
-                    setActiveTextCardResizeState({
-                      textCardId: object.id,
-                      participantId: participantSession.id,
-                      participantName: participantSession.name,
-                      participantColor: participantSession.color,
-                    });
-                    liveNoteCardResizePreviewRef.current = {
-                      noteCardId: object.id,
-                      x: object.x,
-                      y: object.y,
-                      width: object.width,
-                      height: object.height,
-                    };
-                    setLiveNoteCardResizePreview(
-                      liveNoteCardResizePreviewRef.current
-                    );
-                  }}
-                  onTransform={(event) => {
-                    event.cancelBubble = true;
-
-                    const node = event.target as Konva.Group;
-                    const nextWidth = clampNoteCardWidth(
-                      Math.abs(node.width() * node.scaleX())
-                    );
-                    const nextHeight = Math.max(
-                      Math.round(Math.abs(node.height() * node.scaleY())),
-                      MIN_NOTE_CARD_HEIGHT
-                    );
-
-                    liveNoteCardResizePreviewRef.current = {
-                      noteCardId: object.id,
-                      x: node.x(),
-                      y: node.y(),
-                      width: nextWidth,
-                      height: nextHeight,
-                    };
-                    scheduleNoteCardResizePreviewRender();
-
-                    node.scaleX(1);
-                    node.scaleY(1);
-                  }}
-                  onTransformEnd={(event) => {
-                    event.cancelBubble = true;
-
-                    const node = event.target as Konva.Group;
-                    const nextBounds =
-                      liveNoteCardResizePreviewRef.current?.noteCardId === object.id
-                        ? {
-                            x: liveNoteCardResizePreviewRef.current.x,
-                            y: liveNoteCardResizePreviewRef.current.y,
-                            width: liveNoteCardResizePreviewRef.current.width,
-                            height: liveNoteCardResizePreviewRef.current.height,
-                          }
-                        : {
-                            x: node.x(),
-                            y: node.y(),
-                            width: clampNoteCardWidth(
-                              Math.abs(node.width() * node.scaleX())
-                            ),
-                            height: Math.max(
-                              Math.round(Math.abs(node.height() * node.scaleY())),
-                              MIN_NOTE_CARD_HEIGHT
-                            ),
-                          };
-
-                    node.scaleX(1);
-                    node.scaleY(1);
-                    resizeTextCardBounds(object.id, nextBounds, {
-                      commitBoundary: "note-resize-end",
-                    });
-                    setActiveTextCardResizeState(null);
-                    clearLiveNoteCardResizePreviewSession();
-                    setLiveNoteCardResizePreview(null);
-                  }}
-                  onDoubleClick={(event) => {
-                    event.cancelBubble = true;
-                    startEditingTextCard(object);
-                  }}
-                />
-              );
-            }
-
-            return (
-                <TokenRenderer
-                  key={object.id}
-                  object={object}
-                  position={getTokenAnchorPosition(object)}
-                  stageScale={stageScale}
-                  isSelected={false}
-                  selectionColor={currentUserColor}
-                  fillColor={getTokenFillColor(object)}
-                  occupiedIndicatorColor={
-                    getBlockingActiveMove(object.id)?.participantColor ?? null
-                  }
-                  onHoverStart={(event) => {
-                    updateObjectSemanticsHover(object, event);
-                  }}
-                  onHoverMove={(event) => {
-                    updateObjectSemanticsHover(object, event);
-                  }}
-                  onHoverEnd={() => {
-                    clearObjectSemanticsHover();
-                  }}
-                  onSelect={(event) => {
-                    event.cancelBubble = true;
-                  }}
-                onDragStart={(event) => {
-                  event.cancelBubble = true;
-
-                  const blockingMove = getBlockingActiveMove(object.id);
-
-                  if (blockingMove) {
-                    event.target.stopDrag();
-                    return;
-                  }
-
-                  setDraggingTokenId(object.id);
-
-                  if (getTokenAttachment(object).mode === "attached") {
-                    const anchorPosition = getTokenAnchorPosition(object);
-
-                    updateTokenAnchorPosition(
-                      object.id,
-                      anchorPosition.x,
-                      anchorPosition.y
-                    );
-                  }
-
-                  setActiveTokenMove({
-                    objectId: object.id,
-                    objectKind: object.kind,
-                    participantId: participantSession.id,
-                    participantName: participantSession.name,
-                    participantColor: participantSession.color,
-                    startedAt: Date.now(),
-                  });
-                }}
-                onDragMove={(event) => {
-                  event.cancelBubble = true;
-
-                  if (object.kind !== "token") {
-                    return;
-                  }
-
-                  updateTokenAnchorPosition(
-                    object.id,
-                    event.target.x(),
-                    event.target.y()
-                  );
-                }}
-                onDragEnd={(event) => {
-                  event.cancelBubble = true;
-                  setActiveTokenMove(null);
-                  updateTokenPlacementAfterDrop(object.id, {
-                    x: event.target.x(),
-                    y: event.target.y(),
-                  });
-                  setDraggingTokenId(null);
-                }}
-              />
-            );
-          })}
-
-          {selectedImageObject &&
-            selectedImageControlAnchor &&
-            selectedImageControlButtons.length > 0 &&
-            !isSelectedImageLockedByAnotherParticipant && (
-              <Group
-                x={selectedImageControlAnchor.x}
-                y={selectedImageControlAnchor.y}
-                scaleX={1 / stageScale}
-                scaleY={1 / stageScale}
-              >
-                {selectedImageControlButtons.map((button, buttonIndex) => {
-                  const buttonMetrics = resolveCanvasButtonMetrics(
-                    button.recipe ?? buttonRecipes.secondary.small
-                  );
-                  const x = selectedImageControlButtons
-                    .slice(0, buttonIndex)
-                    .reduce(
-                      (offset, currentButton) =>
-                        offset +
-                        getSmallFloatingActionButtonWidth(
-                          currentButton.label,
-                          resolveCanvasButtonMetrics(
-                            currentButton.recipe ?? buttonRecipes.secondary.small
-                          )
-                        ) +
-                        IMAGE_ATTACHED_CONTROLS_GAP,
-                      0
-                    );
-
-                  return (
-                    <SmallFloatingActionButton
-                      key={button.key}
-                      x={x}
-                      y={-(buttonMetrics.minHeight + IMAGE_ATTACHED_CONTROLS_OUTER_OFFSET_Y)}
-                      label={button.label}
-                      recipe={button.recipe}
-                      onClick={() => {
-                        if (!selectedImageObject) {
-                          return;
-                        }
-
-                        if (button.key === "draw") {
-                          if (drawingImageId === selectedImageObject.id) {
-                            finishImageDrawingMode();
-                            return;
-                          }
-
-                          startImageDrawingMode(selectedImageObject.id);
-                          return;
-                        }
-
-                        if (button.key === "clear-own") {
-                          clearOwnImageDrawing(selectedImageObject.id);
-                          return;
-                        }
-
-                        if (button.key === "clear-all") {
-                          clearImageDrawing(selectedImageObject.id);
-                        }
-                      }}
-                    />
-                  );
-                })}
-              </Group>
-            )}
-
-          <Transformer
-            ref={noteCardTransformerRef}
-            rotateEnabled={false}
-            flipEnabled={false}
-            keepRatio={false}
-            borderStroke={currentUserColor}
-            borderStrokeWidth={3}
-            anchorStroke={currentUserColor}
-            anchorFill="#f8fafc"
-            anchorCornerRadius={999}
-            enabledAnchors={[
-              "top-left",
-              "top-right",
-              "bottom-left",
-              "bottom-right",
-            ]}
-            boundBoxFunc={(oldBox, newBox) => {
-              if (
-                Math.abs(newBox.width) < MIN_NOTE_CARD_WIDTH ||
-                Math.abs(newBox.height) < MIN_NOTE_CARD_HEIGHT
-              ) {
-                return oldBox;
-              }
-
-              return newBox;
-            }}
-          />
-
-          <Transformer
-            ref={imageTransformerRef}
-            rotateEnabled={false}
-            flipEnabled={false}
-            borderStroke={currentUserColor}
-            borderStrokeWidth={3}
-            anchorStroke={currentUserColor}
-            anchorFill="#f8fafc"
-            anchorCornerRadius={999}
-            enabledAnchors={[
-              "top-left",
-              "top-right",
-              "bottom-left",
-              "bottom-right",
-            ]}
-            boundBoxFunc={(oldBox, newBox) => {
-              if (
-                Math.abs(newBox.width) < MIN_IMAGE_SIZE ||
-                Math.abs(newBox.height) < MIN_IMAGE_SIZE
-              ) {
-                return oldBox;
-              }
-
-              return newBox;
-            }}
-          />
-        </Layer>
-      </Stage>
-      </div>
-
-      {editingTextCard && editingTextareaStyle && (
-        <textarea
-          ref={textareaRef}
-          value={editingDraft}
-          onChange={(event) => {
-            setEditingDraft(event.target.value);
-          }}
-          onBlur={() => {
-            if (ignoreNextBlurRef.current) {
-              ignoreNextBlurRef.current = false;
-              return;
-            }
-
-            saveEditingTextCard();
-          }}
-          onKeyDown={(event) => {
-            if (event.key === "Escape") {
-              event.preventDefault();
-              ignoreNextBlurRef.current = true;
-              cancelEditingTextCard();
-              return;
-            }
-
-            if (event.key === "Enter" && !event.shiftKey) {
-              event.preventDefault();
-              saveEditingTextCard();
-            }
-          }}
-          style={{
-            position: "absolute",
-            left: editingTextareaStyle.left,
-            top: editingTextareaStyle.top,
-            width: editingTextareaStyle.width,
-            height: editingTextareaStyle.height,
-            padding: 0,
-            margin: 0,
-            border: "none",
-            outline: "none",
-            appearance: "none",
-            WebkitAppearance: "none",
-            borderRadius: 0,
-            boxShadow: "none",
-            resize: "none",
-            overflow: "hidden",
-            fontFamily: editingTextareaStyle.fontFamily,
-            fontSize: editingTextareaStyle.fontSize,
-            fontWeight: "normal",
-            lineHeight: editingTextareaStyle.lineHeight,
-            color: editingTextareaStyle.color,
-            background: "transparent",
-            caretColor: editingTextareaStyle.color,
-            boxSizing: "border-box",
-            whiteSpace: "pre-wrap",
-          }}
-        />
-      )}
-
-      {isObjectInspectionEnabled && inspectedObject && objectSemanticsHoverState && (
-        <div
-          style={{
-            position: "fixed",
-            left: Math.min(
-              objectSemanticsHoverState.clientX + 14,
-              window.innerWidth - 250
-            ),
-            top: Math.min(
-              objectSemanticsHoverState.clientY + 14,
-              window.innerHeight - 180
-            ),
-            zIndex: 40,
-            ...boardSurfaceRecipes.objectSemanticsTooltip.shell.style,
-            fontFamily: HTML_UI_FONT_FAMILY,
-          }}
-          {...getDesignSystemDebugAttrs(
-            boardSurfaceRecipes.objectSemanticsTooltip.shell.debug
-          )}
-        >
-          <div
-            style={{
-              color: "#94a3b8",
-              fontSize: 11,
-              fontWeight: 700,
-              letterSpacing: "0.04em",
-              textTransform: "uppercase",
-            }}
-          >
-            Object semantics
-          </div>
-
-          {getObjectSemanticsRows(inspectedObject).map((row) => (
-            <div
-              key={row.label}
-              style={{
-                display: "grid",
-                gridTemplateColumns: "84px minmax(0, 1fr)",
-                gap: 8,
-                alignItems: "start",
-              }}
-            >
-              <div style={rowRecipes.data.default.supportingText.style}>{row.label}</div>
-              <div
-                style={{
-                  ...rowRecipes.data.default.title.style,
-                  color: "#f8fafc",
-                  wordBreak: "break-word",
-                }}
-              >
-                {row.value}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
     </div>
   );
 }

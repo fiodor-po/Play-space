@@ -29,6 +29,17 @@ In hard sprint mode:
 - the chosen slice order may be written as the working sprint sequence;
 - other future work remains `candidate`, `backlog`, or `optional`.
 
+Current branch reached its cleanup sprint checkpoint:
+
+- branch: `sprint/cleanup-lint-boardstage-foundation`
+- `main` stays the stable hosted/demo line
+- `lint green baseline` is closed
+- `BoardStage` structural reduction phases `1–4` are closed
+- `participant-marker / creator-color` stays the next candidate product/runtime chapter
+- hosted validation after this cleanup checkpoint is closed
+- note editor overlay and hosted debug gate hotfixes are verified on the exact preview deploy
+- current live and the cleanup preview show the same staged hydration pattern, so the remaining room-open timing concern is a general hosted/runtime follow-up rather than a branch-specific blocker
+
 Проект остаётся в стадии `play-space-alpha`.
 
 Основной продуктовый курс не изменился:
@@ -96,7 +107,7 @@ In hard sprint mode:
   - local smoke now also covers same-browser second-tab attach in one browser
     profile.
 - next candidate chapter is now `participant-marker / creator-color`.
-- next execution block before that chapter is now `push to hosted + debug`.
+- cleanup sprint checkpoint is now closed in branch `sprint/cleanup-lint-boardstage-foundation`.
 - Dev tools inspectability surface now has a closed usability cleanup checkpoint:
   - the panel stays viewport-bounded on ordinary desktop viewports;
   - lower inspect blocks and controls stay reachable through internal scroll;
@@ -121,13 +132,21 @@ Current workflow rule for hosted validation:
 
 Current expected order from here:
 
-1. push the current mainline to hosted and verify the real deployed behavior;
-2. fix only the hosted regressions or rough edges that actually surface there;
-3. start a separate cleanup sprint after hosted fixes:
-   - first return lint to an honest green checkpoint;
-   - then split structural hotspots in narrow passes;
-4. keep `participant-marker / creator-color` as the next candidate chapter
-   rather than mixing it into hosted debugging or cleanup.
+1. keep `main` as the stable hosted/demo line;
+2. treat this branch as a merge-ready cleanup checkpoint after closed hosted validation;
+3. keep `participant-marker / creator-color` as the next candidate chapter;
+4. carry forward staged hosted hydration waves and multi-context slowdown as a separate hosted/runtime follow-up;
+5. avoid reopening `BoardStage` cleanup micro-slices unless a new sprint is started explicitly.
+
+Current agreed `BoardStage` target model for this cleanup sprint:
+
+- `BoardStage` stays the orchestration shell and keeps runtime ownership.
+- `BoardStageScene` is the next target render boundary for Konva scene composition.
+- `BoardStageShellOverlays` owns shell chrome and scene-attached HTML overlays.
+- `BoardStageDevToolsContent` owns debug and inspection UI.
+- shared 3D dice stay the top app-owned visual layer above the board stack and overlays.
+
+Canonical wording for this target now lives in `docs/ARCHITECTURE.md`.
 
 ## 1.1. Future room-flow split to remember
 
