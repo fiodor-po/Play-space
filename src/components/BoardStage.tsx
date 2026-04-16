@@ -1329,6 +1329,14 @@ export default function BoardStage({
   const [textCardInitialSyncRoomId, setTextCardInitialSyncRoomId] = useState<
     string | null
   >(null);
+  const [tokenBootstrapPayloadRoomId, setTokenBootstrapPayloadRoomId] = useState<
+    string | null
+  >(null);
+  const [imageBootstrapPayloadRoomId, setImageBootstrapPayloadRoomId] = useState<
+    string | null
+  >(null);
+  const [textCardBootstrapPayloadRoomId, setTextCardBootstrapPayloadRoomId] =
+    useState<string | null>(null);
   const sharedBootstrapObjectCountRef = useRef(0);
   const sharedBootstrapSlicesRef = useRef<{
     tokens: BoardObject[];
@@ -1741,6 +1749,10 @@ export default function BoardStage({
     tokenInitialSyncRoomId === roomId &&
     imageInitialSyncRoomId === roomId &&
     textCardInitialSyncRoomId === roomId;
+  const hasReceivedSharedBootstrapPayload =
+    tokenBootstrapPayloadRoomId === roomId &&
+    imageBootstrapPayloadRoomId === roomId &&
+    textCardBootstrapPayloadRoomId === roomId;
   const sharedBootstrapObjectCount =
     sharedBootstrapSliceCounts.tokens +
     sharedBootstrapSliceCounts.images +
@@ -1793,7 +1805,7 @@ export default function BoardStage({
   });
 
   useEffect(() => {
-    if (!hasSharedRoomContentLoaded || sharedBootstrapObjectCount === 0) {
+    if (!hasReceivedSharedBootstrapPayload || sharedBootstrapObjectCount === 0) {
       return;
     }
 
@@ -1803,7 +1815,7 @@ export default function BoardStage({
 
     markSceneUsable("live", sharedBootstrapObjectCount);
   }, [
-    hasSharedRoomContentLoaded,
+    hasReceivedSharedBootstrapPayload,
     replaceBoardObjects,
     resolvedSnapshotBootstrapRoomId,
     roomId,
@@ -2149,6 +2161,9 @@ export default function BoardStage({
       setTokenInitialSyncRoomId(null);
       setImageInitialSyncRoomId(null);
       setTextCardInitialSyncRoomId(null);
+      setTokenBootstrapPayloadRoomId(null);
+      setImageBootstrapPayloadRoomId(null);
+      setTextCardBootstrapPayloadRoomId(null);
       setResolvedSnapshotBootstrapRoomId(null);
       setIsDevToolsOpen(false);
       setObjectSemanticsHoverState(null);
@@ -2753,6 +2768,9 @@ export default function BoardStage({
       roomId,
       onActiveMovesChange: setRemoteActiveObjectMoves,
       onTokensChange: (tokens) => {
+        setTokenBootstrapPayloadRoomId((current) =>
+          current === roomId ? current : roomId
+        );
         sharedBootstrapSlicesRef.current.tokens = tokens;
         setSharedBootstrapSliceCounts((current) =>
           current.tokens === tokens.length
@@ -2780,6 +2798,9 @@ export default function BoardStage({
     const connection = createRoomImageConnection({
       roomId,
       onImagesChange: (sharedImages) => {
+        setImageBootstrapPayloadRoomId((current) =>
+          current === roomId ? current : roomId
+        );
         sharedBootstrapSlicesRef.current.images = sharedImages;
         setSharedBootstrapSliceCounts((current) =>
           current.images === sharedImages.length
@@ -2830,6 +2851,9 @@ export default function BoardStage({
     const connection = createRoomTextCardConnection({
       roomId,
       onTextCardsChange: (textCards) => {
+        setTextCardBootstrapPayloadRoomId((current) =>
+          current === roomId ? current : roomId
+        );
         sharedBootstrapSlicesRef.current.textCards = textCards;
         setSharedBootstrapSliceCounts((current) =>
           current.textCards === textCards.length
