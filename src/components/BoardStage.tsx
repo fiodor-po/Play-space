@@ -12,10 +12,7 @@ import {
   BoardStageDevToolsContent,
   type BoardStageGovernanceInspectionEntry,
 } from "../board/components/BoardStageDevToolsContent";
-import {
-  BoardStageScene,
-  type BoardStageSceneImageControlButton,
-} from "../board/components/BoardStageScene";
+import { BoardStageScene } from "../board/components/BoardStageScene";
 import { BoardStageShellOverlays } from "../board/components/BoardStageShellOverlays";
 import { createNoteCardObject } from "../board/objects/noteCard/createNoteCardObject";
 import {
@@ -24,10 +21,6 @@ import {
   isNoteCardObject,
 } from "../board/objects/noteCard/sizing";
 import { createTokenObject } from "../board/objects/token/createTokenObject";
-import {
-  createParticipantAccentButtonRecipeWithMode,
-  interactionButtonRecipes,
-} from "../ui/system/families/button";
 import { isDesignSystemHoverDebugEnabled } from "../ui/system/debugMeta";
 import {
   boardMaterials,
@@ -45,6 +38,14 @@ import {
   type LocalObjectsChangeOptions,
   useBoardObjectRuntime,
 } from "../board/runtime/useBoardObjectRuntime";
+import {
+  getBoardStageDevToolsViewModel,
+  getBoardStageGovernanceViewModel,
+  getBoardStageInspectabilityViewModel,
+  getBoardStageObjectSemanticsViewModel,
+  getBoardStageSelectedImageControlsViewModel,
+  getBoardStageSelectedObjectsViewModel,
+} from "../board/viewModels/boardStageInspectability";
 import {
   MAX_INITIAL_IMAGE_DISPLAY_HEIGHT,
   MAX_INITIAL_IMAGE_DISPLAY_WIDTH,
@@ -1229,31 +1230,6 @@ export default function BoardStage({
     snapshot
       ? snapshot.tokens.length + snapshot.images.length + snapshot.textCards.length
       : 0;
-
-  const getObjectSemanticsRows = (object: BoardObject) => {
-    const rows = [
-      { label: "Kind", value: object.kind },
-      { label: "Id", value: object.id },
-      { label: "Creator", value: object.creatorId ?? "none" },
-      { label: "Creator color", value: getLiveCreatorColor(object) ?? "unresolved" },
-      { label: "Author color", value: object.authorColor ?? "none" },
-    ];
-
-    if (object.kind === "image") {
-      rows.push({
-        label: "Stroke creators",
-        value: String(
-          new Set(
-            (object.imageStrokes ?? [])
-              .map((stroke) => stroke.creatorId)
-              .filter((creatorId): creatorId is string => typeof creatorId === "string")
-          ).size
-        ),
-      });
-    }
-
-    return rows;
-  };
 
   const getLiveStrokeColor = (stroke: {
     color: string;
@@ -3127,24 +3103,15 @@ export default function BoardStage({
         )
       )
     : null;
-  const selectedImageObject =
-    selectedObjectId && !editingTextCardId
-      ? objects.find(
-          (object) => object.id === selectedObjectId && object.kind === "image"
-        ) ?? null
-      : null;
-  const selectedTokenObject =
-    selectedObjectId && !editingTextCardId
-      ? objects.find(
-          (object) => object.id === selectedObjectId && object.kind === "token"
-        ) ?? null
-      : null;
-  const selectedNoteCardObject =
-    selectedObjectId && !editingTextCardId
-      ? objects.find(
-          (object) => object.id === selectedObjectId && isNoteCardObject(object)
-        ) ?? null
-      : null;
+  const {
+    selectedImageObject,
+    selectedTokenObject,
+    selectedNoteCardObject,
+  } = getBoardStageSelectedObjectsViewModel({
+    objects,
+    selectedObjectId,
+    editingTextCardId,
+  });
   const selectedImageLock = selectedImageObject
     ? getImageDrawingLock(selectedImageObject.id)
     : null;
@@ -3158,193 +3125,68 @@ export default function BoardStage({
   const selectedImageEffectiveBounds = selectedImageObject
     ? getEffectiveImageBoundsForImageId(selectedImageObject.id)
     : null;
-  const selectedImageLiveControlAnchor =
-    selectedImageObject &&
-    isSelectedImageLocallyInteracting &&
-    liveSelectedImageControlAnchor?.imageId === selectedImageObject.id
-      ? liveSelectedImageControlAnchor
-      : null;
-  const selectedImageControlAnchor =
-    selectedImageLiveControlAnchor ??
-    (selectedImageEffectiveBounds
-      ? getImageControlsAnchorFromBounds(selectedImageEffectiveBounds)
-      : null);
-  const inspectableImageObject =
-    selectedImageObject ??
-    (sharedImageObjects.length === 1 ? sharedImageObjects[0] : null);
-  const inspectableImageBounds = inspectableImageObject
-    ? {
-        x: Math.round(inspectableImageObject.x),
-        y: Math.round(inspectableImageObject.y),
-        width: Math.round(inspectableImageObject.width),
-        height: Math.round(inspectableImageObject.height),
-      }
-    : null;
-  const inspectableImageStrokeStats = inspectableImageObject
-    ? {
-        total: inspectableImageObject.imageStrokes?.length ?? 0,
-        own:
-          inspectableImageObject.imageStrokes?.filter(
-            (stroke) => stroke.creatorId === participantSession.id
-          ).length ?? 0,
-        points:
-          inspectableImageObject.imageStrokes?.reduce(
-            (pointCount, stroke) => pointCount + Math.round(stroke.points.length / 2),
-            0
-          ) ?? 0,
-      }
-    : null;
-  const inspectableImageTarget =
-    selectedImageObject && inspectableImageObject
-      ? "selected"
-      : inspectableImageObject
-        ? "sole"
-        : "none";
-  const participantInspectableToken =
-    sharedTokenObjects.filter(
-      (object) => object.creatorId === participantSession.id
-    ).length === 1
-      ? sharedTokenObjects.find(
-          (object) => object.creatorId === participantSession.id
-        ) ?? null
-      : null;
-  const inspectableTokenObject =
-    selectedTokenObject ??
-    participantInspectableToken ??
-    (sharedTokenObjects.length === 1 ? sharedTokenObjects[0] : null);
-  const inspectableTokenPosition = inspectableTokenObject
-    ? getTokenAnchorPosition(inspectableTokenObject)
-    : null;
-  const inspectableTokenTarget =
-    selectedTokenObject && inspectableTokenObject
-      ? "selected"
-      : participantInspectableToken &&
-          inspectableTokenObject === participantInspectableToken
-        ? "participant-marker"
-        : inspectableTokenObject
-          ? "sole"
-          : "none";
-  const inspectableNoteCardObject =
-    selectedNoteCardObject ??
-    (sharedNoteObjects.filter(
-      (object) => object.creatorId === participantSession.id
-    ).length === 1
-      ? sharedNoteObjects.find(
-          (object) => object.creatorId === participantSession.id
-        ) ?? null
-      : null) ??
-    (sharedNoteObjects.length === 1 ? sharedNoteObjects[0] : null);
-  const inspectableNoteCardBounds = inspectableNoteCardObject
-    ? {
-        x: Math.round(inspectableNoteCardObject.x),
-        y: Math.round(inspectableNoteCardObject.y),
-        width: Math.round(inspectableNoteCardObject.width),
-        height: Math.round(inspectableNoteCardObject.height),
-      }
-    : null;
-  const inspectableNoteCardTarget =
-    selectedNoteCardObject && inspectableNoteCardObject
-      ? "selected"
-      : inspectableNoteCardObject &&
-          inspectableNoteCardObject.creatorId === participantSession.id
-        ? "participant-owned"
-      : inspectableNoteCardObject
-        ? "sole"
-        : "none";
-
-  const inspectedObject = objectSemanticsHoverState
-    ? objects.find((object) => object.id === objectSemanticsHoverState.objectId) ?? null
-    : null;
-  const inspectedObjectSemanticsRows = inspectedObject
-    ? getObjectSemanticsRows(inspectedObject)
-    : [];
-  const governanceRoomSummary = useMemo(
+  const {
+    inspectedObjectSemanticsRows,
+    isObjectSemanticsTooltipVisible,
+  } = getBoardStageObjectSemanticsViewModel({
+    objects,
+    objectSemanticsHoverState,
+    isObjectInspectionEnabled,
+    getCreatorColor: getLiveCreatorColor,
+  });
+  const {
+    governanceRoomSummary,
+    governanceSelectedObjectSummary,
+    governanceSelectedImageClearSummary,
+    governanceSelectedImageClearOwnSummary,
+  } = useMemo(
     () =>
-      resolveGovernedActionAccess({
-        entity: createRoomGovernedEntityRef({
-          roomId,
-          creatorId: roomCreatorId,
-        }),
-        actionKey: "room.add-image",
-        participantId: participantSession.id,
-        explicitAccessLevel: roomEffectiveAccessLevel,
-        defaultAccessLevel: "full",
-      }),
-    [participantSession.id, roomCreatorId, roomEffectiveAccessLevel, roomId]
-  );
-  const governanceSelectedObjectSummary = useMemo(() => {
-    if (!selectedObjectId) {
-      return null;
-    }
-
-    const selectedObject = objects.find((object) => object.id === selectedObjectId);
-
-    if (!selectedObject) {
-      return null;
-    }
-
-    return resolveBoardObjectDeletePolicyAccess({
-      object: selectedObject,
-      participantId: participantSession.id,
-      roomCreatorId,
-    });
-  }, [objects, participantSession.id, roomCreatorId, selectedObjectId]);
-  const governanceSelectedImageClearSummary = selectedImageObject
-    ? resolveImageClearAllDrawingPolicyAccess({
-        object: selectedImageObject,
-        participantId: participantSession.id,
+      getBoardStageGovernanceViewModel({
+        roomId,
         roomCreatorId,
-      })
-    : null;
-  const governanceSelectedImageClearOwnSummary = selectedImageObject
-    ? resolveImageClearOwnDrawingPolicyAccess({
-        object: selectedImageObject,
+        roomEffectiveAccessLevel,
         participantId: participantSession.id,
-      })
-    : null;
-  const selectedImageControlButtons: BoardStageSceneImageControlButton[] = [];
-
-  if (selectedImageObject) {
-    selectedImageControlButtons.push({
-      key: "draw",
-      label: drawingImageId === selectedImageObject.id ? "Save" : "Draw",
-      recipe:
-        drawingImageId === selectedImageObject.id
-          ? createParticipantAccentButtonRecipeWithMode(
-              interactionButtonRecipes.primary.pill,
-              participantSession.color,
-              "fill"
-            )
-          : createParticipantAccentButtonRecipeWithMode(
-              interactionButtonRecipes.secondary.pill,
-              participantSession.color,
-              "border"
-            ),
-    });
-
-    if (
-      drawingImageId !== selectedImageObject.id &&
-      governanceSelectedImageClearOwnSummary?.isAllowed
-    ) {
-      selectedImageControlButtons.push({
-        key: "clear-own",
-        label: "Clear",
-        recipe: interactionButtonRecipes.danger.pill,
-      });
-    }
-
-    if (
-      drawingImageId !== selectedImageObject.id &&
-      governanceSelectedImageClearSummary?.isAllowed &&
-      (selectedImageObject.imageStrokes?.length ?? 0) > 0
-    ) {
-      selectedImageControlButtons.push({
-        key: "clear-all",
-        label: "Clear all",
-        recipe: interactionButtonRecipes.danger.pill,
-      });
-    }
-  }
+        selectedObjectId,
+        objects,
+      }),
+    [
+      objects,
+      participantSession.id,
+      roomCreatorId,
+      roomEffectiveAccessLevel,
+      roomId,
+      selectedObjectId,
+    ]
+  );
+  const {
+    selectedImageControlAnchor,
+    selectedImageControlButtons,
+  } = getBoardStageSelectedImageControlsViewModel({
+    selectedImageObject,
+    selectedImageEffectiveBounds,
+    liveSelectedImageControlAnchor,
+    isSelectedImageLocallyInteracting,
+    drawingImageId,
+    participantColor: participantSession.color,
+    governanceSelectedImageClearSummary,
+    governanceSelectedImageClearOwnSummary,
+  });
+  const inspectabilityViewModel = getBoardStageInspectabilityViewModel({
+    selectedImageObject,
+    selectedTokenObject,
+    selectedNoteCardObject,
+    sharedImageObjects,
+    sharedTokenObjects,
+    sharedNoteObjects,
+    participantId: participantSession.id,
+    getTokenAnchorPosition,
+  });
+  const {
+    inspectableImageObject,
+    inspectableTokenObject,
+    inspectableTokenPosition,
+    inspectableNoteCardObject,
+  } = inspectabilityViewModel;
 
   const moveInspectableImageForSmoke = () => {
     if (!inspectableImageObject) {
@@ -3717,43 +3559,39 @@ export default function BoardStage({
           roomOccupancies,
         })
       : null;
+  const devToolsViewModel = getBoardStageDevToolsViewModel({
+    sharedObjectCount,
+    sharedTokenCount,
+    sharedImageCount,
+    sharedNoteCount,
+    inspectability: inspectabilityViewModel,
+    participantColor: participantSession.color,
+    isObjectInspectionEnabled,
+    localReplicaInspection,
+    durableReplicaInspection,
+    governanceRoomSummary,
+    governanceSelectedObjectSummary,
+    governanceSelectedImageClearSummary,
+    governanceSelectedImageClearOwnSummary,
+    governanceInspectionEntries,
+  });
   const devToolsContent = (
     <BoardStageDevToolsContent
-      sharedObjectCount={sharedObjectCount}
-      sharedTokenCount={sharedTokenCount}
-      sharedImageCount={sharedImageCount}
-      sharedNoteCount={sharedNoteCount}
-      inspectableImageTarget={inspectableImageTarget}
-      inspectableImageLabel={inspectableImageObject?.label ?? null}
-      inspectableImageId={inspectableImageObject?.id ?? null}
-      inspectableImageBounds={inspectableImageBounds}
-      inspectableImageStrokeStats={inspectableImageStrokeStats}
-      hasInspectableImage={!!inspectableImageObject}
+      {...devToolsViewModel}
       onMoveInspectableImageForSmoke={moveInspectableImageForSmoke}
       onDrawSmokeStrokeOnInspectableImage={drawSmokeStrokeOnInspectableImage}
       onResizeInspectableImageForSmoke={resizeInspectableImageForSmoke}
-      inspectableTokenTarget={inspectableTokenTarget}
-      inspectableTokenId={inspectableTokenObject?.id ?? null}
-      inspectableTokenPosition={inspectableTokenPosition}
-      hasInspectableToken={!!inspectableTokenObject}
       onMoveInspectableTokenForSmoke={moveInspectableTokenForSmoke}
-      inspectableNoteCardTarget={inspectableNoteCardTarget}
-      inspectableNoteCardId={inspectableNoteCardObject?.id ?? null}
-      inspectableNoteCardLabel={inspectableNoteCardObject?.label ?? null}
-      inspectableNoteCardBounds={inspectableNoteCardBounds}
-      hasInspectableNoteCard={!!inspectableNoteCardObject}
       onMoveInspectableNoteCardForSmoke={moveInspectableNoteCardForSmoke}
       onSaveInspectableNoteCardTextForSmoke={saveInspectableNoteCardTextForSmoke}
       onResizeInspectableNoteCardForSmoke={resizeInspectableNoteCardForSmoke}
       onDeleteInspectableNoteCardForSmoke={deleteInspectableNoteCardForSmoke}
-      participantColor={participantSession.color}
       onParticipantColorChange={(color) => {
         onUpdateParticipantSession((session) => ({
           ...session,
           color,
         }));
       }}
-      isObjectInspectionEnabled={isObjectInspectionEnabled}
       onObjectInspectionEnabledChange={(isEnabled) => {
         setIsObjectInspectionEnabled(isEnabled);
 
@@ -3761,15 +3599,6 @@ export default function BoardStage({
           clearObjectSemanticsHover();
         }
       }}
-      localReplicaInspection={localReplicaInspection}
-      durableReplicaInspection={durableReplicaInspection}
-      governanceRoomSummary={governanceRoomSummary}
-      governanceSelectedObjectSummary={governanceSelectedObjectSummary}
-      governanceSelectedImageClearSummary={governanceSelectedImageClearSummary}
-      governanceSelectedImageClearOwnSummary={
-        governanceSelectedImageClearOwnSummary
-      }
-      governanceInspectionEntries={governanceInspectionEntries}
       onAddImage={() => {
         imageInputRef.current?.click();
       }}
@@ -3777,8 +3606,6 @@ export default function BoardStage({
       onResetBoard={resetBoard}
     />
   );
-  const isObjectSemanticsTooltipVisible =
-    isObjectInspectionEnabled && !!inspectedObject && !!objectSemanticsHoverState;
   const handleBoardBackgroundMouseDown = () => {
     if (drawingImageId) {
       finishImageDrawingMode();

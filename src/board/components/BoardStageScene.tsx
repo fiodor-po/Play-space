@@ -35,6 +35,9 @@ import {
   type ButtonRecipe,
 } from "../../ui/system/families/button";
 import { RemoteInteractionIndicator } from "./RemoteInteractionIndicator";
+import type {
+  BoardStageSelectedImageControlButton,
+} from "../viewModels/boardStageInspectability";
 import type { ActiveObjectMove } from "../../lib/roomTokensRealtime";
 import type { ImageDrawingLock } from "../../lib/roomImagesRealtime";
 import type {
@@ -77,12 +80,6 @@ type SmallFloatingActionButtonProps = {
   onClick: () => void;
 };
 
-export type BoardStageSceneImageControlButton = {
-  key: string;
-  label: string;
-  recipe?: ButtonRecipe;
-};
-
 type BoardStageSceneProps = {
   stageWrapperRef: MutableRefObject<HTMLDivElement | null>;
   stageSize: {
@@ -120,7 +117,7 @@ type BoardStageSceneProps = {
     x: number;
     y: number;
   } | null;
-  selectedImageControlButtons: BoardStageSceneImageControlButton[];
+  selectedImageControlButtons: BoardStageSelectedImageControlButton[];
   isSelectedImageLockedByAnotherParticipant: boolean;
   onStageMouseDown: (event: KonvaEventObject<MouseEvent>) => void;
   onStageMouseMove: (event: KonvaEventObject<MouseEvent>) => void;
