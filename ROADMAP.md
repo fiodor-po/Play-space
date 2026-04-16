@@ -221,6 +221,10 @@ Current cleanup sprint result in this branch:
 5. keep `participant-marker / creator-color` as the next candidate chapter after this sprint;
 6. run hosted validation after this cleanup checkpoint is pushed or merged.
 
+Required deferred hosted follow-up from this checkpoint:
+
+- investigate the cleanup preview room-hydration delay against current live before opening any broader hosted performance pass
+
 Agreed cleanup target model for this branch:
 
 - `BoardStage` stays the orchestration shell;

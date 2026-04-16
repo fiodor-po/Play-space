@@ -37,6 +37,7 @@ Current branch reached its cleanup sprint checkpoint:
 - `BoardStage` structural reduction phases `1–4` are closed
 - `participant-marker / creator-color` stays the next candidate product/runtime chapter
 - hosted validation is required after this cleanup checkpoint lands
+- cleanup preview room-hydration delay now has one required deferred investigation item
 
 Проект остаётся в стадии `play-space-alpha`.
 

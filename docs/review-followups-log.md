@@ -157,3 +157,14 @@ Recommended statuses:
 - `expected_action`: run hosted playable-session validation against the cleanup checkpoint after deploy, with explicit checks for board scene rendering, shell overlays, note editor overlay, selected-image controls, and dice/top-layer behavior
 - `target_chapter`: `hosted validation after BoardStage cleanup checkpoint`
 - `status`: `planned`
+
+### RF-2026-04-16-04
+
+- `id`: `RF-2026-04-16-04`
+- `date`: `2026-04-16`
+- `source`: strategist review during hosted validation of the cleanup checkpoint
+- `finding`: cleanup preview showed delayed room hydration and visibly staged object arrival, but current live hosted deploy appears to load the same kind of room much faster and more coherently
+- `why_deferred`: current evidence points to a branch-specific or preview-specific regression candidate rather than a proven general hosted performance problem; the hotfix batch should stay narrow and fix the concrete regressions first
+- `expected_action`: compare cleanup preview against current live on fresh room ids and determine whether the delayed participant-marker and staged note/image arrival come from branch-specific hydration behavior, preview config, or room-state noise before opening a broader performance pass
+- `target_chapter`: `cleanup preview room-hydration regression investigation`
+- `status`: `planned`
