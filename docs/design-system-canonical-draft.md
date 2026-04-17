@@ -1681,6 +1681,18 @@ Family rule:
 - `button.compact` is now an accepted standard branch inside the same family
   rather than a later speculative extension
 
+Current `secondary` surface note:
+
+- the current shared `button.secondary` path reuses the same `surface.inset`
+  branch that also serves inset-style container surfaces
+- this is accepted as the current working semantic path because both cases read
+  as the same neutral recessed material class in the runtime
+- keep one open design question explicit:
+  - if later runtime usage shows that secondary buttons need a distinct
+    semantic surface role from inset containers, add that as a separate
+    button-facing surface branch rather than continuing to overload
+    `surface.inset`
+
 Compact branch rule:
 
 - `button.compact` remains an ordinary text button, but with denser geometry

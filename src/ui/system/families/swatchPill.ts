@@ -3,6 +3,8 @@ import type { DesignSystemDebugMeta } from "../debugMeta";
 import { controlScale } from "../controlScale";
 import { border, radius, text } from "../foundations";
 
+type CSSVariableProperties = CSSProperties & Record<`--${string}`, string | number>;
+
 type SwatchPillRecipePart = {
   className: string;
   style: CSSProperties;
@@ -29,7 +31,12 @@ function createSwatchRecipe(
       borderRadius: radius.pill,
       padding: 0,
       flexShrink: 0,
-    },
+      border: "var(--ui-swatch-border-current, var(--ui-swatch-border-default))",
+      opacity: "var(--ui-swatch-opacity-current, var(--ui-swatch-opacity-default))",
+      boxShadow: "var(--ui-swatch-shadow-current, var(--ui-swatch-shadow-default))",
+      "--ui-swatch-shadow-default":
+        sizeName === "trigger" ? "var(--ui-swatch-trigger-shadow)" : "none",
+    } as CSSVariableProperties,
     debug: {
       family: "swatch",
       size: sizeName,
@@ -75,21 +82,15 @@ export function getSwatchButtonProps(
     className: recipe.className,
     style: {
       ...recipe.style,
-      border: state.selected
-        ? "3px solid #f8fafc"
-        : state.occupied
-          ? "2px dashed rgba(148, 163, 184, 0.65)"
-          : "1px solid rgba(255, 255, 255, 0.22)",
       background: state.fillColor,
-      boxShadow:
-        recipe.debug.size === "trigger"
-          ? "0 0 0 1px rgba(15, 23, 42, 0.4)"
-          : undefined,
-      opacity: state.occupied ? 0.45 : state.pending ? 0.75 : state.disabled ? 0.55 : 1,
-      cursor: state.occupied || state.pending || state.disabled ? "not-allowed" : "pointer",
+      cursor:
+        state.occupied || state.pending || state.disabled ? "not-allowed" : "pointer",
       pointerEvents: "auto",
-    } satisfies CSSProperties,
+    } satisfies CSSVariableProperties,
     disabled: state.disabled || state.occupied || state.pending,
+    "data-ui-selected": state.selected ? "true" : undefined,
+    "data-ui-occupied": state.occupied ? "true" : undefined,
+    "data-ui-pending": state.pending ? "true" : undefined,
   } as const;
 }
 

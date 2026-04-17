@@ -1,7 +1,9 @@
 import type { CSSProperties } from "react";
 import type { DesignSystemDebugMeta } from "../debugMeta";
-import { border, radius, surface, text } from "../foundations";
+import { radius } from "../foundations";
 import { controlScale } from "../controlScale";
+
+type CSSVariableProperties = CSSProperties & Record<`--${string}`, string | number>;
 
 type FieldRecipePart = {
   className: string;
@@ -17,6 +19,7 @@ type FieldRecipe = {
 
 type FieldShellState = {
   disabled?: boolean;
+  invalid?: boolean;
 };
 
 function createFieldShell(
@@ -31,10 +34,10 @@ function createFieldShell(
       alignItems: "center",
       padding: `${size.paddingY}px ${size.paddingX}px`,
       borderRadius: radius.control,
-      border: `1px solid ${border.default}`,
-      background: surface.inset,
-      color: text.primary,
-    },
+      border: "1px solid var(--ui-field-border-current, var(--ui-field-border-default))",
+      background: "var(--ui-field-surface-current, var(--ui-field-surface-default))",
+      color: "var(--ui-field-text-current, var(--ui-field-text-default))",
+    } as CSSVariableProperties,
     debug,
   };
 }
@@ -89,5 +92,6 @@ export function getFieldShellProps(
     className: shell.className,
     style: shell.style,
     "data-ui-disabled": state.disabled ? "true" : undefined,
+    "data-ui-invalid": state.invalid ? "true" : undefined,
   } as const;
 }
