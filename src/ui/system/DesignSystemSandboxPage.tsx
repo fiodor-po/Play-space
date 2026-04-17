@@ -1,0 +1,3300 @@
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import type { CSSProperties, ReactNode } from "react";
+import { HTML_UI_FONT_FAMILY } from "../../board/constants";
+import { PARTICIPANT_COLOR_OPTIONS } from "../../lib/roomSession";
+import { boardSurfaceRecipes } from "./boardSurfaces";
+import { getDesignSystemDebugAttrs } from "./debugMeta";
+import {
+  buttonRecipes,
+  createParticipantAccentButtonRecipeWithMode,
+  createTextButtonRecipe,
+  createToggleButtonRecipe,
+  getButtonProps,
+  interactionButtonRecipes,
+  resolveCanvasButtonMetrics,
+  resolveCanvasButtonTone,
+  type ButtonRecipe,
+  type ButtonState,
+} from "./families/button";
+import { fieldRecipes, getFieldShellProps } from "./families/field";
+import { getSwatchButtonProps, swatchPillRecipes } from "./families/swatchPill";
+import { border, focusRing, radius, radiusPrimitive, surface, text } from "./foundations";
+import { inlineTextRecipes } from "./inlineText";
+import { surfaceRecipes } from "./surfaces";
+
+type SwatchRecipe =
+  | (typeof swatchPillRecipes)["swatch"]["default"]
+  | (typeof swatchPillRecipes)["swatch"]["small"]
+  | (typeof swatchPillRecipes)["swatch"]["trigger"];
+
+type CSSVariableProperties = CSSProperties & Record<`--${string}`, string | number>;
+type InspectNodeId = string;
+type InspectRelation = "idle" | "selected" | "upstream" | "downstream" | "unrelated";
+type InspectableProps = {
+  inspectNodeId?: InspectNodeId;
+  inspectRelation?: InspectRelation;
+  onInspectSelect?: (nodeId: InspectNodeId) => void;
+};
+
+const SandboxInspectContext = createContext<{
+  getInspectRelation: (nodeId?: InspectNodeId) => InspectRelation;
+  onInspectSelect: (nodeId: InspectNodeId) => void;
+}>({
+  getInspectRelation: () => "idle",
+  onInspectSelect: () => {},
+});
+
+const SandboxInspectAggregateContext = createContext<{
+  reportChildRelation: (childId: string, relation: InspectRelation) => void;
+} | null>(null);
+
+type PreviewButtonState = ButtonState & {
+  hover?: boolean;
+  active?: boolean;
+  focusVisible?: boolean;
+};
+
+type PreviewFieldState = {
+  hover?: boolean;
+  focusVisible?: boolean;
+  invalid?: boolean;
+  disabled?: boolean;
+};
+
+type PreviewSwatchState = {
+  hover?: boolean;
+  focusVisible?: boolean;
+  selected?: boolean;
+  occupied?: boolean;
+  pending?: boolean;
+  disabled?: boolean;
+};
+
+const pageShellStyle: CSSProperties = {
+  minHeight: "100vh",
+  padding: 24,
+  paddingBottom: 48,
+  background:
+    "radial-gradient(circle at top, #15314b 0%, #081226 48%, #020617 100%)",
+};
+
+const pageContentStyle: CSSProperties = {
+  width: "100%",
+  maxWidth: 1320,
+  margin: "0 auto",
+  display: "grid",
+  gap: 18,
+  fontFamily: HTML_UI_FONT_FAMILY,
+};
+
+const headerGridStyle: CSSProperties = {
+  display: "grid",
+  gap: 8,
+};
+
+const sectionGridStyle: CSSProperties = {
+  display: "grid",
+  gap: 12,
+};
+
+const previewGridStyle: CSSProperties = {
+  display: "grid",
+  gap: 12,
+  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+  alignItems: "start",
+};
+
+const controlStackStyle: CSSProperties = {
+  display: "grid",
+  gap: 8,
+  justifyItems: "start",
+};
+
+const sectionHeadingStyle: CSSProperties = {
+  fontSize: 18,
+  lineHeight: 1.1,
+  fontWeight: 700,
+  color: text.primary,
+};
+
+const sectionDescriptionStyle: CSSProperties = {
+  ...inlineTextRecipes.muted.style,
+  fontSize: 12,
+};
+
+const cardTitleStyle: CSSProperties = {
+  fontSize: 12,
+  fontWeight: 700,
+  color: text.primary,
+};
+
+const fieldLabelStyle: CSSProperties = {
+  fontSize: 11,
+  fontWeight: 700,
+  letterSpacing: "0.04em",
+  textTransform: "uppercase",
+  color: text.muted,
+};
+
+const tokenColumnStyle: CSSProperties = {
+  display: "grid",
+  gap: 8,
+};
+
+const tokenItemStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "36px minmax(0, 1fr)",
+  alignItems: "center",
+  gap: 10,
+  padding: "6px 8px",
+  borderRadius: 10,
+  border: `1px solid ${border.default}`,
+  background: surface.panelSubtle,
+};
+
+const tokenChipStyle: CSSProperties = {
+  width: 36,
+  height: 24,
+  borderRadius: 8,
+  minWidth: 0,
+};
+
+const tokenTextStackStyle: CSSProperties = {
+  display: "grid",
+  gap: 2,
+  minWidth: 0,
+};
+
+const tokenNameStyle: CSSProperties = {
+  fontSize: 12,
+  lineHeight: 1.15,
+  fontWeight: 700,
+  color: text.primary,
+};
+
+const tokenHintStyle: CSSProperties = {
+  ...inlineTextRecipes.muted.style,
+  fontSize: 11,
+  lineHeight: 1.15,
+};
+
+const inspectableContainerBaseStyle: CSSProperties = {
+  borderRadius: 12,
+  border: "1px solid transparent",
+  padding: 4,
+  transition: "opacity 140ms ease, box-shadow 140ms ease, border-color 140ms ease",
+};
+
+type TokenInventoryItem = {
+  label: string;
+  hint: string;
+  meta: {
+    family: string;
+    variant: string;
+    subtype?: string;
+    label: string;
+  };
+  swatchStyle: CSSProperties;
+  swatchContent?: ReactNode;
+  unframedSwatch?: boolean;
+  swatchContainerStyle?: CSSProperties;
+};
+
+const metricSampleStyle: CSSProperties = {
+  background: "rgba(255,255,255,0.18)",
+  border: `1px solid ${border.hover}`,
+};
+
+const radiusMetricShapeStyle: CSSProperties = {
+  ...metricSampleStyle,
+  width: 40,
+  height: 40,
+};
+
+const metricTextStyle: CSSProperties = {
+  fontSize: 10,
+  lineHeight: 1,
+  fontWeight: 700,
+  color: text.secondary,
+  fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+};
+
+const foundationTokenInventory = {
+  surface: [
+    {
+      label: "Panel",
+      hint: "base panel surface",
+      meta: {
+        family: "token",
+        variant: "foundationSurface",
+        subtype: "panel",
+        label: "token / foundation / surface / --ui-color-surface-panel",
+      },
+      swatchStyle: { background: surface.panel, border: `1px solid ${border.default}` },
+    },
+    {
+      label: "Panel subtle",
+      hint: "lighter panel layer",
+      meta: {
+        family: "token",
+        variant: "foundationSurface",
+        subtype: "panelSubtle",
+        label: "token / foundation / surface / --ui-color-surface-panel-subtle",
+      },
+      swatchStyle: { background: surface.panelSubtle, border: `1px solid ${border.default}` },
+    },
+    {
+      label: "Inset",
+      hint: "base inset surface",
+      meta: {
+        family: "token",
+        variant: "foundationSurface",
+        subtype: "inset",
+        label: "token / foundation / surface / --ui-color-surface-inset",
+      },
+      swatchStyle: { background: surface.inset, border: `1px solid ${border.default}` },
+    },
+    {
+      label: "Inset hover",
+      hint: "inset hover layer",
+      meta: {
+        family: "token",
+        variant: "foundationSurface",
+        subtype: "insetHover",
+        label: "token / foundation / surface / --ui-color-surface-inset-hover",
+      },
+      swatchStyle: { background: surface.insetHover, border: `1px solid ${border.hover}` },
+    },
+    {
+      label: "Inset active",
+      hint: "inset active layer",
+      meta: {
+        family: "token",
+        variant: "foundationSurface",
+        subtype: "insetActive",
+        label: "token / foundation / surface / --ui-color-surface-inset-active",
+      },
+      swatchStyle: { background: surface.insetActive, border: `1px solid ${border.hover}` },
+    },
+    {
+      label: "Inset disabled",
+      hint: "inset disabled layer",
+      meta: {
+        family: "token",
+        variant: "foundationSurface",
+        subtype: "insetDisabled",
+        label: "token / foundation / surface / --ui-color-surface-inset-disabled",
+      },
+      swatchStyle: { background: surface.insetDisabled, border: `1px solid ${border.disabled}` },
+    },
+    {
+      label: "Accent",
+      hint: "accent base",
+      meta: {
+        family: "token",
+        variant: "foundationSurface",
+        subtype: "accent",
+        label: "token / foundation / surface / --ui-color-surface-accent",
+      },
+      swatchStyle: { background: surface.accent, border: `1px solid ${border.accent}` },
+    },
+    {
+      label: "Accent hover",
+      hint: "accent hover layer",
+      meta: {
+        family: "token",
+        variant: "foundationSurface",
+        subtype: "accentHover",
+        label: "token / foundation / surface / --ui-color-surface-accent-hover",
+      },
+      swatchStyle: { background: surface.accentHover, border: `1px solid ${border.accent}` },
+    },
+    {
+      label: "Accent active",
+      hint: "accent active layer",
+      meta: {
+        family: "token",
+        variant: "foundationSurface",
+        subtype: "accentActive",
+        label: "token / foundation / surface / --ui-color-surface-accent-active",
+      },
+      swatchStyle: { background: surface.accentActive, border: `1px solid ${border.accent}` },
+    },
+    {
+      label: "Accent neutral",
+      hint: "light accent base",
+      meta: {
+        family: "token",
+        variant: "foundationSurface",
+        subtype: "accentNeutral",
+        label: "token / foundation / surface / --ui-color-surface-accent-neutral",
+      },
+      swatchStyle: { background: surface.accentNeutral, border: `1px solid ${border.accentNeutral}` },
+    },
+    {
+      label: "Accent neutral hover",
+      hint: "light accent hover",
+      meta: {
+        family: "token",
+        variant: "foundationSurface",
+        subtype: "accentNeutralHover",
+        label: "token / foundation / surface / --ui-color-surface-accent-neutral-hover",
+      },
+      swatchStyle: { background: surface.accentNeutralHover, border: `1px solid ${border.accentNeutral}` },
+    },
+    {
+      label: "Accent neutral active",
+      hint: "light accent active",
+      meta: {
+        family: "token",
+        variant: "foundationSurface",
+        subtype: "accentNeutralActive",
+        label: "token / foundation / surface / --ui-color-surface-accent-neutral-active",
+      },
+      swatchStyle: { background: surface.accentNeutralActive, border: `1px solid ${border.hover}` },
+    },
+    {
+      label: "Danger",
+      hint: "destructive base",
+      meta: {
+        family: "token",
+        variant: "foundationSurface",
+        subtype: "danger",
+        label: "token / foundation / surface / --ui-color-surface-danger",
+      },
+      swatchStyle: { background: surface.danger, border: `1px solid ${border.danger}` },
+    },
+    {
+      label: "Danger hover",
+      hint: "destructive hover",
+      meta: {
+        family: "token",
+        variant: "foundationSurface",
+        subtype: "dangerHover",
+        label: "token / foundation / surface / --ui-color-surface-danger-hover",
+      },
+      swatchStyle: { background: surface.dangerHover, border: `1px solid ${border.danger}` },
+    },
+    {
+      label: "Danger active",
+      hint: "destructive active",
+      meta: {
+        family: "token",
+        variant: "foundationSurface",
+        subtype: "dangerActive",
+        label: "token / foundation / surface / --ui-color-surface-danger-active",
+      },
+      swatchStyle: { background: surface.dangerActive, border: `1px solid ${border.danger}` },
+    },
+    {
+      label: "Danger disabled",
+      hint: "destructive disabled",
+      meta: {
+        family: "token",
+        variant: "foundationSurface",
+        subtype: "dangerDisabled",
+        label: "token / foundation / surface / --ui-color-surface-danger-disabled",
+      },
+      swatchStyle: { background: surface.dangerDisabled, border: `1px solid ${border.disabled}` },
+    },
+    {
+      label: "Warning",
+      hint: "warning base",
+      meta: {
+        family: "token",
+        variant: "foundationSurface",
+        subtype: "warning",
+        label: "token / foundation / surface / --ui-color-surface-warning",
+      },
+      swatchStyle: { background: surface.warning, border: `1px solid ${border.warning}` },
+    },
+    {
+      label: "Warning compact",
+      hint: "warning compact base",
+      meta: {
+        family: "token",
+        variant: "foundationSurface",
+        subtype: "warningCompact",
+        label: "token / foundation / surface / --ui-color-surface-warning-compact",
+      },
+      swatchStyle: { background: surface.warningCompact, border: `1px solid ${border.warning}` },
+    },
+  ] satisfies TokenInventoryItem[],
+  border: [
+    {
+      label: "Default",
+      hint: "base border",
+      meta: { family: "token", variant: "foundationBorder", subtype: "default", label: "token / foundation / border / --ui-color-border-default" },
+      swatchStyle: { background: surface.panel, border: `2px solid ${border.default}` },
+    },
+    {
+      label: "Hover",
+      hint: "hover border",
+      meta: { family: "token", variant: "foundationBorder", subtype: "hover", label: "token / foundation / border / --ui-color-border-hover" },
+      swatchStyle: { background: surface.panel, border: `2px solid ${border.hover}` },
+    },
+    {
+      label: "Focus",
+      hint: "focus anchor",
+      meta: { family: "token", variant: "foundationBorder", subtype: "focus", label: "token / foundation / border / --ui-color-border-focus" },
+      swatchStyle: { background: surface.panel, border: `2px solid ${border.focus}` },
+    },
+    {
+      label: "Disabled",
+      hint: "disabled border",
+      meta: { family: "token", variant: "foundationBorder", subtype: "disabled", label: "token / foundation / border / --ui-color-border-disabled" },
+      swatchStyle: { background: surface.panel, border: `2px solid ${border.disabled}` },
+    },
+    {
+      label: "Accent",
+      hint: "accent border",
+      meta: { family: "token", variant: "foundationBorder", subtype: "accent", label: "token / foundation / border / --ui-color-border-accent" },
+      swatchStyle: { background: surface.panel, border: `2px solid ${border.accent}` },
+    },
+    {
+      label: "Accent neutral",
+      hint: "light accent border",
+      meta: { family: "token", variant: "foundationBorder", subtype: "accentNeutral", label: "token / foundation / border / --ui-color-border-accent-neutral" },
+      swatchStyle: { background: surface.panel, border: `2px solid ${border.accentNeutral}` },
+    },
+    {
+      label: "Danger",
+      hint: "destructive border",
+      meta: { family: "token", variant: "foundationBorder", subtype: "danger", label: "token / foundation / border / --ui-color-border-danger" },
+      swatchStyle: { background: surface.panel, border: `2px solid ${border.danger}` },
+    },
+    {
+      label: "Warning",
+      hint: "warning border",
+      meta: { family: "token", variant: "foundationBorder", subtype: "warning", label: "token / foundation / border / --ui-color-border-warning" },
+      swatchStyle: { background: surface.panel, border: `2px solid ${border.warning}` },
+    },
+  ] satisfies TokenInventoryItem[],
+  text: [
+    {
+      label: "Primary",
+      hint: "main content",
+      meta: { family: "token", variant: "foundationText", subtype: "primary", label: "token / foundation / text / --ui-color-text-primary" },
+      swatchStyle: { background: surface.panel, border: `1px solid ${border.default}`, color: text.primary, display: "grid", placeItems: "center", fontSize: 13, fontWeight: 700 },
+      swatchContent: "Aa",
+    },
+    {
+      label: "Secondary",
+      hint: "secondary content",
+      meta: { family: "token", variant: "foundationText", subtype: "secondary", label: "token / foundation / text / --ui-color-text-secondary" },
+      swatchStyle: { background: surface.panel, border: `1px solid ${border.default}`, color: text.secondary, display: "grid", placeItems: "center", fontSize: 13, fontWeight: 700 },
+      swatchContent: "Aa",
+    },
+    {
+      label: "Muted",
+      hint: "supporting text",
+      meta: { family: "token", variant: "foundationText", subtype: "muted", label: "token / foundation / text / --ui-color-text-muted" },
+      swatchStyle: { background: surface.panel, border: `1px solid ${border.default}`, color: text.muted, display: "grid", placeItems: "center", fontSize: 13, fontWeight: 700 },
+      swatchContent: "Aa",
+    },
+    {
+      label: "Disabled",
+      hint: "disabled text",
+      meta: { family: "token", variant: "foundationText", subtype: "disabled", label: "token / foundation / text / --ui-color-text-disabled" },
+      swatchStyle: { background: surface.panel, border: `1px solid ${border.default}`, color: text.disabled, display: "grid", placeItems: "center", fontSize: 13, fontWeight: 700 },
+      swatchContent: "Aa",
+    },
+    {
+      label: "Inverse",
+      hint: "text on accent",
+      meta: { family: "token", variant: "foundationText", subtype: "inverse", label: "token / foundation / text / --ui-color-text-inverse" },
+      swatchStyle: { background: surface.accent, border: `1px solid ${border.accent}`, color: text.inverse, display: "grid", placeItems: "center", fontSize: 13, fontWeight: 700 },
+      swatchContent: "Aa",
+    },
+    {
+      label: "On neutral accent",
+      hint: "text on light accent",
+      meta: { family: "token", variant: "foundationText", subtype: "onAccentNeutral", label: "token / foundation / text / --ui-color-text-on-accent-neutral" },
+      swatchStyle: { background: surface.accentNeutral, border: `1px solid ${border.accentNeutral}`, color: text.onAccentNeutral, display: "grid", placeItems: "center", fontSize: 13, fontWeight: 700 },
+      swatchContent: "Aa",
+    },
+    {
+      label: "Danger",
+      hint: "destructive text",
+      meta: { family: "token", variant: "foundationText", subtype: "danger", label: "token / foundation / text / --ui-color-text-danger" },
+      swatchStyle: { background: surface.panel, border: `1px solid ${border.default}`, color: text.danger, display: "grid", placeItems: "center", fontSize: 13, fontWeight: 700 },
+      swatchContent: "Aa",
+    },
+    {
+      label: "Warning",
+      hint: "warning text",
+      meta: { family: "token", variant: "foundationText", subtype: "warning", label: "token / foundation / text / --ui-color-text-warning" },
+      swatchStyle: { background: surface.panel, border: `1px solid ${border.default}`, color: text.warning, display: "grid", placeItems: "center", fontSize: 13, fontWeight: 700 },
+      swatchContent: "Aa",
+    },
+  ] satisfies TokenInventoryItem[],
+  focus: [
+    {
+      label: "Focus ring",
+      hint: "focus-visible overlay",
+      meta: { family: "token", variant: "foundationFocus", subtype: "focusRing", label: "token / foundation / focus / --ui-color-focus-ring" },
+      swatchStyle: { background: surface.panel, border: `1px solid ${border.default}`, boxShadow: `0 0 0 6px ${focusRing.default} inset` },
+    },
+  ] satisfies TokenInventoryItem[],
+  metrics: [
+    {
+      label: "Radius 4",
+      hint: "primitive radius",
+      meta: { family: "token", variant: "foundationMetric", subtype: "radius", label: "token / foundation / radius / --ui-radius-4" },
+      swatchStyle: { background: surface.panel, border: `1px solid ${border.default}`, display: "grid", placeItems: "center" },
+      swatchContent: <div style={{ ...radiusMetricShapeStyle, borderRadius: radiusPrimitive.r4 }} />,
+      unframedSwatch: true,
+      swatchContainerStyle: { width: 40, height: 40 },
+    },
+    {
+      label: "Radius 8",
+      hint: "primitive radius",
+      meta: { family: "token", variant: "foundationMetric", subtype: "radius", label: "token / foundation / radius / --ui-radius-8" },
+      swatchStyle: { background: surface.panel, border: `1px solid ${border.default}`, display: "grid", placeItems: "center" },
+      swatchContent: <div style={{ ...radiusMetricShapeStyle, borderRadius: radiusPrimitive.r8 }} />,
+      unframedSwatch: true,
+      swatchContainerStyle: { width: 40, height: 40 },
+    },
+    {
+      label: "Radius 12",
+      hint: "primitive radius",
+      meta: { family: "token", variant: "foundationMetric", subtype: "radius", label: "token / foundation / radius / --ui-radius-12" },
+      swatchStyle: { background: surface.panel, border: `1px solid ${border.default}`, display: "grid", placeItems: "center" },
+      swatchContent: <div style={{ ...radiusMetricShapeStyle, borderRadius: radiusPrimitive.r12 }} />,
+      unframedSwatch: true,
+      swatchContainerStyle: { width: 40, height: 40 },
+    },
+    {
+      label: "Radius 16",
+      hint: "primitive radius",
+      meta: { family: "token", variant: "foundationMetric", subtype: "radius", label: "token / foundation / radius / --ui-radius-16" },
+      swatchStyle: { background: surface.panel, border: `1px solid ${border.default}`, display: "grid", placeItems: "center" },
+      swatchContent: <div style={{ ...radiusMetricShapeStyle, borderRadius: radiusPrimitive.r16 }} />,
+      unframedSwatch: true,
+      swatchContainerStyle: { width: 40, height: 40 },
+    },
+    {
+      label: "Radius pill",
+      hint: "primitive radius",
+      meta: { family: "token", variant: "foundationMetric", subtype: "radius", label: "token / foundation / radius / --ui-radius-999" },
+      swatchStyle: { background: surface.panel, border: `1px solid ${border.default}`, display: "grid", placeItems: "center" },
+      swatchContent: <div style={{ ...radiusMetricShapeStyle, borderRadius: radiusPrimitive.r999 }} />,
+      unframedSwatch: true,
+      swatchContainerStyle: { width: 40, height: 40 },
+    },
+    {
+      label: "Radius control",
+      hint: "semantic radius",
+      meta: { family: "token", variant: "foundationMetric", subtype: "radius", label: "token / foundation / radius / --ui-radius-control" },
+      swatchStyle: { background: surface.panel, border: `1px solid ${border.default}`, display: "grid", placeItems: "center" },
+      swatchContent: <div style={{ ...radiusMetricShapeStyle, borderRadius: radius.control }} />,
+      unframedSwatch: true,
+      swatchContainerStyle: { width: 40, height: 40 },
+    },
+    {
+      label: "Radius surface",
+      hint: "semantic radius",
+      meta: { family: "token", variant: "foundationMetric", subtype: "radius", label: "token / foundation / radius / --ui-radius-surface" },
+      swatchStyle: { background: surface.panel, border: `1px solid ${border.default}`, display: "grid", placeItems: "center" },
+      swatchContent: <div style={{ ...radiusMetricShapeStyle, borderRadius: radius.surface }} />,
+      unframedSwatch: true,
+      swatchContainerStyle: { width: 40, height: 40 },
+    },
+    {
+      label: "Radius inset",
+      hint: "semantic radius",
+      meta: { family: "token", variant: "foundationMetric", subtype: "radius", label: "token / foundation / radius / --ui-radius-inset" },
+      swatchStyle: { background: surface.panel, border: `1px solid ${border.default}`, display: "grid", placeItems: "center" },
+      swatchContent: <div style={{ ...radiusMetricShapeStyle, borderRadius: radius.inset }} />,
+      unframedSwatch: true,
+      swatchContainerStyle: { width: 40, height: 40 },
+    },
+    {
+      label: "Space compact",
+      hint: "6px spacing",
+      meta: { family: "token", variant: "foundationMetric", subtype: "space", label: "token / foundation / space / --ui-space-compact" },
+      swatchStyle: { background: surface.panel, border: `1px solid ${border.default}`, display: "grid", placeItems: "center" },
+      swatchContent: <div style={{ ...metricSampleStyle, width: "var(--ui-space-compact)", height: "var(--ui-space-compact)" }} />,
+      unframedSwatch: true,
+    },
+    {
+      label: "Space small",
+      hint: "8px spacing",
+      meta: { family: "token", variant: "foundationMetric", subtype: "space", label: "token / foundation / space / --ui-space-small" },
+      swatchStyle: { background: surface.panel, border: `1px solid ${border.default}`, display: "grid", placeItems: "center" },
+      swatchContent: <div style={{ ...metricSampleStyle, width: "var(--ui-space-small)", height: "var(--ui-space-small)" }} />,
+      unframedSwatch: true,
+    },
+    {
+      label: "Space medium",
+      hint: "12px spacing",
+      meta: { family: "token", variant: "foundationMetric", subtype: "space", label: "token / foundation / space / --ui-space-medium" },
+      swatchStyle: { background: surface.panel, border: `1px solid ${border.default}`, display: "grid", placeItems: "center" },
+      swatchContent: <div style={{ ...metricSampleStyle, width: "var(--ui-space-medium)", height: "var(--ui-space-medium)" }} />,
+      unframedSwatch: true,
+    },
+    {
+      label: "Field motion",
+      hint: "140ms ease",
+      meta: { family: "token", variant: "foundationMetric", subtype: "motion", label: "token / foundation / motion / --ui-transition-field" },
+      swatchStyle: { background: surface.panel, border: `1px solid ${border.default}`, display: "grid", placeItems: "center" },
+      swatchContent: <span style={metricTextStyle}>140</span>,
+      unframedSwatch: true,
+    },
+    {
+      label: "Button motion",
+      hint: "140ms ease",
+      meta: { family: "token", variant: "foundationMetric", subtype: "motion", label: "token / foundation / motion / --ui-transition-button" },
+      swatchStyle: { background: surface.panel, border: `1px solid ${border.default}`, display: "grid", placeItems: "center" },
+      swatchContent: <span style={metricTextStyle}>140</span>,
+      unframedSwatch: true,
+    },
+    {
+      label: "Row motion",
+      hint: "140ms ease",
+      meta: { family: "token", variant: "foundationMetric", subtype: "motion", label: "token / foundation / motion / --ui-transition-row" },
+      swatchStyle: { background: surface.panel, border: `1px solid ${border.default}`, display: "grid", placeItems: "center" },
+      swatchContent: <span style={metricTextStyle}>140</span>,
+      unframedSwatch: true,
+    },
+    {
+      label: "Swatch motion",
+      hint: "140ms ease",
+      meta: { family: "token", variant: "foundationMetric", subtype: "motion", label: "token / foundation / motion / --ui-transition-swatch-pill" },
+      swatchStyle: { background: surface.panel, border: `1px solid ${border.default}`, display: "grid", placeItems: "center" },
+      swatchContent: <span style={metricTextStyle}>140</span>,
+      unframedSwatch: true,
+    },
+  ] satisfies TokenInventoryItem[],
+} as const;
+
+const participantColorInventory = PARTICIPANT_COLOR_OPTIONS.map((color, index) => ({
+  label: `Color ${index + 1}`,
+  hint: color,
+  meta: {
+    family: "participantColor",
+    variant: "palette",
+    subtype: `slot-${index + 1}`,
+    label: `participantColor / palette / slot-${index + 1} / ${color}`,
+  },
+  swatchStyle: {
+    background: color,
+    border: `1px solid ${border.default}`,
+  },
+})) satisfies TokenInventoryItem[];
+
+const tokenInventory = {
+  surface: [
+    {
+      label: "Accent",
+      hint: "primary fill",
+      meta: {
+        family: "token",
+        variant: "surface",
+        subtype: "surface",
+        label: "token / surface / primary fill / --ui-color-surface-accent",
+      },
+      swatchStyle: { background: surface.accent, border: `1px solid ${border.accent}` },
+    },
+    {
+      label: "Inset",
+      hint: "secondary base",
+      meta: {
+        family: "token",
+        variant: "surface",
+        subtype: "surface",
+        label: "token / surface / secondary base / --ui-color-surface-inset",
+      },
+      swatchStyle: { background: surface.inset, border: `1px solid ${border.default}` },
+    },
+    {
+      label: "Inset hover",
+      hint: "secondary hover",
+      meta: {
+        family: "token",
+        variant: "surface",
+        subtype: "surface",
+        label: "token / surface / secondary hover / --ui-color-surface-inset-hover",
+      },
+      swatchStyle: { background: surface.insetHover, border: `1px solid ${border.hover}` },
+    },
+    {
+      label: "Accent active",
+      hint: "primary active",
+      meta: {
+        family: "token",
+        variant: "surface",
+        subtype: "surface",
+        label: "token / surface / primary active / --ui-color-surface-accent-active",
+      },
+      swatchStyle: { background: surface.accentActive, border: `1px solid ${border.accent}` },
+    },
+    {
+      label: "Disabled surface",
+      hint: "shared disabled",
+      meta: {
+        family: "token",
+        variant: "surface",
+        subtype: "surface",
+        label: "token / surface / shared disabled / --ui-color-surface-inset-disabled",
+      },
+      swatchStyle: { background: surface.insetDisabled, border: `1px solid ${border.disabled}` },
+    },
+  ] satisfies TokenInventoryItem[],
+  border: [
+    {
+      label: "Default border",
+      hint: "secondary idle",
+      meta: {
+        family: "token",
+        variant: "border",
+        subtype: "default",
+        label: "token / border / default / --ui-color-border-default",
+      },
+      swatchStyle: { background: surface.panel, border: `2px solid ${border.default}` },
+    },
+    {
+      label: "Hover border",
+      hint: "secondary hover",
+      meta: {
+        family: "token",
+        variant: "border",
+        subtype: "hover",
+        label: "token / border / hover / --ui-color-border-hover",
+      },
+      swatchStyle: { background: surface.panel, border: `2px solid ${border.hover}` },
+    },
+    {
+      label: "Focus border",
+      hint: "ring anchor",
+      meta: {
+        family: "token",
+        variant: "border",
+        subtype: "focus",
+        label: "token / border / focus / --ui-color-border-focus",
+      },
+      swatchStyle: { background: surface.panel, border: `2px solid ${border.focus}` },
+    },
+    {
+      label: "Accent border",
+      hint: "primary idle",
+      meta: {
+        family: "token",
+        variant: "border",
+        subtype: "accent",
+        label: "token / border / primary idle / --ui-color-border-accent",
+      },
+      swatchStyle: { background: surface.panel, border: `2px solid ${border.accent}` },
+    },
+    {
+      label: "Danger border",
+      hint: "error state",
+      meta: {
+        family: "token",
+        variant: "border",
+        subtype: "danger",
+        label: "token / border / error state / --ui-color-border-danger",
+      },
+      swatchStyle: { background: surface.panel, border: `2px solid ${border.danger}` },
+    },
+  ] satisfies TokenInventoryItem[],
+  text: [
+    {
+      label: "Primary text",
+      hint: "panel content",
+      meta: {
+        family: "token",
+        variant: "text",
+        subtype: "primary",
+        label: "token / text / panel content / --ui-color-text-primary",
+      },
+      swatchStyle: {
+        background: surface.panel,
+        border: `1px solid ${border.default}`,
+        color: text.primary,
+        display: "grid",
+        placeItems: "center",
+        fontSize: 13,
+        fontWeight: 700,
+      },
+      swatchContent: "Aa",
+    },
+    {
+      label: "Secondary text",
+      hint: "secondary button text",
+      meta: {
+        family: "token",
+        variant: "text",
+        subtype: "secondary",
+        label: "token / text / secondary button text / --ui-color-text-secondary",
+      },
+      swatchStyle: {
+        background: surface.panel,
+        border: `1px solid ${border.default}`,
+        color: text.secondary,
+        display: "grid",
+        placeItems: "center",
+        fontSize: 13,
+        fontWeight: 700,
+      },
+      swatchContent: "Aa",
+    },
+    {
+      label: "Muted text",
+      hint: "supporting copy",
+      meta: {
+        family: "token",
+        variant: "text",
+        subtype: "muted",
+        label: "token / text / supporting copy / --ui-color-text-muted",
+      },
+      swatchStyle: {
+        background: surface.panel,
+        border: `1px solid ${border.default}`,
+        color: text.muted,
+        display: "grid",
+        placeItems: "center",
+        fontSize: 13,
+        fontWeight: 700,
+      },
+      swatchContent: "Aa",
+    },
+    {
+      label: "Disabled text",
+      hint: "shared disabled",
+      meta: {
+        family: "token",
+        variant: "text",
+        subtype: "disabled",
+        label: "token / text / shared disabled / --ui-color-text-disabled",
+      },
+      swatchStyle: {
+        background: surface.panel,
+        border: `1px solid ${border.default}`,
+        color: text.disabled,
+        display: "grid",
+        placeItems: "center",
+        fontSize: 13,
+        fontWeight: 700,
+      },
+      swatchContent: "Aa",
+    },
+    {
+      label: "Danger text",
+      hint: "destructive action",
+      meta: {
+        family: "token",
+        variant: "text",
+        subtype: "danger",
+        label: "token / text / destructive action / --ui-color-text-danger",
+      },
+      swatchStyle: {
+        background: surface.panel,
+        border: `1px solid ${border.default}`,
+        color: text.danger,
+        display: "grid",
+        placeItems: "center",
+        fontSize: 13,
+        fontWeight: 700,
+      },
+      swatchContent: "Aa",
+    },
+  ] satisfies TokenInventoryItem[],
+  treatments: [
+    {
+      label: "Focus ring",
+      hint: "focus-visible layer",
+      meta: {
+        family: "token",
+        variant: "treatment",
+        subtype: "focus",
+        label: "token / treatment / focus-visible layer / --ui-color-focus-ring",
+      },
+      swatchStyle: {
+        background: surface.panel,
+        border: `1px solid ${border.default}`,
+        boxShadow: `0 0 0 6px ${focusRing.default} inset`,
+      },
+    },
+    {
+      label: "Open surface",
+      hint: "trigger held state",
+      meta: {
+        family: "token",
+        variant: "treatment",
+        subtype: "open",
+        label: "token / treatment / trigger held state / --ui-button-secondary-surface-open",
+      },
+      swatchStyle: {
+        background: "var(--ui-button-secondary-surface-open)",
+        border: `1px solid var(--ui-button-secondary-border-open)`,
+      },
+    },
+    {
+      label: "Loading treatment",
+      hint: "shared busy opacity",
+      meta: {
+        family: "token",
+        variant: "treatment",
+        subtype: "loading",
+        label: "token / treatment / shared busy opacity / --ui-control-opacity-loading",
+      },
+      swatchStyle: {
+        background: "var(--ui-button-primary-surface-loading)",
+        border: `1px solid var(--ui-button-primary-border-loading)`,
+        opacity: "var(--ui-control-opacity-loading)",
+      },
+    },
+    {
+      label: "Disabled treatment",
+      hint: "shared disabled opacity",
+      meta: {
+        family: "token",
+        variant: "treatment",
+        subtype: "disabled",
+        label: "token / treatment / shared disabled opacity / --ui-control-opacity-disabled",
+      },
+      swatchStyle: {
+        background: surface.insetDisabled,
+        border: `1px solid ${border.disabled}`,
+        opacity: "var(--ui-control-opacity-disabled)",
+      },
+    },
+    {
+      label: "Error field",
+      hint: "field error border",
+      meta: {
+        family: "token",
+        variant: "treatment",
+        subtype: "error",
+        label: "token / treatment / field error border / --ui-field-border-error",
+      },
+      swatchStyle: { background: "var(--ui-field-surface-error)", border: `2px solid var(--ui-field-border-error)` },
+    },
+  ] satisfies TokenInventoryItem[],
+} as const;
+
+const inspectNodeIds = {
+  tokens: {
+    radiusPrimitive4: "token / foundation / radius / --ui-radius-4",
+    radiusPrimitive8: "token / foundation / radius / --ui-radius-8",
+    radiusPrimitive12: "token / foundation / radius / --ui-radius-12",
+    radiusPrimitive16: "token / foundation / radius / --ui-radius-16",
+    radiusPrimitive999: "token / foundation / radius / --ui-radius-999",
+    radiusControl: "token / foundation / radius / --ui-radius-control",
+    radiusSurface: "token / foundation / radius / --ui-radius-surface",
+    radiusInset: "token / foundation / radius / --ui-radius-inset",
+    radiusPill: "token / foundation / radius / --ui-radius-pill",
+  },
+  controls: {
+    primaryDefault: "control / button / primary / default",
+    primarySmall: "control / button / primary / small",
+    primaryCompact: "control / button / primary / compact",
+    secondaryDefault: "control / button / secondary / default",
+    secondarySmall: "control / button / secondary / small",
+    secondaryCompact: "control / button / secondary / compact",
+    dangerDefault: "control / button / danger / default",
+    dangerSmall: "control / button / danger / small",
+    dangerCompact: "control / button / danger / compact",
+    ordinaryFocus: "control / button / secondary / focus-visible",
+    ordinaryDisabled: "control / button / secondary / disabled",
+    ordinaryLoading: "control / button / secondary / loading",
+    menuDefault: "control / menuTrigger / secondary / default",
+    menuOpen: "control / menuTrigger / secondary / open",
+    menuOpenHover: "control / menuTrigger / secondary / open-hover",
+    fieldDefault: "control / field / default",
+    fieldError: "control / field / error",
+    fieldErrorFocus: "control / field / error-focus",
+    fieldDisabled: "control / field / disabled",
+    circlePrimary: "control / interactionButton / circle / primary",
+    circleSecondary: "control / interactionButton / circle / secondary",
+    circleDanger: "control / interactionButton / circle / danger",
+    circleStateDefault: "control / interactionButton / circle / default",
+    circleStateHover: "control / interactionButton / circle / hover",
+    circleStateFocus: "control / interactionButton / circle / focus-visible",
+    circleStateActive: "control / interactionButton / circle / active",
+    circleStateDisabled: "control / interactionButton / circle / disabled",
+    swatchDefault: "control / swatch / default",
+    swatchSmall: "control / swatch / small",
+    swatchTrigger: "control / swatch / trigger",
+    swatchStateDefault: "control / swatch / state-default",
+    swatchStateHover: "control / swatch / state-hover",
+    swatchStateFocus: "control / swatch / state-focus-visible",
+    swatchStateSelected: "control / swatch / state-selected",
+    swatchStateOccupied: "control / swatch / state-occupied",
+    swatchStatePending: "control / swatch / state-pending",
+    swatchStateDisabled: "control / swatch / state-disabled",
+  },
+  participantAccentPrimary: (color: string) =>
+    `control / participantAccent / primary / ${color}`,
+  participantAccentSecondary: (color: string) =>
+    `control / participantAccent / secondary / ${color}`,
+} as const;
+
+const inspectGraphEdges: Array<[InspectNodeId, InspectNodeId]> = [
+  [
+    "token / foundation / surface / --ui-color-surface-accent",
+    "token / surface / primary fill / --ui-color-surface-accent",
+  ],
+  [
+    "token / foundation / surface / --ui-color-surface-inset",
+    "token / surface / secondary base / --ui-color-surface-inset",
+  ],
+  [
+    "token / foundation / surface / --ui-color-surface-inset-hover",
+    "token / surface / secondary hover / --ui-color-surface-inset-hover",
+  ],
+  [
+    "token / foundation / surface / --ui-color-surface-accent-active",
+    "token / surface / primary active / --ui-color-surface-accent-active",
+  ],
+  [
+    "token / foundation / surface / --ui-color-surface-inset-disabled",
+    "token / surface / shared disabled / --ui-color-surface-inset-disabled",
+  ],
+  [
+    "token / foundation / border / --ui-color-border-default",
+    "token / border / default / --ui-color-border-default",
+  ],
+  [
+    "token / foundation / border / --ui-color-border-hover",
+    "token / border / hover / --ui-color-border-hover",
+  ],
+  [
+    "token / foundation / border / --ui-color-border-accent",
+    "token / border / primary idle / --ui-color-border-accent",
+  ],
+  [
+    "token / foundation / border / --ui-color-border-danger",
+    "token / border / error state / --ui-color-border-danger",
+  ],
+  [
+    "token / foundation / text / --ui-color-text-primary",
+    "token / text / panel content / --ui-color-text-primary",
+  ],
+  [
+    "token / foundation / text / --ui-color-text-secondary",
+    "token / text / secondary button text / --ui-color-text-secondary",
+  ],
+  [
+    "token / foundation / text / --ui-color-text-disabled",
+    "token / text / shared disabled / --ui-color-text-disabled",
+  ],
+  [
+    "token / foundation / text / --ui-color-text-danger",
+    "token / text / destructive action / --ui-color-text-danger",
+  ],
+  [
+    "token / foundation / focus / --ui-color-focus-ring",
+    "token / treatment / focus-visible layer / --ui-color-focus-ring",
+  ],
+  [
+    inspectNodeIds.tokens.radiusPrimitive8,
+    inspectNodeIds.tokens.radiusControl,
+  ],
+  [
+    inspectNodeIds.tokens.radiusPrimitive8,
+    inspectNodeIds.tokens.radiusInset,
+  ],
+  [
+    inspectNodeIds.tokens.radiusPrimitive16,
+    inspectNodeIds.tokens.radiusSurface,
+  ],
+  [
+    inspectNodeIds.tokens.radiusPrimitive999,
+    inspectNodeIds.tokens.radiusPill,
+  ],
+  [
+    inspectNodeIds.tokens.radiusControl,
+    inspectNodeIds.controls.primaryDefault,
+  ],
+  [
+    inspectNodeIds.tokens.radiusControl,
+    inspectNodeIds.controls.primarySmall,
+  ],
+  [
+    inspectNodeIds.tokens.radiusControl,
+    inspectNodeIds.controls.primaryCompact,
+  ],
+  [
+    inspectNodeIds.tokens.radiusControl,
+    inspectNodeIds.controls.secondaryDefault,
+  ],
+  [
+    inspectNodeIds.tokens.radiusControl,
+    inspectNodeIds.controls.secondarySmall,
+  ],
+  [
+    inspectNodeIds.tokens.radiusControl,
+    inspectNodeIds.controls.secondaryCompact,
+  ],
+  [
+    inspectNodeIds.tokens.radiusControl,
+    inspectNodeIds.controls.dangerDefault,
+  ],
+  [
+    inspectNodeIds.tokens.radiusControl,
+    inspectNodeIds.controls.dangerSmall,
+  ],
+  [
+    inspectNodeIds.tokens.radiusControl,
+    inspectNodeIds.controls.dangerCompact,
+  ],
+  [
+    inspectNodeIds.tokens.radiusControl,
+    inspectNodeIds.controls.ordinaryFocus,
+  ],
+  [
+    inspectNodeIds.tokens.radiusControl,
+    inspectNodeIds.controls.ordinaryDisabled,
+  ],
+  [
+    inspectNodeIds.tokens.radiusControl,
+    inspectNodeIds.controls.ordinaryLoading,
+  ],
+  [
+    inspectNodeIds.tokens.radiusControl,
+    inspectNodeIds.controls.menuDefault,
+  ],
+  [
+    inspectNodeIds.tokens.radiusControl,
+    inspectNodeIds.controls.menuOpen,
+  ],
+  [
+    inspectNodeIds.tokens.radiusControl,
+    inspectNodeIds.controls.menuOpenHover,
+  ],
+  [
+    inspectNodeIds.tokens.radiusControl,
+    inspectNodeIds.controls.fieldDefault,
+  ],
+  [
+    inspectNodeIds.tokens.radiusControl,
+    inspectNodeIds.controls.fieldError,
+  ],
+  [
+    inspectNodeIds.tokens.radiusControl,
+    inspectNodeIds.controls.fieldErrorFocus,
+  ],
+  [
+    inspectNodeIds.tokens.radiusControl,
+    inspectNodeIds.controls.fieldDisabled,
+  ],
+  [
+    inspectNodeIds.tokens.radiusPill,
+    inspectNodeIds.controls.circlePrimary,
+  ],
+  [
+    inspectNodeIds.tokens.radiusPill,
+    inspectNodeIds.controls.circleSecondary,
+  ],
+  [
+    inspectNodeIds.tokens.radiusPill,
+    inspectNodeIds.controls.circleDanger,
+  ],
+  [
+    inspectNodeIds.tokens.radiusPill,
+    inspectNodeIds.controls.circleStateDefault,
+  ],
+  [
+    inspectNodeIds.tokens.radiusPill,
+    inspectNodeIds.controls.circleStateHover,
+  ],
+  [
+    inspectNodeIds.tokens.radiusPill,
+    inspectNodeIds.controls.circleStateFocus,
+  ],
+  [
+    inspectNodeIds.tokens.radiusPill,
+    inspectNodeIds.controls.circleStateActive,
+  ],
+  [
+    inspectNodeIds.tokens.radiusPill,
+    inspectNodeIds.controls.circleStateDisabled,
+  ],
+  [
+    inspectNodeIds.tokens.radiusPill,
+    inspectNodeIds.controls.swatchDefault,
+  ],
+  [
+    inspectNodeIds.tokens.radiusPill,
+    inspectNodeIds.controls.swatchSmall,
+  ],
+  [
+    inspectNodeIds.tokens.radiusPill,
+    inspectNodeIds.controls.swatchTrigger,
+  ],
+  [
+    inspectNodeIds.tokens.radiusPill,
+    inspectNodeIds.controls.swatchStateDefault,
+  ],
+  [
+    inspectNodeIds.tokens.radiusPill,
+    inspectNodeIds.controls.swatchStateHover,
+  ],
+  [
+    inspectNodeIds.tokens.radiusPill,
+    inspectNodeIds.controls.swatchStateFocus,
+  ],
+  [
+    inspectNodeIds.tokens.radiusPill,
+    inspectNodeIds.controls.swatchStateSelected,
+  ],
+  [
+    inspectNodeIds.tokens.radiusPill,
+    inspectNodeIds.controls.swatchStateOccupied,
+  ],
+  [
+    inspectNodeIds.tokens.radiusPill,
+    inspectNodeIds.controls.swatchStatePending,
+  ],
+  [
+    inspectNodeIds.tokens.radiusPill,
+    inspectNodeIds.controls.swatchStateDisabled,
+  ],
+  [
+    "token / surface / primary fill / --ui-color-surface-accent",
+    inspectNodeIds.controls.primaryDefault,
+  ],
+  [
+    "token / surface / primary fill / --ui-color-surface-accent",
+    inspectNodeIds.controls.primarySmall,
+  ],
+  [
+    "token / surface / primary fill / --ui-color-surface-accent",
+    inspectNodeIds.controls.primaryCompact,
+  ],
+  [
+    "token / border / primary idle / --ui-color-border-accent",
+    inspectNodeIds.controls.primaryDefault,
+  ],
+  [
+    "token / border / primary idle / --ui-color-border-accent",
+    inspectNodeIds.controls.primarySmall,
+  ],
+  [
+    "token / border / primary idle / --ui-color-border-accent",
+    inspectNodeIds.controls.primaryCompact,
+  ],
+  [
+    "token / surface / secondary base / --ui-color-surface-inset",
+    inspectNodeIds.controls.secondaryDefault,
+  ],
+  [
+    "token / surface / secondary base / --ui-color-surface-inset",
+    inspectNodeIds.controls.secondarySmall,
+  ],
+  [
+    "token / surface / secondary base / --ui-color-surface-inset",
+    inspectNodeIds.controls.secondaryCompact,
+  ],
+  [
+    "token / border / default / --ui-color-border-default",
+    inspectNodeIds.controls.secondaryDefault,
+  ],
+  [
+    "token / border / default / --ui-color-border-default",
+    inspectNodeIds.controls.secondarySmall,
+  ],
+  [
+    "token / border / default / --ui-color-border-default",
+    inspectNodeIds.controls.secondaryCompact,
+  ],
+  [
+    "token / text / secondary button text / --ui-color-text-secondary",
+    inspectNodeIds.controls.secondaryDefault,
+  ],
+  [
+    "token / text / secondary button text / --ui-color-text-secondary",
+    inspectNodeIds.controls.secondarySmall,
+  ],
+  [
+    "token / text / secondary button text / --ui-color-text-secondary",
+    inspectNodeIds.controls.secondaryCompact,
+  ],
+  [
+    "token / border / error state / --ui-color-border-danger",
+    inspectNodeIds.controls.dangerDefault,
+  ],
+  [
+    "token / border / error state / --ui-color-border-danger",
+    inspectNodeIds.controls.dangerSmall,
+  ],
+  [
+    "token / border / error state / --ui-color-border-danger",
+    inspectNodeIds.controls.dangerCompact,
+  ],
+  [
+    "token / text / destructive action / --ui-color-text-danger",
+    inspectNodeIds.controls.dangerDefault,
+  ],
+  [
+    "token / text / destructive action / --ui-color-text-danger",
+    inspectNodeIds.controls.dangerSmall,
+  ],
+  [
+    "token / text / destructive action / --ui-color-text-danger",
+    inspectNodeIds.controls.dangerCompact,
+  ],
+  [
+    "token / treatment / focus-visible layer / --ui-color-focus-ring",
+    inspectNodeIds.controls.ordinaryFocus,
+  ],
+  [
+    "token / treatment / focus-visible layer / --ui-color-focus-ring",
+    inspectNodeIds.controls.fieldErrorFocus,
+  ],
+  [
+    "token / treatment / shared disabled opacity / --ui-control-opacity-disabled",
+    inspectNodeIds.controls.ordinaryDisabled,
+  ],
+  [
+    "token / treatment / shared disabled opacity / --ui-control-opacity-disabled",
+    inspectNodeIds.controls.fieldDisabled,
+  ],
+  [
+    "token / treatment / shared busy opacity / --ui-control-opacity-loading",
+    inspectNodeIds.controls.ordinaryLoading,
+  ],
+  [
+    "token / treatment / trigger held state / --ui-button-secondary-surface-open",
+    inspectNodeIds.controls.menuOpen,
+  ],
+  [
+    "token / treatment / trigger held state / --ui-button-secondary-surface-open",
+    inspectNodeIds.controls.menuOpenHover,
+  ],
+  [
+    "token / surface / secondary base / --ui-color-surface-inset",
+    inspectNodeIds.controls.menuDefault,
+  ],
+  [
+    "token / border / default / --ui-color-border-default",
+    inspectNodeIds.controls.menuDefault,
+  ],
+  [
+    "token / surface / secondary base / --ui-color-surface-inset",
+    inspectNodeIds.controls.fieldDefault,
+  ],
+  [
+    "token / border / default / --ui-color-border-default",
+    inspectNodeIds.controls.fieldDefault,
+  ],
+  [
+    "token / treatment / field error border / --ui-field-border-error",
+    inspectNodeIds.controls.fieldError,
+  ],
+  [
+    "token / treatment / field error border / --ui-field-border-error",
+    inspectNodeIds.controls.fieldErrorFocus,
+  ],
+  ...PARTICIPANT_COLOR_OPTIONS.flatMap((color, index) => [
+    [
+      `participantColor / palette / slot-${index + 1} / ${color}`,
+      inspectNodeIds.participantAccentPrimary(color),
+    ] as [InspectNodeId, InspectNodeId],
+    [
+      `participantColor / palette / slot-${index + 1} / ${color}`,
+      inspectNodeIds.participantAccentSecondary(color),
+    ] as [InspectNodeId, InspectNodeId],
+  ]),
+];
+
+function getPreviewButtonProps(recipe: ButtonRecipe, state: PreviewButtonState = {}) {
+  const buttonProps = getButtonProps(recipe, state);
+  const baseStyle = recipe.style as CSSVariableProperties;
+  const previewStyle: CSSVariableProperties = {
+    ...baseStyle,
+    outline: "none",
+  };
+
+  if (state.loading) {
+    previewStyle["--ui-button-surface-current"] = "var(--ui-button-surface-loading)";
+    previewStyle["--ui-button-border-current"] = "var(--ui-button-border-loading)";
+    previewStyle["--ui-button-text-current"] = "var(--ui-button-text-loading)";
+    previewStyle.opacity = "var(--ui-control-opacity-loading)";
+  } else if (state.disabled) {
+    previewStyle["--ui-button-surface-current"] = "var(--ui-button-surface-disabled)";
+    previewStyle["--ui-button-border-current"] = "var(--ui-button-border-disabled)";
+    previewStyle["--ui-button-text-current"] = "var(--ui-button-text-disabled)";
+    previewStyle.opacity = "var(--ui-control-opacity-disabled)";
+  } else if (state.selected && state.active) {
+    previewStyle["--ui-button-surface-current"] =
+      "var(--ui-button-surface-selected-active)";
+    previewStyle["--ui-button-border-current"] = "var(--ui-button-border-selected-active)";
+    previewStyle["--ui-button-text-current"] = "var(--ui-button-text-selected-active)";
+  } else if (state.selected && state.hover) {
+    previewStyle["--ui-button-surface-current"] =
+      "var(--ui-button-surface-selected-hover)";
+    previewStyle["--ui-button-border-current"] = "var(--ui-button-border-selected-hover)";
+    previewStyle["--ui-button-text-current"] = "var(--ui-button-text-selected-hover)";
+  } else if (state.selected) {
+    previewStyle["--ui-button-surface-current"] = "var(--ui-button-surface-selected)";
+    previewStyle["--ui-button-border-current"] = "var(--ui-button-border-selected)";
+    previewStyle["--ui-button-text-current"] = "var(--ui-button-text-selected)";
+  } else if (state.open && state.active) {
+    previewStyle["--ui-button-surface-current"] = "var(--ui-button-surface-open-active)";
+    previewStyle["--ui-button-border-current"] = "var(--ui-button-border-open-active)";
+    previewStyle["--ui-button-text-current"] = "var(--ui-button-text-open-active)";
+  } else if (state.open && state.hover) {
+    previewStyle["--ui-button-surface-current"] = "var(--ui-button-surface-open-hover)";
+    previewStyle["--ui-button-border-current"] = "var(--ui-button-border-open-hover)";
+    previewStyle["--ui-button-text-current"] = "var(--ui-button-text-open-hover)";
+  } else if (state.open) {
+    previewStyle["--ui-button-surface-current"] = "var(--ui-button-surface-open)";
+    previewStyle["--ui-button-border-current"] = "var(--ui-button-border-open)";
+    previewStyle["--ui-button-text-current"] = "var(--ui-button-text-open)";
+  } else if (state.active) {
+    previewStyle["--ui-button-surface-current"] = "var(--ui-button-surface-active)";
+    previewStyle["--ui-button-border-current"] = "var(--ui-button-border-active)";
+    previewStyle["--ui-button-text-current"] = "var(--ui-button-text-active)";
+  } else if (state.hover) {
+    previewStyle["--ui-button-surface-current"] = "var(--ui-button-surface-hover)";
+    previewStyle["--ui-button-border-current"] = "var(--ui-button-border-hover)";
+    previewStyle["--ui-button-text-current"] = "var(--ui-button-text-hover)";
+  }
+
+  return {
+    ...buttonProps,
+    style: {
+      ...previewStyle,
+      boxShadow: state.focusVisible ? `0 0 0 3px ${focusRing.default}` : undefined,
+    } satisfies CSSVariableProperties,
+  } as const;
+}
+
+function getPreviewFieldShellStyle(
+  recipe: (typeof fieldRecipes)["default"] | (typeof fieldRecipes)["small"],
+  state: PreviewFieldState = {}
+) {
+  const shellProps = getFieldShellProps(recipe.shell, {
+    disabled: state.disabled,
+    invalid: state.invalid,
+  });
+  const shellStyle: CSSVariableProperties = {
+    ...(shellProps.style as CSSVariableProperties),
+    outline: "none",
+  };
+
+  if (state.disabled) {
+    shellStyle["--ui-field-surface-current"] = "var(--ui-field-surface-disabled)";
+    shellStyle["--ui-field-border-current"] = "var(--ui-field-border-disabled)";
+    shellStyle["--ui-field-text-current"] = "var(--ui-field-text-disabled)";
+    shellStyle.opacity = "var(--ui-control-opacity-disabled)";
+    return {
+      ...shellProps,
+      style: shellStyle,
+    } as const;
+  }
+
+  if (state.hover) {
+    shellStyle["--ui-field-surface-current"] = "var(--ui-field-surface-hover)";
+    shellStyle["--ui-field-border-current"] = "var(--ui-field-border-hover)";
+    shellStyle["--ui-field-text-current"] = "var(--ui-field-text-default)";
+  }
+
+  if (state.invalid) {
+    shellStyle["--ui-field-surface-current"] = "var(--ui-field-surface-error)";
+    shellStyle["--ui-field-border-current"] = "var(--ui-field-border-error)";
+    shellStyle["--ui-field-text-current"] = "var(--ui-field-text-error)";
+  }
+
+  if (state.focusVisible) {
+    shellStyle["--ui-field-border-current"] = state.invalid
+      ? "var(--ui-field-border-error)"
+      : "var(--ui-field-border-focus)";
+    shellStyle.boxShadow = `0 0 0 3px ${focusRing.default}`;
+  }
+
+  return {
+    ...shellProps,
+    style: shellStyle,
+  } as const;
+}
+
+function getPreviewSwatchProps(
+  recipe: SwatchRecipe,
+  state: PreviewSwatchState
+) {
+  const swatchProps = getSwatchButtonProps(recipe, {
+    fillColor: "#38bdf8",
+    selected: state.selected,
+    occupied: state.occupied,
+    pending: state.pending,
+    disabled: state.disabled,
+  });
+
+  const existingBoxShadow =
+    typeof swatchProps.style.boxShadow === "string" ? swatchProps.style.boxShadow : "";
+  const focusBoxShadow = state.focusVisible ? `0 0 0 3px ${focusRing.default}` : "";
+
+  return {
+    ...swatchProps,
+    style: {
+      ...swatchProps.style,
+      filter: state.hover ? "brightness(1.04)" : undefined,
+      boxShadow: [focusBoxShadow, existingBoxShadow].filter(Boolean).join(", ") || undefined,
+    } satisfies CSSVariableProperties,
+  } as const;
+}
+
+function DebugLabel({ children }: { children: ReactNode }) {
+  return <div style={inlineTextRecipes.muted.style}>{children}</div>;
+}
+
+function buildPreviewInspectNodeId(meta: {
+  family?: string;
+  variant?: string;
+  size?: string;
+  subtype?: string;
+}, label: string) {
+  return [
+    "preview",
+    meta.family,
+    meta.variant,
+    meta.size,
+    meta.subtype,
+    label,
+  ]
+    .filter((part): part is string => typeof part === "string" && part.length > 0)
+    .join(" / ");
+}
+
+function getInspectContainerStyle(
+  baseStyle: CSSProperties,
+  relation: InspectRelation = "idle"
+): CSSProperties {
+  const idleStyle: CSSProperties = {
+    ...baseStyle,
+    borderColor: "transparent",
+    boxShadow: "none",
+    background: "transparent",
+    opacity: 1,
+    filter: "none",
+  };
+
+  if (relation === "selected") {
+    return {
+      ...idleStyle,
+      borderColor: "rgba(226, 232, 240, 0.9)",
+      boxShadow: "0 0 0 2px rgba(226, 232, 240, 0.32)",
+      background: "rgba(30, 41, 59, 0.22)",
+    };
+  }
+
+  if (relation === "upstream") {
+    return {
+      ...idleStyle,
+      borderColor: "rgba(56, 189, 248, 0.78)",
+      boxShadow: "0 0 0 2px rgba(56, 189, 248, 0.2)",
+    };
+  }
+
+  if (relation === "downstream") {
+    return {
+      ...idleStyle,
+      borderColor: "rgba(251, 191, 36, 0.82)",
+      boxShadow: "0 0 0 2px rgba(251, 191, 36, 0.18)",
+    };
+  }
+
+  if (relation === "unrelated") {
+    return {
+      ...idleStyle,
+      opacity: 0.32,
+      filter: "saturate(0.72)",
+    };
+  }
+
+  return idleStyle;
+}
+
+function getAggregateInspectRelation(
+  relations: readonly InspectRelation[]
+): InspectRelation {
+  if (relations.length === 0) {
+    return "idle";
+  }
+
+  let hasUpstream = false;
+  let hasDownstream = false;
+  let hasUnrelated = false;
+
+  for (const relation of relations) {
+    if (relation === "selected") {
+      return "selected";
+    }
+
+    if (relation === "upstream") {
+      hasUpstream = true;
+      continue;
+    }
+
+    if (relation === "downstream") {
+      hasDownstream = true;
+      continue;
+    }
+
+    if (relation === "unrelated") {
+      hasUnrelated = true;
+    }
+  }
+
+  if (hasUpstream) {
+    return "upstream";
+  }
+
+  if (hasDownstream) {
+    return "downstream";
+  }
+
+  if (hasUnrelated) {
+    return "unrelated";
+  }
+
+  return "idle";
+}
+
+function getInspectHeaderStyle(
+  baseStyle: CSSProperties,
+  relation: InspectRelation
+): CSSProperties {
+  if (relation === "unrelated") {
+    return {
+      ...baseStyle,
+      opacity: 0.4,
+      filter: "saturate(0.72)",
+    };
+  }
+
+  if (relation === "selected") {
+    return {
+      ...baseStyle,
+      color: text.primary,
+    };
+  }
+
+  if (relation === "upstream") {
+    return {
+      ...baseStyle,
+      color: "#7dd3fc",
+    };
+  }
+
+  if (relation === "downstream") {
+    return {
+      ...baseStyle,
+      color: "#fcd34d",
+    };
+  }
+
+  return baseStyle;
+}
+
+function InspectableContainer({
+  nodeId,
+  relation = "idle",
+  onSelect,
+  baseStyle,
+  children,
+}: {
+  nodeId?: InspectNodeId;
+  relation?: InspectRelation;
+  onSelect?: (nodeId: InspectNodeId) => void;
+  baseStyle: CSSProperties;
+  children: ReactNode;
+}) {
+  const aggregate = useContext(SandboxInspectAggregateContext);
+  const aggregateChildId = useId();
+
+  useEffect(() => {
+    aggregate?.reportChildRelation(aggregateChildId, relation);
+
+    return () => {
+      aggregate?.reportChildRelation(aggregateChildId, "idle");
+    };
+  }, [aggregate, aggregateChildId, relation]);
+
+  return (
+    <div
+      data-sandbox-inspect-node-id={nodeId}
+      style={getInspectContainerStyle(baseStyle, relation)}
+      onClick={
+        nodeId && onSelect
+          ? (event) => {
+              event.stopPropagation();
+              onSelect(nodeId);
+            }
+          : undefined
+      }
+    >
+      {children}
+    </div>
+  );
+}
+
+function TokenInventoryColumn({
+  title,
+  recipeLabel,
+  items,
+}: {
+  title: string;
+  recipeLabel: string;
+  items: readonly TokenInventoryItem[];
+}) {
+  const inspect = useContext(SandboxInspectContext);
+
+  return (
+    <PreviewCard
+      title={title}
+      recipeLabel={recipeLabel}
+    >
+      <div style={tokenColumnStyle}>
+        {items.map((item) => (
+          <InspectableContainer
+            key={item.label}
+            nodeId={item.meta.label}
+            relation={inspect.getInspectRelation(item.meta.label)}
+            onSelect={inspect.onInspectSelect}
+            baseStyle={inspectableContainerBaseStyle}
+          >
+            <div
+              style={tokenItemStyle}
+              {...getDesignSystemDebugAttrs(item.meta)}
+            >
+              <div
+                style={
+                  item.unframedSwatch
+                    ? {
+                        width: item.swatchContainerStyle?.width ?? 36,
+                        height: item.swatchContainerStyle?.height ?? 24,
+                        display: "grid",
+                        placeItems: "center",
+                        ...(item.swatchContainerStyle ?? null),
+                      }
+                    : { ...tokenChipStyle, ...item.swatchStyle }
+                }
+              >
+                {item.swatchContent}
+              </div>
+              <div style={tokenTextStackStyle}>
+                <div style={tokenNameStyle}>{item.label}</div>
+                <div style={tokenHintStyle}>{item.hint}</div>
+              </div>
+            </div>
+          </InspectableContainer>
+        ))}
+      </div>
+    </PreviewCard>
+  );
+}
+
+function SectionCard({
+  title,
+  description,
+  children,
+}: {
+  title: string;
+  description: string;
+  children: ReactNode;
+}) {
+  const aggregate = useContext(SandboxInspectAggregateContext);
+  const aggregateId = useId();
+  const [childRelations, setChildRelations] = useState<Record<string, InspectRelation>>({});
+
+  const headerRelation = useMemo(
+    () => getAggregateInspectRelation(Object.values(childRelations)),
+    [childRelations]
+  );
+
+  useEffect(() => {
+    aggregate?.reportChildRelation(aggregateId, headerRelation);
+
+    return () => {
+      aggregate?.reportChildRelation(aggregateId, "idle");
+    };
+  }, [aggregate, aggregateId, headerRelation]);
+
+  const aggregateValue = useMemo(
+    () => ({
+      reportChildRelation: (childId: string, relation: InspectRelation) => {
+        setChildRelations((current) => {
+          if (current[childId] === relation) {
+            return current;
+          }
+
+          return {
+            ...current,
+            [childId]: relation,
+          };
+        });
+      },
+    }),
+    []
+  );
+
+  return (
+    <SandboxInspectAggregateContext.Provider value={aggregateValue}>
+      <section
+        className={surfaceRecipes.panel.default.className}
+        style={surfaceRecipes.panel.default.style}
+        {...getDesignSystemDebugAttrs(surfaceRecipes.panel.default.debug)}
+      >
+        <div style={sectionGridStyle}>
+          <div style={headerGridStyle}>
+            <div style={getInspectHeaderStyle(sectionHeadingStyle, headerRelation)}>
+              {title}
+            </div>
+            <div style={getInspectHeaderStyle(sectionDescriptionStyle, headerRelation)}>
+              {description}
+            </div>
+          </div>
+          {children}
+        </div>
+      </section>
+    </SandboxInspectAggregateContext.Provider>
+  );
+}
+
+function PreviewCard({
+  title,
+  recipeLabel,
+  children,
+}: {
+  title: string;
+  recipeLabel: string;
+  children: ReactNode;
+}) {
+  const aggregate = useContext(SandboxInspectAggregateContext);
+  const aggregateId = useId();
+  const [childRelations, setChildRelations] = useState<Record<string, InspectRelation>>({});
+
+  const headerRelation = useMemo(
+    () => getAggregateInspectRelation(Object.values(childRelations)),
+    [childRelations]
+  );
+
+  useEffect(() => {
+    aggregate?.reportChildRelation(aggregateId, headerRelation);
+
+    return () => {
+      aggregate?.reportChildRelation(aggregateId, "idle");
+    };
+  }, [aggregate, aggregateId, headerRelation]);
+
+  const aggregateValue = useMemo(
+    () => ({
+      reportChildRelation: (childId: string, relation: InspectRelation) => {
+        setChildRelations((current) => {
+          if (current[childId] === relation) {
+            return current;
+          }
+
+          return {
+            ...current,
+            [childId]: relation,
+          };
+        });
+      },
+    }),
+    []
+  );
+
+  return (
+    <SandboxInspectAggregateContext.Provider value={aggregateValue}>
+      <div
+        className={surfaceRecipes.inset.default.className}
+        style={surfaceRecipes.inset.default.style}
+        {...getDesignSystemDebugAttrs(surfaceRecipes.inset.default.debug)}
+      >
+        <div style={getInspectHeaderStyle(cardTitleStyle, headerRelation)}>{title}</div>
+        <DebugLabel>
+          <span style={getInspectHeaderStyle(inlineTextRecipes.muted.style, headerRelation)}>
+            {recipeLabel}
+          </span>
+        </DebugLabel>
+        <div style={controlStackStyle}>{children}</div>
+      </div>
+    </SandboxInspectAggregateContext.Provider>
+  );
+}
+
+function ButtonPreview({
+  recipe,
+  state,
+  label,
+  buttonChildren,
+  inspectNodeId,
+  inspectRelation,
+  onInspectSelect,
+}: {
+  recipe: ButtonRecipe;
+  state?: PreviewButtonState;
+  label: string;
+  buttonChildren?: ReactNode;
+} & InspectableProps) {
+  const inspect = useContext(SandboxInspectContext);
+  const previewProps = getPreviewButtonProps(recipe, state);
+  const resolvedInspectNodeId =
+    inspectNodeId ?? buildPreviewInspectNodeId(recipe.debug, label);
+
+  return (
+    <InspectableContainer
+      nodeId={resolvedInspectNodeId}
+      relation={inspectRelation ?? inspect.getInspectRelation(resolvedInspectNodeId)}
+      onSelect={onInspectSelect ?? inspect.onInspectSelect}
+      baseStyle={inspectableContainerBaseStyle}
+    >
+      <div style={controlStackStyle}>
+        <div style={fieldLabelStyle}>{label}</div>
+        <button type="button" {...previewProps} {...getDesignSystemDebugAttrs(recipe.debug)}>
+          {state?.loading ? "Loading…" : buttonChildren ?? "Example action"}
+        </button>
+      </div>
+    </InspectableContainer>
+  );
+}
+
+function LiveButtonPreview({
+  recipe,
+  label,
+  children = "Example action",
+  inspectNodeId,
+  inspectRelation,
+  onInspectSelect,
+}: {
+  recipe: ButtonRecipe;
+  label: string;
+  children?: ReactNode;
+} & InspectableProps) {
+  const inspect = useContext(SandboxInspectContext);
+  const [clickCount, setClickCount] = useState(0);
+  const resolvedInspectNodeId =
+    inspectNodeId ?? buildPreviewInspectNodeId(recipe.debug, label);
+
+  return (
+    <InspectableContainer
+      nodeId={resolvedInspectNodeId}
+      relation={inspectRelation ?? inspect.getInspectRelation(resolvedInspectNodeId)}
+      onSelect={onInspectSelect ?? inspect.onInspectSelect}
+      baseStyle={inspectableContainerBaseStyle}
+    >
+      <div style={controlStackStyle}>
+        <div style={fieldLabelStyle}>{label}</div>
+        <button
+          type="button"
+          {...getButtonProps(recipe)}
+          {...getDesignSystemDebugAttrs(recipe.debug)}
+          onClick={() => {
+            setClickCount((value) => value + 1);
+          }}
+        >
+          {children}
+        </button>
+        <DebugLabel>Clicks: {clickCount}</DebugLabel>
+      </div>
+    </InspectableContainer>
+  );
+}
+
+function LiveParticipantAccentButtonPreview({
+  baseRecipe,
+  accent,
+  mode,
+  label,
+  children,
+  inspectNodeId,
+  inspectRelation,
+  onInspectSelect,
+}: {
+  baseRecipe: ButtonRecipe;
+  accent: string;
+  mode: "fill" | "border";
+  label: string;
+  children: ReactNode;
+} & InspectableProps) {
+  const inspect = useContext(SandboxInspectContext);
+  const [clickCount, setClickCount] = useState(0);
+  const recipe = createParticipantAccentButtonRecipeWithMode(baseRecipe, accent, mode);
+  const resolvedInspectNodeId =
+    inspectNodeId ??
+    buildPreviewInspectNodeId(
+      { ...recipe.debug, subtype: `${recipe.debug.subtype ?? "participantAccent"}:${accent}` },
+      label
+    );
+
+  return (
+    <InspectableContainer
+      nodeId={resolvedInspectNodeId}
+      relation={inspectRelation ?? inspect.getInspectRelation(resolvedInspectNodeId)}
+      onSelect={onInspectSelect ?? inspect.onInspectSelect}
+      baseStyle={inspectableContainerBaseStyle}
+    >
+      <div style={controlStackStyle}>
+        <div style={fieldLabelStyle}>{label}</div>
+        <button
+          type="button"
+          {...getButtonProps(recipe)}
+          {...getDesignSystemDebugAttrs(recipe.debug)}
+          onClick={() => {
+            setClickCount((value) => value + 1);
+          }}
+        >
+          {children}
+        </button>
+        <DebugLabel>{accent}</DebugLabel>
+        <DebugLabel>Clicks: {clickCount}</DebugLabel>
+      </div>
+    </InspectableContainer>
+  );
+}
+
+function TextButtonPreview({
+  label,
+  tone,
+  state,
+  inspectNodeId,
+  inspectRelation,
+  onInspectSelect,
+}: {
+  label: string;
+  tone: "muted" | "secondary" | "danger";
+  state?: PreviewButtonState;
+} & InspectableProps) {
+  const inspect = useContext(SandboxInspectContext);
+  const recipe = createTextButtonRecipe(buttonRecipes.secondary.compact, tone);
+  const previewProps = getPreviewButtonProps(recipe, state);
+  const resolvedInspectNodeId =
+    inspectNodeId ?? buildPreviewInspectNodeId(recipe.debug, `${tone}:${label}`);
+
+  return (
+    <InspectableContainer
+      nodeId={resolvedInspectNodeId}
+      relation={inspectRelation ?? inspect.getInspectRelation(resolvedInspectNodeId)}
+      onSelect={onInspectSelect ?? inspect.onInspectSelect}
+      baseStyle={inspectableContainerBaseStyle}
+    >
+      <div style={controlStackStyle}>
+        <div style={fieldLabelStyle}>{label}</div>
+        <button type="button" {...previewProps} {...getDesignSystemDebugAttrs(recipe.debug)}>
+          Inline action
+        </button>
+      </div>
+    </InspectableContainer>
+  );
+}
+
+function LiveTextButtonPreview({
+  label,
+  tone,
+  inspectNodeId,
+  inspectRelation,
+  onInspectSelect,
+}: {
+  label: string;
+  tone: "muted" | "secondary" | "danger";
+} & InspectableProps) {
+  const inspect = useContext(SandboxInspectContext);
+  const [clickCount, setClickCount] = useState(0);
+  const recipe = createTextButtonRecipe(buttonRecipes.secondary.compact, tone);
+  const resolvedInspectNodeId =
+    inspectNodeId ?? buildPreviewInspectNodeId(recipe.debug, `${tone}:${label}`);
+
+  return (
+    <InspectableContainer
+      nodeId={resolvedInspectNodeId}
+      relation={inspectRelation ?? inspect.getInspectRelation(resolvedInspectNodeId)}
+      onSelect={onInspectSelect ?? inspect.onInspectSelect}
+      baseStyle={inspectableContainerBaseStyle}
+    >
+      <div style={controlStackStyle}>
+        <div style={fieldLabelStyle}>{label}</div>
+        <button
+          type="button"
+          {...getButtonProps(recipe)}
+          {...getDesignSystemDebugAttrs(recipe.debug)}
+          onClick={() => {
+            setClickCount((value) => value + 1);
+          }}
+        >
+          Inline action
+        </button>
+        <DebugLabel>Clicks: {clickCount}</DebugLabel>
+      </div>
+    </InspectableContainer>
+  );
+}
+
+function FieldPreview({
+  label,
+  recipe,
+  state,
+  mode = "input",
+  inspectNodeId,
+  inspectRelation,
+  onInspectSelect,
+}: {
+  label: string;
+  recipe: (typeof fieldRecipes)["default"] | (typeof fieldRecipes)["small"];
+  state?: PreviewFieldState;
+  mode?: "input" | "select";
+} & InspectableProps) {
+  const inspect = useContext(SandboxInspectContext);
+  const shellProps = getPreviewFieldShellStyle(recipe, state);
+  const resolvedInspectNodeId =
+    inspectNodeId ?? buildPreviewInspectNodeId(recipe.shell.debug ?? {}, label);
+
+  return (
+    <InspectableContainer
+      nodeId={resolvedInspectNodeId}
+      relation={inspectRelation ?? inspect.getInspectRelation(resolvedInspectNodeId)}
+      onSelect={onInspectSelect ?? inspect.onInspectSelect}
+      baseStyle={inspectableContainerBaseStyle}
+    >
+      <div style={controlStackStyle}>
+        <div style={fieldLabelStyle}>{label}</div>
+        <div
+          {...shellProps}
+          {...getDesignSystemDebugAttrs(recipe.shell.debug)}
+        >
+          {mode === "select" && recipe.select ? (
+            <select
+              className={recipe.select.className}
+              style={recipe.select.style}
+              disabled={state?.disabled}
+              defaultValue="alpha"
+            >
+              <option value="alpha">Alpha room</option>
+              <option value="beta">Beta room</option>
+            </select>
+          ) : (
+            <input
+              className={recipe.input.className}
+              style={recipe.input.style}
+              disabled={state?.disabled}
+              defaultValue={state?.invalid ? "Blocked name" : "Player name"}
+              aria-invalid={state?.invalid ? "true" : undefined}
+            />
+          )}
+        </div>
+      </div>
+    </InspectableContainer>
+  );
+}
+
+function LiveSwatchPreview({
+  label,
+  recipe,
+  fillColor,
+  inspectNodeId,
+  inspectRelation,
+  onInspectSelect,
+}: {
+  label: string;
+  recipe: SwatchRecipe;
+  fillColor: string;
+} & InspectableProps) {
+  const inspect = useContext(SandboxInspectContext);
+  const [selected, setSelected] = useState(false);
+  const swatchProps = getSwatchButtonProps(recipe, {
+    fillColor,
+    selected,
+  });
+  const resolvedInspectNodeId =
+    inspectNodeId ?? buildPreviewInspectNodeId(recipe.debug, label);
+
+  return (
+    <InspectableContainer
+      nodeId={resolvedInspectNodeId}
+      relation={inspectRelation ?? inspect.getInspectRelation(resolvedInspectNodeId)}
+      onSelect={onInspectSelect ?? inspect.onInspectSelect}
+      baseStyle={inspectableContainerBaseStyle}
+    >
+      <div style={controlStackStyle}>
+        <div style={fieldLabelStyle}>{label}</div>
+        <button
+          type="button"
+          aria-label={label}
+          {...swatchProps}
+          {...getDesignSystemDebugAttrs(recipe.debug)}
+          onClick={() => {
+            setSelected((value) => !value);
+          }}
+        />
+        <DebugLabel>{selected ? "Selected" : "Unselected"}</DebugLabel>
+      </div>
+    </InspectableContainer>
+  );
+}
+
+function SwatchPreview({
+  label,
+  recipe,
+  state,
+  inspectNodeId,
+  inspectRelation,
+  onInspectSelect,
+}: {
+  label: string;
+  recipe: SwatchRecipe;
+  state: PreviewSwatchState;
+} & InspectableProps) {
+  const inspect = useContext(SandboxInspectContext);
+  const swatchProps = getPreviewSwatchProps(recipe, state);
+  const resolvedInspectNodeId =
+    inspectNodeId ?? buildPreviewInspectNodeId(recipe.debug, label);
+
+  return (
+    <InspectableContainer
+      nodeId={resolvedInspectNodeId}
+      relation={inspectRelation ?? inspect.getInspectRelation(resolvedInspectNodeId)}
+      onSelect={onInspectSelect ?? inspect.onInspectSelect}
+      baseStyle={inspectableContainerBaseStyle}
+    >
+      <div style={controlStackStyle}>
+        <div style={fieldLabelStyle}>{label}</div>
+        <button
+          type="button"
+          aria-label={label}
+          {...swatchProps}
+          {...getDesignSystemDebugAttrs(recipe.debug)}
+        />
+      </div>
+    </InspectableContainer>
+  );
+}
+
+function LiveCanvasButtonPreview({
+  label,
+  recipe,
+  inspectNodeId,
+  inspectRelation,
+  onInspectSelect,
+}: {
+  label: string;
+  recipe: ButtonRecipe;
+} & InspectableProps) {
+  const inspect = useContext(SandboxInspectContext);
+  const [hover, setHover] = useState(false);
+  const [active, setActive] = useState(false);
+  const [clickCount, setClickCount] = useState(0);
+  const tone = resolveCanvasButtonTone(recipe, {
+    hover,
+    active,
+  });
+  const metrics = resolveCanvasButtonMetrics(recipe);
+  const width = Math.max(
+    metrics.minWidth ?? 0,
+    Math.ceil(label.length * metrics.fontSize * 0.62 + metrics.paddingX * 2)
+  );
+  const height = metrics.minHeight;
+  const radiusValue = Math.min(height / 2, metrics.borderRadius);
+  const resolvedInspectNodeId =
+    inspectNodeId ?? buildPreviewInspectNodeId(recipe.debug, label);
+
+  return (
+    <InspectableContainer
+      nodeId={resolvedInspectNodeId}
+      relation={inspectRelation ?? inspect.getInspectRelation(resolvedInspectNodeId)}
+      onSelect={onInspectSelect ?? inspect.onInspectSelect}
+      baseStyle={inspectableContainerBaseStyle}
+    >
+      <div style={controlStackStyle}>
+        <div style={fieldLabelStyle}>{label}</div>
+        <button
+          type="button"
+          onClick={() => {
+            setClickCount((value) => value + 1);
+          }}
+          onMouseEnter={() => {
+            setHover(true);
+          }}
+          onMouseLeave={() => {
+            setHover(false);
+            setActive(false);
+          }}
+          onMouseDown={() => {
+            setActive(true);
+          }}
+          onMouseUp={() => {
+            setActive(false);
+          }}
+          onBlur={() => {
+            setActive(false);
+            setHover(false);
+          }}
+          style={{
+            padding: 0,
+            border: 0,
+            background: "transparent",
+            cursor: "pointer",
+          }}
+          {...getDesignSystemDebugAttrs(recipe.debug)}
+        >
+          <svg
+            width={width}
+            height={height}
+            viewBox={`0 0 ${width} ${height}`}
+            role="img"
+            aria-label={label}
+          >
+            <rect
+              x="0.5"
+              y="0.5"
+              width={width - 1}
+              height={height - 1}
+              rx={radiusValue}
+              fill={tone.fill}
+              stroke={tone.stroke}
+            />
+            <text
+              x={width / 2}
+              y={height / 2}
+              fill={tone.textColor}
+              fontFamily={metrics.fontFamily}
+              fontSize={metrics.fontSize}
+              fontWeight={String(metrics.fontWeight)}
+              dominantBaseline="middle"
+              textAnchor="middle"
+            >
+              {label}
+            </text>
+          </svg>
+        </button>
+        <DebugLabel>Clicks: {clickCount}</DebugLabel>
+      </div>
+    </InspectableContainer>
+  );
+}
+
+function CanvasButtonPreview({
+  label,
+  recipe,
+  state,
+  inspectNodeId,
+  inspectRelation,
+  onInspectSelect,
+}: {
+  label: string;
+  recipe: ButtonRecipe;
+  state?: PreviewButtonState;
+} & InspectableProps) {
+  const inspect = useContext(SandboxInspectContext);
+  const tone = resolveCanvasButtonTone(recipe, {
+    disabled: state?.disabled,
+    selected: state?.selected,
+    open: state?.open,
+    hover: state?.hover,
+    active: state?.active,
+  });
+  const metrics = resolveCanvasButtonMetrics(recipe);
+  const width = Math.max(
+    metrics.minWidth ?? 0,
+    Math.ceil(label.length * metrics.fontSize * 0.62 + metrics.paddingX * 2)
+  );
+  const height = metrics.minHeight;
+  const outerInset = state?.focusVisible ? 4 : 0;
+  const svgWidth = width + outerInset * 2;
+  const svgHeight = height + outerInset * 2;
+  const radiusValue = Math.min(height / 2, metrics.borderRadius);
+  const resolvedInspectNodeId =
+    inspectNodeId ?? buildPreviewInspectNodeId(recipe.debug, label);
+
+  return (
+    <InspectableContainer
+      nodeId={resolvedInspectNodeId}
+      relation={inspectRelation ?? inspect.getInspectRelation(resolvedInspectNodeId)}
+      onSelect={onInspectSelect ?? inspect.onInspectSelect}
+      baseStyle={inspectableContainerBaseStyle}
+    >
+      <div style={controlStackStyle}>
+        <div style={fieldLabelStyle}>{label}</div>
+        <svg
+          width={svgWidth}
+          height={svgHeight}
+          viewBox={`0 0 ${svgWidth} ${svgHeight}`}
+          role="img"
+          aria-label={label}
+          {...getDesignSystemDebugAttrs(recipe.debug)}
+        >
+          {state?.focusVisible ? (
+            <rect
+              x="1.5"
+              y="1.5"
+              width={svgWidth - 3}
+              height={svgHeight - 3}
+              rx={radiusValue + 3}
+              fill="none"
+              stroke={focusRing.default}
+              strokeWidth="3"
+            />
+          ) : null}
+          <rect
+            x={outerInset + 0.5}
+            y={outerInset + 0.5}
+            width={width - 1}
+            height={height - 1}
+            rx={radiusValue}
+            fill={tone.fill}
+            stroke={tone.stroke}
+          />
+          <text
+            x={svgWidth / 2}
+            y={svgHeight / 2}
+            fill={tone.textColor}
+            fontFamily={metrics.fontFamily}
+            fontSize={metrics.fontSize}
+            fontWeight={String(metrics.fontWeight)}
+            dominantBaseline="middle"
+            textAnchor="middle"
+          >
+            {label}
+          </text>
+        </svg>
+      </div>
+    </InspectableContainer>
+  );
+}
+
+export function DesignSystemSandboxPage() {
+  const [selectedInspectNodeId, setSelectedInspectNodeId] =
+    useState<InspectNodeId | null>(null);
+  const pageShellRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const html = document.documentElement;
+    const body = document.body;
+    const root = document.getElementById("root");
+
+    const previousHtmlOverflow = html.style.overflow;
+    const previousBodyOverflow = body.style.overflow;
+    const previousRootHeight = root?.style.height ?? "";
+    const previousRootMinHeight = root?.style.minHeight ?? "";
+    const previousRootOverflow = root?.style.overflow ?? "";
+
+    html.style.overflow = "auto";
+    body.style.overflow = "auto";
+
+    if (root) {
+      root.style.height = "auto";
+      root.style.minHeight = "100vh";
+      root.style.overflow = "visible";
+    }
+
+    return () => {
+      html.style.overflow = previousHtmlOverflow;
+      body.style.overflow = previousBodyOverflow;
+
+      if (root) {
+        root.style.height = previousRootHeight;
+        root.style.minHeight = previousRootMinHeight;
+        root.style.overflow = previousRootOverflow;
+      }
+    };
+  }, []);
+
+  const inspectGraph = useMemo(() => {
+    const outgoing = new Map<InspectNodeId, InspectNodeId[]>();
+    const incoming = new Map<InspectNodeId, InspectNodeId[]>();
+
+    for (const [from, to] of inspectGraphEdges) {
+      const nextOutgoing = outgoing.get(from);
+      if (nextOutgoing) {
+        nextOutgoing.push(to);
+      } else {
+        outgoing.set(from, [to]);
+      }
+
+      const nextIncoming = incoming.get(to);
+      if (nextIncoming) {
+        nextIncoming.push(from);
+      } else {
+        incoming.set(to, [from]);
+      }
+    }
+
+    return { outgoing, incoming };
+  }, []);
+
+  const { upstreamNodeIds, downstreamNodeIds } = useMemo(() => {
+    if (!selectedInspectNodeId) {
+      return {
+        upstreamNodeIds: new Set<InspectNodeId>(),
+        downstreamNodeIds: new Set<InspectNodeId>(),
+      };
+    }
+
+    const collectReachable = (seed: InspectNodeId, graph: Map<InspectNodeId, InspectNodeId[]>) => {
+      const visited = new Set<InspectNodeId>();
+      const queue = [...(graph.get(seed) ?? [])];
+
+      while (queue.length > 0) {
+        const next = queue.shift();
+
+        if (!next || visited.has(next)) {
+          continue;
+        }
+
+        visited.add(next);
+
+        for (const linked of graph.get(next) ?? []) {
+          if (!visited.has(linked)) {
+            queue.push(linked);
+          }
+        }
+      }
+
+      return visited;
+    };
+
+    return {
+      upstreamNodeIds: collectReachable(selectedInspectNodeId, inspectGraph.incoming),
+      downstreamNodeIds: collectReachable(selectedInspectNodeId, inspectGraph.outgoing),
+    };
+  }, [inspectGraph, selectedInspectNodeId]);
+
+  const clearSandboxFocus = () => {
+    const activeElement = document.activeElement;
+
+    if (
+      activeElement instanceof HTMLElement &&
+      pageShellRef.current?.contains(activeElement)
+    ) {
+      activeElement.blur();
+    }
+  };
+
+  const handleInspectSelect = (nodeId: InspectNodeId) => {
+    clearSandboxFocus();
+    setSelectedInspectNodeId(nodeId);
+  };
+
+  const getInspectRelation = (nodeId?: InspectNodeId): InspectRelation => {
+    if (!selectedInspectNodeId || !nodeId) {
+      return "idle";
+    }
+
+    if (nodeId === selectedInspectNodeId) {
+      return "selected";
+    }
+
+    if (upstreamNodeIds.has(nodeId)) {
+      return "upstream";
+    }
+
+    if (downstreamNodeIds.has(nodeId)) {
+      return "downstream";
+    }
+
+    return "unrelated";
+  };
+
+  const toggleRecipe = createToggleButtonRecipe(buttonRecipes.secondary.small);
+  const menuTriggerRecipe = buttonRecipes.secondary.small;
+  const participantPrimaryRecipe = buttonRecipes.primary.default;
+  const participantSecondaryRecipe = buttonRecipes.secondary.default;
+
+  return (
+    <SandboxInspectContext.Provider
+      value={{
+        getInspectRelation,
+        onInspectSelect: handleInspectSelect,
+      }}
+    >
+      <div
+        ref={pageShellRef}
+        style={pageShellStyle}
+        onPointerDownCapture={(event) => {
+          const target = event.target;
+
+          if (!(target instanceof HTMLElement)) {
+            return;
+          }
+
+          if (!target.closest("[data-sandbox-inspect-node-id]")) {
+            clearSandboxFocus();
+            setSelectedInspectNodeId(null);
+          }
+        }}
+        onClick={() => {
+          clearSandboxFocus();
+          setSelectedInspectNodeId(null);
+        }}
+      >
+        <div style={pageContentStyle}>
+        <header
+          className={surfaceRecipes.panel.default.className}
+          style={surfaceRecipes.panel.default.style}
+          {...getDesignSystemDebugAttrs(surfaceRecipes.panel.default.debug)}
+        >
+          <div style={headerGridStyle}>
+            <div style={{ ...inlineTextRecipes.muted.style, textTransform: "uppercase" }}>
+              Dev-only route
+            </div>
+            <div style={{ fontSize: 30, lineHeight: 0.98, fontWeight: 800, color: text.primary }}>
+              Design-system sandbox
+            </div>
+            <div style={sectionDescriptionStyle}>
+              Stable manual check page for current shared control families, variants, and
+              states. Hover inspect is enabled here by default.
+            </div>
+          </div>
+        </header>
+
+        <SectionCard
+          title="Foundation token swatches"
+          description="Full current foundation vocabulary in the same compact legend pattern. Hover a swatch to inspect its token identity."
+        >
+          <div style={previewGridStyle}>
+            <TokenInventoryColumn
+              title="Surface"
+              recipeLabel="token / foundation / surface"
+              items={foundationTokenInventory.surface}
+            />
+            <TokenInventoryColumn
+              title="Border"
+              recipeLabel="token / foundation / border"
+              items={foundationTokenInventory.border}
+            />
+            <TokenInventoryColumn
+              title="Text"
+              recipeLabel="token / foundation / text"
+              items={foundationTokenInventory.text}
+            />
+            <TokenInventoryColumn
+              title="Focus"
+              recipeLabel="token / foundation / focus"
+              items={foundationTokenInventory.focus}
+            />
+            <TokenInventoryColumn
+              title="Radius / Space / Motion"
+              recipeLabel="token / foundation / metrics"
+              items={foundationTokenInventory.metrics}
+            />
+          </div>
+        </SectionCard>
+
+        <SectionCard
+          title="Participant color swatches"
+          description="Canonical participant palette from the current room-session source of truth. Hover a swatch to inspect palette metadata."
+        >
+          <div style={previewGridStyle}>
+            <TokenInventoryColumn
+              title="Palette"
+              recipeLabel="participantColor / palette / PARTICIPANT_COLOR_OPTIONS"
+              items={participantColorInventory}
+            />
+          </div>
+        </SectionCard>
+
+        <SectionCard
+          title="Semantic token swatches"
+          description="Compact token inventory for the current standard-control layer. Hover a swatch to inspect its token identity."
+        >
+          <div style={previewGridStyle}>
+            <TokenInventoryColumn
+              title="Surface"
+              recipeLabel="token / visible role / surface"
+              items={tokenInventory.surface}
+            />
+            <TokenInventoryColumn
+              title="Border"
+              recipeLabel="token / visible role / border"
+              items={tokenInventory.border}
+            />
+            <TokenInventoryColumn
+              title="Text"
+              recipeLabel="token / visible role / text"
+              items={tokenInventory.text}
+            />
+            <TokenInventoryColumn
+              title="Focus / Treatments"
+              recipeLabel="token / visible role / treatment"
+              items={tokenInventory.treatments}
+            />
+          </div>
+        </SectionCard>
+
+        <SectionCard
+          title="Ordinary button"
+          description="Shared button recipes by variant and size, plus static state comparisons derived from the same token-backed recipe."
+        >
+          <div style={previewGridStyle}>
+            <PreviewCard
+              title="Primary variants"
+              recipeLabel="button / primary / default-small-compact"
+            >
+              <LiveButtonPreview
+                recipe={buttonRecipes.primary.default}
+                label="default"
+                inspectNodeId={inspectNodeIds.controls.primaryDefault}
+                inspectRelation={getInspectRelation(inspectNodeIds.controls.primaryDefault)}
+                onInspectSelect={handleInspectSelect}
+              />
+              <LiveButtonPreview
+                recipe={buttonRecipes.primary.small}
+                label="small"
+                inspectNodeId={inspectNodeIds.controls.primarySmall}
+                inspectRelation={getInspectRelation(inspectNodeIds.controls.primarySmall)}
+                onInspectSelect={handleInspectSelect}
+              />
+              <LiveButtonPreview
+                recipe={buttonRecipes.primary.compact}
+                label="compact"
+                inspectNodeId={inspectNodeIds.controls.primaryCompact}
+                inspectRelation={getInspectRelation(inspectNodeIds.controls.primaryCompact)}
+                onInspectSelect={handleInspectSelect}
+              />
+            </PreviewCard>
+            <PreviewCard
+              title="Primary neutral variants"
+              recipeLabel="button / primaryNeutral / default-small-compact"
+            >
+              <LiveButtonPreview recipe={buttonRecipes.primaryNeutral.default} label="default" />
+              <LiveButtonPreview recipe={buttonRecipes.primaryNeutral.small} label="small" />
+              <LiveButtonPreview recipe={buttonRecipes.primaryNeutral.compact} label="compact" />
+            </PreviewCard>
+            <PreviewCard
+              title="Secondary variants"
+              recipeLabel="button / secondary / default-small-compact"
+            >
+              <LiveButtonPreview
+                recipe={buttonRecipes.secondary.default}
+                label="default"
+                inspectNodeId={inspectNodeIds.controls.secondaryDefault}
+                inspectRelation={getInspectRelation(inspectNodeIds.controls.secondaryDefault)}
+                onInspectSelect={handleInspectSelect}
+              />
+              <LiveButtonPreview
+                recipe={buttonRecipes.secondary.small}
+                label="small"
+                inspectNodeId={inspectNodeIds.controls.secondarySmall}
+                inspectRelation={getInspectRelation(inspectNodeIds.controls.secondarySmall)}
+                onInspectSelect={handleInspectSelect}
+              />
+              <LiveButtonPreview
+                recipe={buttonRecipes.secondary.compact}
+                label="compact"
+                inspectNodeId={inspectNodeIds.controls.secondaryCompact}
+                inspectRelation={getInspectRelation(inspectNodeIds.controls.secondaryCompact)}
+                onInspectSelect={handleInspectSelect}
+              />
+            </PreviewCard>
+            <PreviewCard
+              title="Danger variants"
+              recipeLabel="button / danger / default-small-compact"
+            >
+              <LiveButtonPreview
+                recipe={buttonRecipes.danger.default}
+                label="default"
+                inspectNodeId={inspectNodeIds.controls.dangerDefault}
+                inspectRelation={getInspectRelation(inspectNodeIds.controls.dangerDefault)}
+                onInspectSelect={handleInspectSelect}
+              />
+              <LiveButtonPreview
+                recipe={buttonRecipes.danger.small}
+                label="small"
+                inspectNodeId={inspectNodeIds.controls.dangerSmall}
+                inspectRelation={getInspectRelation(inspectNodeIds.controls.dangerSmall)}
+                onInspectSelect={handleInspectSelect}
+              />
+              <LiveButtonPreview
+                recipe={buttonRecipes.danger.compact}
+                label="compact"
+                inspectNodeId={inspectNodeIds.controls.dangerCompact}
+                inspectRelation={getInspectRelation(inspectNodeIds.controls.dangerCompact)}
+                onInspectSelect={handleInspectSelect}
+              />
+            </PreviewCard>
+          </div>
+
+          <div style={previewGridStyle}>
+            <PreviewCard
+              title="State matrix"
+              recipeLabel="button / secondary / default / states"
+            >
+              <ButtonPreview recipe={buttonRecipes.secondary.default} label="default" />
+              <ButtonPreview
+                recipe={buttonRecipes.secondary.default}
+                label="hover"
+                state={{ hover: true }}
+              />
+              <ButtonPreview
+                recipe={buttonRecipes.secondary.default}
+                label="focus-visible"
+                state={{ focusVisible: true }}
+                inspectNodeId={inspectNodeIds.controls.ordinaryFocus}
+                inspectRelation={getInspectRelation(inspectNodeIds.controls.ordinaryFocus)}
+                onInspectSelect={handleInspectSelect}
+              />
+              <ButtonPreview
+                recipe={buttonRecipes.secondary.default}
+                label="active"
+                state={{ active: true }}
+              />
+              <ButtonPreview
+                recipe={buttonRecipes.secondary.default}
+                label="disabled"
+                state={{ disabled: true }}
+                inspectNodeId={inspectNodeIds.controls.ordinaryDisabled}
+                inspectRelation={getInspectRelation(inspectNodeIds.controls.ordinaryDisabled)}
+                onInspectSelect={handleInspectSelect}
+              />
+              <ButtonPreview
+                recipe={buttonRecipes.secondary.default}
+                label="loading"
+                state={{ loading: true }}
+                inspectNodeId={inspectNodeIds.controls.ordinaryLoading}
+                inspectRelation={getInspectRelation(inspectNodeIds.controls.ordinaryLoading)}
+                onInspectSelect={handleInspectSelect}
+              />
+            </PreviewCard>
+            <PreviewCard
+              title="Text subtype"
+              recipeLabel="button / text / compact"
+            >
+              <LiveTextButtonPreview tone="muted" label="muted" />
+              <LiveTextButtonPreview tone="secondary" label="secondary" />
+              <LiveTextButtonPreview tone="danger" label="danger" />
+              <TextButtonPreview tone="secondary" label="focus-visible" state={{ focusVisible: true }} />
+            </PreviewCard>
+          </div>
+        </SectionCard>
+
+        <SectionCard
+          title="Participant accent button"
+          description="Current participant-color variants on the standard button path. Primary uses the fill-mode accent branch. Secondary uses the border-mode accent branch."
+        >
+          <div style={previewGridStyle}>
+            <PreviewCard
+              title="Primary by participant color"
+              recipeLabel="button / primary / participantAccent / fill"
+            >
+              {PARTICIPANT_COLOR_OPTIONS.map((accent) => (
+                <LiveParticipantAccentButtonPreview
+                  key={`participant-primary-${accent}`}
+                  baseRecipe={participantPrimaryRecipe}
+                  accent={accent}
+                  mode="fill"
+                  label="primary"
+                  inspectNodeId={inspectNodeIds.participantAccentPrimary(accent)}
+                  inspectRelation={getInspectRelation(
+                    inspectNodeIds.participantAccentPrimary(accent)
+                  )}
+                  onInspectSelect={handleInspectSelect}
+                >
+                  Join room
+                </LiveParticipantAccentButtonPreview>
+              ))}
+            </PreviewCard>
+            <PreviewCard
+              title="Secondary by participant color"
+              recipeLabel="button / secondary / participantAccent / border"
+            >
+              {PARTICIPANT_COLOR_OPTIONS.map((accent) => (
+                <LiveParticipantAccentButtonPreview
+                  key={`participant-secondary-${accent}`}
+                  baseRecipe={participantSecondaryRecipe}
+                  accent={accent}
+                  mode="border"
+                  label="secondary"
+                  inspectNodeId={inspectNodeIds.participantAccentSecondary(accent)}
+                  inspectRelation={getInspectRelation(
+                    inspectNodeIds.participantAccentSecondary(accent)
+                  )}
+                  onInspectSelect={handleInspectSelect}
+                >
+                  Add image
+                </LiveParticipantAccentButtonPreview>
+              ))}
+            </PreviewCard>
+          </div>
+        </SectionCard>
+
+        <SectionCard
+          title="Icon and floating button"
+          description="Ordinary shared circular controls using the interaction-button recipe path."
+        >
+          <div style={previewGridStyle}>
+            <PreviewCard
+              title="Circle variants"
+              recipeLabel="interactionButton / circle / variant coverage"
+            >
+              <LiveButtonPreview
+                recipe={interactionButtonRecipes.primary.circle}
+                label="primary"
+                inspectNodeId={inspectNodeIds.controls.circlePrimary}
+              >
+                +
+              </LiveButtonPreview>
+              <LiveButtonPreview
+                recipe={interactionButtonRecipes.secondary.circle}
+                label="secondary"
+                inspectNodeId={inspectNodeIds.controls.circleSecondary}
+              >
+                i
+              </LiveButtonPreview>
+              <LiveButtonPreview
+                recipe={interactionButtonRecipes.danger.circle}
+                label="danger"
+                inspectNodeId={inspectNodeIds.controls.circleDanger}
+              >
+                ×
+              </LiveButtonPreview>
+            </PreviewCard>
+            <PreviewCard
+              title="Circle states"
+              recipeLabel="interactionButton / circle / secondary / states"
+            >
+              <ButtonPreview
+                recipe={interactionButtonRecipes.secondary.circle}
+                label="default"
+                buttonChildren="A"
+                inspectNodeId={inspectNodeIds.controls.circleStateDefault}
+              />
+              <ButtonPreview
+                recipe={interactionButtonRecipes.secondary.circle}
+                label="hover"
+                state={{ hover: true }}
+                buttonChildren="A"
+                inspectNodeId={inspectNodeIds.controls.circleStateHover}
+              />
+              <ButtonPreview
+                recipe={interactionButtonRecipes.secondary.circle}
+                label="focus-visible"
+                state={{ focusVisible: true }}
+                buttonChildren="A"
+                inspectNodeId={inspectNodeIds.controls.circleStateFocus}
+              />
+              <ButtonPreview
+                recipe={interactionButtonRecipes.secondary.circle}
+                label="active"
+                state={{ active: true }}
+                buttonChildren="A"
+                inspectNodeId={inspectNodeIds.controls.circleStateActive}
+              />
+              <ButtonPreview
+                recipe={interactionButtonRecipes.secondary.circle}
+                label="disabled"
+                state={{ disabled: true }}
+                buttonChildren="A"
+                inspectNodeId={inspectNodeIds.controls.circleStateDisabled}
+              />
+            </PreviewCard>
+          </div>
+        </SectionCard>
+
+        <SectionCard
+          title="Board interaction button"
+          description="Canvas-drawn preview using the same interaction-button recipe plus shared tone and metrics resolvers."
+        >
+          <div style={previewGridStyle}>
+            <PreviewCard
+              title="Canvas variants"
+              recipeLabel="interactionButton / pill / canvas preview"
+            >
+              <LiveCanvasButtonPreview
+                recipe={interactionButtonRecipes.primary.pill}
+                label="Focus"
+              />
+              <LiveCanvasButtonPreview
+                recipe={interactionButtonRecipes.secondary.pill}
+                label="Move"
+              />
+              <LiveCanvasButtonPreview
+                recipe={interactionButtonRecipes.danger.pill}
+                label="Delete"
+              />
+            </PreviewCard>
+            <PreviewCard
+              title="Canvas states"
+              recipeLabel="interactionButton / pill / secondary / states"
+            >
+              <CanvasButtonPreview
+                recipe={interactionButtonRecipes.secondary.pill}
+                label="Move"
+              />
+              <CanvasButtonPreview
+                recipe={interactionButtonRecipes.secondary.pill}
+                label="Move"
+                state={{ hover: true }}
+              />
+              <CanvasButtonPreview
+                recipe={interactionButtonRecipes.secondary.pill}
+                label="Move"
+                state={{ focusVisible: true }}
+              />
+              <CanvasButtonPreview
+                recipe={interactionButtonRecipes.secondary.pill}
+                label="Move"
+                state={{ active: true }}
+              />
+              <CanvasButtonPreview
+                recipe={interactionButtonRecipes.secondary.pill}
+                label="Move"
+                state={{ disabled: true }}
+              />
+            </PreviewCard>
+          </div>
+        </SectionCard>
+
+        <SectionCard
+          title="Toggle and menu trigger"
+          description="Current selected and open states on the ordinary shared-control path."
+        >
+          <div style={previewGridStyle}>
+            <PreviewCard
+              title="Toggle button"
+              recipeLabel="button / toggle / small / states"
+            >
+              <ButtonPreview recipe={toggleRecipe} label="default" />
+              <ButtonPreview recipe={toggleRecipe} label="hover" state={{ hover: true }} />
+              <ButtonPreview
+                recipe={toggleRecipe}
+                label="focus-visible"
+                state={{ focusVisible: true }}
+              />
+              <ButtonPreview recipe={toggleRecipe} label="active" state={{ active: true }} />
+              <ButtonPreview
+                recipe={toggleRecipe}
+                label="selected"
+                state={{ selected: true }}
+              />
+              <ButtonPreview
+                recipe={toggleRecipe}
+                label="disabled"
+                state={{ disabled: true }}
+              />
+              <ButtonPreview
+                recipe={toggleRecipe}
+                label="loading"
+                state={{ loading: true }}
+              />
+            </PreviewCard>
+            <PreviewCard
+              title="Menu / popover trigger"
+              recipeLabel="button / secondary / small / open states"
+            >
+              <ButtonPreview
+                recipe={menuTriggerRecipe}
+                label="default"
+                inspectNodeId={inspectNodeIds.controls.menuDefault}
+                inspectRelation={getInspectRelation(inspectNodeIds.controls.menuDefault)}
+                onInspectSelect={handleInspectSelect}
+              />
+              <ButtonPreview
+                recipe={menuTriggerRecipe}
+                label="hover"
+                state={{ hover: true }}
+              />
+              <ButtonPreview
+                recipe={menuTriggerRecipe}
+                label="focus-visible"
+                state={{ focusVisible: true }}
+              />
+              <ButtonPreview
+                recipe={menuTriggerRecipe}
+                label="active"
+                state={{ active: true }}
+              />
+              <ButtonPreview
+                recipe={menuTriggerRecipe}
+                label="open"
+                state={{ open: true }}
+                inspectNodeId={inspectNodeIds.controls.menuOpen}
+                inspectRelation={getInspectRelation(inspectNodeIds.controls.menuOpen)}
+                onInspectSelect={handleInspectSelect}
+              />
+              <ButtonPreview
+                recipe={menuTriggerRecipe}
+                label="open + hover"
+                state={{ open: true, hover: true }}
+                inspectNodeId={inspectNodeIds.controls.menuOpenHover}
+                inspectRelation={getInspectRelation(inspectNodeIds.controls.menuOpenHover)}
+                onInspectSelect={handleInspectSelect}
+              />
+              <ButtonPreview
+                recipe={menuTriggerRecipe}
+                label="disabled"
+                state={{ disabled: true }}
+              />
+            </PreviewCard>
+          </div>
+        </SectionCard>
+
+        <SectionCard
+          title="Text field"
+          description="Shared field shell and input/select path with current standard states."
+        >
+          <div style={previewGridStyle}>
+            <PreviewCard
+              title="Field sizes"
+              recipeLabel="field / default-small / input-select"
+            >
+              <FieldPreview
+                recipe={fieldRecipes.default}
+                label="default input"
+                inspectNodeId={inspectNodeIds.controls.fieldDefault}
+                inspectRelation={getInspectRelation(inspectNodeIds.controls.fieldDefault)}
+                onInspectSelect={handleInspectSelect}
+              />
+              <FieldPreview recipe={fieldRecipes.small} label="small input" />
+              <FieldPreview recipe={fieldRecipes.small} label="small select" mode="select" />
+            </PreviewCard>
+            <PreviewCard
+              title="Field states"
+              recipeLabel="field / default / states"
+            >
+              <FieldPreview
+                recipe={fieldRecipes.default}
+                label="default"
+                inspectNodeId={inspectNodeIds.controls.fieldDefault}
+                inspectRelation={getInspectRelation(inspectNodeIds.controls.fieldDefault)}
+                onInspectSelect={handleInspectSelect}
+              />
+              <FieldPreview
+                recipe={fieldRecipes.default}
+                label="hover"
+                state={{ hover: true }}
+              />
+              <FieldPreview
+                recipe={fieldRecipes.default}
+                label="focus-visible"
+                state={{ focusVisible: true }}
+              />
+              <FieldPreview
+                recipe={fieldRecipes.default}
+                label="error"
+                state={{ invalid: true }}
+                inspectNodeId={inspectNodeIds.controls.fieldError}
+                inspectRelation={getInspectRelation(inspectNodeIds.controls.fieldError)}
+                onInspectSelect={handleInspectSelect}
+              />
+              <FieldPreview
+                recipe={fieldRecipes.default}
+                label="error + focus"
+                state={{ invalid: true, focusVisible: true }}
+                inspectNodeId={inspectNodeIds.controls.fieldErrorFocus}
+                inspectRelation={getInspectRelation(inspectNodeIds.controls.fieldErrorFocus)}
+                onInspectSelect={handleInspectSelect}
+              />
+              <FieldPreview
+                recipe={fieldRecipes.default}
+                label="disabled"
+                state={{ disabled: true }}
+                inspectNodeId={inspectNodeIds.controls.fieldDisabled}
+                inspectRelation={getInspectRelation(inspectNodeIds.controls.fieldDisabled)}
+                onInspectSelect={handleInspectSelect}
+              />
+            </PreviewCard>
+          </div>
+        </SectionCard>
+
+        <SectionCard
+          title="Swatch and color choice"
+          description="Current size coverage and standard color-choice states."
+        >
+          <div style={previewGridStyle}>
+            <PreviewCard
+              title="Swatch sizes"
+              recipeLabel="swatch / default-small-trigger"
+            >
+              <LiveSwatchPreview
+                recipe={swatchPillRecipes.swatch.default}
+                label="default"
+                fillColor="#38bdf8"
+                inspectNodeId={inspectNodeIds.controls.swatchDefault}
+              />
+              <LiveSwatchPreview
+                recipe={swatchPillRecipes.swatch.small}
+                label="small"
+                fillColor="#f97316"
+                inspectNodeId={inspectNodeIds.controls.swatchSmall}
+              />
+              <LiveSwatchPreview
+                recipe={swatchPillRecipes.swatch.trigger}
+                label="trigger"
+                fillColor="#22c55e"
+                inspectNodeId={inspectNodeIds.controls.swatchTrigger}
+              />
+            </PreviewCard>
+            <PreviewCard
+              title="Swatch states"
+              recipeLabel="swatch / default / states"
+            >
+              <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+                <SwatchPreview
+                  recipe={swatchPillRecipes.swatch.default}
+                  label="default"
+                  state={{}}
+                  inspectNodeId={inspectNodeIds.controls.swatchStateDefault}
+                />
+                <SwatchPreview
+                  recipe={swatchPillRecipes.swatch.default}
+                  label="hover"
+                  state={{ hover: true }}
+                  inspectNodeId={inspectNodeIds.controls.swatchStateHover}
+                />
+                <SwatchPreview
+                  recipe={swatchPillRecipes.swatch.default}
+                  label="focus-visible"
+                  state={{ focusVisible: true }}
+                  inspectNodeId={inspectNodeIds.controls.swatchStateFocus}
+                />
+                <SwatchPreview
+                  recipe={swatchPillRecipes.swatch.default}
+                  label="selected"
+                  state={{ selected: true }}
+                  inspectNodeId={inspectNodeIds.controls.swatchStateSelected}
+                />
+                <SwatchPreview
+                  recipe={swatchPillRecipes.swatch.default}
+                  label="occupied"
+                  state={{ occupied: true }}
+                  inspectNodeId={inspectNodeIds.controls.swatchStateOccupied}
+                />
+                <SwatchPreview
+                  recipe={swatchPillRecipes.swatch.default}
+                  label="pending"
+                  state={{ pending: true }}
+                  inspectNodeId={inspectNodeIds.controls.swatchStatePending}
+                />
+                <SwatchPreview
+                  recipe={swatchPillRecipes.swatch.default}
+                  label="disabled"
+                  state={{ disabled: true }}
+                  inspectNodeId={inspectNodeIds.controls.swatchStateDisabled}
+                />
+              </div>
+            </PreviewCard>
+          </div>
+        </SectionCard>
+
+        <section
+          style={{
+            ...boardSurfaceRecipes.floatingShell.shell.style,
+            justifySelf: "start",
+            maxWidth: 360,
+          }}
+          {...getDesignSystemDebugAttrs(boardSurfaceRecipes.floatingShell.shell.debug)}
+        >
+          <div style={cardTitleStyle}>Current scope boundary</div>
+          <div style={sectionDescriptionStyle}>
+            This sandbox covers current standard control families only. It does not open
+            shell state rollout, interaction exceptions, media redesign, checkbox/radio,
+            tabs, or textarea families.
+          </div>
+        </section>
+        </div>
+      </div>
+    </SandboxInspectContext.Provider>
+  );
+}

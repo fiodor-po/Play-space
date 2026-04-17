@@ -12,9 +12,14 @@ import { HTML_UI_FONT_FAMILY } from "./board/constants";
 import {
   DesignSystemHoverInspector,
 } from "./ui/system/debug";
+import { DesignSystemSandboxPage } from "./ui/system/DesignSystemSandboxPage";
 import { isDesignSystemHoverDebugEnabled } from "./ui/system/debugMeta";
 import { getDesignSystemDebugAttrs } from "./ui/system/debugMeta";
-import { createParticipantAccentButtonRecipeWithMode, buttonRecipes } from "./ui/system/families/button";
+import {
+  createParticipantAccentButtonRecipeWithMode,
+  buttonRecipes,
+  getButtonProps,
+} from "./ui/system/families/button";
 import { calloutRecipes } from "./ui/system/families/callout";
 import { fieldRecipes, getFieldShellProps } from "./ui/system/families/field";
 import {
@@ -464,8 +469,7 @@ function EntryModeScreen({
                   <button
                     type="button"
                     onClick={onFillEntryDebugOccupiedColors}
-                    className={entryDebugActionButtonRecipe.className}
-                    style={entryDebugActionButtonRecipe.style}
+                    {...getButtonProps(entryDebugActionButtonRecipe)}
                     {...getDesignSystemDebugAttrs(entryDebugActionButtonRecipe.debug)}
                   >
                     Room full
@@ -473,8 +477,7 @@ function EntryModeScreen({
                   <button
                     type="button"
                     onClick={onClearEntryDebugOverrides}
-                    className={entryDebugActionButtonRecipe.className}
-                    style={entryDebugActionButtonRecipe.style}
+                    {...getButtonProps(entryDebugActionButtonRecipe)}
                     {...getDesignSystemDebugAttrs(entryDebugActionButtonRecipe.debug)}
                   >
                     Clear debug overrides
@@ -497,17 +500,14 @@ function EntryModeScreen({
           <button
             type="submit"
             data-testid="entry-join-button"
-            disabled={
-              !normalizeRoomId(draftRoomId) ||
-              !draftName.trim() ||
-              !entryHasFreeColor ||
-              isDraftColorOccupied ||
-              isJoinPending
-            }
-            style={{
-              ...entryPrimaryButtonRecipe.style,
-            }}
-            className={entryPrimaryButtonRecipe.className}
+            {...getButtonProps(entryPrimaryButtonRecipe, {
+              disabled:
+                !normalizeRoomId(draftRoomId) ||
+                !draftName.trim() ||
+                !entryHasFreeColor ||
+                isDraftColorOccupied,
+              loading: isJoinPending,
+            })}
             {...getDesignSystemDebugAttrs(entryPrimaryButtonRecipe.debug)}
           >
             {isJoinPending ? "Joining..." : "Join room"}
@@ -600,6 +600,14 @@ function OpsRouteShell() {
   );
 }
 
+function DesignSystemSandboxRouteShell() {
+  return (
+    <AppShell>
+      <DesignSystemSandboxPage />
+    </AppShell>
+  );
+}
+
 function RoomRouteShell() {
   const [isBootReady, setIsBootReady] = useState(false);
 
@@ -634,6 +642,12 @@ function RoomRouteShell() {
 
 export default function App() {
   const isOpsRoute = window.location.pathname.startsWith("/ops/rooms");
+  const isDesignSystemSandboxRoute =
+    import.meta.env.DEV && window.location.pathname.startsWith("/dev/design-system");
+
+  if (isDesignSystemSandboxRoute) {
+    return <DesignSystemSandboxRouteShell />;
+  }
 
   return isOpsRoute ? <OpsRouteShell /> : <RoomRouteShell />;
 }
