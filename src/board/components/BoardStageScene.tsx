@@ -1,4 +1,5 @@
 import type { MutableRefObject } from "react";
+import { useState } from "react";
 import {
   Group,
   Image as KonvaImage,
@@ -275,7 +276,12 @@ function SmallFloatingActionButton({
   const metrics = resolveCanvasButtonMetrics(recipe);
   const width = getSmallFloatingActionButtonWidth(label, metrics);
   const height = metrics.minHeight;
-  const toneStyles = resolveCanvasButtonTone(recipe);
+  const [isHovered, setIsHovered] = useState(false);
+  const [isPressed, setIsPressed] = useState(false);
+  const toneStyles = resolveCanvasButtonTone(recipe, {
+    hover: isHovered,
+    active: isPressed,
+  });
   const textLineHeightPx = metrics.fontSize * metrics.lineHeight;
   const textYOffset = Math.max(0, (height - textLineHeightPx) / 2);
 
@@ -285,16 +291,33 @@ function SmallFloatingActionButton({
       y={y}
       onMouseDown={(event) => {
         event.cancelBubble = true;
+        setIsPressed(true);
       }}
       onTouchStart={(event) => {
         event.cancelBubble = true;
+        setIsPressed(true);
+      }}
+      onMouseUp={() => {
+        setIsPressed(false);
+      }}
+      onTouchEnd={() => {
+        setIsPressed(false);
+      }}
+      onMouseEnter={() => {
+        setIsHovered(true);
+      }}
+      onMouseLeave={() => {
+        setIsHovered(false);
+        setIsPressed(false);
       }}
       onClick={(event) => {
         event.cancelBubble = true;
+        setIsPressed(false);
         onClick();
       }}
       onTap={(event) => {
         event.cancelBubble = true;
+        setIsPressed(false);
         onClick();
       }}
     >
