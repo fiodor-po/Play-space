@@ -347,7 +347,13 @@ type DurableSliceRevisionState = Record<DurableRoomSnapshotSlice, number | null>
 type DurableReplicaInspectionState = {
   currentRevision: number | null;
   currentSliceRevisions: DurableSliceRevisionState;
-  lastWriteStatus: "idle" | "writing" | "saved" | "conflict" | "failed";
+  lastWriteStatus:
+    | "idle"
+    | "writing"
+    | "saved"
+    | "conflict"
+    | "skipped"
+    | "failed";
   lastWriteBoundary: DurableDebugBoundary | null;
   lastWriteSlice: DurableRoomSnapshotSlice | "checkpoint" | null;
   lastKnownSliceRevision: number | null;
@@ -863,6 +869,33 @@ export default function BoardStage({
               lastResolvedViaRetry: retryCount > 0,
               lastAckSavedAt: result.ack.savedAt,
               lastWriteObjectCount: result.ack.objectCount,
+              lastError: null,
+            }));
+            return;
+          }
+
+          if (result.status === "skipped-page-transition") {
+            setDurableReplicaInspection((current) => ({
+              ...current,
+              currentRevision: durableTrackingRef.current.snapshotRevision,
+              currentSliceRevisions: cloneDurableSliceRevisionState(
+                durableTrackingRef.current.sliceRevisions
+              ),
+              lastWriteStatus: "skipped",
+              lastWriteBoundary: boundary,
+              lastWriteSlice: slice,
+              lastKnownSliceRevision:
+                durableTrackingRef.current.sliceRevisions[slice],
+              lastBaseRevision: null,
+              lastBaseSliceRevision: baseSliceRevision,
+              lastAckSnapshotRevision: null,
+              lastAckSliceRevision: null,
+              lastConflictRevision: null,
+              lastConflictSliceRevision: null,
+              lastRetryCount: retryCount,
+              lastResolvedViaRetry: false,
+              lastAckSavedAt: null,
+              lastWriteObjectCount: objectCount,
               lastError: null,
             }));
             return;

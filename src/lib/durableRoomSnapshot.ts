@@ -90,7 +90,42 @@ export type DurableRoomSnapshotSliceSaveResult =
       currentRevision: number | null;
       currentSliceRevision: number | null;
     }
+  | { status: "skipped-page-transition" }
   | { status: "unavailable" };
+
+let pageTransitionInProgress = false;
+let pageTransitionTrackingAttached = false;
+
+function ensurePageTransitionTracking() {
+  if (
+    pageTransitionTrackingAttached ||
+    typeof window === "undefined" ||
+    typeof document === "undefined"
+  ) {
+    return;
+  }
+
+  pageTransitionTrackingAttached = true;
+
+  const markPageTransition = () => {
+    pageTransitionInProgress = true;
+  };
+  const clearPageTransition = () => {
+    pageTransitionInProgress = false;
+  };
+
+  window.addEventListener("pagehide", markPageTransition, { capture: true });
+  window.addEventListener("beforeunload", markPageTransition, { capture: true });
+  window.addEventListener("pageshow", clearPageTransition, { capture: true });
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") {
+      markPageTransition();
+      return;
+    }
+
+    clearPageTransition();
+  });
+}
 
 export async function loadDurableRoomSnapshot(
   roomId: string
@@ -218,6 +253,7 @@ export async function saveDurableRoomSnapshotSlice(
   payload: BoardObject[],
   baseSliceRevision: number | null
 ): Promise<DurableRoomSnapshotSliceSaveResult> {
+  ensurePageTransitionTracking();
   const snapshotUrl = getDurableRoomSnapshotUrl(roomId);
   const writePayload: DurableRoomSnapshotSliceWritePayload = {
     slice,
@@ -293,6 +329,17 @@ export async function saveDurableRoomSnapshotSlice(
 
     return { status: "saved", ack };
   } catch (error) {
+    if (isPageTransitionAbort(error)) {
+      console.info("[room-recovery][durable-snapshot][slice-save-skipped]", {
+        roomId,
+        slice,
+        snapshotUrl,
+        baseSliceRevision,
+        reason: error instanceof DOMException ? error.name : "page-transition",
+      });
+      return { status: "skipped-page-transition" };
+    }
+
     console.warn("[room-recovery][durable-snapshot][slice-save-failed]", {
       roomId,
       slice,
@@ -302,6 +349,18 @@ export async function saveDurableRoomSnapshotSlice(
     });
     return { status: "unavailable" };
   }
+}
+
+function isPageTransitionAbort(error: unknown) {
+  if (!pageTransitionInProgress) {
+    return false;
+  }
+
+  if (error instanceof DOMException) {
+    return error.name === "AbortError" || error.name === "NetworkError";
+  }
+
+  return error instanceof TypeError;
 }
 
 export async function saveDurableRoomParticipantAppearance(
