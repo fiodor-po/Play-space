@@ -151,7 +151,7 @@ const tokenColumnStyle: CSSProperties = {
 
 const tokenItemStyle: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "36px minmax(0, 1fr)",
+  gridTemplateColumns: "36px minmax(0, 1fr) auto",
   alignItems: "center",
   gap: 10,
   padding: "6px 8px",
@@ -186,6 +186,99 @@ const tokenHintStyle: CSSProperties = {
   lineHeight: 1.15,
 };
 
+const tokenOverrideButtonContentStyle: CSSProperties = {
+  display: "grid",
+  placeItems: "center",
+  minWidth: 28,
+  fontSize: 10,
+  fontWeight: 800,
+  letterSpacing: "0.04em",
+};
+
+const tokenOverridePanelStyle: CSSProperties = {
+  position: "fixed",
+  right: 24,
+  bottom: 24,
+  width: "min(360px, calc(100vw - 32px))",
+  zIndex: 30,
+  display: "grid",
+  gap: 12,
+  padding: 14,
+  borderRadius: 16,
+  border: `1px solid ${border.default}`,
+  background: surface.panel,
+  boxShadow: "0 18px 48px rgba(2, 6, 23, 0.42)",
+};
+
+const tokenOverridePanelHeaderStyle: CSSProperties = {
+  display: "grid",
+  gap: 4,
+};
+
+const tokenOverridePanelTitleStyle: CSSProperties = {
+  fontSize: 14,
+  fontWeight: 700,
+  color: text.primary,
+};
+
+const tokenOverridePanelTokenStyle: CSSProperties = {
+  ...inlineTextRecipes.muted.style,
+  fontSize: 11,
+  fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+  wordBreak: "break-all",
+};
+
+const tokenOverridePanelInputStyle: CSSProperties = {
+  width: "100%",
+  minHeight: 36,
+  padding: "8px 10px",
+  borderRadius: 10,
+  border: `1px solid ${border.default}`,
+  background: surface.inset,
+  color: text.primary,
+  font: "inherit",
+};
+
+const tokenOverridePanelControlsStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "52px minmax(0, 1fr)",
+  gap: 8,
+  alignItems: "center",
+};
+
+const tokenOverridePanelActionsStyle: CSSProperties = {
+  display: "flex",
+  gap: 8,
+  justifyContent: "flex-end",
+  flexWrap: "wrap",
+};
+
+const tokenOverridePanelValueGridStyle: CSSProperties = {
+  display: "grid",
+  gap: 8,
+};
+
+const tokenOverridePanelValueRowStyle: CSSProperties = {
+  display: "grid",
+  gap: 4,
+};
+
+const tokenOverridePanelValueLabelStyle: CSSProperties = {
+  fontSize: 10,
+  fontWeight: 800,
+  letterSpacing: "0.04em",
+  textTransform: "uppercase",
+  color: text.muted,
+};
+
+const tokenOverridePanelValueTextStyle: CSSProperties = {
+  ...inlineTextRecipes.muted.style,
+  minHeight: 18,
+  fontSize: 11,
+  fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+  wordBreak: "break-all",
+};
+
 const inspectableContainerBaseStyle: CSSProperties = {
   borderRadius: 12,
   border: "1px solid transparent",
@@ -196,6 +289,7 @@ const inspectableContainerBaseStyle: CSSProperties = {
 type TokenInventoryItem = {
   label: string;
   hint: string;
+  tokenVar?: string;
   meta: {
     family: string;
     variant: string;
@@ -206,6 +300,287 @@ type TokenInventoryItem = {
   swatchContent?: ReactNode;
   unframedSwatch?: boolean;
   swatchContainerStyle?: CSSProperties;
+};
+
+type ActiveTokenOverrideEditor = {
+  tokenVar: string;
+  label: string;
+  hint: string;
+};
+
+function getTokenVariableName(label: string) {
+  const match = label.match(/(--ui-[a-z0-9-]+)/i);
+  return match?.[1];
+}
+
+function isColorLikeToken(tokenVar: string) {
+  return !(
+    tokenVar.includes("opacity") ||
+    tokenVar.includes("radius") ||
+    tokenVar.includes("space") ||
+    tokenVar.includes("transition")
+  );
+}
+
+function toColorInputValue(value: string) {
+  const normalized = value.trim().toLowerCase();
+
+  if (/^#[0-9a-f]{6}$/.test(normalized)) {
+    return normalized;
+  }
+
+  if (/^#[0-9a-f]{3}$/.test(normalized)) {
+    return `#${normalized[1]}${normalized[1]}${normalized[2]}${normalized[2]}${normalized[3]}${normalized[3]}`;
+  }
+
+  const rgbMatch = normalized.match(
+    /^rgba?\(\s*(\d{1,3})\s*[,\s]\s*(\d{1,3})\s*[,\s]\s*(\d{1,3})(?:\s*[,/]\s*[\d.]+)?\s*\)$/
+  );
+
+  if (!rgbMatch) {
+    return null;
+  }
+
+  const toHex = (channel: string) =>
+    Math.max(0, Math.min(255, Number(channel))).toString(16).padStart(2, "0");
+
+  return `#${toHex(rgbMatch[1])}${toHex(rgbMatch[2])}${toHex(rgbMatch[3])}`;
+}
+
+function applyColorToDraftValue(currentValue: string, nextHexColor: string) {
+  const normalizedHex = nextHexColor.trim().toLowerCase();
+  const rgbMatch = normalizedHex.match(/^#([0-9a-f]{6})$/);
+
+  if (!rgbMatch) {
+    return normalizedHex;
+  }
+
+  const red = Number.parseInt(rgbMatch[1].slice(0, 2), 16);
+  const green = Number.parseInt(rgbMatch[1].slice(2, 4), 16);
+  const blue = Number.parseInt(rgbMatch[1].slice(4, 6), 16);
+  const current = currentValue.trim().toLowerCase();
+  const rgbaMatch = current.match(
+    /^rgba\(\s*\d{1,3}\s*[,\s]\s*\d{1,3}\s*[,\s]\s*\d{1,3}\s*[,\s/]\s*([\d.]+)\s*\)$/
+  );
+
+  if (rgbaMatch) {
+    return `rgba(${red}, ${green}, ${blue}, ${rgbaMatch[1]})`;
+  }
+
+  return normalizedHex;
+}
+
+const tokenOverrideAliases: Record<string, string[]> = {
+  "--ui-color-surface-accent": [
+    "--ui-button-primary-surface-default",
+    "--ui-button-primary-surface-loading",
+  ],
+  "--ui-color-surface-accent-hover": [
+    "--ui-button-primary-surface-hover",
+    "--ui-button-primary-surface-open",
+  ],
+  "--ui-color-surface-accent-active": [
+    "--ui-button-primary-surface-active",
+    "--ui-button-primary-surface-selected",
+    "--ui-button-primary-surface-open-hover",
+  ],
+  "--ui-color-border-accent": [
+    "--ui-button-primary-border-default",
+    "--ui-button-primary-border-hover",
+    "--ui-button-primary-border-active",
+    "--ui-button-primary-border-selected",
+    "--ui-button-primary-border-selected-hover",
+    "--ui-button-primary-border-selected-active",
+    "--ui-button-primary-border-open",
+    "--ui-button-primary-border-open-hover",
+    "--ui-button-primary-border-open-active",
+    "--ui-button-primary-border-loading",
+  ],
+  "--ui-color-text-inverse": [
+    "--ui-button-primary-text-default",
+    "--ui-button-primary-text-hover",
+    "--ui-button-primary-text-active",
+    "--ui-button-primary-text-selected",
+    "--ui-button-primary-text-selected-hover",
+    "--ui-button-primary-text-selected-active",
+    "--ui-button-primary-text-open",
+    "--ui-button-primary-text-open-hover",
+    "--ui-button-primary-text-open-active",
+    "--ui-button-primary-text-loading",
+  ],
+  "--ui-color-surface-accent-neutral": [
+    "--ui-button-primary-neutral-surface-default",
+    "--ui-button-primary-neutral-surface-loading",
+  ],
+  "--ui-color-surface-accent-neutral-hover": [
+    "--ui-button-primary-neutral-surface-hover",
+    "--ui-button-primary-neutral-surface-open",
+  ],
+  "--ui-color-surface-accent-neutral-active": [
+    "--ui-button-primary-neutral-surface-active",
+    "--ui-button-primary-neutral-surface-selected",
+    "--ui-button-primary-neutral-surface-open-hover",
+  ],
+  "--ui-color-border-accent-neutral": [
+    "--ui-button-primary-neutral-border-default",
+    "--ui-button-primary-neutral-border-hover",
+    "--ui-button-primary-neutral-border-active",
+    "--ui-button-primary-neutral-border-selected",
+    "--ui-button-primary-neutral-border-selected-hover",
+    "--ui-button-primary-neutral-border-open",
+    "--ui-button-primary-neutral-border-loading",
+  ],
+  "--ui-color-text-on-accent-neutral": [
+    "--ui-button-primary-neutral-text-default",
+    "--ui-button-primary-neutral-text-hover",
+    "--ui-button-primary-neutral-text-active",
+    "--ui-button-primary-neutral-text-selected",
+    "--ui-button-primary-neutral-text-selected-hover",
+    "--ui-button-primary-neutral-text-selected-active",
+    "--ui-button-primary-neutral-text-open",
+    "--ui-button-primary-neutral-text-open-hover",
+    "--ui-button-primary-neutral-text-open-active",
+    "--ui-button-primary-neutral-text-loading",
+  ],
+  "--ui-color-surface-inset": [
+    "--ui-button-secondary-surface-default",
+    "--ui-button-secondary-surface-loading",
+    "--ui-field-surface-default",
+    "--ui-field-surface-error",
+  ],
+  "--ui-color-surface-inset-hover": [
+    "--ui-button-secondary-surface-hover",
+    "--ui-button-secondary-surface-open",
+    "--ui-field-surface-hover",
+  ],
+  "--ui-color-surface-inset-active": [
+    "--ui-button-secondary-surface-active",
+    "--ui-button-secondary-surface-selected",
+    "--ui-button-secondary-surface-open-hover",
+  ],
+  "--ui-color-surface-inset-disabled": [
+    "--ui-button-primary-surface-disabled",
+    "--ui-button-primary-neutral-surface-disabled",
+    "--ui-button-secondary-surface-disabled",
+    "--ui-field-surface-disabled",
+    "--ui-button-toggle-surface-disabled",
+  ],
+  "--ui-color-border-default": [
+    "--ui-button-secondary-border-default",
+    "--ui-button-secondary-border-loading",
+    "--ui-field-border-default",
+    "--ui-button-toggle-border-default",
+    "--ui-button-toggle-border-loading",
+  ],
+  "--ui-color-border-hover": [
+    "--ui-button-secondary-border-hover",
+    "--ui-button-secondary-border-active",
+    "--ui-button-secondary-border-selected",
+    "--ui-button-secondary-border-selected-active",
+    "--ui-button-secondary-border-open",
+    "--ui-button-secondary-border-open-active",
+    "--ui-field-border-hover",
+    "--ui-button-toggle-border-hover",
+    "--ui-button-toggle-border-active",
+    "--ui-button-toggle-border-selected-active",
+  ],
+  "--ui-color-border-focus": [
+    "--ui-button-secondary-border-selected-hover",
+    "--ui-button-secondary-border-open-hover",
+    "--ui-field-border-focus",
+    "--ui-button-toggle-border-selected",
+    "--ui-button-toggle-border-selected-hover",
+  ],
+  "--ui-color-border-disabled": [
+    "--ui-button-primary-border-disabled",
+    "--ui-button-primary-neutral-border-disabled",
+    "--ui-button-secondary-border-disabled",
+    "--ui-field-border-disabled",
+    "--ui-button-toggle-border-disabled",
+  ],
+  "--ui-color-text-secondary": [
+    "--ui-button-secondary-text-default",
+    "--ui-button-secondary-text-loading",
+    "--ui-button-text-secondary-color",
+  ],
+  "--ui-color-text-primary": [
+    "--ui-button-secondary-text-hover",
+    "--ui-button-secondary-text-active",
+    "--ui-button-secondary-text-selected",
+    "--ui-button-secondary-text-selected-hover",
+    "--ui-button-secondary-text-selected-active",
+    "--ui-button-secondary-text-open",
+    "--ui-button-secondary-text-open-hover",
+    "--ui-button-secondary-text-open-active",
+    "--ui-field-text-default",
+    "--ui-field-text-error",
+    "--ui-button-toggle-text-default",
+    "--ui-button-toggle-text-hover",
+    "--ui-button-toggle-text-active",
+    "--ui-button-toggle-text-selected",
+    "--ui-button-toggle-text-selected-hover",
+    "--ui-button-toggle-text-selected-active",
+    "--ui-button-toggle-text-loading",
+  ],
+  "--ui-color-text-disabled": [
+    "--ui-button-primary-text-disabled",
+    "--ui-button-primary-neutral-text-disabled",
+    "--ui-button-secondary-text-disabled",
+    "--ui-field-text-disabled",
+    "--ui-button-toggle-text-disabled",
+  ],
+  "--ui-color-border-danger": [
+    "--ui-button-danger-border-default",
+    "--ui-button-danger-border-hover",
+    "--ui-button-danger-border-active",
+    "--ui-button-danger-border-selected",
+    "--ui-button-danger-border-selected-hover",
+    "--ui-button-danger-border-selected-active",
+    "--ui-button-danger-border-open",
+    "--ui-button-danger-border-open-hover",
+    "--ui-button-danger-border-open-active",
+    "--ui-button-danger-border-loading",
+    "--ui-field-border-error",
+  ],
+  "--ui-color-surface-danger": [
+    "--ui-button-danger-surface-default",
+    "--ui-button-danger-surface-loading",
+  ],
+  "--ui-color-surface-danger-hover": [
+    "--ui-button-danger-surface-hover",
+    "--ui-button-danger-surface-open",
+  ],
+  "--ui-color-surface-danger-active": [
+    "--ui-button-danger-surface-active",
+    "--ui-button-danger-surface-selected",
+    "--ui-button-danger-surface-open-hover",
+  ],
+  "--ui-color-surface-danger-disabled": [
+    "--ui-button-danger-surface-disabled",
+  ],
+  "--ui-color-text-danger": [
+    "--ui-button-danger-text-default",
+    "--ui-button-danger-text-hover",
+    "--ui-button-danger-text-active",
+    "--ui-button-danger-text-selected",
+    "--ui-button-danger-text-selected-hover",
+    "--ui-button-danger-text-selected-active",
+    "--ui-button-danger-text-open",
+    "--ui-button-danger-text-open-hover",
+    "--ui-button-danger-text-open-active",
+    "--ui-button-danger-text-loading",
+    "--ui-button-text-danger-color",
+  ],
+  "--ui-radius-8": [
+    "--ui-radius-control",
+    "--ui-radius-inset",
+  ],
+  "--ui-radius-16": [
+    "--ui-radius-surface",
+  ],
+  "--ui-radius-999": [
+    "--ui-radius-pill",
+  ],
 };
 
 const metricSampleStyle: CSSProperties = {
@@ -696,6 +1071,7 @@ const tokenInventory = {
     {
       label: "Accent",
       hint: "primary fill",
+      tokenVar: "--ui-button-primary-surface-default",
       meta: {
         family: "token",
         variant: "surface",
@@ -707,6 +1083,7 @@ const tokenInventory = {
     {
       label: "Inset",
       hint: "secondary base",
+      tokenVar: "--ui-button-secondary-surface-default",
       meta: {
         family: "token",
         variant: "surface",
@@ -718,6 +1095,7 @@ const tokenInventory = {
     {
       label: "Inset hover",
       hint: "secondary hover",
+      tokenVar: "--ui-button-secondary-surface-hover",
       meta: {
         family: "token",
         variant: "surface",
@@ -729,6 +1107,7 @@ const tokenInventory = {
     {
       label: "Accent active",
       hint: "primary active",
+      tokenVar: "--ui-button-primary-surface-active",
       meta: {
         family: "token",
         variant: "surface",
@@ -740,6 +1119,7 @@ const tokenInventory = {
     {
       label: "Disabled surface",
       hint: "shared disabled",
+      tokenVar: "--ui-button-secondary-surface-disabled",
       meta: {
         family: "token",
         variant: "surface",
@@ -753,6 +1133,7 @@ const tokenInventory = {
     {
       label: "Default border",
       hint: "secondary idle",
+      tokenVar: "--ui-button-secondary-border-default",
       meta: {
         family: "token",
         variant: "border",
@@ -764,6 +1145,7 @@ const tokenInventory = {
     {
       label: "Hover border",
       hint: "secondary hover",
+      tokenVar: "--ui-button-secondary-border-hover",
       meta: {
         family: "token",
         variant: "border",
@@ -775,6 +1157,7 @@ const tokenInventory = {
     {
       label: "Focus border",
       hint: "ring anchor",
+      tokenVar: "--ui-field-border-focus",
       meta: {
         family: "token",
         variant: "border",
@@ -786,6 +1169,7 @@ const tokenInventory = {
     {
       label: "Accent border",
       hint: "primary idle",
+      tokenVar: "--ui-button-primary-border-default",
       meta: {
         family: "token",
         variant: "border",
@@ -797,6 +1181,7 @@ const tokenInventory = {
     {
       label: "Danger border",
       hint: "error state",
+      tokenVar: "--ui-field-border-error",
       meta: {
         family: "token",
         variant: "border",
@@ -810,6 +1195,7 @@ const tokenInventory = {
     {
       label: "Primary text",
       hint: "panel content",
+      tokenVar: "--ui-field-text-default",
       meta: {
         family: "token",
         variant: "text",
@@ -830,6 +1216,7 @@ const tokenInventory = {
     {
       label: "Secondary text",
       hint: "secondary button text",
+      tokenVar: "--ui-button-secondary-text-default",
       meta: {
         family: "token",
         variant: "text",
@@ -870,6 +1257,7 @@ const tokenInventory = {
     {
       label: "Disabled text",
       hint: "shared disabled",
+      tokenVar: "--ui-button-secondary-text-disabled",
       meta: {
         family: "token",
         variant: "text",
@@ -890,6 +1278,7 @@ const tokenInventory = {
     {
       label: "Danger text",
       hint: "destructive action",
+      tokenVar: "--ui-button-danger-text-default",
       meta: {
         family: "token",
         variant: "text",
@@ -912,6 +1301,7 @@ const tokenInventory = {
     {
       label: "Focus ring",
       hint: "focus-visible layer",
+      tokenVar: "--ui-color-focus-ring",
       meta: {
         family: "token",
         variant: "treatment",
@@ -927,6 +1317,7 @@ const tokenInventory = {
     {
       label: "Open surface",
       hint: "trigger held state",
+      tokenVar: "--ui-button-secondary-surface-open",
       meta: {
         family: "token",
         variant: "treatment",
@@ -941,6 +1332,7 @@ const tokenInventory = {
     {
       label: "Loading treatment",
       hint: "shared busy opacity",
+      tokenVar: "--ui-control-opacity-loading",
       meta: {
         family: "token",
         variant: "treatment",
@@ -956,6 +1348,7 @@ const tokenInventory = {
     {
       label: "Disabled treatment",
       hint: "shared disabled opacity",
+      tokenVar: "--ui-control-opacity-disabled",
       meta: {
         family: "token",
         variant: "treatment",
@@ -971,6 +1364,7 @@ const tokenInventory = {
     {
       label: "Error field",
       hint: "field error border",
+      tokenVar: "--ui-field-border-error",
       meta: {
         family: "token",
         variant: "treatment",
@@ -1745,12 +2139,19 @@ function TokenInventoryColumn({
   title,
   recipeLabel,
   items,
+  tokenOverrides,
+  activeTokenVar,
+  onOpenTokenOverrideEditor,
 }: {
   title: string;
   recipeLabel: string;
   items: readonly TokenInventoryItem[];
+  tokenOverrides: Record<string, string>;
+  activeTokenVar: string | null;
+  onOpenTokenOverrideEditor: (editor: ActiveTokenOverrideEditor) => void;
 }) {
   const inspect = useContext(SandboxInspectContext);
+  const overrideToggleRecipe = createToggleButtonRecipe(buttonRecipes.secondary.compact);
 
   return (
     <PreviewCard
@@ -1760,12 +2161,53 @@ function TokenInventoryColumn({
       <div style={tokenColumnStyle}>
         {items.map((item) => (
           <InspectableContainer
-            key={item.label}
+            key={item.meta.label}
             nodeId={item.meta.label}
             relation={inspect.getInspectRelation(item.meta.label)}
             onSelect={inspect.onInspectSelect}
             baseStyle={inspectableContainerBaseStyle}
           >
+            {(() => {
+              const tokenVar = item.tokenVar ?? getTokenVariableName(item.meta.label);
+              const hasDirectOverride = tokenVar ? tokenOverrides[tokenVar] !== undefined : false;
+              const overrideToggleProps = tokenVar
+                ? getButtonProps(overrideToggleRecipe, {
+                    open: activeTokenVar === tokenVar,
+                    selected: hasDirectOverride,
+                  })
+                : null;
+              const chipStyle: CSSProperties = {
+                ...tokenChipStyle,
+                ...item.swatchStyle,
+              };
+
+              if (tokenVar && item.meta.family === "token") {
+                if (item.meta.variant === "surface") {
+                  chipStyle.background = `var(${tokenVar})`;
+                }
+
+                if (item.meta.variant === "border") {
+                  chipStyle.borderColor = `var(${tokenVar})`;
+                }
+
+                if (item.meta.variant === "text") {
+                  chipStyle.color = `var(${tokenVar})`;
+                }
+
+                if (item.meta.variant === "treatment") {
+                  if (item.meta.subtype === "focus") {
+                    chipStyle.boxShadow = `0 0 0 6px var(${tokenVar}) inset`;
+                  } else if (item.meta.subtype === "loading" || item.meta.subtype === "disabled") {
+                    chipStyle.opacity = `var(${tokenVar})`;
+                  } else if (item.meta.subtype === "error") {
+                    chipStyle.borderColor = `var(${tokenVar})`;
+                  } else {
+                    chipStyle.background = `var(${tokenVar})`;
+                  }
+                }
+              }
+
+              return (
             <div
               style={tokenItemStyle}
               {...getDesignSystemDebugAttrs(item.meta)}
@@ -1780,7 +2222,7 @@ function TokenInventoryColumn({
                         placeItems: "center",
                         ...(item.swatchContainerStyle ?? null),
                       }
-                    : { ...tokenChipStyle, ...item.swatchStyle }
+                    : chipStyle
                 }
               >
                 {item.swatchContent}
@@ -1789,7 +2231,35 @@ function TokenInventoryColumn({
                 <div style={tokenNameStyle}>{item.label}</div>
                 <div style={tokenHintStyle}>{item.hint}</div>
               </div>
+              {tokenVar ? (
+                <button
+                  type="button"
+                  {...overrideToggleProps}
+                  style={{
+                    ...overrideToggleProps?.style,
+                    paddingInline: 7,
+                    minHeight: 24,
+                  }}
+                  title={
+                    hasDirectOverride
+                      ? `Edit override for ${tokenVar}`
+                      : `Open override editor for ${tokenVar}`
+                  }
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onOpenTokenOverrideEditor({
+                      tokenVar,
+                      label: item.label,
+                      hint: item.hint,
+                    });
+                  }}
+                >
+                  <span style={tokenOverrideButtonContentStyle}>OVR</span>
+                </button>
+              ) : null}
             </div>
+              );
+            })()}
           </InspectableContainer>
         ))}
       </div>
@@ -2467,7 +2937,13 @@ function CanvasButtonPreview({
 export function DesignSystemSandboxPage() {
   const [selectedInspectNodeId, setSelectedInspectNodeId] =
     useState<InspectNodeId | null>(null);
+  const [tokenOverrides, setTokenOverrides] = useState<Record<string, string>>({});
+  const [activeTokenOverrideEditor, setActiveTokenOverrideEditor] =
+    useState<ActiveTokenOverrideEditor | null>(null);
+  const [tokenOverrideDraft, setTokenOverrideDraft] = useState("");
+  const [activeTokenEffectiveValue, setActiveTokenEffectiveValue] = useState("");
   const pageShellRef = useRef<HTMLDivElement | null>(null);
+  const pageContentRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const html = document.documentElement;
@@ -2601,6 +3077,91 @@ export function DesignSystemSandboxPage() {
   const menuTriggerRecipe = buttonRecipes.secondary.small;
   const participantPrimaryRecipe = buttonRecipes.primary.default;
   const participantSecondaryRecipe = buttonRecipes.secondary.default;
+  const tokenOverrideStyle = useMemo(() => {
+    const nextStyle: CSSVariableProperties = {};
+
+    for (const [tokenVar, value] of Object.entries(tokenOverrides)) {
+      nextStyle[tokenVar as `--${string}`] = value;
+    }
+
+    for (const [tokenVar, value] of Object.entries(tokenOverrides)) {
+      void value;
+
+      for (const alias of tokenOverrideAliases[tokenVar] ?? []) {
+        if (tokenOverrides[alias] !== undefined) {
+          continue;
+        }
+
+        if (nextStyle[alias as `--${string}`] !== undefined) {
+          continue;
+        }
+
+        nextStyle[alias as `--${string}`] = `var(${tokenVar})`;
+      }
+    }
+
+    return nextStyle;
+  }, [tokenOverrides]);
+
+  const resolveEffectiveTokenValue = (tokenVar: string) => {
+    const root = pageContentRef.current ?? pageShellRef.current;
+    return root ? getComputedStyle(root).getPropertyValue(tokenVar).trim() : "";
+  };
+
+  const handleApplyTokenOverride = (tokenVar: string, nextValue: string) => {
+    const normalizedValue = nextValue.trim();
+
+    if (!normalizedValue) {
+      setTokenOverrides((current) => {
+        const rest = { ...current };
+        delete rest[tokenVar];
+        return rest;
+      });
+      setActiveTokenEffectiveValue(resolveEffectiveTokenValue(tokenVar));
+      return;
+    }
+
+    setTokenOverrides((current) => ({
+      ...current,
+      [tokenVar]: normalizedValue,
+    }));
+    setActiveTokenEffectiveValue(normalizedValue);
+  };
+
+  const handleOpenTokenOverrideEditor = (editor: ActiveTokenOverrideEditor) => {
+    const directValue = tokenOverrides[editor.tokenVar];
+    const nextDraft = directValue ?? resolveEffectiveTokenValue(editor.tokenVar);
+    setActiveTokenOverrideEditor(editor);
+    setTokenOverrideDraft(nextDraft);
+    setActiveTokenEffectiveValue(resolveEffectiveTokenValue(editor.tokenVar));
+  };
+
+  const activeTokenDirectOverrideValue = activeTokenOverrideEditor
+    ? tokenOverrides[activeTokenOverrideEditor.tokenVar] ?? ""
+    : "";
+
+  const handleResetTokenOverride = (tokenVar: string) => {
+    setTokenOverrides((current) => {
+      const rest = { ...current };
+      delete rest[tokenVar];
+      return rest;
+    });
+
+    if (activeTokenOverrideEditor?.tokenVar === tokenVar) {
+      const nextEffectiveValue = resolveEffectiveTokenValue(tokenVar);
+      setTokenOverrideDraft(nextEffectiveValue);
+      setActiveTokenEffectiveValue(nextEffectiveValue);
+    }
+  };
+
+  const handleResetAllTokenOverrides = () => {
+    setTokenOverrides({});
+    setActiveTokenOverrideEditor(null);
+    setTokenOverrideDraft("");
+    setActiveTokenEffectiveValue("");
+  };
+
+  const hasAnyTokenOverrides = Object.keys(tokenOverrides).length > 0;
 
   return (
     <SandboxInspectContext.Provider
@@ -2629,13 +3190,23 @@ export function DesignSystemSandboxPage() {
           setSelectedInspectNodeId(null);
         }}
       >
-        <div style={pageContentStyle}>
+        <div
+          ref={pageContentRef}
+          style={{ ...pageContentStyle, ...tokenOverrideStyle }}
+        >
         <header
           className={surfaceRecipes.panel.default.className}
           style={surfaceRecipes.panel.default.style}
           {...getDesignSystemDebugAttrs(surfaceRecipes.panel.default.debug)}
         >
-          <div style={headerGridStyle}>
+          <div
+            style={{
+              ...headerGridStyle,
+              gridTemplateColumns: hasAnyTokenOverrides ? "minmax(0, 1fr) auto" : undefined,
+              alignItems: "start",
+            }}
+          >
+            <div style={headerGridStyle}>
             <div style={{ ...inlineTextRecipes.muted.style, textTransform: "uppercase" }}>
               Dev-only route
             </div>
@@ -2646,6 +3217,19 @@ export function DesignSystemSandboxPage() {
               Stable manual check page for current shared control families, variants, and
               states. Hover inspect is enabled here by default.
             </div>
+            </div>
+            {hasAnyTokenOverrides ? (
+              <button
+                type="button"
+                {...getButtonProps(buttonRecipes.danger.compact)}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  handleResetAllTokenOverrides();
+                }}
+              >
+                Reset all overrides
+              </button>
+            ) : null}
           </div>
         </header>
 
@@ -2658,26 +3242,41 @@ export function DesignSystemSandboxPage() {
               title="Surface"
               recipeLabel="token / foundation / surface"
               items={foundationTokenInventory.surface}
+              tokenOverrides={tokenOverrides}
+              activeTokenVar={activeTokenOverrideEditor?.tokenVar ?? null}
+              onOpenTokenOverrideEditor={handleOpenTokenOverrideEditor}
             />
             <TokenInventoryColumn
               title="Border"
               recipeLabel="token / foundation / border"
               items={foundationTokenInventory.border}
+              tokenOverrides={tokenOverrides}
+              activeTokenVar={activeTokenOverrideEditor?.tokenVar ?? null}
+              onOpenTokenOverrideEditor={handleOpenTokenOverrideEditor}
             />
             <TokenInventoryColumn
               title="Text"
               recipeLabel="token / foundation / text"
               items={foundationTokenInventory.text}
+              tokenOverrides={tokenOverrides}
+              activeTokenVar={activeTokenOverrideEditor?.tokenVar ?? null}
+              onOpenTokenOverrideEditor={handleOpenTokenOverrideEditor}
             />
             <TokenInventoryColumn
               title="Focus"
               recipeLabel="token / foundation / focus"
               items={foundationTokenInventory.focus}
+              tokenOverrides={tokenOverrides}
+              activeTokenVar={activeTokenOverrideEditor?.tokenVar ?? null}
+              onOpenTokenOverrideEditor={handleOpenTokenOverrideEditor}
             />
             <TokenInventoryColumn
               title="Radius / Space / Motion"
               recipeLabel="token / foundation / metrics"
               items={foundationTokenInventory.metrics}
+              tokenOverrides={tokenOverrides}
+              activeTokenVar={activeTokenOverrideEditor?.tokenVar ?? null}
+              onOpenTokenOverrideEditor={handleOpenTokenOverrideEditor}
             />
           </div>
         </SectionCard>
@@ -2691,6 +3290,9 @@ export function DesignSystemSandboxPage() {
               title="Palette"
               recipeLabel="participantColor / palette / PARTICIPANT_COLOR_OPTIONS"
               items={participantColorInventory}
+              tokenOverrides={tokenOverrides}
+              activeTokenVar={activeTokenOverrideEditor?.tokenVar ?? null}
+              onOpenTokenOverrideEditor={handleOpenTokenOverrideEditor}
             />
           </div>
         </SectionCard>
@@ -2704,21 +3306,33 @@ export function DesignSystemSandboxPage() {
               title="Surface"
               recipeLabel="token / visible role / surface"
               items={tokenInventory.surface}
+              tokenOverrides={tokenOverrides}
+              activeTokenVar={activeTokenOverrideEditor?.tokenVar ?? null}
+              onOpenTokenOverrideEditor={handleOpenTokenOverrideEditor}
             />
             <TokenInventoryColumn
               title="Border"
               recipeLabel="token / visible role / border"
               items={tokenInventory.border}
+              tokenOverrides={tokenOverrides}
+              activeTokenVar={activeTokenOverrideEditor?.tokenVar ?? null}
+              onOpenTokenOverrideEditor={handleOpenTokenOverrideEditor}
             />
             <TokenInventoryColumn
               title="Text"
               recipeLabel="token / visible role / text"
               items={tokenInventory.text}
+              tokenOverrides={tokenOverrides}
+              activeTokenVar={activeTokenOverrideEditor?.tokenVar ?? null}
+              onOpenTokenOverrideEditor={handleOpenTokenOverrideEditor}
             />
             <TokenInventoryColumn
               title="Focus / Treatments"
               recipeLabel="token / visible role / treatment"
               items={tokenInventory.treatments}
+              tokenOverrides={tokenOverrides}
+              activeTokenVar={activeTokenOverrideEditor?.tokenVar ?? null}
+              onOpenTokenOverrideEditor={handleOpenTokenOverrideEditor}
             />
           </div>
         </SectionCard>
@@ -3293,6 +3907,101 @@ export function DesignSystemSandboxPage() {
             tabs, or textarea families.
           </div>
         </section>
+        {activeTokenOverrideEditor ? (
+          <div
+            style={tokenOverridePanelStyle}
+            onClick={(event) => {
+              event.stopPropagation();
+            }}
+          >
+            <div style={tokenOverridePanelHeaderStyle}>
+              <div style={tokenOverridePanelTitleStyle}>{activeTokenOverrideEditor.label}</div>
+              <div style={tokenHintStyle}>{activeTokenOverrideEditor.hint}</div>
+              <div style={tokenOverridePanelTokenStyle}>
+                {activeTokenOverrideEditor.tokenVar}
+              </div>
+            </div>
+            <div style={tokenOverridePanelValueGridStyle}>
+              <div style={tokenOverridePanelValueRowStyle}>
+                <div style={tokenOverridePanelValueLabelStyle}>Effective</div>
+                <div style={tokenOverridePanelValueTextStyle}>
+                  {activeTokenEffectiveValue || "none"}
+                </div>
+              </div>
+              <div style={tokenOverridePanelValueRowStyle}>
+                <div style={tokenOverridePanelValueLabelStyle}>Direct override</div>
+                <div style={tokenOverridePanelValueTextStyle}>
+                  {activeTokenDirectOverrideValue || "none"}
+                </div>
+              </div>
+            </div>
+            <div style={tokenOverridePanelControlsStyle}>
+              {isColorLikeToken(activeTokenOverrideEditor.tokenVar) ? (
+                <input
+                  type="color"
+                  value={toColorInputValue(tokenOverrideDraft) ?? "#3b82f6"}
+                  onChange={(event) => {
+                    setTokenOverrideDraft((current) =>
+                      applyColorToDraftValue(current, event.target.value)
+                    );
+                  }}
+                  style={{
+                    width: 52,
+                    height: 36,
+                    padding: 0,
+                    border: `1px solid ${border.default}`,
+                    borderRadius: 10,
+                    background: surface.inset,
+                    cursor: "pointer",
+                  }}
+                />
+              ) : (
+                <div />
+              )}
+              <input
+                type="text"
+                value={tokenOverrideDraft}
+                onChange={(event) => {
+                  setTokenOverrideDraft(event.target.value);
+                }}
+                placeholder="CSS value"
+                style={tokenOverridePanelInputStyle}
+              />
+            </div>
+            <div style={tokenOverridePanelActionsStyle}>
+              <button
+                type="button"
+                {...getButtonProps(buttonRecipes.secondary.compact)}
+                onClick={() => {
+                  setActiveTokenOverrideEditor(null);
+                }}
+              >
+                Close
+              </button>
+              <button
+                type="button"
+                {...getButtonProps(buttonRecipes.secondary.compact)}
+                onClick={() => {
+                  handleResetTokenOverride(activeTokenOverrideEditor.tokenVar);
+                }}
+              >
+                Reset
+              </button>
+              <button
+                type="button"
+                {...getButtonProps(buttonRecipes.primary.compact)}
+                onClick={() => {
+                  handleApplyTokenOverride(
+                    activeTokenOverrideEditor.tokenVar,
+                    tokenOverrideDraft
+                  );
+                }}
+              >
+                Apply
+              </button>
+            </div>
+          </div>
+        ) : null}
         </div>
       </div>
     </SandboxInspectContext.Provider>
