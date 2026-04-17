@@ -227,16 +227,15 @@ Remaining deferred runtime tail from this chapter:
    - full explicit state sets for standard controls completed;
    - dev-only design-system sandbox page completed;
    - ordinary shared-control verification pass completed;
-4. считать текущим active chapter `UI controls polish`:
-   - взять `participant-color tokenization` как ядро главы;
-   - собрать полный semantic token set на каждый participant color;
-   - перевести participant-accent controls на этот tokenized path;
-   - вернуть читаемый `selected` ring / selected state у color swatches;
-   - вернуть читаемую дифференциацию `occupied` vs `available` у color swatches;
-   - после этого сделать bonus pass по tuning token values и states, когда
-     participant-color layer уже станет честной базой для visual polish;
-5. держать этот chapter как control/UI polish pass, а не как broad visual restyle,
-   media polish, mobile chapter или новую capability wave;
+4. считать `UI controls polish` закрытым chapter:
+   - `participant-color tokenization` completed;
+   - participant-accent controls now read through the tokenized path;
+   - `disabled` vs `disabledFilled` split completed for filled vs non-filled controls;
+   - shared non-filled disabled contract now covers ordinary DOM control families;
+   - sandbox now exposes honest filled vs non-filled disabled comparison;
+   - color swatches now have readable `selected`, `disabled`, and `occupied` states;
+   - `primaryNeutral` state contrast tuning completed for `default / hover / active`;
+5. вернуть проект в planning mode after the closed controls chapter;
 6. считать `App.tsx` chapter structurally closed;
 7. считать current `BoardStage.tsx` cleanup chapter checkpoint-closed;
 8. считать refreshed architecture/runtime audit completed;

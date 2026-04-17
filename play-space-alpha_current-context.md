@@ -1030,28 +1030,26 @@ Accepted override / boundary decisions already made:
 - chapter больше не требует ещё одного structural design-system pass перед
   переходом дальше.
 
-Следующий активный chapter:
+Closed chapter:
 
 - `UI controls polish`
-  - core slice: `participant-color tokenization`
-    - replace raw participant palette + derived accent behavior with full
-      semantic token sets per participant color;
-    - make participant-colored controls read through that tokenized path;
-  - next slice: participant-accent control polish on top of the new token path;
-  - next slice: restore a readable `selected` ring / selected state for color
-    swatches;
-  - next slice: restore a readable `occupied` vs `available` distinction for
-    color swatches;
-  - final bonus slice: tune token values and states after the participant-color
-    layer is stable enough to support honest UI polish.
+  - `participant-color tokenization` completed;
+  - participant-accent controls now read through semantic participant-color
+    token sets;
+  - `disabled` vs `disabledFilled` split is now live for filled vs non-filled
+    controls;
+  - shared non-filled disabled contract now covers ordinary DOM control
+    families;
+  - sandbox now shows an explicit filled vs non-filled disabled comparison;
+  - swatches now have readable `selected`, `disabled`, and `occupied` states;
+  - `primaryNeutral` `default / hover / active` contrast was tuned to read as a
+    real state sequence.
 
-Working boundary for this chapter:
+Current mode after this closure:
 
-- this is a control/UI polish chapter;
-- this is not a broad visual restyle;
-- this is not media polish;
-- this is not mobile work;
-- this is not a new capability spike.
+- the project is back in planning mode;
+- the next design-system or control-polish work is `candidate` only until a
+  separate planning decision selects it as the next active chapter.
 
 ## 8.7. Repo/runtime health work closed the current `App` chapter
 

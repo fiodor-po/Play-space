@@ -9,6 +9,63 @@
 
 ---
 
+## Phase 0X — UI controls polish closed as a coherent control-state chapter
+
+### Type
+- milestone
+- decision
+
+### Context
+После closure `design-system usage pass` проект уже имел working sandbox,
+shared control families, и tokenized direction для participant-colored UI.
+Открытым оставался один честный control-polish chapter: довести participant
+colors, disabled semantics, и swatch readability до одной runtime truth.
+
+### Goal or problem
+Нужно было закрыть control-state chapter без broad visual restyle:
+
+- довести participant-colored controls до semantic token path;
+- развести filled и non-filled disabled surfaces;
+- выровнять disabled contract у ordinary DOM controls;
+- вернуть читаемость `selected`, `disabled`, и `occupied` у swatches;
+- сделать sandbox честной verification surface для new disabled split.
+
+### What happened
+Chapter закрылся как цепочка узких passes:
+
+- participant-color tokenization now gives participant-accent controls a full
+  semantic token path;
+- filled controls now use `disabledFilled`, while ordinary non-filled controls
+  stay on the shared `disabled` branch;
+- `row-selectable`, `pill`, `field`, and `swatch` now read through an explicit
+  disabled contract instead of partial or implicit tails;
+- design-system sandbox now shows a direct filled vs non-filled disabled
+  comparison and keeps the check inspectable;
+- swatches gained readable `selected`, `disabled`, and `occupied` states,
+  including the final occupied `X` mark and tuned occupied fill/overlay balance;
+- `primaryNeutral` state contrast now reads as a real
+  `default -> hover -> active` sequence.
+
+### Decision / change
+`UI controls polish` is closed.
+
+The project returns to planning mode after this control-state checkpoint.
+
+### Why
+The chapter reached its intended runtime truth:
+
+- semantic participant-color path exists;
+- disabled semantics are explicit and inspectable;
+- swatch state readability is honest again;
+- the remaining work belongs to future polish decisions, not to this closure.
+
+### Result
+The project is now in planning mode without an active design-system
+control-state chapter.
+
+Future design-system work should be selected as a separate candidate chapter
+after a new planning decision.
+
 ## Phase 0X — Browser-local participant identity stabilization closed
 
 ### Type
