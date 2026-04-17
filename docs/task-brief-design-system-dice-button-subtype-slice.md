@@ -63,13 +63,13 @@ Current accepted dice direction:
 
 Relevant docs:
 
-- `docs/design-system-canonical-draft.md`
+- `docs/design-system-canonical.md`
 - `docs/design-system-migration-map.md`
 - `docs/task-brief-design-system-button-family-first-slice.md`
 
 ## Files to inspect first
 
-- `docs/design-system-canonical-draft.md`
+- `docs/design-system-canonical.md`
 - `docs/design-system-migration-map.md`
 - `src/ui/system/families/button.ts`
 - `src/ui/system/tokens.css`

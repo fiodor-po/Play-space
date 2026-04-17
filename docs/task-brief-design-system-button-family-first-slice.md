@@ -77,14 +77,14 @@ That means:
 
 The button-family planning context is already recorded in:
 
-- [docs/design-system-canonical-draft.md](/Users/fedorpodrezov/Developer/play-space-alpha/docs/design-system-canonical-draft.md)
+- [docs/design-system-canonical.md](/Users/fedorpodrezov/Developer/play-space-alpha/docs/design-system-canonical.md)
 - [docs/design-system-migration-map.md](/Users/fedorpodrezov/Developer/play-space-alpha/docs/design-system-migration-map.md)
 - [docs/execplan-design-system-ordinary-interface-migration.md](/Users/fedorpodrezov/Developer/play-space-alpha/docs/execplan-design-system-ordinary-interface-migration.md)
 - [docs/design-system-runtime-substrate-plan.md](/Users/fedorpodrezov/Developer/play-space-alpha/docs/design-system-runtime-substrate-plan.md)
 
 ## Files to inspect first
 
-- [docs/design-system-canonical-draft.md](/Users/fedorpodrezov/Developer/play-space-alpha/docs/design-system-canonical-draft.md)
+- [docs/design-system-canonical.md](/Users/fedorpodrezov/Developer/play-space-alpha/docs/design-system-canonical.md)
 - [docs/design-system-migration-map.md](/Users/fedorpodrezov/Developer/play-space-alpha/docs/design-system-migration-map.md)
 - [docs/execplan-design-system-ordinary-interface-migration.md](/Users/fedorpodrezov/Developer/play-space-alpha/docs/execplan-design-system-ordinary-interface-migration.md)
 - [docs/design-system-runtime-substrate-plan.md](/Users/fedorpodrezov/Developer/play-space-alpha/docs/design-system-runtime-substrate-plan.md)

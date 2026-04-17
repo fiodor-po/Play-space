@@ -16,7 +16,7 @@ Scope: current full control-family state matrix plus current-track rollout scope
 
 Этот документ не заменяет:
 
-- [design-system-canonical-draft.md](/Users/fedorpodrezov/Developer/play-space-alpha/docs/design-system-canonical-draft.md)
+- [design-system-canonical.md](/Users/fedorpodrezov/Developer/play-space-alpha/docs/design-system-canonical.md)
 - [design-system-migration-map.md](/Users/fedorpodrezov/Developer/play-space-alpha/docs/design-system-migration-map.md)
 
 Он сжимает их state truth до practical matrix для implementation planning.
@@ -26,7 +26,7 @@ Scope: current full control-family state matrix plus current-track rollout scope
 Эта матрица опирается на:
 
 - текущий repo draft:
-  - [design-system-canonical-draft.md](/Users/fedorpodrezov/Developer/play-space-alpha/docs/design-system-canonical-draft.md)
+  - [design-system-canonical.md](/Users/fedorpodrezov/Developer/play-space-alpha/docs/design-system-canonical.md)
   - [design-system-migration-map.md](/Users/fedorpodrezov/Developer/play-space-alpha/docs/design-system-migration-map.md)
   - [design-system-runtime-substrate-plan.md](/Users/fedorpodrezov/Developer/play-space-alpha/docs/design-system-runtime-substrate-plan.md)
 - reference patterns из крупных design systems:

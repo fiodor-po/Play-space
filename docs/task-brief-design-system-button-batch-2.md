@@ -83,7 +83,7 @@ Accepted subtype mappings:
 
 Relevant docs:
 
-- `docs/design-system-canonical-draft.md`
+- `docs/design-system-canonical.md`
 - `docs/design-system-migration-map.md`
 - `docs/execplan-design-system-ordinary-interface-migration.md`
 - `docs/task-brief-design-system-button-family-first-slice.md`
@@ -91,7 +91,7 @@ Relevant docs:
 
 ## Files to inspect first
 
-- `docs/design-system-canonical-draft.md`
+- `docs/design-system-canonical.md`
 - `docs/design-system-migration-map.md`
 - `docs/task-brief-design-system-button-batch-2.md`
 - `src/ui/system/families/button.ts`

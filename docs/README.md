@@ -64,5 +64,5 @@ Open only when the task is actually in that migration chapter:
 - `design-system-working-principles.md`
 - `design-system-migration-map.md`
 - `design-system-audit-synthesis.md`
-- `design-system-canonical-draft.md`
+- `design-system-canonical.md`
 - the related `task-brief-design-system-*.md` files

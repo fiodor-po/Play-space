@@ -562,7 +562,7 @@ If the migration actually starts landing in code, update as needed:
 - `ROADMAP.md`
 - `play-space-alpha_current-context.md`
 - `play-space-alpha_case-study-log.md`
-- `docs/design-system-canonical-draft.md`
+- `docs/design-system-canonical.md`
 - `docs/design-system-migration-map.md`
 
 For planning-only completion, doc updates are limited to the design-system

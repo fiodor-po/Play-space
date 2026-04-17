@@ -54,7 +54,7 @@ This includes questions like:
 - `ROADMAP.md`
 - `play-space-alpha_current-context.md`
 - `docs/design-system-migration-map.md`
-- `docs/design-system-canonical-draft.md`
+- `docs/design-system-canonical.md`
 - `src/ui/system/`
 - `src/App.tsx`
 - `src/board/components/ParticipantSessionPanel.tsx`

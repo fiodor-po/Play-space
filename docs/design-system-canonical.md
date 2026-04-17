@@ -1,6 +1,6 @@
-# Design System Canonical Draft
+# Design System Canonical
 
-Status: draft / working canonical model-in-progress  
+Status: working canonical spec  
 Scope: emerging canonical design-system structure for `play-space-alpha`
 
 This document records the working canonical decisions that emerge after the
@@ -12,12 +12,12 @@ Its purpose is:
 
 - to capture agreed design-system direction in one place;
 - to prevent repeated re-derivation of the same canonical decisions;
-- to provide a stable draft target for later dependency-map and rollout work.
+- to provide a stable target for later dependency-map and rollout work.
 
 This document should only record decisions that have already been reviewed and
-accepted at least at a working-draft level.
+accepted at least at a working level.
 
-## 1. Current draft decisions
+## 1. Current decisions
 
 ### 1.1. Primitive token categories
 
@@ -1421,12 +1421,47 @@ Current draft visual contract:
   - allow moderate opacity reduction
   - no hover, focus, or active deltas
 
+Disabled surface rule:
+
+- the system now distinguishes two disabled surface classes for controls:
+  - `control.surface.disabled`
+  - `control.surface.disabledFilled`
+- `control.surface.disabledFilled` is for controls whose ordinary resting state
+  is filled
+- `control.surface.disabled` is for non-filled controls
+- disabled border and disabled text remain shared branches for now
+- disabled should preserve the material class of the control:
+  - filled controls should remain filled when disabled
+  - non-filled controls should remain non-filled when disabled
+
+Unified disabled contract for DOM controls:
+
+- every DOM control family should apply disabled through the same mechanism:
+  - interaction is disabled
+  - current visual vars switch to disabled branches
+  - shared disabled opacity may be added on top
+  - the control keeps its material class
+- this rule applies to:
+  - `button`
+  - `field`
+  - `swatch`
+  - `pill`
+  - `row-selectable`
+- `row-selectable` is an ordinary non-filled control:
+  - it should follow the same disabled contract as other non-filled controls
+  - it should not remain on an implicit half-disabled path
+- disabled must stop being a mix of unrelated local patterns such as:
+  - token branch swap in one family
+  - opacity-only treatment in another family
+  - native `disabled` with no visual branch in a third family
+
 Current draft semantic token targets:
 
 - `control.surface.default`
 - `control.surface.hover`
 - `control.surface.active`
 - `control.surface.disabled`
+- `control.surface.disabledFilled`
 - `control.border.default`
 - `control.border.hover`
 - `control.border.focus`
@@ -1444,6 +1479,8 @@ Current draft mapping principles:
 - `active` should read primarily through `control.surface.active`
 - `disabled` should read through both muted text and muted surface/border
   treatment, not through opacity alone
+- `disabledFilled` should serve filled controls
+- `disabled` should serve non-filled controls
 
 Best-practice rule:
 
@@ -1895,6 +1932,19 @@ Family rule:
 - the family should remain standardized even if individual row variants differ
   in interactivity or content density
 
+Selectable-row rule:
+
+- `row-selectable` is an ordinary non-filled control
+- it is separate from ordinary buttons because of layout and content structure,
+  not because it has a different state model
+- it should use the shared control-state language for:
+  - hover
+  - focus
+  - active
+  - disabled
+- it may keep a row-specific semantic `selected` state
+- its disabled state should use the shared non-filled disabled branch
+
 Text-role rule:
 
 - rows should compose from the ordinary UI text-style set rather than from a
@@ -2069,7 +2119,7 @@ The canonical model now has a separate dependency and migration companion:
 
 Working rule:
 
-- `design-system-canonical-draft.md` should define what the system is
+- `design-system-canonical.md` should define what the system is
 - the migration map should define what migrates first, what stays excluded, and
   how runtime families map onto the canonical model
 
@@ -2088,7 +2138,7 @@ ordinary interface migration baseline.
 
 Sequencing note:
 
-- the canonical draft may already define some board/object-related tokens or
+- the canonical model may already define some board/object-related tokens or
   families where that improved the model
 - this does not mean those areas belong in the first rollout wave
 - board/object design-system rollout should be treated as a later deliberate

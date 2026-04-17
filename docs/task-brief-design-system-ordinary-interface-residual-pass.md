@@ -58,7 +58,7 @@ The purpose of this pass is to answer:
 
 ## Files to inspect first
 
-- `docs/design-system-canonical-draft.md`
+- `docs/design-system-canonical.md`
 - `docs/design-system-migration-map.md`
 - `docs/design-system-control-inventory.md`
 - `play-space-alpha_current-context.md`

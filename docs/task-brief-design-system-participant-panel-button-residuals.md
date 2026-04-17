@@ -74,7 +74,7 @@ Current accepted direction:
 
 ## Files to inspect first
 
-- `docs/design-system-canonical-draft.md`
+- `docs/design-system-canonical.md`
 - `docs/design-system-migration-map.md`
 - `src/board/components/ParticipantSessionPanel.tsx`
 - `src/ui/system/families/button.ts`

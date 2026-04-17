@@ -83,7 +83,7 @@ Conditional / later in the same pass only if they fit cleanly:
 
 ## Files to inspect first
 
-- `docs/design-system-canonical-draft.md`
+- `docs/design-system-canonical.md`
 - `docs/design-system-migration-map.md`
 - `src/App.tsx`
 - `src/ops/RoomsOpsPage.tsx`

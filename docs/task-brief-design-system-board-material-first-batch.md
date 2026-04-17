@@ -73,7 +73,7 @@ or interaction concerns.
 
 ## Files to inspect first
 
-- `docs/design-system-canonical-draft.md`
+- `docs/design-system-canonical.md`
 - `docs/design-system-migration-map.md`
 - `src/components/BoardStage.tsx`
 - `src/ui/system/`

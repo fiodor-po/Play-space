@@ -100,7 +100,7 @@ Canonical field-family expectations are recorded in:
 - [docs/design-system-runtime-substrate-plan.md](/Users/fedorpodrezov/Developer/play-space-alpha/docs/design-system-runtime-substrate-plan.md)
 - [docs/design-system-migration-map.md](/Users/fedorpodrezov/Developer/play-space-alpha/docs/design-system-migration-map.md)
 - [docs/execplan-design-system-ordinary-interface-migration.md](/Users/fedorpodrezov/Developer/play-space-alpha/docs/execplan-design-system-ordinary-interface-migration.md)
-- [docs/design-system-canonical-draft.md](/Users/fedorpodrezov/Developer/play-space-alpha/docs/design-system-canonical-draft.md)
+- [docs/design-system-canonical.md](/Users/fedorpodrezov/Developer/play-space-alpha/docs/design-system-canonical.md)
 - [src/App.tsx](/Users/fedorpodrezov/Developer/play-space-alpha/src/App.tsx)
 - [src/ops/RoomsOpsPage.tsx](/Users/fedorpodrezov/Developer/play-space-alpha/src/ops/RoomsOpsPage.tsx)
 - [src/index.css](/Users/fedorpodrezov/Developer/play-space-alpha/src/index.css)
