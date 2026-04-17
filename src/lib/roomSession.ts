@@ -43,6 +43,19 @@ export const PARTICIPANT_COLOR_OPTIONS = [
   "#db2777",
 ];
 
+export function getParticipantColorSlotNumber(color: string): 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 {
+  const normalizedColor = color.trim().toLowerCase();
+  const slotIndex = PARTICIPANT_COLOR_OPTIONS.findIndex(
+    (option) => option.toLowerCase() === normalizedColor
+  );
+
+  if (slotIndex < 0) {
+    throw new Error(`Unknown participant color slot for value "${color}"`);
+  }
+
+  return (slotIndex + 1) as 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
+}
+
 export const ROOM_SESSION_STORAGE_PREFIX = "play-space-alpha-room-session-v1";
 export const ACTIVE_ROOM_STORAGE_KEY = "play-space-alpha-active-room-v1";
 export const ROOM_PRESENCE_STORAGE_PREFIX = "play-space-alpha-room-presence-v1";

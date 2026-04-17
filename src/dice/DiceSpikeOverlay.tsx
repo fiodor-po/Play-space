@@ -1,5 +1,8 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
-import { createParticipantAccentButtonRecipe, buttonRecipes } from "../ui/system/families/button";
+import {
+  buttonRecipes,
+  createDraftLocalUserButtonRecipeForSlot,
+} from "../ui/system/families/button";
 import { calloutRecipes } from "../ui/system/families/callout";
 import { boardSurfaceRecipes } from "../ui/system/boardSurfaces";
 import { getDesignSystemDebugAttrs } from "../ui/system/debugMeta";
@@ -12,6 +15,7 @@ import {
   type SupportedRollKind,
   SUPPORTED_DICE,
 } from "../lib/roomDiceRealtime";
+import { getParticipantColorSlotNumber } from "../lib/roomSession";
 import type { LocalParticipantSession } from "../lib/roomSession";
 
 type DiceBoxModule = typeof import("@3d-dice/dice-box-threejs");
@@ -39,9 +43,10 @@ export function DiceSpikeOverlay({
 }: DiceSpikeOverlayProps) {
   const diceButtonRecipe = useMemo(
     () =>
-      createParticipantAccentButtonRecipe(
+      createDraftLocalUserButtonRecipeForSlot(
         buttonRecipes.secondary.small,
-        participantSession.color
+        getParticipantColorSlotNumber(participantSession.color),
+        "border"
       ),
     [participantSession.color]
   );

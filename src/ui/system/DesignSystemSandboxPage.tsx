@@ -14,7 +14,7 @@ import { boardSurfaceRecipes } from "./boardSurfaces";
 import { getDesignSystemDebugAttrs } from "./debugMeta";
 import {
   buttonRecipes,
-  createParticipantAccentButtonRecipeWithMode,
+  createDraftLocalUserButtonRecipeForSlot,
   createTextButtonRecipe,
   createToggleButtonRecipe,
   getButtonProps,
@@ -26,7 +26,17 @@ import {
 } from "./families/button";
 import { fieldRecipes, getFieldShellProps } from "./families/field";
 import { getSwatchButtonProps, swatchPillRecipes } from "./families/swatchPill";
-import { border, focusRing, radius, radiusPrimitive, surface, text } from "./foundations";
+import {
+  border,
+  DRAFT_LOCAL_USER_SOURCE_SLOT,
+  focusRing,
+  localUserButton,
+  participantColor,
+  radius,
+  radiusPrimitive,
+  surface,
+  text,
+} from "./foundations";
 import { inlineTextRecipes } from "./inlineText";
 import { surfaceRecipes } from "./surfaces";
 
@@ -112,6 +122,11 @@ const previewGridStyle: CSSProperties = {
   alignItems: "start",
 };
 
+const previewGridStyleFourColumns: CSSProperties = {
+  ...previewGridStyle,
+  gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+};
+
 const controlStackStyle: CSSProperties = {
   display: "grid",
   gap: 8,
@@ -151,7 +166,7 @@ const tokenColumnStyle: CSSProperties = {
 
 const tokenItemStyle: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "36px minmax(0, 1fr) auto",
+  gridTemplateColumns: "54px minmax(0, 1fr) auto",
   alignItems: "center",
   gap: 10,
   padding: "6px 8px",
@@ -161,7 +176,7 @@ const tokenItemStyle: CSSProperties = {
 };
 
 const tokenChipStyle: CSSProperties = {
-  width: 36,
+  width: 54,
   height: 24,
   borderRadius: 8,
   minWidth: 0,
@@ -186,13 +201,71 @@ const tokenHintStyle: CSSProperties = {
   lineHeight: 1.15,
 };
 
-const tokenOverrideButtonContentStyle: CSSProperties = {
+const tokenOverrideIndicatorStyle: CSSProperties = {
   display: "grid",
   placeItems: "center",
-  minWidth: 28,
+  minWidth: 34,
+  minHeight: 24,
+  padding: "0 8px",
+  borderRadius: 999,
+  border: "1px solid rgba(250, 204, 21, 0.66)",
+  background: "rgba(250, 204, 21, 0.18)",
+  color: "#fde68a",
   fontSize: 10,
   fontWeight: 800,
   letterSpacing: "0.04em",
+};
+
+const participantSelectorRowStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(8, minmax(0, 1fr))",
+  gap: 12,
+  width: "100%",
+  minWidth: 0,
+};
+
+const participantSelectorButtonStyle: CSSProperties = {
+  width: "100%",
+  minWidth: 0,
+  display: "grid",
+  gridTemplateColumns: "40px minmax(0, 1fr)",
+  alignItems: "center",
+  gap: 10,
+  padding: "10px 12px",
+  borderRadius: 12,
+  border: `1px solid ${border.default}`,
+  background: surface.panelSubtle,
+  color: text.primary,
+  font: "inherit",
+  textAlign: "left",
+  cursor: "pointer",
+};
+
+const participantSelectorSwatchStyle: CSSProperties = {
+  width: 40,
+  height: 40,
+  borderRadius: 10,
+  border: `1px solid ${border.default}`,
+};
+
+const participantSelectorTextStyle: CSSProperties = {
+  display: "grid",
+  gap: 3,
+  minWidth: 0,
+};
+
+const participantSelectorNameStyle: CSSProperties = {
+  fontSize: 12,
+  lineHeight: 1.15,
+  fontWeight: 700,
+  color: text.primary,
+};
+
+const participantSelectorValueStyle: CSSProperties = {
+  ...inlineTextRecipes.muted.style,
+  fontSize: 11,
+  lineHeight: 1.15,
+  fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
 };
 
 const tokenOverridePanelStyle: CSSProperties = {
@@ -280,6 +353,8 @@ const tokenOverridePanelValueTextStyle: CSSProperties = {
 };
 
 const inspectableContainerBaseStyle: CSSProperties = {
+  width: "100%",
+  minWidth: 0,
   borderRadius: 12,
   border: "1px solid transparent",
   padding: 4,
@@ -311,6 +386,44 @@ type ActiveTokenOverrideEditor = {
 function getTokenVariableName(label: string) {
   const match = label.match(/(--ui-[a-z0-9-]+)/i);
   return match?.[1];
+}
+
+function getTokenVariableNameFromReference(reference: string) {
+  const match = reference.match(/var\((--ui-[a-z0-9-]+)\)/i);
+  return match?.[1];
+}
+
+function getLocalUserAliasTokenNodeLabel(
+  branch: "surface" | "border" | "text",
+  state:
+    | "default"
+    | "hover"
+    | "active"
+    | "selected"
+    | "selected-hover"
+    | "selected-active"
+    | "open"
+    | "open-hover"
+    | "open-active"
+    | "loading"
+    | "disabled"
+) {
+  return `token / local-user / ${branch} / ${state} / --ui-button-local-user-${branch}-${state}`;
+}
+
+function getParticipantPaletteSlotNodeLabel(slotNumber: number, color: string) {
+  return `participantColor / palette / slot-${slotNumber} / ${color}`;
+}
+
+function getDraftSlotNumberFromInspectNodeId(nodeId: string) {
+  const match = nodeId.match(/^participantColor \/ palette \/ slot-(\d+) \//);
+  const nextSlot = match ? Number.parseInt(match[1] ?? "", 10) : Number.NaN;
+
+  if (!Number.isFinite(nextSlot) || nextSlot < 1 || nextSlot > participantColor.length) {
+    return null;
+  }
+
+  return nextSlot as 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
 }
 
 function isColorLikeToken(tokenVar: string) {
@@ -590,7 +703,7 @@ const metricSampleStyle: CSSProperties = {
 
 const radiusMetricShapeStyle: CSSProperties = {
   ...metricSampleStyle,
-  width: 40,
+  width: 54,
   height: 40,
 };
 
@@ -916,7 +1029,7 @@ const foundationTokenInventory = {
       label: "Focus ring",
       hint: "focus-visible overlay",
       meta: { family: "token", variant: "foundationFocus", subtype: "focusRing", label: "token / foundation / focus / --ui-color-focus-ring" },
-      swatchStyle: { background: surface.panel, border: `1px solid ${border.default}`, boxShadow: `0 0 0 6px ${focusRing.default} inset` },
+      swatchStyle: { background: surface.panel, border: `1px solid ${border.default}`, boxShadow: `0 0 0 3px ${focusRing.default} inset` },
     },
   ] satisfies TokenInventoryItem[],
   metrics: [
@@ -927,7 +1040,7 @@ const foundationTokenInventory = {
       swatchStyle: { background: surface.panel, border: `1px solid ${border.default}`, display: "grid", placeItems: "center" },
       swatchContent: <div style={{ ...radiusMetricShapeStyle, borderRadius: radiusPrimitive.r4 }} />,
       unframedSwatch: true,
-      swatchContainerStyle: { width: 40, height: 40 },
+      swatchContainerStyle: { width: 54, height: 40 },
     },
     {
       label: "Radius 8",
@@ -936,7 +1049,7 @@ const foundationTokenInventory = {
       swatchStyle: { background: surface.panel, border: `1px solid ${border.default}`, display: "grid", placeItems: "center" },
       swatchContent: <div style={{ ...radiusMetricShapeStyle, borderRadius: radiusPrimitive.r8 }} />,
       unframedSwatch: true,
-      swatchContainerStyle: { width: 40, height: 40 },
+      swatchContainerStyle: { width: 54, height: 40 },
     },
     {
       label: "Radius 12",
@@ -945,7 +1058,7 @@ const foundationTokenInventory = {
       swatchStyle: { background: surface.panel, border: `1px solid ${border.default}`, display: "grid", placeItems: "center" },
       swatchContent: <div style={{ ...radiusMetricShapeStyle, borderRadius: radiusPrimitive.r12 }} />,
       unframedSwatch: true,
-      swatchContainerStyle: { width: 40, height: 40 },
+      swatchContainerStyle: { width: 54, height: 40 },
     },
     {
       label: "Radius 16",
@@ -954,7 +1067,7 @@ const foundationTokenInventory = {
       swatchStyle: { background: surface.panel, border: `1px solid ${border.default}`, display: "grid", placeItems: "center" },
       swatchContent: <div style={{ ...radiusMetricShapeStyle, borderRadius: radiusPrimitive.r16 }} />,
       unframedSwatch: true,
-      swatchContainerStyle: { width: 40, height: 40 },
+      swatchContainerStyle: { width: 54, height: 40 },
     },
     {
       label: "Radius pill",
@@ -963,7 +1076,7 @@ const foundationTokenInventory = {
       swatchStyle: { background: surface.panel, border: `1px solid ${border.default}`, display: "grid", placeItems: "center" },
       swatchContent: <div style={{ ...radiusMetricShapeStyle, borderRadius: radiusPrimitive.r999 }} />,
       unframedSwatch: true,
-      swatchContainerStyle: { width: 40, height: 40 },
+      swatchContainerStyle: { width: 54, height: 40 },
     },
     {
       label: "Radius control",
@@ -972,7 +1085,7 @@ const foundationTokenInventory = {
       swatchStyle: { background: surface.panel, border: `1px solid ${border.default}`, display: "grid", placeItems: "center" },
       swatchContent: <div style={{ ...radiusMetricShapeStyle, borderRadius: radius.control }} />,
       unframedSwatch: true,
-      swatchContainerStyle: { width: 40, height: 40 },
+      swatchContainerStyle: { width: 54, height: 40 },
     },
     {
       label: "Radius surface",
@@ -981,7 +1094,7 @@ const foundationTokenInventory = {
       swatchStyle: { background: surface.panel, border: `1px solid ${border.default}`, display: "grid", placeItems: "center" },
       swatchContent: <div style={{ ...radiusMetricShapeStyle, borderRadius: radius.surface }} />,
       unframedSwatch: true,
-      swatchContainerStyle: { width: 40, height: 40 },
+      swatchContainerStyle: { width: 54, height: 40 },
     },
     {
       label: "Radius inset",
@@ -990,7 +1103,7 @@ const foundationTokenInventory = {
       swatchStyle: { background: surface.panel, border: `1px solid ${border.default}`, display: "grid", placeItems: "center" },
       swatchContent: <div style={{ ...radiusMetricShapeStyle, borderRadius: radius.inset }} />,
       unframedSwatch: true,
-      swatchContainerStyle: { width: 40, height: 40 },
+      swatchContainerStyle: { width: 54, height: 40 },
     },
     {
       label: "Space compact",
@@ -1058,13 +1171,294 @@ const participantColorInventory = PARTICIPANT_COLOR_OPTIONS.map((color, index) =
     family: "participantColor",
     variant: "palette",
     subtype: `slot-${index + 1}`,
-    label: `participantColor / palette / slot-${index + 1} / ${color}`,
+    label: getParticipantPaletteSlotNodeLabel(index + 1, color),
   },
   swatchStyle: {
     background: color,
     border: `1px solid ${border.default}`,
   },
 })) satisfies TokenInventoryItem[];
+
+function getParticipantColorDraftTokenNodeLabel(
+  slotNumber: number,
+  branch: "surface" | "border" | "text",
+  state: "default" | "hover" | "active"
+) {
+  return `token / participant-color / participant-color-${slotNumber} / ${branch} / ${state} / --ui-participant-color-${slotNumber}-${branch}-${state}`;
+}
+
+const participantColorDraftTokenColumns = participantColor.map((tokenSet, index) => {
+  const slotNumber = index + 1;
+  const sourceColor = PARTICIPANT_COLOR_OPTIONS[index];
+
+  return {
+    title: tokenSet.slot,
+    recipeLabel: `token / participant-color / ${tokenSet.slot}`,
+    items: [
+      {
+        label: "Surface default",
+        hint: `base accent from ${sourceColor}`,
+        tokenVar: getTokenVariableNameFromReference(tokenSet.surface.default),
+        meta: {
+          family: "token",
+          variant: "surface",
+          subtype: "participantColorSurfaceDefault",
+          label: getParticipantColorDraftTokenNodeLabel(slotNumber, "surface", "default"),
+        },
+        swatchStyle: {
+          background: tokenSet.surface.default,
+          border: `1px solid ${tokenSet.border.default}`,
+        },
+      },
+      {
+        label: "Surface hover",
+        hint: "participant-color hover token",
+        tokenVar: getTokenVariableNameFromReference(tokenSet.surface.hover),
+        meta: {
+          family: "token",
+          variant: "surface",
+          subtype: "participantColorSurfaceHover",
+          label: getParticipantColorDraftTokenNodeLabel(slotNumber, "surface", "hover"),
+        },
+        swatchStyle: {
+          background: tokenSet.surface.hover,
+          border: `1px solid ${tokenSet.border.default}`,
+        },
+      },
+      {
+        label: "Surface active",
+        hint: "participant-color active token",
+        tokenVar: getTokenVariableNameFromReference(tokenSet.surface.active),
+        meta: {
+          family: "token",
+          variant: "surface",
+          subtype: "participantColorSurfaceActive",
+          label: getParticipantColorDraftTokenNodeLabel(slotNumber, "surface", "active"),
+        },
+        swatchStyle: {
+          background: tokenSet.surface.active,
+          border: `1px solid ${tokenSet.border.default}`,
+        },
+      },
+      {
+        label: "Border default",
+        hint: "base accent border",
+        tokenVar: getTokenVariableNameFromReference(tokenSet.border.default),
+        meta: {
+          family: "token",
+          variant: "border",
+          subtype: "participantColorBorderDefault",
+          label: getParticipantColorDraftTokenNodeLabel(slotNumber, "border", "default"),
+        },
+        swatchStyle: {
+          background: surface.panel,
+          border: `2px solid ${tokenSet.border.default}`,
+        },
+      },
+      {
+        label: "Text default",
+        hint: "text on participant accent",
+        tokenVar: getTokenVariableNameFromReference(tokenSet.text.default),
+        meta: {
+          family: "token",
+          variant: "text",
+          subtype: "participantColorTextDefault",
+          label: getParticipantColorDraftTokenNodeLabel(slotNumber, "text", "default"),
+        },
+        swatchStyle: {
+          background: tokenSet.surface.default,
+          border: `1px solid ${tokenSet.border.default}`,
+          color: tokenSet.text.default,
+          display: "grid",
+          placeItems: "center",
+          fontSize: 12,
+          fontWeight: 700,
+        },
+        swatchContent: "Aa",
+      },
+    ] satisfies TokenInventoryItem[],
+  };
+});
+
+const draftLocalUserAliasInventory = [
+  {
+    label: "Surface default",
+    hint: "active local-user base",
+    tokenVar: getTokenVariableNameFromReference(localUserButton.surface.default),
+    meta: {
+      family: "token",
+      variant: "surface",
+      subtype: "localUserSurfaceDefault",
+      label: getLocalUserAliasTokenNodeLabel("surface", "default"),
+    },
+    swatchStyle: {
+      background: localUserButton.surface.default,
+      border: `1px solid ${localUserButton.border.default}`,
+    },
+  },
+  {
+    label: "Surface hover",
+    hint: "hover follows palette hover",
+    tokenVar: getTokenVariableNameFromReference(localUserButton.surface.hover),
+    meta: {
+      family: "token",
+      variant: "surface",
+      subtype: "localUserSurfaceHover",
+      label: getLocalUserAliasTokenNodeLabel("surface", "hover"),
+    },
+    swatchStyle: {
+      background: localUserButton.surface.hover,
+      border: `1px solid ${localUserButton.border.default}`,
+    },
+  },
+  {
+    label: "Surface active",
+    hint: "pressed path",
+    tokenVar: getTokenVariableNameFromReference(localUserButton.surface.active),
+    meta: {
+      family: "token",
+      variant: "surface",
+      subtype: "localUserSurfaceActive",
+      label: getLocalUserAliasTokenNodeLabel("surface", "active"),
+    },
+    swatchStyle: {
+      background: localUserButton.surface.active,
+      border: `1px solid ${localUserButton.border.default}`,
+    },
+  },
+  {
+    label: "Surface selected",
+    hint: "selected stays on active color",
+    tokenVar: getTokenVariableNameFromReference(localUserButton.surface.selected),
+    meta: {
+      family: "token",
+      variant: "surface",
+      subtype: "localUserSurfaceSelected",
+      label: getLocalUserAliasTokenNodeLabel("surface", "selected"),
+    },
+    swatchStyle: {
+      background: localUserButton.surface.selected,
+      border: `1px solid ${localUserButton.border.default}`,
+    },
+  },
+  {
+    label: "Surface open",
+    hint: "open uses hover path",
+    tokenVar: getTokenVariableNameFromReference(localUserButton.surface.open),
+    meta: {
+      family: "token",
+      variant: "surface",
+      subtype: "localUserSurfaceOpen",
+      label: getLocalUserAliasTokenNodeLabel("surface", "open"),
+    },
+    swatchStyle: {
+      background: localUserButton.surface.open,
+      border: `1px solid ${localUserButton.border.default}`,
+    },
+  },
+  {
+    label: "Surface loading",
+    hint: "loading reuses active path",
+    tokenVar: getTokenVariableNameFromReference(localUserButton.surface.loading),
+    meta: {
+      family: "token",
+      variant: "surface",
+      subtype: "localUserSurfaceLoading",
+      label: getLocalUserAliasTokenNodeLabel("surface", "loading"),
+    },
+    swatchStyle: {
+      background: localUserButton.surface.loading,
+      border: `1px solid ${localUserButton.border.default}`,
+    },
+  },
+  {
+    label: "Border default",
+    hint: "shared participant border",
+    tokenVar: getTokenVariableNameFromReference(localUserButton.border.default),
+    meta: {
+      family: "token",
+      variant: "border",
+      subtype: "localUserBorderDefault",
+      label: getLocalUserAliasTokenNodeLabel("border", "default"),
+    },
+    swatchStyle: {
+      background: surface.panel,
+      border: `2px solid ${localUserButton.border.default}`,
+    },
+  },
+  {
+    label: "Border open",
+    hint: "open keeps same border identity",
+    tokenVar: getTokenVariableNameFromReference(localUserButton.border.open),
+    meta: {
+      family: "token",
+      variant: "border",
+      subtype: "localUserBorderOpen",
+      label: getLocalUserAliasTokenNodeLabel("border", "open"),
+    },
+    swatchStyle: {
+      background: surface.panel,
+      border: `2px solid ${localUserButton.border.open}`,
+    },
+  },
+  {
+    label: "Border loading",
+    hint: "loading keeps same border identity",
+    tokenVar: getTokenVariableNameFromReference(localUserButton.border.loading),
+    meta: {
+      family: "token",
+      variant: "border",
+      subtype: "localUserBorderLoading",
+      label: getLocalUserAliasTokenNodeLabel("border", "loading"),
+    },
+    swatchStyle: {
+      background: surface.panel,
+      border: `2px solid ${localUserButton.border.loading}`,
+    },
+  },
+  {
+    label: "Text default",
+    hint: "text on local-user accent",
+    tokenVar: getTokenVariableNameFromReference(localUserButton.text.default),
+    meta: {
+      family: "token",
+      variant: "text",
+      subtype: "localUserTextDefault",
+      label: getLocalUserAliasTokenNodeLabel("text", "default"),
+    },
+    swatchStyle: {
+      background: localUserButton.surface.default,
+      border: `1px solid ${localUserButton.border.default}`,
+      color: localUserButton.text.default,
+      display: "grid",
+      placeItems: "center",
+      fontSize: 12,
+      fontWeight: 700,
+    },
+    swatchContent: "Aa",
+  },
+  {
+    label: "Text loading",
+    hint: "loading stays on default text path",
+    tokenVar: getTokenVariableNameFromReference(localUserButton.text.loading),
+    meta: {
+      family: "token",
+      variant: "text",
+      subtype: "localUserTextLoading",
+      label: getLocalUserAliasTokenNodeLabel("text", "loading"),
+    },
+    swatchStyle: {
+      background: localUserButton.surface.loading,
+      border: `1px solid ${localUserButton.border.loading}`,
+      color: localUserButton.text.loading,
+      display: "grid",
+      placeItems: "center",
+      fontSize: 12,
+      fontWeight: 700,
+    },
+    swatchContent: "Aa",
+  },
+] satisfies TokenInventoryItem[];
 
 const tokenInventory = {
   surface: [
@@ -1311,7 +1705,7 @@ const tokenInventory = {
       swatchStyle: {
         background: surface.panel,
         border: `1px solid ${border.default}`,
-        boxShadow: `0 0 0 6px ${focusRing.default} inset`,
+        boxShadow: `0 0 0 3px ${focusRing.default} inset`,
       },
     },
     {
@@ -1426,11 +1820,12 @@ const inspectNodeIds = {
     swatchStateOccupied: "control / swatch / state-occupied",
     swatchStatePending: "control / swatch / state-pending",
     swatchStateDisabled: "control / swatch / state-disabled",
+    draftLocalUserButtonFill: "control / local-user / button / fill",
+    draftLocalUserButtonBorder: "control / local-user / button / border",
+    draftLocalUserInteractionFill: "control / local-user / interactionButton / pill / fill",
+    draftLocalUserInteractionBorder:
+      "control / local-user / interactionButton / pill / border",
   },
-  participantAccentPrimary: (color: string) =>
-    `control / participantAccent / primary / ${color}`,
-  participantAccentSecondary: (color: string) =>
-    `control / participantAccent / secondary / ${color}`,
 } as const;
 
 const inspectGraphEdges: Array<[InspectNodeId, InspectNodeId]> = [
@@ -1790,16 +2185,33 @@ const inspectGraphEdges: Array<[InspectNodeId, InspectNodeId]> = [
     "token / treatment / field error border / --ui-field-border-error",
     inspectNodeIds.controls.fieldErrorFocus,
   ],
-  ...PARTICIPANT_COLOR_OPTIONS.flatMap((color, index) => [
-    [
-      `participantColor / palette / slot-${index + 1} / ${color}`,
-      inspectNodeIds.participantAccentPrimary(color),
-    ] as [InspectNodeId, InspectNodeId],
-    [
-      `participantColor / palette / slot-${index + 1} / ${color}`,
-      inspectNodeIds.participantAccentSecondary(color),
-    ] as [InspectNodeId, InspectNodeId],
-  ]),
+  ...PARTICIPANT_COLOR_OPTIONS.flatMap((color, index) => {
+    const slotNumber = index + 1;
+    const paletteNode = getParticipantPaletteSlotNodeLabel(slotNumber, color);
+
+    return [
+      [
+        paletteNode,
+        getParticipantColorDraftTokenNodeLabel(slotNumber, "surface", "default"),
+      ] as [InspectNodeId, InspectNodeId],
+      [
+        paletteNode,
+        getParticipantColorDraftTokenNodeLabel(slotNumber, "surface", "hover"),
+      ] as [InspectNodeId, InspectNodeId],
+      [
+        paletteNode,
+        getParticipantColorDraftTokenNodeLabel(slotNumber, "surface", "active"),
+      ] as [InspectNodeId, InspectNodeId],
+      [
+        paletteNode,
+        getParticipantColorDraftTokenNodeLabel(slotNumber, "border", "default"),
+      ] as [InspectNodeId, InspectNodeId],
+      [
+        paletteNode,
+        getParticipantColorDraftTokenNodeLabel(slotNumber, "text", "default"),
+      ] as [InspectNodeId, InspectNodeId],
+    ];
+  }),
 ];
 
 function getPreviewButtonProps(recipe: ButtonRecipe, state: PreviewButtonState = {}) {
@@ -2140,23 +2552,21 @@ function TokenInventoryColumn({
   recipeLabel,
   items,
   tokenOverrides,
-  activeTokenVar,
-  onOpenTokenOverrideEditor,
+  onSelectTokenItem,
 }: {
   title: string;
   recipeLabel: string;
   items: readonly TokenInventoryItem[];
   tokenOverrides: Record<string, string>;
-  activeTokenVar: string | null;
-  onOpenTokenOverrideEditor: (editor: ActiveTokenOverrideEditor) => void;
+  onSelectTokenItem: (nodeId: InspectNodeId, editor: ActiveTokenOverrideEditor | null) => void;
 }) {
   const inspect = useContext(SandboxInspectContext);
-  const overrideToggleRecipe = createToggleButtonRecipe(buttonRecipes.secondary.compact);
 
   return (
     <PreviewCard
       title={title}
       recipeLabel={recipeLabel}
+      contentStyle={{ display: "grid", gap: 8, width: "100%", minWidth: 0 }}
     >
       <div style={tokenColumnStyle}>
         {items.map((item) => (
@@ -2164,18 +2574,25 @@ function TokenInventoryColumn({
             key={item.meta.label}
             nodeId={item.meta.label}
             relation={inspect.getInspectRelation(item.meta.label)}
-            onSelect={inspect.onInspectSelect}
+            onSelect={(nodeId) => {
+              const tokenVar = item.tokenVar ?? getTokenVariableName(item.meta.label);
+
+              onSelectTokenItem(
+                nodeId,
+                tokenVar
+                  ? {
+                      tokenVar,
+                      label: item.label,
+                      hint: item.hint,
+                    }
+                  : null
+              );
+            }}
             baseStyle={inspectableContainerBaseStyle}
           >
             {(() => {
               const tokenVar = item.tokenVar ?? getTokenVariableName(item.meta.label);
               const hasDirectOverride = tokenVar ? tokenOverrides[tokenVar] !== undefined : false;
-              const overrideToggleProps = tokenVar
-                ? getButtonProps(overrideToggleRecipe, {
-                    open: activeTokenVar === tokenVar,
-                    selected: hasDirectOverride,
-                  })
-                : null;
               const chipStyle: CSSProperties = {
                 ...tokenChipStyle,
                 ...item.swatchStyle,
@@ -2196,7 +2613,7 @@ function TokenInventoryColumn({
 
                 if (item.meta.variant === "treatment") {
                   if (item.meta.subtype === "focus") {
-                    chipStyle.boxShadow = `0 0 0 6px var(${tokenVar}) inset`;
+                    chipStyle.boxShadow = `0 0 0 3px var(${tokenVar}) inset`;
                   } else if (item.meta.subtype === "loading" || item.meta.subtype === "disabled") {
                     chipStyle.opacity = `var(${tokenVar})`;
                   } else if (item.meta.subtype === "error") {
@@ -2216,7 +2633,7 @@ function TokenInventoryColumn({
                 style={
                   item.unframedSwatch
                     ? {
-                        width: item.swatchContainerStyle?.width ?? 36,
+                        width: item.swatchContainerStyle?.width ?? 54,
                         height: item.swatchContainerStyle?.height ?? 24,
                         display: "grid",
                         placeItems: "center",
@@ -2231,31 +2648,10 @@ function TokenInventoryColumn({
                 <div style={tokenNameStyle}>{item.label}</div>
                 <div style={tokenHintStyle}>{item.hint}</div>
               </div>
-              {tokenVar ? (
-                <button
-                  type="button"
-                  {...overrideToggleProps}
-                  style={{
-                    ...overrideToggleProps?.style,
-                    paddingInline: 7,
-                    minHeight: 24,
-                  }}
-                  title={
-                    hasDirectOverride
-                      ? `Edit override for ${tokenVar}`
-                      : `Open override editor for ${tokenVar}`
-                  }
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    onOpenTokenOverrideEditor({
-                      tokenVar,
-                      label: item.label,
-                      hint: item.hint,
-                    });
-                  }}
-                >
-                  <span style={tokenOverrideButtonContentStyle}>OVR</span>
-                </button>
+              {hasDirectOverride ? (
+                <span style={tokenOverrideIndicatorStyle} title={`Override set for ${tokenVar}`}>
+                  OVR
+                </span>
               ) : null}
             </div>
               );
@@ -2264,6 +2660,56 @@ function TokenInventoryColumn({
         ))}
       </div>
     </PreviewCard>
+  );
+}
+
+function ParticipantColorSelectorRow({
+  selectedSlot,
+  onSelectSlot,
+}: {
+  selectedSlot: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
+  onSelectSlot: (slot: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8) => void;
+}) {
+  return (
+    <div style={participantSelectorRowStyle}>
+      {participantColorInventory.map((item, index) => {
+        const slot = (index + 1) as 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
+        const isActive = selectedSlot === slot;
+
+        return (
+          <div
+            key={item.meta.label}
+          >
+            <button
+              type="button"
+              aria-pressed={isActive}
+              onClick={() => {
+                onSelectSlot(slot);
+              }}
+              style={{
+                ...participantSelectorButtonStyle,
+                borderColor: isActive ? "rgba(226, 232, 240, 0.9)" : participantSelectorButtonStyle.borderColor,
+                boxShadow: isActive ? "0 0 0 2px rgba(226, 232, 240, 0.18)" : "none",
+                background: isActive ? surface.inset : participantSelectorButtonStyle.background,
+              }}
+              {...getDesignSystemDebugAttrs(item.meta)}
+            >
+              <div
+                style={{
+                  ...participantSelectorSwatchStyle,
+                  background: item.hint,
+                  borderColor: item.hint,
+                }}
+              />
+              <div style={participantSelectorTextStyle}>
+                <div style={participantSelectorNameStyle}>{item.label}</div>
+                <div style={participantSelectorValueStyle}>{item.hint}</div>
+              </div>
+            </button>
+          </div>
+        );
+      })}
+    </div>
   );
 }
 
@@ -2337,10 +2783,12 @@ function SectionCard({
 function PreviewCard({
   title,
   recipeLabel,
+  contentStyle,
   children,
 }: {
   title: string;
   recipeLabel: string;
+  contentStyle?: CSSProperties;
   children: ReactNode;
 }) {
   const aggregate = useContext(SandboxInspectAggregateContext);
@@ -2382,7 +2830,11 @@ function PreviewCard({
     <SandboxInspectAggregateContext.Provider value={aggregateValue}>
       <div
         className={surfaceRecipes.inset.default.className}
-        style={surfaceRecipes.inset.default.style}
+        style={{
+          ...surfaceRecipes.inset.default.style,
+          width: "100%",
+          minWidth: 0,
+        }}
         {...getDesignSystemDebugAttrs(surfaceRecipes.inset.default.debug)}
       >
         <div style={getInspectHeaderStyle(cardTitleStyle, headerRelation)}>{title}</div>
@@ -2391,7 +2843,7 @@ function PreviewCard({
             {recipeLabel}
           </span>
         </DebugLabel>
-        <div style={controlStackStyle}>{children}</div>
+        <div style={contentStyle ?? controlStackStyle}>{children}</div>
       </div>
     </SandboxInspectAggregateContext.Provider>
   );
@@ -2475,29 +2927,31 @@ function LiveButtonPreview({
   );
 }
 
-function LiveParticipantAccentButtonPreview({
+function LiveDraftLocalUserButtonPreview({
   baseRecipe,
-  accent,
+  slot,
   mode,
   label,
   children,
+  sourceSlotLabel,
   inspectNodeId,
   inspectRelation,
   onInspectSelect,
 }: {
   baseRecipe: ButtonRecipe;
-  accent: string;
+  slot: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
   mode: "fill" | "border";
   label: string;
   children: ReactNode;
+  sourceSlotLabel: string;
 } & InspectableProps) {
   const inspect = useContext(SandboxInspectContext);
   const [clickCount, setClickCount] = useState(0);
-  const recipe = createParticipantAccentButtonRecipeWithMode(baseRecipe, accent, mode);
+  const recipe = createDraftLocalUserButtonRecipeForSlot(baseRecipe, slot, mode);
   const resolvedInspectNodeId =
     inspectNodeId ??
     buildPreviewInspectNodeId(
-      { ...recipe.debug, subtype: `${recipe.debug.subtype ?? "participantAccent"}:${accent}` },
+      { ...recipe.debug, subtype: `${recipe.debug.subtype ?? "localUser"}:${mode}` },
       label
     );
 
@@ -2520,7 +2974,7 @@ function LiveParticipantAccentButtonPreview({
         >
           {children}
         </button>
-        <DebugLabel>{accent}</DebugLabel>
+        <DebugLabel>{sourceSlotLabel}</DebugLabel>
         <DebugLabel>Clicks: {clickCount}</DebugLabel>
       </div>
     </InspectableContainer>
@@ -2745,12 +3199,14 @@ function SwatchPreview({
 function LiveCanvasButtonPreview({
   label,
   recipe,
+  resolveScope,
   inspectNodeId,
   inspectRelation,
   onInspectSelect,
 }: {
   label: string;
   recipe: ButtonRecipe;
+  resolveScope?: Element | null;
 } & InspectableProps) {
   const inspect = useContext(SandboxInspectContext);
   const [hover, setHover] = useState(false);
@@ -2759,7 +3215,7 @@ function LiveCanvasButtonPreview({
   const tone = resolveCanvasButtonTone(recipe, {
     hover,
     active,
-  });
+  }, resolveScope);
   const metrics = resolveCanvasButtonMetrics(recipe);
   const width = Math.max(
     metrics.minWidth ?? 0,
@@ -2849,6 +3305,7 @@ function CanvasButtonPreview({
   label,
   recipe,
   state,
+  resolveScope,
   inspectNodeId,
   inspectRelation,
   onInspectSelect,
@@ -2856,6 +3313,7 @@ function CanvasButtonPreview({
   label: string;
   recipe: ButtonRecipe;
   state?: PreviewButtonState;
+  resolveScope?: Element | null;
 } & InspectableProps) {
   const inspect = useContext(SandboxInspectContext);
   const tone = resolveCanvasButtonTone(recipe, {
@@ -2864,7 +3322,7 @@ function CanvasButtonPreview({
     open: state?.open,
     hover: state?.hover,
     active: state?.active,
-  });
+  }, resolveScope);
   const metrics = resolveCanvasButtonMetrics(recipe);
   const width = Math.max(
     metrics.minWidth ?? 0,
@@ -2937,6 +3395,9 @@ function CanvasButtonPreview({
 export function DesignSystemSandboxPage() {
   const [selectedInspectNodeId, setSelectedInspectNodeId] =
     useState<InspectNodeId | null>(null);
+  const [selectedDraftLocalUserSlot, setSelectedDraftLocalUserSlot] = useState<
+    1 | 2 | 3 | 4 | 5 | 6 | 7 | 8
+  >(DRAFT_LOCAL_USER_SOURCE_SLOT);
   const [tokenOverrides, setTokenOverrides] = useState<Record<string, string>>({});
   const [activeTokenOverrideEditor, setActiveTokenOverrideEditor] =
     useState<ActiveTokenOverrideEditor | null>(null);
@@ -2944,6 +3405,7 @@ export function DesignSystemSandboxPage() {
   const [activeTokenEffectiveValue, setActiveTokenEffectiveValue] = useState("");
   const pageShellRef = useRef<HTMLDivElement | null>(null);
   const pageContentRef = useRef<HTMLDivElement | null>(null);
+  const [pageContentElement, setPageContentElement] = useState<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const html = document.documentElement;
@@ -2978,10 +3440,70 @@ export function DesignSystemSandboxPage() {
   }, []);
 
   const inspectGraph = useMemo(() => {
+    const sourceColor = PARTICIPANT_COLOR_OPTIONS[selectedDraftLocalUserSlot - 1] ?? "";
+    const dynamicInspectEdges: Array<[InspectNodeId, InspectNodeId]> = [
+      ...[
+        "default",
+        "hover",
+        "active",
+      ].map((state) => [
+        getParticipantColorDraftTokenNodeLabel(
+          selectedDraftLocalUserSlot,
+          "surface",
+          state as "default" | "hover" | "active"
+        ),
+        getLocalUserAliasTokenNodeLabel("surface", state as "default" | "hover" | "active"),
+      ] as [InspectNodeId, InspectNodeId]),
+      [
+        getParticipantColorDraftTokenNodeLabel(selectedDraftLocalUserSlot, "border", "default"),
+        getLocalUserAliasTokenNodeLabel("border", "default"),
+      ],
+      [
+        getParticipantColorDraftTokenNodeLabel(selectedDraftLocalUserSlot, "text", "default"),
+        getLocalUserAliasTokenNodeLabel("text", "default"),
+      ],
+      [
+        getLocalUserAliasTokenNodeLabel("surface", "default"),
+        inspectNodeIds.controls.draftLocalUserButtonFill,
+      ],
+      [
+        getLocalUserAliasTokenNodeLabel("border", "default"),
+        inspectNodeIds.controls.draftLocalUserButtonFill,
+      ],
+      [
+        getLocalUserAliasTokenNodeLabel("text", "default"),
+        inspectNodeIds.controls.draftLocalUserButtonFill,
+      ],
+      [
+        getLocalUserAliasTokenNodeLabel("border", "default"),
+        inspectNodeIds.controls.draftLocalUserButtonBorder,
+      ],
+      [
+        getLocalUserAliasTokenNodeLabel("surface", "default"),
+        inspectNodeIds.controls.draftLocalUserInteractionFill,
+      ],
+      [
+        getLocalUserAliasTokenNodeLabel("border", "default"),
+        inspectNodeIds.controls.draftLocalUserInteractionFill,
+      ],
+      [
+        getLocalUserAliasTokenNodeLabel("text", "default"),
+        inspectNodeIds.controls.draftLocalUserInteractionFill,
+      ],
+      [
+        getLocalUserAliasTokenNodeLabel("border", "default"),
+        inspectNodeIds.controls.draftLocalUserInteractionBorder,
+      ],
+      [
+        getParticipantPaletteSlotNodeLabel(selectedDraftLocalUserSlot, sourceColor),
+        getLocalUserAliasTokenNodeLabel("surface", "default"),
+      ],
+    ];
+
     const outgoing = new Map<InspectNodeId, InspectNodeId[]>();
     const incoming = new Map<InspectNodeId, InspectNodeId[]>();
 
-    for (const [from, to] of inspectGraphEdges) {
+    for (const [from, to] of [...inspectGraphEdges, ...dynamicInspectEdges]) {
       const nextOutgoing = outgoing.get(from);
       if (nextOutgoing) {
         nextOutgoing.push(to);
@@ -2998,7 +3520,7 @@ export function DesignSystemSandboxPage() {
     }
 
     return { outgoing, incoming };
-  }, []);
+  }, [selectedDraftLocalUserSlot]);
 
   const { upstreamNodeIds, downstreamNodeIds } = useMemo(() => {
     if (!selectedInspectNodeId) {
@@ -3051,6 +3573,31 @@ export function DesignSystemSandboxPage() {
   const handleInspectSelect = (nodeId: InspectNodeId) => {
     clearSandboxFocus();
     setSelectedInspectNodeId(nodeId);
+    setActiveTokenOverrideEditor(null);
+  };
+
+  const handleSelectTokenItem = (
+    nodeId: InspectNodeId,
+    editor: ActiveTokenOverrideEditor | null
+  ) => {
+    clearSandboxFocus();
+    setSelectedInspectNodeId(nodeId);
+    const nextSlot = getDraftSlotNumberFromInspectNodeId(nodeId);
+
+    if (nextSlot) {
+      setSelectedDraftLocalUserSlot(nextSlot);
+    }
+
+    if (!editor) {
+      setActiveTokenOverrideEditor(null);
+      return;
+    }
+
+    const directValue = tokenOverrides[editor.tokenVar];
+    const nextDraft = directValue ?? resolveEffectiveTokenValue(editor.tokenVar);
+    setActiveTokenOverrideEditor(editor);
+    setTokenOverrideDraft(nextDraft);
+    setActiveTokenEffectiveValue(resolveEffectiveTokenValue(editor.tokenVar));
   };
 
   const getInspectRelation = (nodeId?: InspectNodeId): InspectRelation => {
@@ -3075,8 +3622,26 @@ export function DesignSystemSandboxPage() {
 
   const toggleRecipe = createToggleButtonRecipe(buttonRecipes.secondary.small);
   const menuTriggerRecipe = buttonRecipes.secondary.small;
-  const participantPrimaryRecipe = buttonRecipes.primary.default;
-  const participantSecondaryRecipe = buttonRecipes.secondary.default;
+  const selectedDraftLocalUserColumn =
+    participantColorDraftTokenColumns[selectedDraftLocalUserSlot - 1];
+  const selectedDraftLocalUserSourceLabel = `participant-color-${selectedDraftLocalUserSlot}`;
+  const draftLocalUserButtonFillRecipe = createDraftLocalUserButtonRecipeForSlot(
+    buttonRecipes.primary.default,
+    selectedDraftLocalUserSlot,
+    "fill"
+  );
+  const draftLocalUserInteractionFillRecipe =
+    createDraftLocalUserButtonRecipeForSlot(
+      interactionButtonRecipes.primary.pill,
+      selectedDraftLocalUserSlot,
+      "fill"
+    );
+  const draftLocalUserInteractionBorderRecipe =
+    createDraftLocalUserButtonRecipeForSlot(
+      interactionButtonRecipes.secondary.pill,
+      selectedDraftLocalUserSlot,
+      "border"
+    );
   const tokenOverrideStyle = useMemo(() => {
     const nextStyle: CSSVariableProperties = {};
 
@@ -3100,8 +3665,53 @@ export function DesignSystemSandboxPage() {
       }
     }
 
+    const selectedParticipantTokens = participantColor[selectedDraftLocalUserSlot - 1];
+    const sandboxLocalUserAliasMap = {
+      "--ui-button-local-user-surface-default": selectedParticipantTokens.surface.default,
+      "--ui-button-local-user-surface-hover": selectedParticipantTokens.surface.hover,
+      "--ui-button-local-user-surface-active": selectedParticipantTokens.surface.active,
+      "--ui-button-local-user-surface-selected": selectedParticipantTokens.surface.active,
+      "--ui-button-local-user-surface-selected-hover": selectedParticipantTokens.surface.active,
+      "--ui-button-local-user-surface-selected-active": selectedParticipantTokens.surface.active,
+      "--ui-button-local-user-surface-open": selectedParticipantTokens.surface.hover,
+      "--ui-button-local-user-surface-open-hover": selectedParticipantTokens.surface.active,
+      "--ui-button-local-user-surface-open-active": selectedParticipantTokens.surface.active,
+      "--ui-button-local-user-surface-loading": selectedParticipantTokens.surface.active,
+      "--ui-button-local-user-surface-disabled": "var(--ui-color-surface-inset-disabled)",
+      "--ui-button-local-user-border-default": selectedParticipantTokens.border.default,
+      "--ui-button-local-user-border-hover": selectedParticipantTokens.border.default,
+      "--ui-button-local-user-border-active": selectedParticipantTokens.border.default,
+      "--ui-button-local-user-border-selected": selectedParticipantTokens.border.default,
+      "--ui-button-local-user-border-selected-hover": selectedParticipantTokens.border.default,
+      "--ui-button-local-user-border-selected-active": selectedParticipantTokens.border.default,
+      "--ui-button-local-user-border-open": selectedParticipantTokens.border.default,
+      "--ui-button-local-user-border-open-hover": selectedParticipantTokens.border.default,
+      "--ui-button-local-user-border-open-active": selectedParticipantTokens.border.default,
+      "--ui-button-local-user-border-loading": selectedParticipantTokens.border.default,
+      "--ui-button-local-user-border-disabled": "var(--ui-color-border-disabled)",
+      "--ui-button-local-user-text-default": selectedParticipantTokens.text.default,
+      "--ui-button-local-user-text-hover": selectedParticipantTokens.text.default,
+      "--ui-button-local-user-text-active": selectedParticipantTokens.text.default,
+      "--ui-button-local-user-text-selected": selectedParticipantTokens.text.default,
+      "--ui-button-local-user-text-selected-hover": selectedParticipantTokens.text.default,
+      "--ui-button-local-user-text-selected-active": selectedParticipantTokens.text.default,
+      "--ui-button-local-user-text-open": selectedParticipantTokens.text.default,
+      "--ui-button-local-user-text-open-hover": selectedParticipantTokens.text.default,
+      "--ui-button-local-user-text-open-active": selectedParticipantTokens.text.default,
+      "--ui-button-local-user-text-loading": selectedParticipantTokens.text.default,
+      "--ui-button-local-user-text-disabled": "var(--ui-color-text-disabled)",
+    } satisfies Record<`--${string}`, string>;
+
+    for (const [tokenVar, value] of Object.entries(sandboxLocalUserAliasMap)) {
+      if (tokenOverrides[tokenVar] !== undefined) {
+        continue;
+      }
+
+      nextStyle[tokenVar as `--${string}`] = value;
+    }
+
     return nextStyle;
-  }, [tokenOverrides]);
+  }, [selectedDraftLocalUserSlot, tokenOverrides]);
 
   const resolveEffectiveTokenValue = (tokenVar: string) => {
     const root = pageContentRef.current ?? pageShellRef.current;
@@ -3126,14 +3736,6 @@ export function DesignSystemSandboxPage() {
       [tokenVar]: normalizedValue,
     }));
     setActiveTokenEffectiveValue(normalizedValue);
-  };
-
-  const handleOpenTokenOverrideEditor = (editor: ActiveTokenOverrideEditor) => {
-    const directValue = tokenOverrides[editor.tokenVar];
-    const nextDraft = directValue ?? resolveEffectiveTokenValue(editor.tokenVar);
-    setActiveTokenOverrideEditor(editor);
-    setTokenOverrideDraft(nextDraft);
-    setActiveTokenEffectiveValue(resolveEffectiveTokenValue(editor.tokenVar));
   };
 
   const activeTokenDirectOverrideValue = activeTokenOverrideEditor
@@ -3183,15 +3785,20 @@ export function DesignSystemSandboxPage() {
           if (!target.closest("[data-sandbox-inspect-node-id]")) {
             clearSandboxFocus();
             setSelectedInspectNodeId(null);
+            setActiveTokenOverrideEditor(null);
           }
         }}
         onClick={() => {
           clearSandboxFocus();
           setSelectedInspectNodeId(null);
+          setActiveTokenOverrideEditor(null);
         }}
       >
         <div
-          ref={pageContentRef}
+          ref={(node) => {
+            pageContentRef.current = node;
+            setPageContentElement(node);
+          }}
           style={{ ...pageContentStyle, ...tokenOverrideStyle }}
         >
         <header
@@ -3243,57 +3850,148 @@ export function DesignSystemSandboxPage() {
               recipeLabel="token / foundation / surface"
               items={foundationTokenInventory.surface}
               tokenOverrides={tokenOverrides}
-              activeTokenVar={activeTokenOverrideEditor?.tokenVar ?? null}
-              onOpenTokenOverrideEditor={handleOpenTokenOverrideEditor}
+              onSelectTokenItem={handleSelectTokenItem}
             />
             <TokenInventoryColumn
               title="Border"
               recipeLabel="token / foundation / border"
               items={foundationTokenInventory.border}
               tokenOverrides={tokenOverrides}
-              activeTokenVar={activeTokenOverrideEditor?.tokenVar ?? null}
-              onOpenTokenOverrideEditor={handleOpenTokenOverrideEditor}
+              onSelectTokenItem={handleSelectTokenItem}
             />
             <TokenInventoryColumn
               title="Text"
               recipeLabel="token / foundation / text"
               items={foundationTokenInventory.text}
               tokenOverrides={tokenOverrides}
-              activeTokenVar={activeTokenOverrideEditor?.tokenVar ?? null}
-              onOpenTokenOverrideEditor={handleOpenTokenOverrideEditor}
+              onSelectTokenItem={handleSelectTokenItem}
             />
             <TokenInventoryColumn
-              title="Focus"
-              recipeLabel="token / foundation / focus"
-              items={foundationTokenInventory.focus}
+              title="Focus / Radius / Space / Motion"
+              recipeLabel="token / foundation / focus-metrics"
+              items={[...foundationTokenInventory.focus, ...foundationTokenInventory.metrics]}
               tokenOverrides={tokenOverrides}
-              activeTokenVar={activeTokenOverrideEditor?.tokenVar ?? null}
-              onOpenTokenOverrideEditor={handleOpenTokenOverrideEditor}
-            />
-            <TokenInventoryColumn
-              title="Radius / Space / Motion"
-              recipeLabel="token / foundation / metrics"
-              items={foundationTokenInventory.metrics}
-              tokenOverrides={tokenOverrides}
-              activeTokenVar={activeTokenOverrideEditor?.tokenVar ?? null}
-              onOpenTokenOverrideEditor={handleOpenTokenOverrideEditor}
+              onSelectTokenItem={handleSelectTokenItem}
             />
           </div>
         </SectionCard>
 
         <SectionCard
-          title="Participant color swatches"
-          description="Canonical participant palette from the current room-session source of truth. Hover a swatch to inspect palette metadata."
+          title="Participant-color tokens"
+          description="Runtime token layer for participant-colored controls in the current system."
         >
+          <div style={previewGridStyleFourColumns}>
+            {participantColorDraftTokenColumns.map((column) => (
+              <TokenInventoryColumn
+                key={column.title}
+                title={column.title}
+                recipeLabel={column.recipeLabel}
+                items={column.items}
+                tokenOverrides={tokenOverrides}
+                onSelectTokenItem={handleSelectTokenItem}
+              />
+            ))}
+          </div>
+        </SectionCard>
+
+        <SectionCard
+          title="Local-user alias"
+          description={`Shared button-contract alias layer. Sandbox click state currently points this proof at ${selectedDraftLocalUserSourceLabel}.`}
+        >
+          <ParticipantColorSelectorRow
+            selectedSlot={selectedDraftLocalUserSlot}
+            onSelectSlot={(slot) => {
+              clearSandboxFocus();
+              setSelectedDraftLocalUserSlot(slot);
+              setActiveTokenOverrideEditor(null);
+            }}
+          />
+
           <div style={previewGridStyle}>
             <TokenInventoryColumn
-              title="Palette"
-              recipeLabel="participantColor / palette / PARTICIPANT_COLOR_OPTIONS"
-              items={participantColorInventory}
+              title={`Source ${selectedDraftLocalUserSourceLabel}`}
+              recipeLabel={`participantColor / palette / ${selectedDraftLocalUserSourceLabel}`}
+              items={selectedDraftLocalUserColumn.items}
               tokenOverrides={tokenOverrides}
-              activeTokenVar={activeTokenOverrideEditor?.tokenVar ?? null}
-              onOpenTokenOverrideEditor={handleOpenTokenOverrideEditor}
+              onSelectTokenItem={handleSelectTokenItem}
             />
+            <TokenInventoryColumn
+              title="button-local-user-*"
+              recipeLabel="token / local-user / shared button contract"
+              items={draftLocalUserAliasInventory}
+              tokenOverrides={tokenOverrides}
+              onSelectTokenItem={handleSelectTokenItem}
+            />
+          </div>
+
+          <div style={previewGridStyle}>
+            <PreviewCard
+              title="Button proof"
+              recipeLabel="local-user / button / fill-border"
+            >
+              <LiveDraftLocalUserButtonPreview
+                baseRecipe={buttonRecipes.primary.default}
+                slot={selectedDraftLocalUserSlot}
+                mode="fill"
+                label="button / fill"
+                sourceSlotLabel={selectedDraftLocalUserSourceLabel}
+                inspectNodeId={inspectNodeIds.controls.draftLocalUserButtonFill}
+                inspectRelation={getInspectRelation(inspectNodeIds.controls.draftLocalUserButtonFill)}
+                onInspectSelect={handleInspectSelect}
+              >
+                Join room
+              </LiveDraftLocalUserButtonPreview>
+              <LiveDraftLocalUserButtonPreview
+                baseRecipe={buttonRecipes.secondary.default}
+                slot={selectedDraftLocalUserSlot}
+                mode="border"
+                label="button / border"
+                sourceSlotLabel={selectedDraftLocalUserSourceLabel}
+                inspectNodeId={inspectNodeIds.controls.draftLocalUserButtonBorder}
+                inspectRelation={getInspectRelation(
+                  inspectNodeIds.controls.draftLocalUserButtonBorder
+                )}
+                onInspectSelect={handleInspectSelect}
+              >
+                Add image
+              </LiveDraftLocalUserButtonPreview>
+              <ButtonPreview
+                recipe={draftLocalUserButtonFillRecipe}
+                label="fill / loading"
+                state={{ loading: true }}
+              />
+            </PreviewCard>
+            <PreviewCard
+              title="Interaction pill proof"
+              recipeLabel="local-user / interactionButton / pill / fill-border"
+            >
+              <LiveCanvasButtonPreview
+                recipe={draftLocalUserInteractionFillRecipe}
+                label="Draw"
+                resolveScope={pageContentElement}
+                inspectNodeId={inspectNodeIds.controls.draftLocalUserInteractionFill}
+                inspectRelation={getInspectRelation(
+                  inspectNodeIds.controls.draftLocalUserInteractionFill
+                )}
+                onInspectSelect={handleInspectSelect}
+              />
+              <LiveCanvasButtonPreview
+                recipe={draftLocalUserInteractionBorderRecipe}
+                label="Move"
+                resolveScope={pageContentElement}
+                inspectNodeId={inspectNodeIds.controls.draftLocalUserInteractionBorder}
+                inspectRelation={getInspectRelation(
+                  inspectNodeIds.controls.draftLocalUserInteractionBorder
+                )}
+                onInspectSelect={handleInspectSelect}
+              />
+              <CanvasButtonPreview
+                recipe={draftLocalUserInteractionFillRecipe}
+                label="Draw"
+                state={{ active: true }}
+                resolveScope={pageContentElement}
+              />
+            </PreviewCard>
           </div>
         </SectionCard>
 
@@ -3307,32 +4005,28 @@ export function DesignSystemSandboxPage() {
               recipeLabel="token / visible role / surface"
               items={tokenInventory.surface}
               tokenOverrides={tokenOverrides}
-              activeTokenVar={activeTokenOverrideEditor?.tokenVar ?? null}
-              onOpenTokenOverrideEditor={handleOpenTokenOverrideEditor}
+              onSelectTokenItem={handleSelectTokenItem}
             />
             <TokenInventoryColumn
               title="Border"
               recipeLabel="token / visible role / border"
               items={tokenInventory.border}
               tokenOverrides={tokenOverrides}
-              activeTokenVar={activeTokenOverrideEditor?.tokenVar ?? null}
-              onOpenTokenOverrideEditor={handleOpenTokenOverrideEditor}
+              onSelectTokenItem={handleSelectTokenItem}
             />
             <TokenInventoryColumn
               title="Text"
               recipeLabel="token / visible role / text"
               items={tokenInventory.text}
               tokenOverrides={tokenOverrides}
-              activeTokenVar={activeTokenOverrideEditor?.tokenVar ?? null}
-              onOpenTokenOverrideEditor={handleOpenTokenOverrideEditor}
+              onSelectTokenItem={handleSelectTokenItem}
             />
             <TokenInventoryColumn
               title="Focus / Treatments"
               recipeLabel="token / visible role / treatment"
               items={tokenInventory.treatments}
               tokenOverrides={tokenOverrides}
-              activeTokenVar={activeTokenOverrideEditor?.tokenVar ?? null}
-              onOpenTokenOverrideEditor={handleOpenTokenOverrideEditor}
+              onSelectTokenItem={handleSelectTokenItem}
             />
           </div>
         </SectionCard>
@@ -3479,56 +4173,6 @@ export function DesignSystemSandboxPage() {
               <LiveTextButtonPreview tone="secondary" label="secondary" />
               <LiveTextButtonPreview tone="danger" label="danger" />
               <TextButtonPreview tone="secondary" label="focus-visible" state={{ focusVisible: true }} />
-            </PreviewCard>
-          </div>
-        </SectionCard>
-
-        <SectionCard
-          title="Participant accent button"
-          description="Current participant-color variants on the standard button path. Primary uses the fill-mode accent branch. Secondary uses the border-mode accent branch."
-        >
-          <div style={previewGridStyle}>
-            <PreviewCard
-              title="Primary by participant color"
-              recipeLabel="button / primary / participantAccent / fill"
-            >
-              {PARTICIPANT_COLOR_OPTIONS.map((accent) => (
-                <LiveParticipantAccentButtonPreview
-                  key={`participant-primary-${accent}`}
-                  baseRecipe={participantPrimaryRecipe}
-                  accent={accent}
-                  mode="fill"
-                  label="primary"
-                  inspectNodeId={inspectNodeIds.participantAccentPrimary(accent)}
-                  inspectRelation={getInspectRelation(
-                    inspectNodeIds.participantAccentPrimary(accent)
-                  )}
-                  onInspectSelect={handleInspectSelect}
-                >
-                  Join room
-                </LiveParticipantAccentButtonPreview>
-              ))}
-            </PreviewCard>
-            <PreviewCard
-              title="Secondary by participant color"
-              recipeLabel="button / secondary / participantAccent / border"
-            >
-              {PARTICIPANT_COLOR_OPTIONS.map((accent) => (
-                <LiveParticipantAccentButtonPreview
-                  key={`participant-secondary-${accent}`}
-                  baseRecipe={participantSecondaryRecipe}
-                  accent={accent}
-                  mode="border"
-                  label="secondary"
-                  inspectNodeId={inspectNodeIds.participantAccentSecondary(accent)}
-                  inspectRelation={getInspectRelation(
-                    inspectNodeIds.participantAccentSecondary(accent)
-                  )}
-                  onInspectSelect={handleInspectSelect}
-                >
-                  Add image
-                </LiveParticipantAccentButtonPreview>
-              ))}
             </PreviewCard>
           </div>
         </SectionCard>
@@ -3909,6 +4553,7 @@ export function DesignSystemSandboxPage() {
         </section>
         {activeTokenOverrideEditor ? (
           <div
+            data-sandbox-inspect-node-id="token-override-panel"
             style={tokenOverridePanelStyle}
             onClick={(event) => {
               event.stopPropagation();

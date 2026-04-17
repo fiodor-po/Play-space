@@ -7,9 +7,11 @@ import type {
 } from "react";
 import {
   buttonRecipes,
-  createParticipantAccentButtonRecipe,
+  createDraftLocalUserButtonRecipeForSlot,
+  getButtonProps,
 } from "../../ui/system/families/button";
 import { getDesignSystemDebugAttrs } from "../../ui/system/debugMeta";
+import { getParticipantColorSlotNumber } from "../../lib/roomSession";
 import {
   BoardStageObjectSemanticsTooltip,
 } from "./BoardStageDevToolsContent";
@@ -106,9 +108,10 @@ export function BoardStageShellOverlays({
   objectSemanticsRows,
   isObjectSemanticsTooltipVisible,
 }: BoardStageShellOverlaysProps) {
-  const addImageButtonRecipe = createParticipantAccentButtonRecipe(
+  const addImageButtonRecipe = createDraftLocalUserButtonRecipeForSlot(
     buttonRecipes.secondary.small,
-    addImageButtonColor
+    getParticipantColorSlotNumber(addImageButtonColor),
+    "border"
   );
 
   return (
@@ -119,10 +122,10 @@ export function BoardStageShellOverlays({
         type="button"
         onClick={onAddImageButtonClick}
         aria-label="Add image"
-        className={addImageButtonRecipe.className}
+        {...getButtonProps(addImageButtonRecipe)}
         {...getDesignSystemDebugAttrs(addImageButtonRecipe.debug)}
         style={{
-          ...addImageButtonRecipe.style,
+          ...getButtonProps(addImageButtonRecipe).style,
           position: "fixed",
           top: 20,
           right: 20,

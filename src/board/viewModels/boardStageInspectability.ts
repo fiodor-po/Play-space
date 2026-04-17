@@ -1,5 +1,5 @@
 import {
-  createParticipantAccentButtonRecipeWithMode,
+  createDraftLocalUserButtonRecipeForSlot,
   interactionButtonRecipes,
   type ButtonRecipe,
 } from "../../ui/system/families/button";
@@ -11,6 +11,7 @@ import {
   createRoomGovernedEntityRef,
   resolveGovernedActionAccess,
 } from "../../lib/governance";
+import { getParticipantColorSlotNumber } from "../../lib/roomSession";
 import {
   resolveBoardObjectDeletePolicyAccess,
   resolveImageClearAllDrawingPolicyAccess,
@@ -386,14 +387,14 @@ export function getBoardStageSelectedImageControlsViewModel({
       label: drawingImageId === selectedImageObject.id ? "Save" : "Draw",
       recipe:
         drawingImageId === selectedImageObject.id
-          ? createParticipantAccentButtonRecipeWithMode(
+          ? createDraftLocalUserButtonRecipeForSlot(
               interactionButtonRecipes.primary.pill,
-              participantColor,
+              getParticipantColorSlotNumber(participantColor),
               "fill"
             )
-          : createParticipantAccentButtonRecipeWithMode(
+          : createDraftLocalUserButtonRecipeForSlot(
               interactionButtonRecipes.secondary.pill,
-              participantColor,
+              getParticipantColorSlotNumber(participantColor),
               "border"
             ),
     });

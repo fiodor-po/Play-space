@@ -1003,26 +1003,55 @@ Accepted override / boundary decisions already made:
   - `Draw`
   - `Save`
 
-## 8.6. Design-system work is now paused after a good checkpoint
+## 8.6. `design-system usage pass` закрыт как chapter checkpoint
 
-The current design-system wave should now be treated as paused at a good
-checkpoint rather than as the immediate next active chapter.
+Глава дошла до честного checkpoint closure.
 
-What is already true:
+Что в неё вошло:
 
-- ordinary-interface migration is structurally landed enough to pause
-- the first safe board-layer continuation is landed enough to pause
-- the missing families and variants chapter is landed enough to pause
-- the shared system is now coherent enough that further work would move from
-  structural migration into visual polishing rather than core family discovery
+- usage audit по текущему использованию дизайн-системы;
+- ordinary shared consumer cleanup;
+- state rollout для standard controls;
+- DOM control state architecture fix;
+- full explicit state sets for standard controls;
+- dev-only design-system sandbox page;
+- sandbox expansion for foundation, semantic, participant-color, and
+  participant-accent inspection surfaces;
+- ordinary shared-control verification pass outside sandbox;
+- narrow regression fix for `images` durable-snapshot save around refresh so
+  the closing `smoke:e2e` returned green again.
 
-What this means:
+Что этот checkpoint теперь значит:
 
-- current design-system work should not keep expanding automatically just
-  because the next chapter already exists on paper
-- the next design-system chapter remains:
-  - design-system visual polishing
-- but it is intentionally not the immediate active focus anymore
+- shared system сейчас достаточно coherent и inspectable;
+- standard-control state architecture работает;
+- sandbox page now acts as the stable manual verification surface for the
+  current system;
+- chapter больше не требует ещё одного structural design-system pass перед
+  переходом дальше.
+
+Следующий активный chapter:
+
+- `UI controls polish`
+  - core slice: `participant-color tokenization`
+    - replace raw participant palette + derived accent behavior with full
+      semantic token sets per participant color;
+    - make participant-colored controls read through that tokenized path;
+  - next slice: participant-accent control polish on top of the new token path;
+  - next slice: restore a readable `selected` ring / selected state for color
+    swatches;
+  - next slice: restore a readable `occupied` vs `available` distinction for
+    color swatches;
+  - final bonus slice: tune token values and states after the participant-color
+    layer is stable enough to support honest UI polish.
+
+Working boundary for this chapter:
+
+- this is a control/UI polish chapter;
+- this is not a broad visual restyle;
+- this is not media polish;
+- this is not mobile work;
+- this is not a new capability spike.
 
 ## 8.7. Repo/runtime health work closed the current `App` chapter
 

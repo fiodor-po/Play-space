@@ -16,6 +16,8 @@ This is the fastest index for the repo's working docs.
 - `room-memory-model.md` — state categories and memory boundaries
 - `indication-design.md` — canonical behavior indication model
 - `color-model-design.md` — participant/color semantics
+- `design-system-control-state-matrix.md` — current control-family state matrix and current-track rollout scope
+- `participant-color-tokenization-draft.md` — current draft model for participant-color tokenization inside the active `UI controls polish` chapter
 - `dice-spike-design.md` — accepted dice-layer direction
 - `governance-runtime-design.md` and `governance-model-design.md` — governance direction
 
@@ -29,6 +31,7 @@ This is the fastest index for the repo's working docs.
 ## Planning / Roadmap / Context
 
 - `../ROADMAP.md` — live project priorities and backlog
+- `../PRODUCT-BACKLOG.md` — live product backlog with tags, rough edges, and later tasks
 - `../PLANS.md` — ExecPlan rules for larger work
 - `../play-space-project-foundation.md` — stable product/architecture frame
 - `../play-space-alpha_current-context.md` — current handoff/operational context

@@ -219,33 +219,50 @@ Remaining deferred runtime tail from this chapter:
 
 1. удерживать successful first hosted core checkpoint как current baseline;
 2. удерживать successful hosted video checkpoint как optional layer, а не новый broad media chapter;
-3. держать design-system work на pause after the current checkpoint;
-4. считать `App.tsx` chapter structurally closed;
-5. считать current `BoardStage.tsx` cleanup chapter checkpoint-closed;
-6. считать refreshed architecture/runtime audit completed;
-7. считать `room document persistence / recovery architecture` закрытым migration track;
-8. считать `narrow commit-boundary persistence phase` checkpoint-complete;
-9. считать `Local replica semantics` закрытым internal replica-track step;
-10. считать `Durable write model` закрытым internal replica-track step;
-11. считать `Checkpoint 2` закрытым после local и durable maturity;
-12. считать `Recovery convergence model` закрытым internal replica-track step;
-13. считать `Checkpoint 3` закрытым перед final cutover;
-14. считать `Core semantic cutover from snapshot arbitration` закрытым финальным internal replica-track step;
-15. считать `room document persistence / recovery architecture` закрытым migration track;
-16. считать `browser-local participant identity stabilization` закрытым chapter;
-17. считать `debug-tools usability cleanup` закрытым узким inspectability/usability pass;
-18. держать `room-ops durability ergonomics` как later follow-up task after the closed replica-track chapter;
-19. держать `legacy room-snapshot write-cache cleanup` как optional hygiene follow-up outside the core recovery semantics;
-20. держать `internal recovery naming/log cleanup` как optional hygiene follow-up outside the core runtime contract;
-21. держать `main` как стабильную hosted/demo линию;
-22. вести cleanup-only work в branch `sprint/cleanup-lint-boardstage-foundation`;
-23. считать `lint green baseline` закрытым cleanup checkpoint;
-24. считать `BoardStage` structural reduction phases `1–4` закрытым cleanup checkpoint;
-25. считать `participant-marker / creator-color` room-document fallback checkpoint закрытым;
-26. считать hosted validation after the cleanup checkpoint закрытым;
-27. держать staged hydration waves и multi-context slowdown как отдельный hosted/runtime follow-up, а не как cleanup-branch blocker;
-28. держать stale `live-occupancy` after abrupt tab close как отдельный room-liveness follow-up;
-29. возвращаться к hosted validation как checkpoint после больших шагов и новых
+3. считать `design-system usage pass` закрытым chapter checkpoint:
+   - usage audit completed;
+   - ordinary shared consumer cleanup completed;
+   - state rollout for standard controls completed;
+   - DOM control state architecture fix completed;
+   - full explicit state sets for standard controls completed;
+   - dev-only design-system sandbox page completed;
+   - ordinary shared-control verification pass completed;
+4. считать текущим active chapter `UI controls polish`:
+   - взять `participant-color tokenization` как ядро главы;
+   - собрать полный semantic token set на каждый participant color;
+   - перевести participant-accent controls на этот tokenized path;
+   - вернуть читаемый `selected` ring / selected state у color swatches;
+   - вернуть читаемую дифференциацию `occupied` vs `available` у color swatches;
+   - после этого сделать bonus pass по tuning token values и states, когда
+     participant-color layer уже станет честной базой для visual polish;
+5. держать этот chapter как control/UI polish pass, а не как broad visual restyle,
+   media polish, mobile chapter или новую capability wave;
+6. считать `App.tsx` chapter structurally closed;
+7. считать current `BoardStage.tsx` cleanup chapter checkpoint-closed;
+8. считать refreshed architecture/runtime audit completed;
+9. считать `room document persistence / recovery architecture` закрытым migration track;
+10. считать `narrow commit-boundary persistence phase` checkpoint-complete;
+11. считать `Local replica semantics` закрытым internal replica-track step;
+12. считать `Durable write model` закрытым internal replica-track step;
+13. считать `Checkpoint 2` закрытым после local и durable maturity;
+14. считать `Recovery convergence model` закрытым internal replica-track step;
+15. считать `Checkpoint 3` закрытым перед final cutover;
+16. считать `Core semantic cutover from snapshot arbitration` закрытым финальным internal replica-track step;
+17. считать `room document persistence / recovery architecture` закрытым migration track;
+18. считать `browser-local participant identity stabilization` закрытым chapter;
+19. считать `debug-tools usability cleanup` закрытым узким inspectability/usability pass;
+20. держать `room-ops durability ergonomics` как later follow-up task after the closed replica-track chapter;
+21. держать `legacy room-snapshot write-cache cleanup` как optional hygiene follow-up outside the core recovery semantics;
+22. держать `internal recovery naming/log cleanup` как optional hygiene follow-up outside the core runtime contract;
+23. держать `main` как стабильную hosted/demo линию;
+28. вести cleanup-only work в branch `sprint/cleanup-lint-boardstage-foundation`;
+29. считать `lint green baseline` закрытым cleanup checkpoint;
+30. считать `BoardStage` structural reduction phases `1–4` закрытым cleanup checkpoint;
+31. считать `participant-marker / creator-color` room-document fallback checkpoint закрытым;
+32. считать hosted validation after the cleanup checkpoint закрытым;
+33. держать staged hydration waves и multi-context slowdown как отдельный hosted/runtime follow-up, а не как cleanup-branch blocker;
+34. держать stale `live-occupancy` after abrupt tab close как отдельный room-liveness follow-up;
+35. возвращаться к hosted validation как checkpoint после больших шагов и новых
    demo snapshots.
 
 ## 8. Backlog

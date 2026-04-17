@@ -59,3 +59,78 @@ export const radiusPrimitive = {
 export const focusRing = {
   default: "var(--ui-color-focus-ring)",
 } as const;
+
+export type ParticipantColorSlotNumber = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
+
+export function getParticipantColorTokenSet(slot: ParticipantColorSlotNumber) {
+  return {
+    slot: `participant-color-${slot}` as const,
+    surface: {
+      default: `var(--ui-participant-color-${slot}-surface-default)`,
+      hover: `var(--ui-participant-color-${slot}-surface-hover)`,
+      active: `var(--ui-participant-color-${slot}-surface-active)`,
+    },
+    border: {
+      default: `var(--ui-participant-color-${slot}-border-default)`,
+    },
+    text: {
+      default: `var(--ui-participant-color-${slot}-text-default)`,
+    },
+  };
+}
+
+export const participantColor = [
+  getParticipantColorTokenSet(1),
+  getParticipantColorTokenSet(2),
+  getParticipantColorTokenSet(3),
+  getParticipantColorTokenSet(4),
+  getParticipantColorTokenSet(5),
+  getParticipantColorTokenSet(6),
+  getParticipantColorTokenSet(7),
+  getParticipantColorTokenSet(8),
+] as const;
+
+export const DRAFT_LOCAL_USER_SOURCE_SLOT = 3 as const;
+
+export const localUserButton = {
+  sourceSlot: `participant-color-${DRAFT_LOCAL_USER_SOURCE_SLOT}` as const,
+  surface: {
+    default: "var(--ui-button-local-user-surface-default)",
+    hover: "var(--ui-button-local-user-surface-hover)",
+    active: "var(--ui-button-local-user-surface-active)",
+    selected: "var(--ui-button-local-user-surface-selected)",
+    selectedHover: "var(--ui-button-local-user-surface-selected-hover)",
+    selectedActive: "var(--ui-button-local-user-surface-selected-active)",
+    open: "var(--ui-button-local-user-surface-open)",
+    openHover: "var(--ui-button-local-user-surface-open-hover)",
+    openActive: "var(--ui-button-local-user-surface-open-active)",
+    loading: "var(--ui-button-local-user-surface-loading)",
+    disabled: "var(--ui-button-local-user-surface-disabled)",
+  },
+  border: {
+    default: "var(--ui-button-local-user-border-default)",
+    hover: "var(--ui-button-local-user-border-hover)",
+    active: "var(--ui-button-local-user-border-active)",
+    selected: "var(--ui-button-local-user-border-selected)",
+    selectedHover: "var(--ui-button-local-user-border-selected-hover)",
+    selectedActive: "var(--ui-button-local-user-border-selected-active)",
+    open: "var(--ui-button-local-user-border-open)",
+    openHover: "var(--ui-button-local-user-border-open-hover)",
+    openActive: "var(--ui-button-local-user-border-open-active)",
+    loading: "var(--ui-button-local-user-border-loading)",
+    disabled: "var(--ui-button-local-user-border-disabled)",
+  },
+  text: {
+    default: "var(--ui-button-local-user-text-default)",
+    hover: "var(--ui-button-local-user-text-hover)",
+    active: "var(--ui-button-local-user-text-active)",
+    selected: "var(--ui-button-local-user-text-selected)",
+    selectedHover: "var(--ui-button-local-user-text-selected-hover)",
+    selectedActive: "var(--ui-button-local-user-text-selected-active)",
+    open: "var(--ui-button-local-user-text-open)",
+    openHover: "var(--ui-button-local-user-text-open-hover)",
+    openActive: "var(--ui-button-local-user-text-open-active)",
+    loading: "var(--ui-button-local-user-text-loading)",
+    disabled: "var(--ui-button-local-user-text-disabled)",
+  },
+} as const;

@@ -16,7 +16,7 @@ import { DesignSystemSandboxPage } from "./ui/system/DesignSystemSandboxPage";
 import { isDesignSystemHoverDebugEnabled } from "./ui/system/debugMeta";
 import { getDesignSystemDebugAttrs } from "./ui/system/debugMeta";
 import {
-  createParticipantAccentButtonRecipeWithMode,
+  createDraftLocalUserButtonRecipeForSlot,
   buttonRecipes,
   getButtonProps,
 } from "./ui/system/families/button";
@@ -38,6 +38,7 @@ import {
   clearActiveParticipantRoomSession,
   clearActiveRoomId,
   createLocalParticipantPresence,
+  getParticipantColorSlotNumber,
   getOrCreateBrowserParticipantId,
   getRoomIdFromLocation,
   loadActiveParticipantRoomSession,
@@ -161,7 +162,7 @@ type EntryModeScreenProps = {
   entryDebugClaimColor: string | null;
   entryJoinFailureMessage: string | null;
   entryPrimaryButtonRecipe: ReturnType<
-    typeof createParticipantAccentButtonRecipeWithMode
+    typeof createDraftLocalUserButtonRecipeForSlot
   >;
   onJoinRoom: (event: FormEvent<HTMLFormElement>) => void;
   onDraftRoomIdChange: (nextRoomId: string) => void;
@@ -710,9 +711,9 @@ function BootstrappedApp() {
   const [isForegroundPresenceCarrier, setIsForegroundPresenceCarrier] = useState(() =>
     getIsForegroundPresenceCarrier()
   );
-  const entryPrimaryButtonRecipe = createParticipantAccentButtonRecipeWithMode(
+  const entryPrimaryButtonRecipe = createDraftLocalUserButtonRecipeForSlot(
     buttonRecipes.primary.default,
-    draftColor,
+    getParticipantColorSlotNumber(draftColor),
     "fill"
   );
   const roomCreatorConnectionRef = useRef<ReturnType<
