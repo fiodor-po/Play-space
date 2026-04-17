@@ -2,11 +2,12 @@ import { useEffect, useMemo, useState } from "react";
 import type { CSSProperties, FormEvent } from "react";
 import { HTML_UI_FONT_FAMILY } from "../board/constants";
 import { getDesignSystemDebugAttrs } from "../ui/system/debugMeta";
-import { buttonRecipes } from "../ui/system/families/button";
+import { buttonRecipes, getButtonProps } from "../ui/system/families/button";
 import { fieldRecipes, getFieldShellProps } from "../ui/system/families/field";
 import { getSelectableRowProps, rowRecipes } from "../ui/system/families/row";
 import { inlineTextRecipes } from "../ui/system/inlineText";
 import { surfaceRecipes } from "../ui/system/surfaces";
+import { uiTextStyle, uiTextStyleSmall } from "../ui/system/typography";
 import {
   deleteRoomOpsSnapshot,
   fetchRoomOpsDetail,
@@ -359,25 +360,37 @@ export function RoomsOpsPage() {
       >
         <form
           onSubmit={submitOpsKey}
+          className={surfaceRecipes.panel.default.className}
           style={{
+            ...surfaceRecipes.panel.default.style,
             width: "100%",
             maxWidth: 360,
-            display: "grid",
             gap: 12,
             padding: 20,
-            borderRadius: 16,
-            background: "#0f172a",
-            border: "1px solid rgba(148, 163, 184, 0.2)",
-            color: "#e2e8f0",
           }}
+          {...getDesignSystemDebugAttrs(surfaceRecipes.panel.default.debug)}
         >
-          <div style={{ fontSize: 22, fontWeight: 700 }}>Room Ops</div>
-          <div style={{ fontSize: 13, color: "#94a3b8" }}>
+          <div
+            style={{
+              ...uiTextStyle.label,
+              fontSize: 22,
+            }}
+          >
+            Room Ops
+          </div>
+          <div
+            style={{
+              ...uiTextStyleSmall.body,
+              ...inlineTextRecipes.muted.style,
+              fontSize: 13,
+            }}
+          >
             Internal alpha room inspection and snapshot repair.
           </div>
           <div
             {...getFieldShellProps(fieldRecipes.default.shell, {
               disabled: isUnlocking,
+              invalid: !!authError,
             })}
             {...getDesignSystemDebugAttrs(fieldRecipes.default.shell.debug)}
           >
@@ -387,6 +400,7 @@ export function RoomsOpsPage() {
               onChange={(event) => setOpsKeyDraft(event.target.value)}
               placeholder="Ops key"
               autoFocus
+              aria-invalid={authError ? "true" : "false"}
               disabled={isUnlocking}
               className={fieldRecipes.default.input.className}
               style={fieldRecipes.default.input.style}
@@ -397,9 +411,9 @@ export function RoomsOpsPage() {
           ) : null}
           <button
             type="submit"
-            className={buttonRecipes.primary.default.className}
-            style={buttonRecipes.primary.default.style}
-            disabled={isUnlocking}
+            {...getButtonProps(buttonRecipes.primary.default, {
+              loading: isUnlocking,
+            })}
             {...getDesignSystemDebugAttrs(buttonRecipes.primary.default.debug)}
           >
             {isUnlocking ? "Unlocking..." : "Unlock"}
@@ -437,8 +451,7 @@ export function RoomsOpsPage() {
               setSelectedRoom(null);
               setSelectedRoomId("");
             }}
-            className={buttonRecipes.secondary.small.className}
-            style={buttonRecipes.secondary.small.style}
+            {...getButtonProps(buttonRecipes.secondary.small)}
             {...getDesignSystemDebugAttrs(buttonRecipes.secondary.small.debug)}
           >
             Lock
@@ -465,8 +478,9 @@ export function RoomsOpsPage() {
                 onClick={() => {
                   setRefreshNonce((current) => current + 1);
                 }}
-                className={buttonRecipes.secondary.small.className}
-                style={buttonRecipes.secondary.small.style}
+                {...getButtonProps(buttonRecipes.secondary.small, {
+                  loading: isLoadingRooms,
+                })}
                 {...getDesignSystemDebugAttrs(buttonRecipes.secondary.small.debug)}
               >
                 Refresh
@@ -545,9 +559,10 @@ export function RoomsOpsPage() {
                   <button
                     type="button"
                     onClick={handleDeleteSnapshot}
-                    disabled={!selectedRoom.snapshot.exists || isDeletingSnapshot}
-                    className={buttonRecipes.danger.default.className}
-                    style={buttonRecipes.danger.default.style}
+                    {...getButtonProps(buttonRecipes.danger.default, {
+                      disabled: !selectedRoom.snapshot.exists,
+                      loading: isDeletingSnapshot,
+                    })}
                     {...getDesignSystemDebugAttrs(buttonRecipes.danger.default.debug)}
                   >
                     {isDeletingSnapshot ? "Deleting…" : "Delete durable snapshot"}
@@ -621,16 +636,22 @@ export function RoomsOpsPage() {
                       ? `saved ${selectedRoom.snapshot.savedAt ?? "unknown"}`
                       : "No durable snapshot stored."}
                   </div>
-                  {selectedRoom.snapshot.exists ? (
-                    <div style={inlineTextRecipes.muted.style}>
-                      tokens {selectedRoom.snapshot.objectCounts.tokens} · images{" "}
-                      {selectedRoom.snapshot.objectCounts.images} · notes{" "}
-                      {selectedRoom.snapshot.objectCounts.textCards}
-                    </div>
-                  ) : null}
-                  <pre style={preStyle}>
-                    {JSON.stringify(selectedRoom.snapshot.data, null, 2)}
-                  </pre>
+                  <div
+                    className={surfaceRecipes.inset.default.className}
+                    style={snapshotInsetStyle}
+                    {...getDesignSystemDebugAttrs(surfaceRecipes.inset.default.debug)}
+                  >
+                    {selectedRoom.snapshot.exists ? (
+                      <div style={inlineTextRecipes.muted.style}>
+                        tokens {selectedRoom.snapshot.objectCounts.tokens} · images{" "}
+                        {selectedRoom.snapshot.objectCounts.images} · notes{" "}
+                        {selectedRoom.snapshot.objectCounts.textCards}
+                      </div>
+                    ) : null}
+                    <pre style={snapshotPreStyle}>
+                      {JSON.stringify(selectedRoom.snapshot.data, null, 2)}
+                    </pre>
+                  </div>
                 </div>
               </div>
             ) : (
@@ -664,13 +685,17 @@ const statsGridStyle: CSSProperties = {
   gap: 10,
 };
 
-const preStyle: CSSProperties = {
+const snapshotInsetStyle: CSSProperties = {
+  ...surfaceRecipes.inset.default.style,
+  gap: 8,
+};
+
+const snapshotPreStyle: CSSProperties = {
   margin: 0,
-  padding: 12,
-  borderRadius: 12,
-  background: "#020617",
-  border: "1px solid rgba(148, 163, 184, 0.14)",
-  color: "#cbd5e1",
+  padding: 0,
+  background: "transparent",
+  border: "none",
+  color: "inherit",
   fontSize: 11,
   overflow: "auto",
   maxHeight: 360,

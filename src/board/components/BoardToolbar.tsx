@@ -1,4 +1,4 @@
-import { buttonRecipes } from "../../ui/system/families/button";
+import { buttonRecipes, getButtonProps } from "../../ui/system/families/button";
 import { getDesignSystemDebugAttrs } from "../../ui/system/debugMeta";
 
 type ButtonRecipe = (typeof buttonRecipes)["primary"]["default"];
@@ -28,8 +28,7 @@ export function BoardToolbar({
         type="button"
         onClick={onAddImage}
         data-testid="debug-add-image-button"
-        className={addImageRecipe.className}
-        style={addImageRecipe.style}
+        {...getButtonProps(addImageRecipe)}
         {...getDesignSystemDebugAttrs(addImageRecipe.debug)}
       >
         Add image
@@ -39,8 +38,7 @@ export function BoardToolbar({
         type="button"
         onClick={onAddNote}
         data-testid="debug-add-note-button"
-        className={buttonRecipes.secondary.default.className}
-        style={buttonRecipes.secondary.default.style}
+        {...getButtonProps(buttonRecipes.secondary.default)}
         {...getDesignSystemDebugAttrs(buttonRecipes.secondary.default.debug)}
       >
         Add note
@@ -50,8 +48,7 @@ export function BoardToolbar({
         type="button"
         onClick={onResetBoard}
         data-testid="debug-reset-board-button"
-        className={buttonRecipes.danger.default.className}
-        style={buttonRecipes.danger.default.style}
+        {...getButtonProps(buttonRecipes.danger.default)}
         {...getDesignSystemDebugAttrs(buttonRecipes.danger.default.debug)}
       >
         Reset board

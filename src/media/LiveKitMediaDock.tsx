@@ -16,7 +16,11 @@ import {
 import { HTML_UI_FONT_FAMILY } from "../board/constants";
 import { boardSurfaceRecipes } from "../ui/system/boardSurfaces";
 import { getDesignSystemDebugAttrs } from "../ui/system/debugMeta";
-import { buttonRecipes, createToggleButtonRecipe } from "../ui/system/families/button";
+import {
+  buttonRecipes,
+  createToggleButtonRecipe,
+  getButtonProps,
+} from "../ui/system/families/button";
 import { calloutRecipes } from "../ui/system/families/callout";
 import { surfaceRecipes } from "../ui/system/surfaces";
 
@@ -257,14 +261,8 @@ export function LiveKitMediaDock({
 
   const mediaJoinButtonRecipe = buttonRecipes.secondary.small;
   const mediaLeaveButtonRecipe = buttonRecipes.secondary.small;
-  const micToggleButtonRecipe = createToggleButtonRecipe(
-    buttonRecipes.secondary.small,
-    micEnabled
-  );
-  const cameraToggleButtonRecipe = createToggleButtonRecipe(
-    buttonRecipes.secondary.small,
-    cameraEnabled
-  );
+  const micToggleButtonRecipe = createToggleButtonRecipe(buttonRecipes.secondary.small);
+  const cameraToggleButtonRecipe = createToggleButtonRecipe(buttonRecipes.secondary.small);
 
   const joinMedia = async () => {
     if (isJoining || roomRef.current) {
@@ -518,9 +516,9 @@ export function LiveKitMediaDock({
             onClick={() => {
               void joinMedia();
             }}
-            disabled={isJoining}
-            className={mediaJoinButtonRecipe.className}
-            style={mediaJoinButtonRecipe.style}
+            {...getButtonProps(mediaJoinButtonRecipe, {
+              loading: isJoining,
+            })}
             {...getDesignSystemDebugAttrs(mediaJoinButtonRecipe.debug)}
           >
             {isJoining ? "Joining..." : "Join media"}
@@ -531,8 +529,7 @@ export function LiveKitMediaDock({
             onClick={() => {
               void leaveMedia();
             }}
-            className={mediaLeaveButtonRecipe.className}
-            style={mediaLeaveButtonRecipe.style}
+            {...getButtonProps(mediaLeaveButtonRecipe)}
             {...getDesignSystemDebugAttrs(mediaLeaveButtonRecipe.debug)}
           >
             Leave
@@ -563,8 +560,9 @@ export function LiveKitMediaDock({
               onClick={() => {
                 void toggleMicrophone();
               }}
-              className={micToggleButtonRecipe.className}
-              style={micToggleButtonRecipe.style}
+              {...getButtonProps(micToggleButtonRecipe, {
+                selected: micEnabled,
+              })}
               {...getDesignSystemDebugAttrs(micToggleButtonRecipe.debug)}
             >
               {micEnabled ? "Mute mic" : "Unmute mic"}
@@ -574,8 +572,9 @@ export function LiveKitMediaDock({
               onClick={() => {
                 void toggleCamera();
               }}
-              className={cameraToggleButtonRecipe.className}
-              style={cameraToggleButtonRecipe.style}
+              {...getButtonProps(cameraToggleButtonRecipe, {
+                selected: cameraEnabled,
+              })}
               {...getDesignSystemDebugAttrs(cameraToggleButtonRecipe.debug)}
             >
               {cameraEnabled ? "Camera off" : "Camera on"}

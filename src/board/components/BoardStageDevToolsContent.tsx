@@ -7,6 +7,7 @@ import { boardSurfaceRecipes } from "../../ui/system/boardSurfaces";
 import { getDesignSystemDebugAttrs } from "../../ui/system/debugMeta";
 import {
   buttonRecipes,
+  getButtonProps,
 } from "../../ui/system/families/button";
 import { rowRecipes } from "../../ui/system/families/row";
 import { selectionControlRecipes } from "../../ui/system/families/selectionControls";
@@ -14,7 +15,10 @@ import {
   getSwatchButtonProps,
   swatchPillRecipes,
 } from "../../ui/system/families/swatchPill";
+import { inlineTextRecipes } from "../../ui/system/inlineText";
+import { text } from "../../ui/system/foundations";
 import { surfaceRecipes } from "../../ui/system/surfaces";
+import { uiTextStyleSmall } from "../../ui/system/typography";
 
 type InspectableBounds = {
   x: number;
@@ -155,11 +159,10 @@ type BoardStageObjectSemanticsTooltipProps = {
 
 const debugPanelSectionHeadingStyle: CSSProperties = {
   paddingLeft: 2,
-  fontSize: 11,
-  fontWeight: 700,
+  ...uiTextStyleSmall.label,
   letterSpacing: "0.06em",
   textTransform: "uppercase",
-  color: "#cbd5e1",
+  color: text.secondary,
 };
 
 const debugInsetCardStyle: CSSProperties = {
@@ -171,12 +174,20 @@ const debugInsetCardStyle: CSSProperties = {
 };
 
 const debugInsetCardTitleStyle: CSSProperties = {
-  fontSize: 11,
-  fontWeight: 700,
+  ...uiTextStyleSmall.label,
   letterSpacing: "0.04em",
   textTransform: "uppercase",
-  color: "#94a3b8",
+  color: text.muted,
 };
+
+const debugPrimaryTextStyle: CSSProperties = {
+  ...uiTextStyleSmall.body,
+  color: text.primary,
+};
+
+const debugMutedTextStyle: CSSProperties = inlineTextRecipes.muted.style;
+
+const debugErrorTextStyle: CSSProperties = inlineTextRecipes.error.style;
 
 function formatDebugTimestamp(timestamp: number | null) {
   if (timestamp === null) {
@@ -272,8 +283,8 @@ export function BoardStageDevToolsContent({
         {...getDesignSystemDebugAttrs(surfaceRecipes.inset.default.debug)}
       >
         <div style={debugInsetCardTitleStyle}>Room objects</div>
-        <div style={{ color: "#e2e8f0" }}>Total: {sharedObjectCount}</div>
-        <div style={{ color: "#94a3b8" }}>
+        <div style={debugPrimaryTextStyle}>Total: {sharedObjectCount}</div>
+        <div style={debugMutedTextStyle}>
           tokens {sharedTokenCount}
           {" · "}images {sharedImageCount}
           {" · "}notes {sharedNoteCount}
@@ -287,19 +298,19 @@ export function BoardStageDevToolsContent({
         {...getDesignSystemDebugAttrs(surfaceRecipes.inset.default.debug)}
       >
         <div style={debugInsetCardTitleStyle}>Image inspection</div>
-        <div style={{ color: "#e2e8f0" }}>Target: {inspectableImageTarget}</div>
-        <div data-testid="debug-image-label" style={{ color: "#94a3b8" }}>
+        <div style={debugPrimaryTextStyle}>Target: {inspectableImageTarget}</div>
+        <div data-testid="debug-image-label" style={debugMutedTextStyle}>
           Label: {inspectableImageLabel ?? "none"}
         </div>
-        <div data-testid="debug-image-id" style={{ color: "#94a3b8" }}>
+        <div data-testid="debug-image-id" style={debugMutedTextStyle}>
           Id: {inspectableImageId ?? "none"}
         </div>
-        <div data-testid="debug-image-bounds" style={{ color: "#94a3b8" }}>
+        <div data-testid="debug-image-bounds" style={debugMutedTextStyle}>
           {inspectableImageBounds
             ? `Bounds: x ${inspectableImageBounds.x} · y ${inspectableImageBounds.y} · w ${inspectableImageBounds.width} · h ${inspectableImageBounds.height}`
             : "Bounds: none"}
         </div>
-        <div data-testid="debug-image-strokes" style={{ color: "#94a3b8" }}>
+        <div data-testid="debug-image-strokes" style={debugMutedTextStyle}>
           {inspectableImageStrokeStats
             ? `Strokes: total ${inspectableImageStrokeStats.total} · own ${inspectableImageStrokeStats.own} · points ${inspectableImageStrokeStats.points}`
             : "Strokes: none"}
@@ -308,10 +319,10 @@ export function BoardStageDevToolsContent({
           <button
             type="button"
             data-testid="debug-smoke-image-draw-button"
-            disabled={!hasInspectableImage}
             onClick={onDrawSmokeStrokeOnInspectableImage}
-            className={buttonRecipes.secondary.small.className}
-            style={buttonRecipes.secondary.small.style}
+            {...getButtonProps(buttonRecipes.secondary.small, {
+              disabled: !hasInspectableImage,
+            })}
             {...getDesignSystemDebugAttrs(buttonRecipes.secondary.small.debug)}
           >
             Draw stroke
@@ -319,10 +330,10 @@ export function BoardStageDevToolsContent({
           <button
             type="button"
             data-testid="debug-smoke-image-move-button"
-            disabled={!hasInspectableImage}
             onClick={onMoveInspectableImageForSmoke}
-            className={buttonRecipes.secondary.small.className}
-            style={buttonRecipes.secondary.small.style}
+            {...getButtonProps(buttonRecipes.secondary.small, {
+              disabled: !hasInspectableImage,
+            })}
             {...getDesignSystemDebugAttrs(buttonRecipes.secondary.small.debug)}
           >
             Move image
@@ -330,10 +341,10 @@ export function BoardStageDevToolsContent({
           <button
             type="button"
             data-testid="debug-smoke-image-resize-button"
-            disabled={!hasInspectableImage}
             onClick={onResizeInspectableImageForSmoke}
-            className={buttonRecipes.secondary.small.className}
-            style={buttonRecipes.secondary.small.style}
+            {...getButtonProps(buttonRecipes.secondary.small, {
+              disabled: !hasInspectableImage,
+            })}
             {...getDesignSystemDebugAttrs(buttonRecipes.secondary.small.debug)}
           >
             Resize image
@@ -348,11 +359,11 @@ export function BoardStageDevToolsContent({
         {...getDesignSystemDebugAttrs(surfaceRecipes.inset.default.debug)}
       >
         <div style={debugInsetCardTitleStyle}>Token inspection</div>
-        <div style={{ color: "#e2e8f0" }}>Target: {inspectableTokenTarget}</div>
-        <div data-testid="debug-token-id" style={{ color: "#94a3b8" }}>
+        <div style={debugPrimaryTextStyle}>Target: {inspectableTokenTarget}</div>
+        <div data-testid="debug-token-id" style={debugMutedTextStyle}>
           Id: {inspectableTokenId ?? "none"}
         </div>
-        <div data-testid="debug-token-position" style={{ color: "#94a3b8" }}>
+        <div data-testid="debug-token-position" style={debugMutedTextStyle}>
           {inspectableTokenPosition
             ? `Position: x ${Math.round(inspectableTokenPosition.x)} · y ${Math.round(inspectableTokenPosition.y)}`
             : "Position: none"}
@@ -361,10 +372,10 @@ export function BoardStageDevToolsContent({
           <button
             type="button"
             data-testid="debug-smoke-token-move-button"
-            disabled={!hasInspectableToken}
             onClick={onMoveInspectableTokenForSmoke}
-            className={buttonRecipes.secondary.small.className}
-            style={buttonRecipes.secondary.small.style}
+            {...getButtonProps(buttonRecipes.secondary.small, {
+              disabled: !hasInspectableToken,
+            })}
             {...getDesignSystemDebugAttrs(buttonRecipes.secondary.small.debug)}
           >
             Move token
@@ -379,14 +390,14 @@ export function BoardStageDevToolsContent({
         {...getDesignSystemDebugAttrs(surfaceRecipes.inset.default.debug)}
       >
         <div style={debugInsetCardTitleStyle}>Note inspection</div>
-        <div style={{ color: "#e2e8f0" }}>Target: {inspectableNoteCardTarget}</div>
-        <div data-testid="debug-note-id" style={{ color: "#94a3b8" }}>
+        <div style={debugPrimaryTextStyle}>Target: {inspectableNoteCardTarget}</div>
+        <div data-testid="debug-note-id" style={debugMutedTextStyle}>
           Id: {inspectableNoteCardId ?? "none"}
         </div>
-        <div data-testid="debug-note-label" style={{ color: "#94a3b8" }}>
+        <div data-testid="debug-note-label" style={debugMutedTextStyle}>
           Label: {inspectableNoteCardLabel ?? "none"}
         </div>
-        <div data-testid="debug-note-bounds" style={{ color: "#94a3b8" }}>
+        <div data-testid="debug-note-bounds" style={debugMutedTextStyle}>
           {inspectableNoteCardBounds
             ? `Bounds: x ${inspectableNoteCardBounds.x} · y ${inspectableNoteCardBounds.y} · w ${inspectableNoteCardBounds.width} · h ${inspectableNoteCardBounds.height}`
             : "Bounds: none"}
@@ -395,10 +406,10 @@ export function BoardStageDevToolsContent({
           <button
             type="button"
             data-testid="debug-smoke-note-move-button"
-            disabled={!hasInspectableNoteCard}
             onClick={onMoveInspectableNoteCardForSmoke}
-            className={buttonRecipes.secondary.small.className}
-            style={buttonRecipes.secondary.small.style}
+            {...getButtonProps(buttonRecipes.secondary.small, {
+              disabled: !hasInspectableNoteCard,
+            })}
             {...getDesignSystemDebugAttrs(buttonRecipes.secondary.small.debug)}
           >
             Move note
@@ -406,10 +417,10 @@ export function BoardStageDevToolsContent({
           <button
             type="button"
             data-testid="debug-smoke-note-edit-button"
-            disabled={!hasInspectableNoteCard}
             onClick={onSaveInspectableNoteCardTextForSmoke}
-            className={buttonRecipes.secondary.small.className}
-            style={buttonRecipes.secondary.small.style}
+            {...getButtonProps(buttonRecipes.secondary.small, {
+              disabled: !hasInspectableNoteCard,
+            })}
             {...getDesignSystemDebugAttrs(buttonRecipes.secondary.small.debug)}
           >
             Save note text
@@ -417,10 +428,10 @@ export function BoardStageDevToolsContent({
           <button
             type="button"
             data-testid="debug-smoke-note-resize-button"
-            disabled={!hasInspectableNoteCard}
             onClick={onResizeInspectableNoteCardForSmoke}
-            className={buttonRecipes.secondary.small.className}
-            style={buttonRecipes.secondary.small.style}
+            {...getButtonProps(buttonRecipes.secondary.small, {
+              disabled: !hasInspectableNoteCard,
+            })}
             {...getDesignSystemDebugAttrs(buttonRecipes.secondary.small.debug)}
           >
             Resize note
@@ -428,10 +439,10 @@ export function BoardStageDevToolsContent({
           <button
             type="button"
             data-testid="debug-smoke-note-delete-button"
-            disabled={!hasInspectableNoteCard}
             onClick={onDeleteInspectableNoteCardForSmoke}
-            className={buttonRecipes.secondary.small.className}
-            style={buttonRecipes.secondary.small.style}
+            {...getButtonProps(buttonRecipes.secondary.small, {
+              disabled: !hasInspectableNoteCard,
+            })}
             {...getDesignSystemDebugAttrs(buttonRecipes.secondary.small.debug)}
           >
             Delete note
@@ -485,7 +496,7 @@ export function BoardStageDevToolsContent({
         <label
           style={{
             ...objectInspectionSelectionRecipe.row.style,
-            color: "#cbd5e1",
+            color: text.secondary,
           }}
           className={objectInspectionSelectionRecipe.row.className}
           {...getDesignSystemDebugAttrs(
@@ -519,10 +530,10 @@ export function BoardStageDevToolsContent({
         {...getDesignSystemDebugAttrs(surfaceRecipes.inset.default.debug)}
       >
         <div style={debugInsetCardTitleStyle}>Local replica</div>
-        <div style={{ color: "#e2e8f0" }}>Backend: IndexedDB</div>
+        <div style={debugPrimaryTextStyle}>Backend: IndexedDB</div>
         <div
           data-testid="debug-local-replica-initial-open"
-          style={{ color: "#94a3b8" }}
+          style={debugMutedTextStyle}
         >
           Initial open: {localReplicaInspection.initialOpenStatus}
           {" · "}source {localReplicaInspection.initialOpenSource ?? "none"}
@@ -531,7 +542,7 @@ export function BoardStageDevToolsContent({
         </div>
         <div
           data-testid="debug-local-replica-scene-usable"
-          style={{ color: "#94a3b8" }}
+          style={debugMutedTextStyle}
         >
           Scene usable: {localReplicaInspection.sceneUsableStatus}
           {" · "}source {localReplicaInspection.sceneUsableSource ?? "none"}
@@ -540,13 +551,13 @@ export function BoardStageDevToolsContent({
         </div>
         <div
           data-testid="debug-local-replica-settled-recovery"
-          style={{ color: "#94a3b8" }}
+          style={debugMutedTextStyle}
         >
           Settled: {localReplicaInspection.lastSettledRecoveryState ?? "none"}
         </div>
         <div
           data-testid="debug-local-replica-last-read"
-          style={{ color: "#94a3b8" }}
+          style={debugMutedTextStyle}
         >
           Last read: {localReplicaInspection.lastReadSource}
           {" · "}rev {localReplicaInspection.lastReadRevision ?? "none"}
@@ -555,7 +566,7 @@ export function BoardStageDevToolsContent({
         </div>
         <div
           data-testid="debug-local-replica-durable-handoff"
-          style={{ color: "#94a3b8" }}
+          style={debugMutedTextStyle}
         >
           Durable handoff: checkpoint{" "}
           {localReplicaInspection.lastReadKnownDurableSnapshotRevision ?? "none"}
@@ -569,7 +580,7 @@ export function BoardStageDevToolsContent({
         </div>
         <div
           data-testid="debug-local-replica-settled-slices"
-          style={{ color: "#94a3b8" }}
+          style={debugMutedTextStyle}
         >
           Settled slices: tokens{" "}
           {localReplicaInspection.lastSettledRecoverySliceSources.tokens}
@@ -580,7 +591,7 @@ export function BoardStageDevToolsContent({
         </div>
         <div
           data-testid="debug-local-replica-last-write"
-          style={{ color: "#94a3b8" }}
+          style={debugMutedTextStyle}
         >
           Last write: {localReplicaInspection.lastWriteStatus}
           {" · "}boundary {localReplicaInspection.lastWriteCommitBoundary ?? "none"}
@@ -590,7 +601,7 @@ export function BoardStageDevToolsContent({
           {formatDebugTimestamp(localReplicaInspection.lastWriteSavedAt)}
         </div>
         {localReplicaInspection.lastError ? (
-          <div style={{ color: "#fca5a5" }}>
+          <div style={debugErrorTextStyle}>
             Error: {localReplicaInspection.lastError}
           </div>
         ) : null}
@@ -603,10 +614,10 @@ export function BoardStageDevToolsContent({
         {...getDesignSystemDebugAttrs(surfaceRecipes.inset.default.debug)}
       >
         <div style={debugInsetCardTitleStyle}>Durable replica</div>
-        <div style={{ color: "#e2e8f0" }}>Backend: checkpoint store</div>
+        <div style={debugPrimaryTextStyle}>Backend: checkpoint store</div>
         <div
           data-testid="debug-durable-replica-known-revisions"
-          style={{ color: "#94a3b8" }}
+          style={debugMutedTextStyle}
         >
           Known revisions: checkpoint{" "}
           {durableReplicaInspection.currentRevision ?? "none"}
@@ -617,7 +628,7 @@ export function BoardStageDevToolsContent({
         </div>
         <div
           data-testid="debug-durable-replica-last-write"
-          style={{ color: "#94a3b8" }}
+          style={debugMutedTextStyle}
         >
           Last write: {durableReplicaInspection.lastWriteStatus}
           {" · "}boundary {durableReplicaInspection.lastWriteBoundary ?? "none"}
@@ -635,7 +646,7 @@ export function BoardStageDevToolsContent({
           {" · "}saved {formatIsoDebugTimestamp(durableReplicaInspection.lastAckSavedAt)}
         </div>
         {durableReplicaInspection.lastError ? (
-          <div style={{ color: "#fca5a5" }}>
+          <div style={debugErrorTextStyle}>
             Error: {durableReplicaInspection.lastError}
           </div>
         ) : null}
@@ -663,7 +674,7 @@ export function BoardStageDevToolsContent({
               {governanceSelectedObjectSummary.isAllowed ? "allowed" : "blocked"}
             </div>
             {governanceSelectedImageClearSummary ? (
-              <div style={{ color: "#94a3b8" }}>
+              <div style={debugMutedTextStyle}>
                 clear all{" "}
                 {governanceSelectedImageClearSummary.isAllowed
                   ? "allowed"
@@ -673,7 +684,7 @@ export function BoardStageDevToolsContent({
               </div>
             ) : null}
             {governanceSelectedImageClearOwnSummary ? (
-              <div style={{ color: "#94a3b8" }}>
+              <div style={debugMutedTextStyle}>
                 clear own{" "}
                 {governanceSelectedImageClearOwnSummary.isAllowed
                   ? "allowed"
@@ -684,7 +695,7 @@ export function BoardStageDevToolsContent({
             ) : null}
           </div>
         ) : (
-          <div style={{ color: "#94a3b8" }}>Selected object: none</div>
+          <div style={debugMutedTextStyle}>Selected object: none</div>
         )}
         <div style={{ display: "grid", gap: 4 }}>
           {governanceInspectionEntries.length > 0 ? (
@@ -695,14 +706,14 @@ export function BoardStageDevToolsContent({
                 style={surfaceRecipes.infoCard.default.style}
                 {...getDesignSystemDebugAttrs(surfaceRecipes.infoCard.default.debug)}
               >
-                <div style={{ color: "#e2e8f0" }}>
+                <div style={debugPrimaryTextStyle}>
                   {entry.resolution.action.actionKey}
                   {" · "}
                   {entry.resolution.entity.entityType}
                   {" · "}
                   {entry.resolution.isAllowed ? "allowed" : "blocked"}
                 </div>
-                <div style={{ color: "#94a3b8", fontSize: 11 }}>
+                <div style={debugMutedTextStyle}>
                   effective{" "}
                   {entry.resolution.effectiveAccess?.accessLevel ?? "none"}
                   {" · "}required {entry.resolution.action.requiredAccessLevel}
@@ -710,7 +721,7 @@ export function BoardStageDevToolsContent({
               </div>
             ))
           ) : (
-            <div style={{ color: "#94a3b8" }}>
+            <div style={debugMutedTextStyle}>
               Trigger a room or object action to see governance resolutions here.
             </div>
           )}
@@ -745,9 +756,8 @@ export function BoardStageObjectSemanticsTooltip({
     >
       <div
         style={{
-          color: "#94a3b8",
-          fontSize: 11,
-          fontWeight: 700,
+          ...uiTextStyleSmall.label,
+          color: text.muted,
           letterSpacing: "0.04em",
           textTransform: "uppercase",
         }}

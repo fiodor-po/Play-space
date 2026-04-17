@@ -4,11 +4,13 @@ import { getDesignSystemDebugAttrs } from "../../ui/system/debugMeta";
 import {
   buttonRecipes,
   createTextButtonRecipe,
+  getButtonProps,
 } from "../../ui/system/families/button";
 import { boardSurfaceRecipes } from "../../ui/system/boardSurfaces";
 import { selectionControlRecipes } from "../../ui/system/families/selectionControls";
-import { surfaceRecipes } from "../../ui/system/surfaces";
-import { fontSize } from "../../ui/system/typography";
+import { inlineTextRecipes } from "../../ui/system/inlineText";
+import { border, text } from "../../ui/system/foundations";
+import { fontSize, uiTextStyle, uiTextStyleSmall } from "../../ui/system/typography";
 
 type ParticipantSessionPanelProps = {
   roomId: string;
@@ -64,7 +66,6 @@ export const ParticipantSessionPanel = forwardRef<
   return (
     <div
       ref={ref}
-      className={surfaceRecipes.panel.compact.className}
       style={{
         ...boardSurfaceRecipes.floatingShell.shell.style,
         display: "flex",
@@ -94,8 +95,8 @@ export const ParticipantSessionPanel = forwardRef<
       >
         <div
           style={{
+            ...uiTextStyle.label,
             fontSize: 15,
-            fontWeight: 700,
             pointerEvents: "none",
             overflowWrap: "anywhere",
           }}
@@ -106,12 +107,12 @@ export const ParticipantSessionPanel = forwardRef<
           type="button"
           onClick={onLeaveRoom}
           data-testid="session-leave-room-button"
+          {...getButtonProps(leaveRoomButtonRecipe)}
           style={{
-            ...leaveRoomButtonRecipe.style,
+            ...getButtonProps(leaveRoomButtonRecipe).style,
             justifyContent: "flex-end",
             pointerEvents: "auto",
           }}
-          className={leaveRoomButtonRecipe.className}
           {...getDesignSystemDebugAttrs(leaveRoomButtonRecipe.debug)}
         >
           Leave room
@@ -121,8 +122,7 @@ export const ParticipantSessionPanel = forwardRef<
       {isCurrentParticipantRoomCreator || roomCreatorName ? (
         <div
           style={{
-            fontSize: 12,
-            color: "#94a3b8",
+            ...inlineTextRecipes.muted.style,
             pointerEvents: "none",
             whiteSpace: "nowrap",
             overflow: "hidden",
@@ -134,7 +134,7 @@ export const ParticipantSessionPanel = forwardRef<
           ) : (
             <>
               {"Room Owner: "}
-              <span style={{ color: roomCreatorColor ?? "#cbd5e1" }}>
+              <span style={{ color: roomCreatorColor ?? text.secondary }}>
                 {roomCreatorName}
               </span>
             </>
@@ -205,15 +205,14 @@ export const ParticipantSessionPanel = forwardRef<
             gap: 8,
             marginTop: 2,
             paddingTop: 10,
-            borderTop: "1px solid rgba(148, 163, 184, 0.16)",
+            borderTop: `1px solid ${border.default}`,
             pointerEvents: "none",
           }}
         >
           <div
             style={{
-              fontSize: 12,
-              fontWeight: 700,
-              color: "#94a3b8",
+              ...uiTextStyleSmall.label,
+              color: text.muted,
               letterSpacing: "0.04em",
               textTransform: "uppercase",
               pointerEvents: "none",
@@ -225,13 +224,13 @@ export const ParticipantSessionPanel = forwardRef<
           <button
             type="button"
             onClick={onResetBoard}
+            {...getButtonProps(resetBoardButtonRecipe)}
             style={{
-              ...resetBoardButtonRecipe.style,
+              ...getButtonProps(resetBoardButtonRecipe).style,
               textAlign: "left",
               justifyContent: "flex-start",
               pointerEvents: "auto",
             }}
-            className={resetBoardButtonRecipe.className}
             {...getDesignSystemDebugAttrs(resetBoardButtonRecipe.debug)}
           >
             Reset board
@@ -247,7 +246,7 @@ export const ParticipantSessionPanel = forwardRef<
             gap: 10,
             marginTop: 2,
             paddingTop: 10,
-            borderTop: "1px solid rgba(148, 163, 184, 0.16)",
+            borderTop: `1px solid ${border.default}`,
             pointerEvents: "none",
             minHeight: 0,
             flex: isDevToolsOpen ? 1 : "0 0 auto",
