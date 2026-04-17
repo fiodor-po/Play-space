@@ -321,7 +321,7 @@ function EntryModeScreen({
                   const entryColorSwatchProps = getSwatchButtonProps(
                     swatchPillRecipes.swatch.default,
                     {
-                      fillColor: color,
+                      participantColorSlot: getParticipantColorSlotNumber(color),
                       selected: isSelected,
                       occupied: isOccupied,
                       pending: isJoinPending,
@@ -335,15 +335,13 @@ function EntryModeScreen({
                       onClick={() => {
                         onDraftColorChange(color);
                       }}
-                      disabled={isOccupied || isJoinPending}
+                      {...entryColorSwatchProps}
                       aria-label={`Select color ${color}${isOccupied ? " (currently occupied)" : ""}`}
                       title={
                         isOccupied
                           ? "Currently occupied by an active participant"
                           : undefined
                       }
-                      className={entryColorSwatchProps.className}
-                      style={entryColorSwatchProps.style}
                       {...getDesignSystemDebugAttrs(
                         swatchPillRecipes.swatch.default.debug
                       )}
@@ -411,7 +409,7 @@ function EntryModeScreen({
                       const debugOccupiedSwatchProps = getSwatchButtonProps(
                         swatchPillRecipes.swatch.small,
                         {
-                          fillColor: color,
+                          participantColorSlot: getParticipantColorSlotNumber(color),
                           selected: isDebugOccupied,
                         }
                       );
@@ -423,7 +421,7 @@ function EntryModeScreen({
                           onClick={() => {
                             onToggleEntryDebugOccupiedColor(color);
                           }}
-                          className={debugOccupiedSwatchProps.className}
+                          {...debugOccupiedSwatchProps}
                           style={{
                             ...debugOccupiedSwatchProps.style,
                             width: 24,

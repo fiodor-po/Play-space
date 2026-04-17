@@ -80,6 +80,7 @@ type PreviewFieldState = {
 };
 
 type PreviewSwatchState = {
+  participantColorSlot?: number;
   hover?: boolean;
   focusVisible?: boolean;
   selected?: boolean;
@@ -572,11 +573,14 @@ const tokenOverrideAliases: Record<string, string[]> = {
     "--ui-button-secondary-surface-open-hover",
   ],
   "--ui-color-surface-inset-disabled": [
-    "--ui-button-primary-surface-disabled",
-    "--ui-button-primary-neutral-surface-disabled",
     "--ui-button-secondary-surface-disabled",
     "--ui-field-surface-disabled",
     "--ui-button-toggle-surface-disabled",
+  ],
+  "--ui-color-surface-disabled-filled": [
+    "--ui-button-primary-surface-disabled",
+    "--ui-button-primary-neutral-surface-disabled",
+    "--ui-button-local-user-surface-disabled",
   ],
   "--ui-color-border-default": [
     "--ui-button-secondary-border-default",
@@ -2331,7 +2335,7 @@ function getPreviewSwatchProps(
   state: PreviewSwatchState
 ) {
   const swatchProps = getSwatchButtonProps(recipe, {
-    fillColor: "#38bdf8",
+    participantColorSlot: state.participantColorSlot ?? 3,
     selected: state.selected,
     occupied: state.occupied,
     pending: state.pending,
@@ -3117,19 +3121,19 @@ function FieldPreview({
 function LiveSwatchPreview({
   label,
   recipe,
-  fillColor,
+  participantColorSlot,
   inspectNodeId,
   inspectRelation,
   onInspectSelect,
 }: {
   label: string;
   recipe: SwatchRecipe;
-  fillColor: string;
+  participantColorSlot: number;
 } & InspectableProps) {
   const inspect = useContext(SandboxInspectContext);
   const [selected, setSelected] = useState(false);
   const swatchProps = getSwatchButtonProps(recipe, {
-    fillColor,
+    participantColorSlot,
     selected,
   });
   const resolvedInspectNodeId =
@@ -3173,6 +3177,12 @@ function SwatchPreview({
 } & InspectableProps) {
   const inspect = useContext(SandboxInspectContext);
   const swatchProps = getPreviewSwatchProps(recipe, state);
+  const freezeInteractiveState =
+    !!state.hover ||
+    !!state.focusVisible ||
+    !!state.occupied ||
+    !!state.pending ||
+    !!state.disabled;
   const resolvedInspectNodeId =
     inspectNodeId ?? buildPreviewInspectNodeId(recipe.debug, label);
 
@@ -3189,6 +3199,10 @@ function SwatchPreview({
           type="button"
           aria-label={label}
           {...swatchProps}
+          style={{
+            ...swatchProps.style,
+            pointerEvents: freezeInteractiveState ? "none" : swatchProps.style.pointerEvents,
+          }}
           {...getDesignSystemDebugAttrs(recipe.debug)}
         />
       </div>
@@ -3222,6 +3236,7 @@ function LiveCanvasButtonPreview({
     Math.ceil(label.length * metrics.fontSize * 0.62 + metrics.paddingX * 2)
   );
   const height = metrics.minHeight;
+  const textCenterY = height / 2 + metrics.fontSize * 0.08;
   const radiusValue = Math.min(height / 2, metrics.borderRadius);
   const resolvedInspectNodeId =
     inspectNodeId ?? buildPreviewInspectNodeId(recipe.debug, label);
@@ -3283,7 +3298,7 @@ function LiveCanvasButtonPreview({
             />
             <text
               x={width / 2}
-              y={height / 2}
+              y={textCenterY}
               fill={tone.textColor}
               fontFamily={metrics.fontFamily}
               fontSize={metrics.fontSize}
@@ -3332,6 +3347,7 @@ function CanvasButtonPreview({
   const outerInset = state?.focusVisible ? 4 : 0;
   const svgWidth = width + outerInset * 2;
   const svgHeight = height + outerInset * 2;
+  const textCenterY = outerInset + height / 2 + metrics.fontSize * 0.08;
   const radiusValue = Math.min(height / 2, metrics.borderRadius);
   const resolvedInspectNodeId =
     inspectNodeId ?? buildPreviewInspectNodeId(recipe.debug, label);
@@ -3376,7 +3392,7 @@ function CanvasButtonPreview({
           />
           <text
             x={svgWidth / 2}
-            y={svgHeight / 2}
+            y={textCenterY}
             fill={tone.textColor}
             fontFamily={metrics.fontFamily}
             fontSize={metrics.fontSize}
@@ -3677,7 +3693,7 @@ export function DesignSystemSandboxPage() {
       "--ui-button-local-user-surface-open-hover": selectedParticipantTokens.surface.active,
       "--ui-button-local-user-surface-open-active": selectedParticipantTokens.surface.active,
       "--ui-button-local-user-surface-loading": selectedParticipantTokens.surface.active,
-      "--ui-button-local-user-surface-disabled": "var(--ui-color-surface-inset-disabled)",
+      "--ui-button-local-user-surface-disabled": "var(--ui-color-surface-disabled-filled)",
       "--ui-button-local-user-border-default": selectedParticipantTokens.border.default,
       "--ui-button-local-user-border-hover": selectedParticipantTokens.border.default,
       "--ui-button-local-user-border-active": selectedParticipantTokens.border.default,
@@ -3960,6 +3976,11 @@ export function DesignSystemSandboxPage() {
                 label="fill / loading"
                 state={{ loading: true }}
               />
+              <ButtonPreview
+                recipe={draftLocalUserButtonFillRecipe}
+                label="fill / disabled"
+                state={{ disabled: true }}
+              />
             </PreviewCard>
             <PreviewCard
               title="Interaction pill proof"
@@ -4155,6 +4176,11 @@ export function DesignSystemSandboxPage() {
                 inspectNodeId={inspectNodeIds.controls.ordinaryDisabled}
                 inspectRelation={getInspectRelation(inspectNodeIds.controls.ordinaryDisabled)}
                 onInspectSelect={handleInspectSelect}
+              />
+              <ButtonPreview
+                recipe={buttonRecipes.primary.default}
+                label="disabled filled"
+                state={{ disabled: true }}
               />
               <ButtonPreview
                 recipe={buttonRecipes.secondary.default}
@@ -4468,19 +4494,19 @@ export function DesignSystemSandboxPage() {
               <LiveSwatchPreview
                 recipe={swatchPillRecipes.swatch.default}
                 label="default"
-                fillColor="#38bdf8"
+                participantColorSlot={3}
                 inspectNodeId={inspectNodeIds.controls.swatchDefault}
               />
               <LiveSwatchPreview
                 recipe={swatchPillRecipes.swatch.small}
                 label="small"
-                fillColor="#f97316"
+                participantColorSlot={6}
                 inspectNodeId={inspectNodeIds.controls.swatchSmall}
               />
               <LiveSwatchPreview
                 recipe={swatchPillRecipes.swatch.trigger}
                 label="trigger"
-                fillColor="#22c55e"
+                participantColorSlot={4}
                 inspectNodeId={inspectNodeIds.controls.swatchTrigger}
               />
             </PreviewCard>
@@ -4492,43 +4518,43 @@ export function DesignSystemSandboxPage() {
                 <SwatchPreview
                   recipe={swatchPillRecipes.swatch.default}
                   label="default"
-                  state={{}}
+                  state={{ participantColorSlot: 3 }}
                   inspectNodeId={inspectNodeIds.controls.swatchStateDefault}
                 />
                 <SwatchPreview
                   recipe={swatchPillRecipes.swatch.default}
                   label="hover"
-                  state={{ hover: true }}
+                  state={{ participantColorSlot: 3, hover: true }}
                   inspectNodeId={inspectNodeIds.controls.swatchStateHover}
                 />
                 <SwatchPreview
                   recipe={swatchPillRecipes.swatch.default}
                   label="focus-visible"
-                  state={{ focusVisible: true }}
+                  state={{ participantColorSlot: 3, focusVisible: true }}
                   inspectNodeId={inspectNodeIds.controls.swatchStateFocus}
                 />
                 <SwatchPreview
                   recipe={swatchPillRecipes.swatch.default}
                   label="selected"
-                  state={{ selected: true }}
+                  state={{ participantColorSlot: 3, selected: true }}
                   inspectNodeId={inspectNodeIds.controls.swatchStateSelected}
                 />
                 <SwatchPreview
                   recipe={swatchPillRecipes.swatch.default}
                   label="occupied"
-                  state={{ occupied: true }}
+                  state={{ participantColorSlot: 3, occupied: true }}
                   inspectNodeId={inspectNodeIds.controls.swatchStateOccupied}
                 />
                 <SwatchPreview
                   recipe={swatchPillRecipes.swatch.default}
                   label="pending"
-                  state={{ pending: true }}
+                  state={{ participantColorSlot: 3, pending: true }}
                   inspectNodeId={inspectNodeIds.controls.swatchStatePending}
                 />
                 <SwatchPreview
                   recipe={swatchPillRecipes.swatch.default}
                   label="disabled"
-                  state={{ disabled: true }}
+                  state={{ participantColorSlot: 3, disabled: true }}
                   inspectNodeId={inspectNodeIds.controls.swatchStateDisabled}
                 />
               </div>

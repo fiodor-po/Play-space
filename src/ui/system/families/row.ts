@@ -20,6 +20,7 @@ type RowRecipe = {
 
 type SelectableRowState = {
   selected?: boolean;
+  disabled?: boolean;
 };
 
 function createSelectableRowRecipe(size: "default"): RowRecipe {
@@ -32,26 +33,35 @@ function createSelectableRowRecipe(size: "default"): RowRecipe {
         textAlign: "left",
         padding: 12,
         borderRadius: radius.inset,
-        border: `1px solid ${border.default}`,
-        background: surface.panelSubtle,
-        color: text.secondary,
+        border: "1px solid var(--ui-row-border-current, var(--ui-row-border-default))",
+        background: "var(--ui-row-surface-current, var(--ui-row-surface-default))",
+        color: "var(--ui-row-text-current, var(--ui-row-text-default))",
         cursor: "pointer",
+        "--ui-row-surface-default": surface.panelSubtle,
         "--ui-row-surface-hover": surface.panel,
         "--ui-row-surface-active": surface.panel,
+        "--ui-row-surface-disabled": surface.insetDisabled,
+        "--ui-row-border-default": border.default,
         "--ui-row-border-hover": border.hover,
         "--ui-row-border-active": border.hover,
+        "--ui-row-border-disabled": border.disabled,
+        "--ui-row-text-default": text.secondary,
+        "--ui-row-text-disabled": text.disabled,
+        "--ui-row-supporting-text-default": text.muted,
+        "--ui-row-supporting-text-disabled": text.disabled,
       } as CSSVariableProperties,
     },
     title: {
       style: {
         ...controlScale.default.labelText,
-        color: text.secondary,
+        color: "var(--ui-row-text-current, var(--ui-row-text-default))",
       },
     },
     supportingText: {
       style: {
         ...uiTextStyleSmall.caption,
-        color: text.muted,
+        color:
+          "var(--ui-row-supporting-text-current, var(--ui-row-supporting-text-default))",
       },
     },
     debug: {
@@ -112,16 +122,17 @@ export function getSelectableRowProps(recipe: RowRecipe, state: SelectableRowSta
     className: recipe.container.className,
     style: {
       ...baseStyle,
-      ...(state.selected
+      ...(state.selected && !state.disabled
         ? {
-            border: `1px solid rgba(96, 165, 250, 0.7)`,
-            background: "rgba(30, 41, 59, 0.95)",
+            "--ui-row-surface-current": "rgba(30, 41, 59, 0.95)",
             "--ui-row-surface-hover": "rgba(30, 41, 59, 0.95)",
             "--ui-row-surface-active": "rgba(30, 41, 59, 0.95)",
+            "--ui-row-border-current": "rgba(96, 165, 250, 0.7)",
             "--ui-row-border-hover": "rgba(96, 165, 250, 0.7)",
             "--ui-row-border-active": "rgba(96, 165, 250, 0.7)",
           }
         : null),
     } as CSSVariableProperties,
+    disabled: state.disabled || undefined,
   } as const;
 }

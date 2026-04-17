@@ -184,6 +184,14 @@ Current proposed policy:
 
 Они должны оставаться shared system treatments.
 
+Current disabled rule for this draft:
+
+- filled participant-colored controls should use `control.surface.disabledFilled`
+- non-filled controls should use `control.surface.disabled`
+- disabled border and disabled text remain shared branches for now
+- participant-color filled controls should remain filled when disabled rather
+  than collapsing into the non-filled disabled surface
+
 Current loading rule for this draft:
 
 - `loading` should not switch the control into a separate color identity;

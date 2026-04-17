@@ -7,6 +7,7 @@
   --ui-color-surface-inset-hover: rgba(30, 41, 59, 0.92);
   --ui-color-surface-inset-active: rgba(51, 65, 85, 0.94);
   --ui-color-surface-inset-disabled: rgba(15, 23, 42, 0.68);
+  --ui-color-surface-disabled-filled: rgba(71, 85, 105, 0.92);
   --ui-color-surface-accent: #2563eb;
   --ui-color-surface-accent-hover: #1d4ed8;
   --ui-color-surface-accent-active: #1e40af;
@@ -88,7 +89,7 @@
   --ui-button-local-user-surface-open-hover: var(--ui-participant-color-3-surface-active);
   --ui-button-local-user-surface-open-active: var(--ui-participant-color-3-surface-active);
   --ui-button-local-user-surface-loading: var(--ui-participant-color-3-surface-active);
-  --ui-button-local-user-surface-disabled: var(--ui-color-surface-inset-disabled);
+  --ui-button-local-user-surface-disabled: var(--ui-color-surface-disabled-filled);
   --ui-button-local-user-border-default: var(--ui-participant-color-3-border-default);
   --ui-button-local-user-border-hover: var(--ui-participant-color-3-border-default);
   --ui-button-local-user-border-active: var(--ui-participant-color-3-border-default);
@@ -116,7 +117,7 @@
   --ui-button-primary-surface-default: var(--ui-color-surface-accent);
   --ui-button-primary-surface-hover: var(--ui-color-surface-accent-hover);
   --ui-button-primary-surface-active: var(--ui-color-surface-accent-active);
-  --ui-button-primary-surface-disabled: var(--ui-color-surface-inset-disabled);
+  --ui-button-primary-surface-disabled: var(--ui-color-surface-disabled-filled);
   --ui-button-primary-surface-selected: var(--ui-color-surface-accent-active);
   --ui-button-primary-surface-selected-hover: var(--ui-color-surface-accent-active);
   --ui-button-primary-surface-selected-active: #172554;
@@ -147,14 +148,14 @@
   --ui-button-primary-text-open-active: var(--ui-color-text-inverse);
   --ui-button-primary-text-loading: var(--ui-color-text-inverse);
   --ui-button-primary-neutral-surface-default: var(--ui-color-surface-accent-neutral);
-  --ui-button-primary-neutral-surface-hover: var(--ui-color-surface-accent-neutral-hover);
-  --ui-button-primary-neutral-surface-active: var(--ui-color-surface-accent-neutral-active);
-  --ui-button-primary-neutral-surface-disabled: var(--ui-color-surface-inset-disabled);
-  --ui-button-primary-neutral-surface-selected: var(--ui-color-surface-accent-neutral-active);
-  --ui-button-primary-neutral-surface-selected-hover: #cbd5e1;
+  --ui-button-primary-neutral-surface-hover: #dbe4ef;
+  --ui-button-primary-neutral-surface-active: #b8c6d8;
+  --ui-button-primary-neutral-surface-disabled: var(--ui-color-surface-disabled-filled);
+  --ui-button-primary-neutral-surface-selected: #b8c6d8;
+  --ui-button-primary-neutral-surface-selected-hover: #b8c6d8;
   --ui-button-primary-neutral-surface-selected-active: #94a3b8;
-  --ui-button-primary-neutral-surface-open: var(--ui-color-surface-accent-neutral-hover);
-  --ui-button-primary-neutral-surface-open-hover: var(--ui-color-surface-accent-neutral-active);
+  --ui-button-primary-neutral-surface-open: #dbe4ef;
+  --ui-button-primary-neutral-surface-open-hover: #b8c6d8;
   --ui-button-primary-neutral-surface-open-active: #94a3b8;
   --ui-button-primary-neutral-surface-loading: var(--ui-color-surface-accent-neutral);
   --ui-button-primary-neutral-border-default: var(--ui-color-border-accent-neutral);
@@ -290,8 +291,18 @@
   --ui-swatch-border-disabled: 1px solid rgba(255, 255, 255, 0.18);
   --ui-swatch-opacity-default: 1;
   --ui-swatch-opacity-pending: 0.75;
-  --ui-swatch-opacity-occupied: 0.45;
-  --ui-swatch-opacity-disabled: 0.55;
+  --ui-swatch-opacity-disabled: 1;
+  --ui-swatch-overlay-disabled:
+    linear-gradient(rgba(0, 0, 0, 0.2), rgba(0, 0, 0, 0.2));
+  --ui-swatch-overlay-occupied:
+    linear-gradient(rgba(0, 0, 0, 0.1), rgba(0, 0, 0, 0.1)),
+    linear-gradient(
+      135deg,
+      transparent calc(50% - 0.5px),
+      rgba(248, 250, 252, 0.98) calc(50% - 0.5px),
+      rgba(248, 250, 252, 0.98) calc(50% + 0.5px),
+      transparent calc(50% + 0.5px)
+    );
   --ui-swatch-trigger-shadow: 0 0 0 1px rgba(15, 23, 42, 0.4);
   --ui-space-compact: 6px;
   --ui-space-small: 8px;
@@ -471,26 +482,30 @@
   border-color: var(--ui-row-border-active);
 }
 
+.ui-row-selectable:disabled {
+  --ui-row-surface-current: var(--ui-row-surface-disabled);
+  --ui-row-border-current: var(--ui-row-border-disabled);
+  --ui-row-text-current: var(--ui-row-text-disabled);
+  --ui-row-supporting-text-current: var(--ui-row-supporting-text-disabled);
+  cursor: not-allowed;
+  opacity: var(--ui-control-opacity-disabled);
+}
+
 .ui-swatch,
 .ui-pill {
   transition: var(--ui-transition-swatch-pill);
 }
 
 .ui-swatch:hover:not(:disabled) {
-  filter: brightness(1.04);
+  --ui-swatch-surface-current: var(--ui-swatch-surface-hover);
+}
+
+.ui-swatch:active:not(:disabled) {
+  --ui-swatch-surface-current: var(--ui-swatch-surface-active);
 }
 
 .ui-swatch[data-ui-selected="true"]:not(:disabled) {
   --ui-swatch-border-current: var(--ui-swatch-border-selected);
-}
-
-.ui-swatch[data-ui-occupied="true"]:not(:disabled) {
-  --ui-swatch-border-current: var(--ui-swatch-border-occupied);
-  --ui-swatch-opacity-current: var(--ui-swatch-opacity-occupied);
-}
-
-.ui-swatch[data-ui-pending="true"]:not(:disabled) {
-  --ui-swatch-opacity-current: var(--ui-swatch-opacity-pending);
 }
 
 .ui-swatch:focus-visible:not(:disabled),
@@ -513,6 +528,54 @@
 }
 
 .ui-swatch:disabled {
+  --ui-swatch-surface-current:
+    color-mix(in srgb, var(--ui-swatch-surface-default, transparent) 30%, transparent);
   --ui-swatch-border-current: var(--ui-swatch-border-disabled);
+  --ui-swatch-overlay-current: var(--ui-swatch-overlay-disabled);
   --ui-swatch-opacity-current: var(--ui-swatch-opacity-disabled);
+}
+
+.ui-swatch[data-ui-pending="true"] {
+  --ui-swatch-opacity-current: var(--ui-swatch-opacity-pending);
+}
+
+.ui-swatch[data-ui-occupied="true"] {
+  --ui-swatch-border-current: var(--ui-swatch-border-disabled);
+  --ui-swatch-surface-current:
+    color-mix(
+      in srgb,
+      var(--ui-swatch-surface-default, transparent) 40%,
+      transparent
+    );
+  --ui-swatch-overlay-current: linear-gradient(rgba(0, 0, 0, 0.1), rgba(0, 0, 0, 0.1));
+}
+
+.ui-swatch[data-ui-occupied="true"]::after {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  border-radius: inherit;
+  pointer-events: none;
+  background:
+    linear-gradient(
+      135deg,
+      transparent calc(50% - 0.5px),
+      rgba(248, 250, 252, 0.98) calc(50% - 0.5px),
+      rgba(248, 250, 252, 0.98) calc(50% + 0.5px),
+      transparent calc(50% + 0.5px)
+    ),
+    linear-gradient(
+      45deg,
+      transparent calc(50% - 0.5px),
+      rgba(248, 250, 252, 0.98) calc(50% - 0.5px),
+      rgba(248, 250, 252, 0.98) calc(50% + 0.5px),
+      transparent calc(50% + 0.5px)
+    );
+}
+
+.ui-pill:disabled {
+  --ui-pill-surface-current: var(--ui-pill-surface-disabled);
+  --ui-pill-border-current: var(--ui-pill-border-disabled);
+  --ui-pill-text-current: var(--ui-pill-text-disabled);
+  --ui-pill-opacity-current: var(--ui-pill-opacity-disabled);
 }
