@@ -26,6 +26,7 @@ Board object — это persisted/shared object, который живёт в п
 - object family
 - committed geometry
 - committed content
+- committed property state
 - interaction affordances
 
 Current canonical object families:
@@ -33,6 +34,14 @@ Current canonical object families:
 - `image`
 - `note-card`
 - `token`
+
+Current committed-state rule:
+
+- board objects should be read as shared property-bearing objects, not as opaque
+  whole-object blobs;
+- different committed properties of the same object may sync independently;
+- local and remote interaction layers are presentations over that committed
+  property state, not a separate object model.
 
 ### 1.2. Board space
 
@@ -101,6 +110,15 @@ Current practical reading:
 
 - `image` and `note-card` are box objects
 - `token` is a point-anchored pin object with a viewport-stable rendered footprint
+
+Current sync reading:
+
+- committed geometry is now expected to survive as property-level shared state
+  where the object corridor stays simple enough;
+- current first-slice geometry path already treats `x`, `y`, `width`, `height`,
+  and `tokenAttachment` as the preferred shared-property class;
+- richer content such as `imageStrokes` or true simultaneous text editing may
+  still remain special corridors.
 
 ### 2.2. Effective bounds
 
@@ -196,9 +214,19 @@ Current implication:
 
 - committed geometry
 - committed content
+- committed property values
 - committed family shape
 
 Это baseline, от которого строится interaction presentation.
+
+Current committed-state rule:
+
+- the interaction layer should assume committed state is assembled from object
+  properties;
+- property-level shared truth is now the preferred default for ordinary board
+  object state;
+- exact same-property server ordering is still a separate transport question,
+  not a reason to fall back to whole-object thinking in the interaction model.
 
 ### 4.2. Local active state
 
@@ -252,6 +280,13 @@ Current accepted practical rule:
 - if a richer interaction corridor cannot yet be kept stable under the shared
   property model, the object may stay temporarily gated instead of pretending to
   support ordinary concurrent manipulation.
+
+Current baseline example:
+
+- `image` while drawing is a deliberate gated exception;
+- drawing lock blocks concurrent move by other participants;
+- if drag is already in flight when the drawing lock appears, the drag should
+  stop and should not commit.
 
 ### 4.5. State stacking rule
 
@@ -335,6 +370,13 @@ Current explicit preview artifact:
 
 - remote image drag/transform preview frame
 
+Current modeling rule:
+
+- preview is still allowed as a family-specific corridor even when committed
+  object truth is property-synced;
+- property sync does not require every family to render remote live movement as
+  direct committed-looking content.
+
 ### 6.3. Occupied artifact
 
 Occupied artifact shows:
@@ -374,6 +416,8 @@ Current accepted exception:
 
 - `image` while drawing may stay gated for other participants instead of behaving
   like an ordinary concurrently movable object
+- drawing lock is the accepted gate for that corridor
+- active drag must stop if that drawing lock appears mid-drag
 
 ### 7.2. `note-card`
 
@@ -400,7 +444,8 @@ This model makes the current chapter questions explicit:
 1. Which object families need object-adjacent controls in current alpha?
 2. Which interactions should read as explicit preview rather than live shared movement?
 3. Which states belong to object interaction itself, and which belong to local shell behavior?
-4. Which current runtime details are canonical and which are temporary drift?
+4. Which committed properties should stay in the ordinary property-sync path, and which should remain special corridors?
+5. Which current runtime details are canonical and which are temporary drift?
 
 ## 9. Relationship to other docs
 

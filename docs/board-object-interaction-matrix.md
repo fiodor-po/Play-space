@@ -11,10 +11,18 @@ Scope: current-alpha board-object interactions and state presentation
 - собрать current runtime truth в одну матрицу;
 - разделить local view и remote-facing view;
 - зафиксировать committed content vs live interaction;
+- зафиксировать current property-synced committed truth where it already became the baseline;
 - дать опору для chapter `Board object controls UI layer`.
 
 Этот документ описывает текущее состояние слоя. Он не утверждает, что каждая
 текущая деталь уже является финальной canonical form.
+
+Current baseline reading:
+
+- ordinary committed board-object state should now be read through the
+  per-property sync model introduced on `main`;
+- family-specific preview and gated corridors still remain explicit exceptions
+  where the interaction model needs them.
 
 ## 1. Canonical object families
 

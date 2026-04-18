@@ -1,10 +1,10 @@
 # Property LWW Sync Track Plan
 
-Status: active experimental branch plan  
-Branch: `property-lww-sync-experiment`  
+Status: accepted migration track
+Origin: `property-lww-sync-experiment`, now landed on `main`
 Scope: migrate board-object sync toward a Figma-like property-level model
 
-Этот документ фиксирует active track для перехода к Figma-like
+Этот документ фиксирует accepted track для перехода к Figma-like
 property-level sync model.
 
 ## 1. External reference model
@@ -175,9 +175,9 @@ This is the real Figma-equivalent path.
 
 ## 5. Decision for this branch
 
-This branch already accepts per-property sync as the target direction.
+The repo now accepts per-property sync as the target direction.
 
-Branch goal:
+Track goal:
 
 - move board-object sync to per-property conflict boundaries
 - make the hosted branch testable with two real clients
@@ -188,14 +188,14 @@ Current open technical question:
 - whether the current transport is enough
 - or whether later work needs a stricter server-authoritative ordering layer
 
-Current branch verdict after first hosted testing:
+Current track verdict after first hosted testing:
 
 - the general per-property model reads as the right direction for board objects;
 - `token` and `note-card` fit the model well enough to continue the migration;
 - `image` geometry also fits the model in general;
 - `image` while drawing remains a deliberate exception corridor for now.
 
-Current branch verdict after the critical image-corridor hosted regression pass on
+Current track verdict after the critical image-corridor hosted regression pass on
 `210765f`:
 
 - the critical hosted image corridor now passes with two real clients;
@@ -261,7 +261,7 @@ Goal:
 
 Deliver:
 
-- experimental hosted route or experimental hosted behavior on this branch
+- hosted route or hosted behavior suitable for this migration track
 - inspectability for current object state
 - easy repeatable sample room
 
@@ -288,7 +288,7 @@ Output of this phase:
 
 Goal:
 
-- let the experimental branch actually use the property-level shared state for a
+- let the repo actually use the property-level shared state for a
   narrow object/property subset
 
 Scope:
@@ -344,18 +344,18 @@ At the end of the hosted test track, decide:
 2. current transport semantics are sufficient for some properties but not all
 3. the repo should later pursue exact server-authoritative property ordering
 
-## 8. What “success” means for this branch
+## 8. What “success” means for this track
 
-This branch succeeds if it delivers:
+This track succeeds if it delivers:
 
 1. real per-property sync for a narrow board-object slice
 2. hosted two-client testing on that slice
 3. a clear exception list
 4. a clear decision on whether current transport semantics are enough
 
-Current mid-track acceptance:
+Current accepted checkpoint:
 
-- the branch already has a usable migration basis;
+- the repo already has a usable migration basis on `main`;
 - the model should continue forward where it stays simple and stable;
 - image drawing interaction may stay hybrid until the product needs a deeper
   object-dependent rule.

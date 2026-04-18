@@ -135,14 +135,14 @@ Current workflow rule for hosted validation:
 - instead, it should be treated as a recurring checkpoint after large product
   steps and after new demo snapshots.
 
-Current branch-side multiplayer experiment truth to remember:
+Current multiplayer interaction truth to remember:
 
-- branch `property-lww-sync-experiment` is the active per-property sync track;
+- `main` now includes the accepted per-property sync track;
 - hosted two-client testing already confirmed the critical image corridor on
   commit `210765f`;
-- fresh branch baseline now includes a demo image so image-corridor regression
-  checks no longer depend on manual `Add image`;
-- accepted current rule on that branch:
+- fresh baseline now includes a demo image so image-corridor regression checks
+  no longer depend on manual `Add image`;
+- accepted current rule:
   - while one participant is drawing on an image, another participant must not
     be able to move it;
   - if drag is already in flight when the drawing lock appears, the drag must
@@ -151,8 +151,8 @@ Current branch-side multiplayer experiment truth to remember:
 Current expected order from here:
 
 1. keep `main` as the stable hosted/demo line;
-2. treat this branch as a merge-ready cleanup checkpoint after closed hosted validation;
-3. return to planning mode after the closed creator-color checkpoint;
+2. keep planning mode after the closed creator-color checkpoint;
+3. carry forward the per-property sync baseline from `main` rather than from a separate experiment branch;
 4. carry forward staged hosted hydration waves and multi-context slowdown as a separate hosted/runtime follow-up;
 5. carry forward stale `live-occupancy` after abrupt tab close as a separate room-liveness follow-up;
 6. avoid reopening `BoardStage` cleanup micro-slices unless a new sprint is started explicitly.
