@@ -115,6 +115,26 @@ Review output should produce a short factual map:
 - exceptions worth keeping
 - exceptions worth removing
 
+Current chapter review matrix now lives in:
+
+- `board-object-interaction-model.md`
+- `board-object-interaction-matrix.md`
+
+The model doc is the high-level frame for:
+
+- abstract board object interaction semantics
+- board space vs interaction space vs viewport
+- object geometry vs effective bounds
+- local state vs remote-facing state
+
+The matrix doc is the working inventory of:
+
+- object families
+- interaction types
+- local view
+- remote-facing view
+- current runtime presentation model
+
 ### 3.1. Current simulator review verdict
 
 The chapter now has a board-interaction simulator in `/dev/design-system`.
@@ -159,6 +179,8 @@ Immediate simulator honesty pass for this chapter:
 ## 4. Target design doc
 
 After review, the chapter should produce one target design doc for the board-object control layer.
+
+The current review matrix is the prerequisite input to that target design doc.
 
 That doc should define:
 

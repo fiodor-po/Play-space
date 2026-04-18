@@ -17,6 +17,8 @@ This is the fastest index for the repo's working docs.
 - `indication-design.md` — canonical behavior indication model
 - `color-model-design.md` — participant/color semantics
 - `board-object-controls-ui-layer.md` — active chapter control doc for the board-object control layer
+- `board-object-interaction-model.md` — high-level model for board-object geometry, interaction space, and viewport behavior
+- `board-object-interaction-matrix.md` — working matrix of board-object interactions, local view, and remote-facing view
 - `design-system-control-state-matrix.md` — current control-family state matrix and current-track rollout scope
 - `participant-color-tokenization-draft.md` — current draft model for participant-color tokenization inside the active `UI controls polish` chapter
 - `dice-spike-design.md` — accepted dice-layer direction
