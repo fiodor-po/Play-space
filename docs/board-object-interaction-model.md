@@ -247,6 +247,12 @@ Gated state определяет:
 - нужно ли показать occupied / blocked treatment;
 - должен ли local interaction stop instead of continuing.
 
+Current accepted practical rule:
+
+- if a richer interaction corridor cannot yet be kept stable under the shared
+  property model, the object may stay temporarily gated instead of pretending to
+  support ordinary concurrent manipulation.
+
 ### 4.5. State stacking rule
 
 Object presentation should be read as stacked layers:
@@ -363,6 +369,11 @@ Current accepted user:
 - media object
 - current explicit remote-preview object
 - current object-adjacent-controls reference
+
+Current accepted exception:
+
+- `image` while drawing may stay gated for other participants instead of behaving
+  like an ordinary concurrently movable object
 
 ### 7.2. `note-card`
 

@@ -70,6 +70,11 @@ Current remote-facing view:
 - remote drawing lock виден как occupied frame
 - attached token следует effective preview geometry image
 
+Current accepted exception:
+
+- while an image is in drawing mode, other participants should not move it
+- drawing lock remains the gating rule for that corridor
+
 Current canonical reading:
 
 - `image` already has a full split between committed content, local active manipulation, and remote transient preview
@@ -143,7 +148,7 @@ Current canonical reading:
 | `image` | local drag | image moves live locally | preview frame on old viewer side, committed content stays distinct | `previewImagePosition`, `remoteImagePreviewPositions`, `RemoteInteractionIndicator` |
 | `image` | local transform | image transforms live locally | preview frame on remote-facing side | `publishImageTransformPreview`, `resolveEffectiveImageBounds` |
 | `image` | local drawing mode | drawing mode active, strokes append live | remote occupied lock, not local editing shell | drawing lock + `RemoteInteractionIndicator` |
-| `image` | remote occupied | local action gated by drawing lock | same lock state from the other side | image drawing lock corridor |
+| `image` | remote occupied | local action gated by drawing lock, including move block while another participant is drawing | same lock state from the other side | image drawing lock corridor |
 | `image` | object-attached controls | `Draw / Save / Clear / Clear all` anchored to effective bounds | controls themselves are local, not mirrored as remote controls | selected image controls VM + board interaction button family |
 | `note-card` | committed idle | text card content | same committed content | `NoteCardRenderer` |
 | `note-card` | selected | transformer-selected text box | no special remote selected chrome by default | `NoteCardRenderer` + `BoardStageScene` |
@@ -241,6 +246,12 @@ Current gaps this matrix already exposes:
 - `note-card` local edit uses local shell overlay while remote side only gets an interaction frame
 - token has no object-adjacent controls yet
 - note-card has no object-adjacent controls yet
+
+Current accepted branch direction:
+
+- per-property sync is the preferred model where the object corridor stays
+  simple enough
+- image drawing remains a deliberate hybrid/special corridor for now
 
 Current open chapter questions:
 

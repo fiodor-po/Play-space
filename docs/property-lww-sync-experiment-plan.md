@@ -188,6 +188,13 @@ Current open technical question:
 - whether the current transport is enough
 - or whether later work needs a stricter server-authoritative ordering layer
 
+Current branch verdict after first hosted testing:
+
+- the general per-property model reads as the right direction for board objects;
+- `token` and `note-card` fit the model well enough to continue the migration;
+- `image` geometry also fits the model in general;
+- `image` while drawing remains a deliberate exception corridor for now.
+
 ## 6. Current object-family suitability
 
 ### 6.1. First migration candidates
@@ -222,6 +229,13 @@ Reason:
 
 - these are either awareness state
 - or they need a richer merge model than plain property overwrite
+
+Current accepted exception rule:
+
+- while an image is in drawing mode, other participants should not move it;
+- image drawing lock should remain the gating mechanism for that rule;
+- the branch should prefer temporary blocking over trying to make `image +
+  drawing + remote move` behave like an ordinary property-synced object.
 
 ## 7. Proposed migration track
 
@@ -324,6 +338,13 @@ This branch succeeds if it delivers:
 2. hosted two-client testing on that slice
 3. a clear exception list
 4. a clear decision on whether current transport semantics are enough
+
+Current mid-track acceptance:
+
+- the branch already has a usable migration basis;
+- the model should continue forward where it stays simple and stable;
+- image drawing interaction may stay hybrid until the product needs a deeper
+  object-dependent rule.
 
 ## 9. Recommended next implementation slice
 
