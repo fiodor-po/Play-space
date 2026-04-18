@@ -12,6 +12,7 @@ import { HTML_UI_FONT_FAMILY } from "../../board/constants";
 import { PARTICIPANT_COLOR_OPTIONS } from "../../lib/roomSession";
 import { boardSurfaceRecipes } from "./boardSurfaces";
 import { getDesignSystemDebugAttrs } from "./debugMeta";
+import { BoardInteractionLayerSandbox } from "./BoardInteractionLayerSandbox";
 import {
   buttonRecipes,
   createDraftLocalUserButtonRecipeForSlot,
@@ -4577,6 +4578,8 @@ export function DesignSystemSandboxPage() {
             tabs, or textarea families.
           </div>
         </section>
+
+        <BoardInteractionLayerSandbox />
         {activeTokenOverrideEditor ? (
           <div
             data-sandbox-inspect-node-id="token-override-panel"

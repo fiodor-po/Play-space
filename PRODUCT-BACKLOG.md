@@ -31,18 +31,14 @@
 
 ## 3. Now
 
-- `Design-system usage pass`
-  Пройтись по дизайн-системе, проверить, что она используется в нужных местах, и добрать недостающие states и attributes.
+- `Board object controls UI layer`
+  Доделать UI слой контролов объектов доски.
   Tags: `#now`
 
 ## 4. Soon
 
 - `Room entry empty-name default without URL room`
   Если room не задана в URL, поле имени комнаты на entry должно стартовать пустым, а не со значением `alpha`.
-  Tags: `#soon`
-
-- `Board object controls UI layer`
-  Доделать UI слой контролов объектов доски.
   Tags: `#soon`
 
 - `Board navigation and secondary-click behavior`
@@ -117,6 +113,10 @@
 
 - `Media dock concept test`
   Протестировать product idea с dock и понять, даёт ли она хороший session flow.
+  Tags: `#later`
+
+- `Observer role for clean session recording and broadcast`
+  Добавить observer role для чистой записи и трансляции сессий без обычного participant presence и interaction footprint.
   Tags: `#later`
 
 - `Room themes and settings`

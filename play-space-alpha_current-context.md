@@ -1045,11 +1045,14 @@ Closed chapter:
   - `primaryNeutral` `default / hover / active` contrast was tuned to read as a
     real state sequence.
 
-Current mode after this closure:
+Active chapter:
 
-- the project is back in planning mode;
-- the next design-system or control-polish work is `candidate` only until a
-  separate planning decision selects it as the next active chapter.
+- `Board object controls UI layer`
+  - focus on the control layer attached to board objects;
+  - use the closed `UI controls polish` chapter as the current control-state
+    baseline;
+  - do not expand this chapter into broad board navigation rewrites, mobile
+    work, or media polish.
 
 ## 8.7. Repo/runtime health work closed the current `App` chapter
 

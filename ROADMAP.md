@@ -235,7 +235,11 @@ Remaining deferred runtime tail from this chapter:
    - sandbox now exposes honest filled vs non-filled disabled comparison;
    - color swatches now have readable `selected`, `disabled`, and `occupied` states;
    - `primaryNeutral` state contrast tuning completed for `default / hover / active`;
-5. вернуть проект в planning mode after the closed controls chapter;
+5. открыть `Board object controls UI layer` как новый active chapter:
+   - focus on the board-object control layer only;
+   - do not reopen broad design-system migration;
+   - do not mix this chapter with mobile, media, or board-navigation rewrites;
+   - use the now-closed controls chapter as the stable control-state baseline;
 6. считать `App.tsx` chapter structurally closed;
 7. считать current `BoardStage.tsx` cleanup chapter checkpoint-closed;
 8. считать refreshed architecture/runtime audit completed;

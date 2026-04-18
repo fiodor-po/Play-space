@@ -16,6 +16,7 @@ This is the fastest index for the repo's working docs.
 - `room-memory-model.md` — state categories and memory boundaries
 - `indication-design.md` — canonical behavior indication model
 - `color-model-design.md` — participant/color semantics
+- `board-object-controls-ui-layer.md` — active chapter control doc for the board-object control layer
 - `design-system-control-state-matrix.md` — current control-family state matrix and current-track rollout scope
 - `participant-color-tokenization-draft.md` — current draft model for participant-color tokenization inside the active `UI controls polish` chapter
 - `dice-spike-design.md` — accepted dice-layer direction

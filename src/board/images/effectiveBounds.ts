@@ -26,6 +26,7 @@ export function resolveEffectiveImageBounds({
   committedImage,
   localNode,
   isLocallyInteracting = false,
+  sharedPreview = null,
 }: ResolveEffectiveImageBoundsParams): ImageEffectiveBounds {
   if (isLocallyInteracting && localNode) {
     const bounds = localNode.getClientRect({
@@ -39,6 +40,15 @@ export function resolveEffectiveImageBounds({
       y: bounds.y,
       width: bounds.width,
       height: bounds.height,
+    };
+  }
+
+  if (sharedPreview) {
+    return {
+      x: sharedPreview.x,
+      y: sharedPreview.y,
+      width: sharedPreview.width ?? committedImage.width,
+      height: sharedPreview.height ?? committedImage.height,
     };
   }
 
