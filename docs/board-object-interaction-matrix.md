@@ -66,6 +66,7 @@ Current image interaction inventory:
 Current local view:
 
 - selected image получает transformer
+- selected image shows image-attached controls
 - local drag двигает image immediately
 - local transform меняет effective bounds immediately
 - local drawing mode удерживает image в special active mode
@@ -73,6 +74,7 @@ Current local view:
 
 Current remote-facing view:
 
+- remote-selected image uses object-anchored viewport-stable selection frame
 - remote drag / transform виден как preview frame
 - committed image content не маскируется под preview
 - remote drawing lock виден как occupied frame
@@ -82,6 +84,12 @@ Current accepted exception:
 
 - while an image is in drawing mode, other participants should not move it
 - drawing lock remains the gating rule for that corridor
+- blocked viewer currently should read that state through:
+  - light image dim
+  - blocked cursor
+  - top-left activity pill with participant name and active verb
+- this is a temporary checkpoint rule and not the intended final model for
+  future concurrent drawing
 
 Current canonical reading:
 
@@ -101,6 +109,7 @@ Current note-card interaction inventory:
 Current local view:
 
 - selected note-card получает transformer
+- extra controls do not appear
 - local drag двигает карточку live
 - local resize меняет card bounds live
 - local edit mode скрывает rendered text и поднимает textarea overlay
@@ -131,6 +140,7 @@ Current token interaction inventory:
 Current local view:
 
 - selected token uses centered selection ring
+- extra controls do not appear
 - local drag moves token live
 - attached token resolves from parent image effective bounds
 - token body stays viewport-stable
@@ -146,6 +156,17 @@ Current canonical reading:
 - `token` is a pin exception
 - it shares move/occupied semantics with the interaction layer
 - it does not share transformer or box-preview semantics
+
+## 3.4. Selection-system rule
+
+Current selection-system truth:
+
+- only one object is locally selected at a time
+- selection may expose object-specific controls
+- selection chrome and resize handles stay object-anchored and viewport-stable
+- remote selection uses the same family
+- if several remote participants select the same object at once, current
+  aggregation reads as `last-selector-wins`
 
 ## 4. State matrix
 

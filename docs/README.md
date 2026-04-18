@@ -18,6 +18,7 @@ This is the fastest index for the repo's working docs.
 - `color-model-design.md` — participant/color semantics
 - `board-object-controls-ui-layer.md` — active chapter control doc for the board-object control layer
 - `board-object-interaction-model.md` — high-level model for board-object geometry, interaction space, and viewport behavior
+- `board-object-indication-matrix.md` — normalized indication matrix for abstract board objects and current object families
 - `board-object-interaction-matrix.md` — working matrix of board-object interactions, local view, and remote-facing view
 - `property-lww-sync-experiment-plan.md` — accepted migration track for Figma-like property-level sync
 - `design-system-control-state-matrix.md` — current control-family state matrix and current-track rollout scope

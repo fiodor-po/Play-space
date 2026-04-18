@@ -288,6 +288,28 @@ Current baseline example:
 - if drag is already in flight when the drawing lock appears, the drag should
   stop and should not commit.
 
+Current blocked-indication rule for that corridor:
+
+- the participant who owns the drawing lock needs no extra blocked treatment;
+- the blocked participant should get:
+  - slight object dim
+  - blocked cursor
+  - object-anchored viewport-stable top-left activity pill with participant
+    name and active verb.
+
+Current temporary rule:
+
+- this full-object blocking model is accepted only as the current checkpoint;
+- the repo is expected to need concurrent drawing later;
+- when concurrent drawing becomes in scope, this blocking corridor should be
+  redesigned rather than treated as permanent.
+
+Current default rule:
+
+- the repo should avoid blocking by default;
+- concurrent interaction is preferred whenever the corridor can stay truthful;
+- blocking is currently accepted only as an object-specific exception.
+
 ### 4.5. State stacking rule
 
 Object presentation should be read as stacked layers:
@@ -360,6 +382,25 @@ Selection artifact depends on family:
 - transformer for box objects
 - centered ring for pin objects
 
+Current selection-system rule:
+
+- only one object is locally selected at a time in the current runtime;
+- selection may expose object-specific controls or resize handles;
+- selection chrome stays object-anchored and viewport-stable rather than
+  scaling like ordinary board content.
+
+Current family mapping:
+
+- `image` → frame + resize handles + image controls
+- `note-card` → frame + resize handles
+- `token` → selection indicator only
+
+Current remote-selection rule:
+
+- remote selection uses the same object-anchored viewport-stable family;
+- if several remote participants select the same object at once, current
+  aggregation reads as `last-selector-wins`.
+
 ### 6.2. Preview artifact
 
 Preview shows:
@@ -418,6 +459,8 @@ Current accepted exception:
   like an ordinary concurrently movable object
 - drawing lock is the accepted gate for that corridor
 - active drag must stop if that drawing lock appears mid-drag
+- this is currently the accepted full-object blocking exception
+- this exception is temporary and should be revisited when concurrent drawing is needed
 
 ### 7.2. `note-card`
 

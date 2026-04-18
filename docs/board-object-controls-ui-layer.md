@@ -118,6 +118,7 @@ Review output should produce a short factual map:
 Current chapter review matrix now lives in:
 
 - `board-object-interaction-model.md`
+- `board-object-indication-matrix.md`
 - `board-object-interaction-matrix.md`
 
 The model doc is the high-level frame for:
