@@ -3,8 +3,14 @@ import { WebsocketProvider } from "y-websocket";
 import type { BoardObject } from "../types/board";
 import { getRealtimeServerWsUrl } from "./runtimeConfig";
 import {
+  getBoardObjectPropertySyncDebugEntries,
+  readBoardObjectFromSharedEntry,
+  upgradeLegacySharedObjects,
+  writeBoardObjectToSharedMap,
+  type BoardObjectPropertySyncDebugEntry,
+} from "./boardObjectPropertySync";
+import {
   isNoteCardObject,
-  normalizeNoteCardObject,
 } from "../board/objects/noteCard/sizing";
 
 export type TextCardEditingPresence = {
@@ -34,6 +40,9 @@ export type RoomTextCardConnection = {
 export function createRoomTextCardConnection(params: {
   roomId: string;
   onTextCardsChange: (textCards: BoardObject[]) => void;
+  onTextCardPropertyStateChange?: (
+    entries: BoardObjectPropertySyncDebugEntry[]
+  ) => void;
   onInitialSyncComplete?: () => void;
   onTextCardEditingStatesChange?: (
     editingStates: Record<string, TextCardEditingPresence>
@@ -50,13 +59,18 @@ export function createRoomTextCardConnection(params: {
     `play-space-alpha-text-cards:${params.roomId}`,
     doc
   );
-  const textCardMap = doc.getMap<string>("text-cards");
+  const textCardMap = doc.getMap<unknown>("text-cards");
   let hasInitialSync = false;
   let hasReportedInitialSync = false;
   let pendingSeedTextCards: BoardObject[] | null = null;
 
   const publishTextCards = () => {
     params.onTextCardsChange(getTextCardsFromMap(textCardMap));
+    params.onTextCardPropertyStateChange?.(
+      getBoardObjectPropertySyncDebugEntries(textCardMap).filter(
+        (entry) => entry.kind === "note-card"
+      )
+    );
   };
 
   const publishTextCardEditingStates = () => {
@@ -86,9 +100,11 @@ export function createRoomTextCardConnection(params: {
 
     hasInitialSync = true;
 
+    upgradeLegacySharedObjects(textCardMap);
+
     if (pendingSeedTextCards && textCardMap.size === 0) {
       pendingSeedTextCards.forEach((textCard) => {
-        textCardMap.set(textCard.id, JSON.stringify(textCard));
+        writeBoardObjectToSharedMap(textCardMap, textCard);
       });
     }
 
@@ -101,7 +117,7 @@ export function createRoomTextCardConnection(params: {
     }
   };
 
-  textCardMap.observe(publishTextCards);
+  textCardMap.observeDeep(publishTextCards);
   provider.on("status", handleStatus);
   provider.on("sync", handleSync);
   provider.awareness.on("change", publishTextCardEditingStates);
@@ -114,7 +130,7 @@ export function createRoomTextCardConnection(params: {
     destroy: () => {
       provider.awareness.setLocalStateField("textCardEditing", null);
       provider.awareness.setLocalStateField("textCardResize", null);
-      textCardMap.unobserve(publishTextCards);
+      textCardMap.unobserveDeep(publishTextCards);
       provider.off("status", handleStatus);
       provider.off("sync", handleSync);
       provider.awareness.off("change", publishTextCardEditingStates);
@@ -135,14 +151,14 @@ export function createRoomTextCardConnection(params: {
       });
 
       nextTextCards.forEach((textCard) => {
-        textCardMap.set(textCard.id, JSON.stringify(textCard));
+        writeBoardObjectToSharedMap(textCardMap, textCard);
       });
     },
     upsertTextCards: (textCards) => {
       textCards
         .filter((textCard) => isNoteCardObject(textCard))
         .forEach((textCard) => {
-          textCardMap.set(textCard.id, JSON.stringify(textCard));
+          writeBoardObjectToSharedMap(textCardMap, textCard);
         });
     },
     setActiveEditingTextCard: (editingPresence) => {
@@ -177,24 +193,20 @@ export function createRoomTextCardConnection(params: {
       }
 
       nextSeedTextCards.forEach((textCard) => {
-        textCardMap.set(textCard.id, JSON.stringify(textCard));
+        writeBoardObjectToSharedMap(textCardMap, textCard);
       });
     },
   };
 }
 
-function getTextCardsFromMap(textCardMap: Y.Map<string>) {
+function getTextCardsFromMap(textCardMap: Y.Map<unknown>) {
   const textCards: BoardObject[] = [];
 
-  textCardMap.forEach((value) => {
-    try {
-      const textCard = JSON.parse(value) as BoardObject;
+  textCardMap.forEach((value, textCardId) => {
+    const textCard = readBoardObjectFromSharedEntry(textCardId, value);
 
-      if (isNoteCardObject(textCard)) {
-        textCards.push(normalizeNoteCardObject(textCard));
-      }
-    } catch {
-      return;
+    if (textCard && isNoteCardObject(textCard)) {
+      textCards.push(textCard);
     }
   });
 

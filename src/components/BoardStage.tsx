@@ -115,6 +115,7 @@ import {
   type TextCardEditingPresence,
   type TextCardResizePresence,
 } from "../lib/roomTextCardsRealtime";
+import type { BoardObjectPropertySyncDebugEntry } from "../lib/boardObjectPropertySync";
 import {
   type LocalParticipantSession,
   type ParticipantPresence,
@@ -1123,7 +1124,6 @@ export default function BoardStage({
       setActiveTextCardResizeState,
       setActiveTokenMove,
       syncCurrentImage,
-      updateImagePositionPreview,
       updateImagePreviewBounds,
     },
   } = useBoardObjectRuntime({
@@ -1346,6 +1346,14 @@ export default function BoardStage({
   const [remoteActiveObjectMoves, setRemoteActiveObjectMoves] = useState<
     ActiveObjectMoveMap
   >({});
+  const [sharedTokenPropertyEntries, setSharedTokenPropertyEntries] = useState<
+    BoardObjectPropertySyncDebugEntry[]
+  >([]);
+  const [sharedImagePropertyEntries, setSharedImagePropertyEntries] = useState<
+    BoardObjectPropertySyncDebugEntry[]
+  >([]);
+  const [sharedTextCardPropertyEntries, setSharedTextCardPropertyEntries] =
+    useState<BoardObjectPropertySyncDebugEntry[]>([]);
   const [sharedBootstrapSliceCounts, setSharedBootstrapSliceCounts] =
     useState<SharedBootstrapSliceCounts>(
       createInitialSharedBootstrapSliceCounts
@@ -2183,6 +2191,9 @@ export default function BoardStage({
       setRemoteImageDrawingLocks({});
       setRemoteTextCardEditingStates({});
       setRemoteTextCardResizeStates({});
+      setSharedTokenPropertyEntries([]);
+      setSharedImagePropertyEntries([]);
+      setSharedTextCardPropertyEntries([]);
       setLiveSelectedImageControlAnchor(null);
       setSharedBootstrapSliceCounts(createInitialSharedBootstrapSliceCounts());
       sharedBootstrapSlicesRef.current = {
@@ -2800,6 +2811,7 @@ export default function BoardStage({
     const connection = createRoomTokenConnection({
       roomId,
       onActiveMovesChange: setRemoteActiveObjectMoves,
+      onTokenPropertyStateChange: setSharedTokenPropertyEntries,
       onTokensChange: (tokens) => {
         setTokenBootstrapPayloadRoomId((current) =>
           current === roomId ? current : roomId
@@ -2830,6 +2842,7 @@ export default function BoardStage({
   useEffect(() => {
     const connection = createRoomImageConnection({
       roomId,
+      onImagePropertyStateChange: setSharedImagePropertyEntries,
       onImagesChange: (sharedImages) => {
         setImageBootstrapPayloadRoomId((current) =>
           current === roomId ? current : roomId
@@ -2883,6 +2896,7 @@ export default function BoardStage({
   useEffect(() => {
     const connection = createRoomTextCardConnection({
       roomId,
+      onTextCardPropertyStateChange: setSharedTextCardPropertyEntries,
       onTextCardsChange: (textCards) => {
         setTextCardBootstrapPayloadRoomId((current) =>
           current === roomId ? current : roomId
@@ -3147,10 +3161,10 @@ export default function BoardStage({
   };
 
   const previewImagePosition = (id: string, x: number, y: number) => {
-    applyBoardObjectsUpdate((currentObjects) =>
-      updateBoardObjectPosition(currentObjects, id, x, y)
+    applyBoardObjectsUpdate(
+      (currentObjects) => updateBoardObjectPosition(currentObjects, id, x, y),
+      { syncSharedImageIds: [id] }
     );
-    updateImagePositionPreview(id, x, y, participantSession.color);
   };
 
   const updateObjectLabel = (
@@ -3789,6 +3803,21 @@ export default function BoardStage({
     inspectableTokenPosition,
     inspectableNoteCardObject,
   } = inspectabilityViewModel;
+  const inspectableImagePropertyEntry = inspectableImageObject
+    ? sharedImagePropertyEntries.find(
+        (entry) => entry.objectId === inspectableImageObject.id
+      ) ?? null
+    : null;
+  const inspectableTokenPropertyEntry = inspectableTokenObject
+    ? sharedTokenPropertyEntries.find(
+        (entry) => entry.objectId === inspectableTokenObject.id
+      ) ?? null
+    : null;
+  const inspectableNoteCardPropertyEntry = inspectableNoteCardObject
+    ? sharedTextCardPropertyEntries.find(
+        (entry) => entry.objectId === inspectableNoteCardObject.id
+      ) ?? null
+    : null;
 
   const moveInspectableImageForSmoke = () => {
     if (!inspectableImageObject) {
@@ -4180,6 +4209,9 @@ export default function BoardStage({
   const devToolsContent = (
     <BoardStageDevToolsContent
       {...devToolsViewModel}
+      inspectableImagePropertyEntry={inspectableImagePropertyEntry}
+      inspectableTokenPropertyEntry={inspectableTokenPropertyEntry}
+      inspectableNoteCardPropertyEntry={inspectableNoteCardPropertyEntry}
       onMoveInspectableImageForSmoke={moveInspectableImageForSmoke}
       onDrawSmokeStrokeOnInspectableImage={drawSmokeStrokeOnInspectableImage}
       onResizeInspectableImageForSmoke={resizeInspectableImageForSmoke}

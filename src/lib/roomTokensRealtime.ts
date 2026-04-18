@@ -1,7 +1,13 @@
 import * as Y from "yjs";
 import { WebsocketProvider } from "y-websocket";
 import type { BoardObject } from "../types/board";
-import { normalizeTokenObject } from "../board/objects/token/createTokenObject";
+import {
+  getBoardObjectPropertySyncDebugEntries,
+  readBoardObjectFromSharedEntry,
+  upgradeLegacySharedObjects,
+  writeBoardObjectToSharedMap,
+  type BoardObjectPropertySyncDebugEntry,
+} from "./boardObjectPropertySync";
 import { getRealtimeServerWsUrl } from "./runtimeConfig";
 
 export type ActiveObjectMove = {
@@ -26,6 +32,9 @@ export function createRoomTokenConnection(params: {
   roomId: string;
   onActiveMovesChange?: (moves: ActiveObjectMoveMap) => void;
   onTokensChange: (tokens: BoardObject[]) => void;
+  onTokenPropertyStateChange?: (
+    entries: BoardObjectPropertySyncDebugEntry[]
+  ) => void;
   onInitialSyncComplete?: () => void;
   serverUrl?: string;
 }): RoomTokenConnection {
@@ -36,13 +45,18 @@ export function createRoomTokenConnection(params: {
     `play-space-alpha-tokens:${params.roomId}`,
     doc
   );
-  const tokenMap = doc.getMap<string>("tokens");
+  const tokenMap = doc.getMap<unknown>("tokens");
   let hasInitialSync = false;
   let hasReportedInitialSync = false;
   let pendingSeedTokens: BoardObject[] | null = null;
 
   const publishTokens = () => {
     params.onTokensChange(getTokensFromMap(tokenMap));
+    params.onTokenPropertyStateChange?.(
+      getBoardObjectPropertySyncDebugEntries(tokenMap).filter(
+        (entry) => entry.kind === "token"
+      )
+    );
   };
 
   const publishActiveMoves = () => {
@@ -65,9 +79,11 @@ export function createRoomTokenConnection(params: {
 
     hasInitialSync = true;
 
+    upgradeLegacySharedObjects(tokenMap);
+
     if (pendingSeedTokens && tokenMap.size === 0) {
       pendingSeedTokens.forEach((token) => {
-        tokenMap.set(token.id, JSON.stringify(token));
+        writeBoardObjectToSharedMap(tokenMap, token);
       });
     }
 
@@ -80,7 +96,7 @@ export function createRoomTokenConnection(params: {
     }
   };
 
-  tokenMap.observe(publishTokens);
+  tokenMap.observeDeep(publishTokens);
   provider.on("status", handleStatus);
   provider.on("sync", handleSync);
   provider.awareness.on("change", publishActiveMoves);
@@ -90,7 +106,7 @@ export function createRoomTokenConnection(params: {
   return {
     destroy: () => {
       provider.awareness.setLocalStateField("activeMove", null);
-      tokenMap.unobserve(publishTokens);
+      tokenMap.unobserveDeep(publishTokens);
       provider.off("status", handleStatus);
       provider.off("sync", handleSync);
       provider.awareness.off("change", publishActiveMoves);
@@ -117,7 +133,7 @@ export function createRoomTokenConnection(params: {
       });
 
       nextTokens.forEach((token) => {
-        tokenMap.set(token.id, JSON.stringify(token));
+        writeBoardObjectToSharedMap(tokenMap, token);
       });
     },
     seedTokens: (tokens) => {
@@ -137,24 +153,20 @@ export function createRoomTokenConnection(params: {
       }
 
       nextSeedTokens.forEach((token) => {
-        tokenMap.set(token.id, JSON.stringify(token));
+        writeBoardObjectToSharedMap(tokenMap, token);
       });
     },
   };
 }
 
-function getTokensFromMap(tokenMap: Y.Map<string>) {
+function getTokensFromMap(tokenMap: Y.Map<unknown>) {
   const tokens: BoardObject[] = [];
 
-  tokenMap.forEach((value) => {
-    try {
-      const token = JSON.parse(value) as BoardObject;
+  tokenMap.forEach((value, tokenId) => {
+    const token = readBoardObjectFromSharedEntry(tokenId, value);
 
-      if (token.kind === "token") {
-        tokens.push(normalizeTokenObject(token));
-      }
-    } catch {
-      return;
+    if (token?.kind === "token") {
+      tokens.push(token);
     }
   });
 

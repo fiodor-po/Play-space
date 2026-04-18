@@ -1,6 +1,13 @@
 import * as Y from "yjs";
 import { WebsocketProvider } from "y-websocket";
 import type { BoardObject } from "../types/board";
+import {
+  getBoardObjectPropertySyncDebugEntries,
+  readBoardObjectFromSharedEntry,
+  upgradeLegacySharedObjects,
+  writeBoardObjectToSharedMap,
+  type BoardObjectPropertySyncDebugEntry,
+} from "./boardObjectPropertySync";
 import { getRealtimeServerWsUrl } from "./runtimeConfig";
 
 export type ImageDrawingLock = {
@@ -38,6 +45,9 @@ export type RoomImageConnection = {
 export function createRoomImageConnection(params: {
   roomId: string;
   onImagesChange: (images: BoardObject[]) => void;
+  onImagePropertyStateChange?: (
+    entries: BoardObjectPropertySyncDebugEntry[]
+  ) => void;
   onInitialSyncComplete?: () => void;
   onImagePreviewPositionsChange?: (
     previewPositions: Record<
@@ -63,7 +73,7 @@ export function createRoomImageConnection(params: {
     `play-space-alpha-images:${params.roomId}`,
     doc
   );
-  const imageMap = doc.getMap<string>("images");
+  const imageMap = doc.getMap<unknown>("images");
   const imagePositionMap = doc.getMap<string>("image-positions");
   let hasInitialSync = false;
   let hasReportedInitialSync = false;
@@ -84,6 +94,11 @@ export function createRoomImageConnection(params: {
 
   const publishImages = () => {
     params.onImagesChange(getImagesFromMap(imageMap));
+    params.onImagePropertyStateChange?.(
+      getBoardObjectPropertySyncDebugEntries(imageMap).filter(
+        (entry) => entry.kind === "image"
+      )
+    );
   };
 
   const publishImagePreviewPositions = () => {
@@ -107,7 +122,7 @@ export function createRoomImageConnection(params: {
     queuedRemovals.clear();
 
     queuedUpserts.forEach((image, imageId) => {
-      imageMap.set(imageId, JSON.stringify(toSharedImage(image)));
+      writeBoardObjectToSharedMap(imageMap, toSharedImage(image));
       imagePositionMap.delete(imageId);
     });
     queuedUpserts.clear();
@@ -141,9 +156,11 @@ export function createRoomImageConnection(params: {
 
     hasInitialSync = true;
 
+    upgradeLegacySharedObjects(imageMap);
+
     if (pendingSeedImages && imageMap.size === 0) {
       pendingSeedImages.forEach((image) => {
-        imageMap.set(image.id, JSON.stringify(toSharedImage(image)));
+        writeBoardObjectToSharedMap(imageMap, toSharedImage(image));
       });
     }
 
@@ -156,7 +173,7 @@ export function createRoomImageConnection(params: {
     }
   };
 
-  imageMap.observe(publishImages);
+  imageMap.observeDeep(publishImages);
   imagePositionMap.observe(publishImagePreviewPositions);
   provider.on("status", handleStatus);
   provider.on("sync", handleSync);
@@ -174,7 +191,7 @@ export function createRoomImageConnection(params: {
         flushQueuedUpdates();
       }
 
-      imageMap.unobserve(publishImages);
+      imageMap.unobserveDeep(publishImages);
       imagePositionMap.unobserve(publishImagePreviewPositions);
       provider.off("status", handleStatus);
       provider.off("sync", handleSync);
@@ -249,24 +266,20 @@ export function createRoomImageConnection(params: {
       }
 
       nextSeedImages.forEach((image) => {
-        imageMap.set(image.id, JSON.stringify(toSharedImage(image)));
+        writeBoardObjectToSharedMap(imageMap, toSharedImage(image));
       });
     },
   };
 }
 
-function getImagesFromMap(imageMap: Y.Map<string>) {
+function getImagesFromMap(imageMap: Y.Map<unknown>) {
   const images: BoardObject[] = [];
 
-  imageMap.forEach((value) => {
-    try {
-      const image = JSON.parse(value) as BoardObject;
+  imageMap.forEach((value, imageId) => {
+    const image = readBoardObjectFromSharedEntry(imageId, value);
 
-      if (image.kind === "image") {
-        images.push(image);
-      }
-    } catch {
-      return;
+    if (image?.kind === "image") {
+      images.push(image);
     }
   });
 

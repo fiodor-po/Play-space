@@ -19,6 +19,7 @@ import { inlineTextRecipes } from "../../ui/system/inlineText";
 import { text } from "../../ui/system/foundations";
 import { surfaceRecipes } from "../../ui/system/surfaces";
 import { uiTextStyleSmall } from "../../ui/system/typography";
+import type { BoardObjectPropertySyncDebugEntry } from "../../lib/boardObjectPropertySync";
 
 type InspectableBounds = {
   x: number;
@@ -111,6 +112,7 @@ type BoardStageDevToolsContentProps = {
   inspectableImageId: string | null;
   inspectableImageBounds: InspectableBounds | null;
   inspectableImageStrokeStats: InspectableImageStrokeStats | null;
+  inspectableImagePropertyEntry: BoardObjectPropertySyncDebugEntry | null;
   hasInspectableImage: boolean;
   onMoveInspectableImageForSmoke: () => void;
   onDrawSmokeStrokeOnInspectableImage: () => void;
@@ -118,12 +120,14 @@ type BoardStageDevToolsContentProps = {
   inspectableTokenTarget: string;
   inspectableTokenId: string | null;
   inspectableTokenPosition: InspectableTokenPosition | null;
+  inspectableTokenPropertyEntry: BoardObjectPropertySyncDebugEntry | null;
   hasInspectableToken: boolean;
   onMoveInspectableTokenForSmoke: () => void;
   inspectableNoteCardTarget: string;
   inspectableNoteCardId: string | null;
   inspectableNoteCardLabel: string | null;
   inspectableNoteCardBounds: InspectableBounds | null;
+  inspectableNoteCardPropertyEntry: BoardObjectPropertySyncDebugEntry | null;
   hasInspectableNoteCard: boolean;
   onMoveInspectableNoteCardForSmoke: () => void;
   onSaveInspectableNoteCardTextForSmoke: () => void;
@@ -213,6 +217,67 @@ function formatIsoDebugTimestamp(timestamp: string | null) {
   });
 }
 
+function formatPropertySyncStoredValues(
+  entry: BoardObjectPropertySyncDebugEntry | null
+) {
+  if (!entry || !entry.usesPropertySync) {
+    return "Storage: legacy whole-object";
+  }
+
+  const parts = entry.migratedProperties.map((property) => {
+    return `${property} ${entry.storedPropertyValues[property] ?? "unset"}`;
+  });
+
+  return parts.length > 0 ? `Storage: ${parts.join(" · ")}` : "Storage: none";
+}
+
+function formatPropertySyncLastChanged(
+  entry: BoardObjectPropertySyncDebugEntry | null
+) {
+  if (!entry || !entry.usesPropertySync) {
+    return "Last migrated change: none";
+  }
+
+  const propertyList =
+    entry.lastChangedProperties.length > 0
+      ? entry.lastChangedProperties.join(", ")
+      : "none";
+
+  return `Last migrated change: ${propertyList} @ ${formatDebugTimestamp(
+    entry.lastChangedAt
+  )}`;
+}
+
+function formatPropertySyncWriteMode(
+  entry: BoardObjectPropertySyncDebugEntry | null
+) {
+  if (!entry) {
+    return "Write mode: none";
+  }
+
+  return `Write mode: ${entry.lastWriteMode ?? "unknown"}`;
+}
+
+function formatPropertySyncReconstruction(
+  entry: BoardObjectPropertySyncDebugEntry | null
+) {
+  if (!entry?.reconstructedObject) {
+    return "Reconstructed: none";
+  }
+
+  const object = entry.reconstructedObject;
+
+  if (object.kind === "token") {
+    return `Reconstructed: x ${Math.round(object.x)} · y ${Math.round(
+      object.y
+    )} · attachment ${object.tokenAttachment?.mode ?? "free"}`;
+  }
+
+  return `Reconstructed: x ${Math.round(object.x)} · y ${Math.round(
+    object.y
+  )} · w ${Math.round(object.width)} · h ${Math.round(object.height)}`;
+}
+
 export function BoardStageDevToolsContent({
   sharedObjectCount,
   sharedTokenCount,
@@ -223,6 +288,7 @@ export function BoardStageDevToolsContent({
   inspectableImageId,
   inspectableImageBounds,
   inspectableImageStrokeStats,
+  inspectableImagePropertyEntry,
   hasInspectableImage,
   onMoveInspectableImageForSmoke,
   onDrawSmokeStrokeOnInspectableImage,
@@ -230,12 +296,14 @@ export function BoardStageDevToolsContent({
   inspectableTokenTarget,
   inspectableTokenId,
   inspectableTokenPosition,
+  inspectableTokenPropertyEntry,
   hasInspectableToken,
   onMoveInspectableTokenForSmoke,
   inspectableNoteCardTarget,
   inspectableNoteCardId,
   inspectableNoteCardLabel,
   inspectableNoteCardBounds,
+  inspectableNoteCardPropertyEntry,
   hasInspectableNoteCard,
   onMoveInspectableNoteCardForSmoke,
   onSaveInspectableNoteCardTextForSmoke,
@@ -315,6 +383,24 @@ export function BoardStageDevToolsContent({
             ? `Strokes: total ${inspectableImageStrokeStats.total} · own ${inspectableImageStrokeStats.own} · points ${inspectableImageStrokeStats.points}`
             : "Strokes: none"}
         </div>
+        <div style={debugMutedTextStyle}>
+          Shared props:{" "}
+          {inspectableImagePropertyEntry?.usesPropertySync
+            ? inspectableImagePropertyEntry.migratedProperties.join(", ")
+            : "legacy whole-object"}
+        </div>
+        <div style={debugMutedTextStyle}>
+          {formatPropertySyncLastChanged(inspectableImagePropertyEntry)}
+        </div>
+        <div style={debugMutedTextStyle}>
+          {formatPropertySyncWriteMode(inspectableImagePropertyEntry)}
+        </div>
+        <div style={debugMutedTextStyle}>
+          {formatPropertySyncReconstruction(inspectableImagePropertyEntry)}
+        </div>
+        <div style={debugMutedTextStyle}>
+          {formatPropertySyncStoredValues(inspectableImagePropertyEntry)}
+        </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <button
             type="button"
@@ -368,6 +454,24 @@ export function BoardStageDevToolsContent({
             ? `Position: x ${Math.round(inspectableTokenPosition.x)} · y ${Math.round(inspectableTokenPosition.y)}`
             : "Position: none"}
         </div>
+        <div style={debugMutedTextStyle}>
+          Shared props:{" "}
+          {inspectableTokenPropertyEntry?.usesPropertySync
+            ? inspectableTokenPropertyEntry.migratedProperties.join(", ")
+            : "legacy whole-object"}
+        </div>
+        <div style={debugMutedTextStyle}>
+          {formatPropertySyncWriteMode(inspectableTokenPropertyEntry)}
+        </div>
+        <div style={debugMutedTextStyle}>
+          {formatPropertySyncLastChanged(inspectableTokenPropertyEntry)}
+        </div>
+        <div style={debugMutedTextStyle}>
+          {formatPropertySyncReconstruction(inspectableTokenPropertyEntry)}
+        </div>
+        <div style={debugMutedTextStyle}>
+          {formatPropertySyncStoredValues(inspectableTokenPropertyEntry)}
+        </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <button
             type="button"
@@ -401,6 +505,24 @@ export function BoardStageDevToolsContent({
           {inspectableNoteCardBounds
             ? `Bounds: x ${inspectableNoteCardBounds.x} · y ${inspectableNoteCardBounds.y} · w ${inspectableNoteCardBounds.width} · h ${inspectableNoteCardBounds.height}`
             : "Bounds: none"}
+        </div>
+        <div style={debugMutedTextStyle}>
+          Shared props:{" "}
+          {inspectableNoteCardPropertyEntry?.usesPropertySync
+            ? inspectableNoteCardPropertyEntry.migratedProperties.join(", ")
+            : "legacy whole-object"}
+        </div>
+        <div style={debugMutedTextStyle}>
+          {formatPropertySyncWriteMode(inspectableNoteCardPropertyEntry)}
+        </div>
+        <div style={debugMutedTextStyle}>
+          {formatPropertySyncLastChanged(inspectableNoteCardPropertyEntry)}
+        </div>
+        <div style={debugMutedTextStyle}>
+          {formatPropertySyncReconstruction(inspectableNoteCardPropertyEntry)}
+        </div>
+        <div style={debugMutedTextStyle}>
+          {formatPropertySyncStoredValues(inspectableNoteCardPropertyEntry)}
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <button
