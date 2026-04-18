@@ -145,7 +145,7 @@ Current canonical reading:
 | --- | --- | --- | --- | --- |
 | `image` | committed idle | plain image content | same committed content | `BoardStageScene`, `KonvaImage` |
 | `image` | selected | transformer + attached controls when relevant | no equivalent selected chrome by default | `BoardStageScene`, selected image inspectability VM |
-| `image` | local drag | image moves live locally | preview frame on old viewer side, committed content stays distinct | `previewImagePosition`, `remoteImagePreviewPositions`, `RemoteInteractionIndicator` |
+| `image` | local drag | image moves live locally, image draw controls stay hidden during the drag session | preview frame on old viewer side, committed content stays distinct | `previewImagePosition`, `remoteImagePreviewPositions`, `RemoteInteractionIndicator` |
 | `image` | local transform | image transforms live locally | preview frame on remote-facing side | `publishImageTransformPreview`, `resolveEffectiveImageBounds` |
 | `image` | local drawing mode | drawing mode active, strokes append live | remote occupied lock, not local editing shell | drawing lock + `RemoteInteractionIndicator` |
 | `image` | remote occupied | local action gated by drawing lock, including move block while another participant is drawing | same lock state from the other side | image drawing lock corridor |

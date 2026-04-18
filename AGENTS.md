@@ -543,6 +543,18 @@ It does not replace hosted validation or human product judgement.
 If a pass changes replica-track recovery semantics, review bridge-bound smoke
 assertions in `docs/playwright-smoke-harness.md` and
 `docs/room-document-replica-track-plan.md` before treating the current smoke
+
+## Access and auth checks
+
+If a task depends on external access, authorization, connectors, protected URLs,
+project permissions, secrets, browser login, or similar prerequisites:
+
+- check that prerequisite as early as possible;
+- if access is missing, say so immediately;
+- stop the dependent part of the task until access or an explicit alternative is provided.
+
+Do not continue hosted, cloud, connector, CI, or protected-environment work on
+assumptions when access is unverified.
 baseline as canonical.
 
 ## Inspectability default

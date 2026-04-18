@@ -143,6 +143,10 @@ smoke assertions in `docs/playwright-smoke-harness.md` and
 `docs/room-document-replica-track-plan.md` before assuming the current smoke
 baseline should stay unchanged.
 
+If a task depends on hosted access, connectors, auth, protected URLs, project
+permissions, cloud logs, or similar prerequisites, check that access early. If
+it is missing, report it immediately and stop the dependent part of the task.
+
 ## 6. Environment And Runtime Data
 
 Remember:

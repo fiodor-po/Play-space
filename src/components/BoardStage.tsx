@@ -1982,6 +1982,10 @@ export default function BoardStage({
       return;
     }
 
+    if (draggingImageId === imageId) {
+      return;
+    }
+
     if (isImageLockedByAnotherParticipant(imageId)) {
       return;
     }
@@ -3733,6 +3737,8 @@ export default function BoardStage({
   const isSelectedImageLockedByAnotherParticipant =
     !!selectedImageLock &&
     selectedImageLock.participantId !== participantSession.id;
+  const isSelectedImageLocallyDragging =
+    !!selectedImageObject && draggingImageId === selectedImageObject.id;
   const isSelectedImageLocallyInteracting =
     !!selectedImageObject &&
     (draggingImageId === selectedImageObject.id ||
@@ -3781,6 +3787,7 @@ export default function BoardStage({
     selectedImageObject,
     selectedImageEffectiveBounds,
     liveSelectedImageControlAnchor,
+    isSelectedImageLocallyDragging,
     isSelectedImageLocallyInteracting,
     drawingImageId,
     participantColor: participantSession.color,
@@ -4328,6 +4335,10 @@ export default function BoardStage({
     setStagePosition(newPosition);
   };
   const handleSelectedImageControlClick = (buttonKey: string, imageId: string) => {
+    if (buttonKey === "draw" && draggingImageId === imageId) {
+      return;
+    }
+
     if (buttonKey === "draw") {
       if (drawingImageId === imageId) {
         finishImageDrawingMode();

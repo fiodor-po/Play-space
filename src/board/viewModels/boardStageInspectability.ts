@@ -147,6 +147,7 @@ type BoardStageSelectedImageControlsViewModelParams = {
   selectedImageObject: BoardObject | null;
   selectedImageEffectiveBounds: ImageEffectiveBounds | null;
   liveSelectedImageControlAnchor: LiveSelectedImageControlAnchor;
+  isSelectedImageLocallyDragging: boolean;
   isSelectedImageLocallyInteracting: boolean;
   drawingImageId: string | null;
   participantColor: string;
@@ -367,6 +368,7 @@ export function getBoardStageSelectedImageControlsViewModel({
   selectedImageObject,
   selectedImageEffectiveBounds,
   liveSelectedImageControlAnchor,
+  isSelectedImageLocallyDragging,
   isSelectedImageLocallyInteracting,
   drawingImageId,
   participantColor,
@@ -381,7 +383,7 @@ export function getBoardStageSelectedImageControlsViewModel({
       : null;
   const selectedImageControlButtons: BoardStageSelectedImageControlButton[] = [];
 
-  if (selectedImageObject) {
+  if (selectedImageObject && !isSelectedImageLocallyDragging) {
     selectedImageControlButtons.push({
       key: "draw",
       label: drawingImageId === selectedImageObject.id ? "Save" : "Draw",

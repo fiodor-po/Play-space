@@ -1,7 +1,18 @@
 import type { BoardObject } from "../types/board";
+import { createImageObject } from "./boardImage";
+import { demoImageSrc } from "./demoImage";
 import type { RoomBaselineDescriptor } from "./roomMetadata";
 
 const PUBLIC_DEMO_V1_BASELINE_OBJECTS: BoardObject[] = [
+  createImageObject({
+    id: "baseline-public-demo-v1-image",
+    creatorId: "system",
+    label: "Demo image",
+    authorColor: "#94a3b8",
+    src: demoImageSrc,
+    position: { x: 2160, y: 1500 },
+    size: { width: 340, height: 220 },
+  }),
   {
     id: "baseline-public-demo-v1-card",
     kind: "note-card",
