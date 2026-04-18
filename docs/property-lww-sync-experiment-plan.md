@@ -195,6 +195,18 @@ Current branch verdict after first hosted testing:
 - `image` geometry also fits the model in general;
 - `image` while drawing remains a deliberate exception corridor for now.
 
+Current branch verdict after the critical image-corridor hosted regression pass on
+`210765f`:
+
+- the critical hosted image corridor now passes with two real clients;
+- fresh room baseline now includes the sample image needed for image-corridor
+  checks;
+- local image drag hides drawing affordance as intended;
+- if one participant is already dragging an image and another participant starts
+  drawing on that same image, the in-flight drag now stops and does not commit;
+- post-lock recovery returns the image to ordinary movable behavior after
+  drawing mode ends.
+
 ## 6. Current object-family suitability
 
 ### 6.1. First migration candidates
@@ -236,6 +248,8 @@ Current accepted exception rule:
 - image drawing lock should remain the gating mechanism for that rule;
 - the branch should prefer temporary blocking over trying to make `image +
   drawing + remote move` behave like an ordinary property-synced object.
+- this gated image corridor is now hosted-validated for the current critical
+  drag-vs-drawing race.
 
 ## 7. Proposed migration track
 

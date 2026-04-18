@@ -9,6 +9,113 @@
 
 ---
 
+## 2026-04-19 — Property-level board-object sync passed hosted two-client regression on the critical image corridor
+
+### Type
+- milestone
+- decision
+- workflow
+
+### Context
+После запуска ветки `property-lww-sync-experiment` проект перешёл к Figma-like
+per-property sync для board objects. First slice уже показал, что `token` и
+`note-card` ложатся на новую модель хорошо, но `image` оставался самым
+чувствительным corridor из-за связи geometry, drawing mode, drawing lock и
+remote drag.
+
+### Goal or problem
+Нужно было подтвердить на hosted two-client testing, что ветка удерживает
+критический image race:
+
+- Client B уже тащит image;
+- Client A начинает drawing на той же image;
+- drag у B должен остановиться и не должен коммититься.
+
+Параллельно нужно было убрать лишнюю ручную работу из hosted regression checks,
+чтобы image scenarios стартовали сразу в fresh room.
+
+### What happened
+Трек прошёл в несколько узких шагов.
+
+Сначала в shared storage был собран реальный per-property path для первого
+slice:
+
+- `token`: `x`, `y`, `tokenAttachment`
+- `note-card`: `x`, `y`, `width`, `height`
+- `image`: `x`, `y`, `width`, `height`
+
+После этого hosted two-client checks подтвердили, что общая модель держится, но
+выявили критический gap:
+
+- если `image` уже тянут,
+- а затем другой участник начинает drawing,
+- existing drag не останавливается и доходит до commit.
+
+Следующие узкие passes закрыли этот corridor:
+
+- local image drag теперь скрывает `Draw` affordance;
+- fresh room baseline теперь сразу содержит demo image;
+- image drag хранит drag-start origin;
+- при появлении remote drawing lock во время уже начатого drag активный drag
+  принудительно останавливается, откатывается к committed origin и не
+  коммитится.
+
+После этого hosted verification на preview deploy для коммита `210765f`
+подтвердила:
+
+- baseline image сразу присутствует;
+- `Draw` скрывается на local drag и возвращается после release;
+- ordinary drawing lock baseline работает;
+- критический scenario с already-started drag теперь проходит;
+- post-lock recovery возвращает image к обычному movable state.
+
+### Decision / change
+Зафиксировано следующее:
+
+- per-property sync остаётся preferred direction для board objects;
+- `image while drawing` остаётся deliberate gated exception corridor;
+- current critical image drag-vs-drawing race на hosted ветке закрыт;
+- fresh room baseline с seeded image теперь является принятым ускорителем для
+  image-corridor regression checks на этой ветке.
+
+### Why
+Этот checkpoint важен, потому что:
+
+- branch доказала жизнеспособность per-property direction не только на локальном
+  reasoning, но и на hosted two-client behavior;
+- image corridor теперь удерживает самый опасный interaction race без broad
+  runtime rewrite;
+- повторяемость hosted проверки стала выше, потому что image больше не нужно
+  вручную добавлять в fresh room.
+
+### Result
+Проект получил:
+
+- hosted-validated checkpoint для `property-lww-sync-experiment`;
+- подтверждённый critical image lock corridor;
+- seeded baseline image для быстрых hosted regression checks;
+- более устойчивую основу для следующего шага в per-property migration track.
+
+### Workflow notes
+Этот checkpoint дал полезные workflow lessons:
+
+- branch previews нужно привязывать к точному commit до запуска hosted checks;
+- access/auth prerequisite checks должны идти раньше browser verification;
+- для multiplayer corridors seeded baseline content окупается сразу, если
+  сценарии регулярно повторяются;
+- narrow runtime fixes полезнее broad redesign, когда проблема локализована в
+  одном transition corridor.
+
+### Remaining limitations / open questions
+- exact Figma-equivalent server ordering всё ещё не решён на current transport;
+- `image while drawing` остаётся deliberate exception, а не ordinary shared
+  geometry path;
+- стартовая baseline композиция ещё может быть улучшена визуально, но это уже
+  не blocker для regression testing.
+
+
+---
+
 ## Phase 0X — UI controls polish closed as a coherent control-state chapter
 
 ### Type

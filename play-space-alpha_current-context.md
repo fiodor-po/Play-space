@@ -135,6 +135,19 @@ Current workflow rule for hosted validation:
 - instead, it should be treated as a recurring checkpoint after large product
   steps and after new demo snapshots.
 
+Current branch-side multiplayer experiment truth to remember:
+
+- branch `property-lww-sync-experiment` is the active per-property sync track;
+- hosted two-client testing already confirmed the critical image corridor on
+  commit `210765f`;
+- fresh branch baseline now includes a demo image so image-corridor regression
+  checks no longer depend on manual `Add image`;
+- accepted current rule on that branch:
+  - while one participant is drawing on an image, another participant must not
+    be able to move it;
+  - if drag is already in flight when the drawing lock appears, the drag must
+    stop and must not commit.
+
 Current expected order from here:
 
 1. keep `main` as the stable hosted/demo line;
