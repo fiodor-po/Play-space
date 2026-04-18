@@ -180,6 +180,15 @@ type BoardStageSceneProps = {
     y: number,
     localOptions?: LocalObjectsChangeOptions
   ) => void;
+  rememberDraggingImageOrigin: (
+    imageId: string,
+    position: {
+      x: number;
+      y: number;
+    }
+  ) => void;
+  clearDraggingImageOrigin: (imageId: string) => void;
+  stopLockedImageDrag: (imageId: string, node: Konva.Image) => void;
   setDraggingImageId: (imageId: string | null) => void;
   setTransformingImageId: (imageId: string | null) => void;
   resizeImageObject: (
@@ -401,6 +410,9 @@ export function BoardStageScene({
   syncImageStrokeLayerTransform,
   previewImagePosition,
   updateObjectPosition,
+  rememberDraggingImageOrigin,
+  clearDraggingImageOrigin,
+  stopLockedImageDrag,
   setDraggingImageId,
   setTransformingImageId,
   resizeImageObject,
@@ -478,17 +490,6 @@ export function BoardStageScene({
                   previewPosition.y !== object.y ||
                   previewPosition.width !== undefined ||
                   previewPosition.height !== undefined);
-              const stopLockedImageDrag = (node: Konva.Image) => {
-                node.stopDrag();
-                node.position({
-                  x: object.x,
-                  y: object.y,
-                });
-                setDraggingImageId(null);
-                updateLiveSelectedImageControlAnchor(object.id, node);
-                syncImageStrokeLayerPosition(object.id, object.x, object.y);
-                node.getLayer()?.batchDraw();
-              };
 
               return (
                 <Group
@@ -585,6 +586,10 @@ export function BoardStageScene({
                       }
 
                       selectBoardObject(object);
+                      rememberDraggingImageOrigin(object.id, {
+                        x: object.x,
+                        y: object.y,
+                      });
                       setDraggingImageId(object.id);
                       updateLiveSelectedImageControlAnchor(
                         object.id,
@@ -600,7 +605,7 @@ export function BoardStageScene({
                       event.cancelBubble = true;
 
                       if (isLockedByAnotherParticipant) {
-                        stopLockedImageDrag(event.target as Konva.Image);
+                        stopLockedImageDrag(object.id, event.target as Konva.Image);
                         return;
                       }
 
@@ -623,7 +628,7 @@ export function BoardStageScene({
                       event.cancelBubble = true;
 
                       if (isLockedByAnotherParticipant) {
-                        stopLockedImageDrag(event.target as Konva.Image);
+                        stopLockedImageDrag(object.id, event.target as Konva.Image);
                         return;
                       }
 
@@ -631,6 +636,7 @@ export function BoardStageScene({
                         object.id,
                         event.target as Konva.Image
                       );
+                      clearDraggingImageOrigin(object.id);
                       setDraggingImageId(null);
                       syncImageStrokeLayerPosition(
                         object.id,

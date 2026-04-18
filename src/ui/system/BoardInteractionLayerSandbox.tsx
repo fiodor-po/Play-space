@@ -1698,6 +1698,9 @@ export function BoardInteractionLayerSandbox() {
             syncImageStrokeLayerTransform={syncImageStrokeLayerTransform}
             previewImagePosition={previewImagePosition}
             updateObjectPosition={updateLocalObjectPosition}
+            rememberDraggingImageOrigin={() => {}}
+            clearDraggingImageOrigin={() => {}}
+            stopLockedImageDrag={() => {}}
             setDraggingImageId={setDraggingImageId}
             setTransformingImageId={setTransformingImageId}
             resizeImageObject={resizeImageObject}
@@ -1819,6 +1822,9 @@ export function BoardInteractionLayerSandbox() {
             syncImageStrokeLayerTransform={() => {}}
             previewImagePosition={() => {}}
             updateObjectPosition={() => {}}
+            rememberDraggingImageOrigin={() => {}}
+            clearDraggingImageOrigin={() => {}}
+            stopLockedImageDrag={() => {}}
             setDraggingImageId={() => {}}
             setTransformingImageId={() => {}}
             resizeImageObject={() => {}}

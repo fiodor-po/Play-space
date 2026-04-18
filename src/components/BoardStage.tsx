@@ -1699,6 +1699,18 @@ export default function BoardStage({
   const noteCardRefs = useRef<Record<string, Konva.Group | null>>({});
   const imageRefs = useRef<Record<string, Konva.Image | null>>({});
   const imageStrokeLayerRefs = useRef<Record<string, Konva.Group | null>>({});
+  const stopLockedImageDragRef = useRef<
+    (imageId: string, node?: Konva.Image | null) => void
+  >(() => undefined);
+  const draggingImageOriginRef = useRef<
+    Record<
+      string,
+      {
+        x: number;
+        y: number;
+      }
+    >
+  >({});
   const noteCardTransformerRef = useRef<Konva.Transformer | null>(null);
   const imageTransformerRef = useRef<Konva.Transformer | null>(null);
   const liveNoteCardResizePreviewRef = useRef<{
@@ -1935,6 +1947,17 @@ export default function BoardStage({
     [remoteImageDrawingLocks]
   );
 
+  const rememberDraggingImageOrigin = useCallback(
+    (imageId: string, position: { x: number; y: number }) => {
+      draggingImageOriginRef.current[imageId] = position;
+    },
+    []
+  );
+
+  const clearDraggingImageOrigin = useCallback((imageId: string) => {
+    delete draggingImageOriginRef.current[imageId];
+  }, []);
+
   const endImageStroke = useCallback(() => {
     const activeStroke = activeImageStrokeRef.current;
 
@@ -2064,6 +2087,14 @@ export default function BoardStage({
         }
       }
 
+      if (draggingImageId) {
+        const activeDragLock = nextDrawingLocks[draggingImageId] ?? null;
+
+        if (activeDragLock && activeDragLock.participantId !== participantSession.id) {
+          stopLockedImageDragRef.current(draggingImageId);
+        }
+      }
+
       setRemoteImageDrawingLocks(nextDrawingLocks);
     }
   );
@@ -2189,6 +2220,7 @@ export default function BoardStage({
       setDrawingImageSessionImageId(null);
       setTransformingImageId(null);
       setDraggingImageId(null);
+      draggingImageOriginRef.current = {};
       setDraggingTokenId(null);
       setDraggingNoteCardId(null);
       setRemoteImagePreviewPositions({});
@@ -3278,6 +3310,40 @@ export default function BoardStage({
       ...getImageControlsAnchorFromBounds(bounds),
     });
   };
+
+  const stopLockedImageDrag = (imageId: string, node?: Konva.Image | null) => {
+    const dragOrigin = draggingImageOriginRef.current[imageId];
+
+    if (!dragOrigin) {
+      setDraggingImageId((current) => (current === imageId ? null : current));
+      return;
+    }
+
+    const draggingNode = node ?? imageRefs.current[imageId];
+    draggingNode?.stopDrag();
+    draggingNode?.position(dragOrigin);
+    if (draggingNode) {
+      updateLiveSelectedImageControlAnchor(imageId, draggingNode);
+    }
+    syncImageStrokeLayerPosition(imageId, dragOrigin.x, dragOrigin.y);
+    draggingNode?.getLayer()?.batchDraw();
+    applyBoardObjectsUpdate(
+      (currentObjects) =>
+        updateBoardObjectPosition(
+          currentObjects,
+          imageId,
+          dragOrigin.x,
+          dragOrigin.y
+        ),
+      { syncSharedImageIds: [imageId] }
+    );
+    clearDraggingImageOrigin(imageId);
+    setDraggingImageId((current) => (current === imageId ? null : current));
+  };
+
+  useEffect(() => {
+    stopLockedImageDragRef.current = stopLockedImageDrag;
+  });
 
   const createParticipantMarker = useCallback(
     (position?: { x: number; y: number }) => {
@@ -4560,6 +4626,9 @@ export default function BoardStage({
         syncImageStrokeLayerTransform={syncImageStrokeLayerTransform}
         previewImagePosition={previewImagePosition}
         updateObjectPosition={updateObjectPosition}
+        rememberDraggingImageOrigin={rememberDraggingImageOrigin}
+        clearDraggingImageOrigin={clearDraggingImageOrigin}
+        stopLockedImageDrag={stopLockedImageDrag}
         setDraggingImageId={setDraggingImageId}
         setTransformingImageId={setTransformingImageId}
         resizeImageObject={resizeImageObject}
