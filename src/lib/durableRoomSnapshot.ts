@@ -95,6 +95,15 @@ export type DurableRoomSnapshotSliceSaveResult =
 
 let pageTransitionInProgress = false;
 let pageTransitionTrackingAttached = false;
+const DURABLE_ROOM_SNAPSHOT_LOAD_TIMEOUT_MS = 5000;
+const DURABLE_ROOM_SNAPSHOT_LOAD_FAILURE_DEDUPE_WINDOW_MS = 5000;
+const recentDurableSnapshotLoadFailures = new Map<
+  string,
+  {
+    loggedAt: number;
+    suppressedCount: number;
+  }
+>();
 
 function ensurePageTransitionTracking() {
   if (
@@ -134,7 +143,7 @@ export async function loadDurableRoomSnapshot(
   const controller = new AbortController();
   const timeoutId = window.setTimeout(() => {
     controller.abort();
-  }, 1500);
+  }, DURABLE_ROOM_SNAPSHOT_LOAD_TIMEOUT_MS);
 
   try {
     const response = await fetch(snapshotUrl, {
@@ -164,12 +173,15 @@ export async function loadDurableRoomSnapshot(
       });
     }
 
+    clearRecentDurableSnapshotLoadFailure(roomId, snapshotUrl);
     return snapshot;
   } catch (error) {
-    console.warn("[room-recovery][durable-snapshot][load-failed]", {
+    const reason = error instanceof DOMException ? error.name : "request-failed";
+    logDurableSnapshotLoadFailure({
       roomId,
       snapshotUrl,
-      reason: error instanceof DOMException ? error.name : "request-failed",
+      reason,
+      timeoutMs: DURABLE_ROOM_SNAPSHOT_LOAD_TIMEOUT_MS,
     });
     return null;
   } finally {
@@ -542,4 +554,51 @@ function getDurableRoomSnapshotUrl(roomId: string) {
 
 function getDurableRoomSnapshotServerUrl() {
   return getApiServerBaseUrl();
+}
+
+function logDurableSnapshotLoadFailure(details: {
+  roomId: string;
+  snapshotUrl: string;
+  reason: string;
+  timeoutMs: number;
+}) {
+  const dedupeKey = `${details.roomId}::${details.snapshotUrl}::${details.reason}`;
+  const now = Date.now();
+  const recentFailure = recentDurableSnapshotLoadFailures.get(dedupeKey);
+
+  if (
+    recentFailure &&
+    now - recentFailure.loggedAt < DURABLE_ROOM_SNAPSHOT_LOAD_FAILURE_DEDUPE_WINDOW_MS
+  ) {
+    recentFailure.suppressedCount += 1;
+    recentDurableSnapshotLoadFailures.set(dedupeKey, recentFailure);
+    return;
+  }
+
+  const suppressedCount = recentFailure?.suppressedCount ?? 0;
+  recentDurableSnapshotLoadFailures.set(dedupeKey, {
+    loggedAt: now,
+    suppressedCount: 0,
+  });
+
+  console.warn("[room-recovery][durable-snapshot][load-failed]", {
+    roomId: details.roomId,
+    snapshotUrl: details.snapshotUrl,
+    reason: details.reason,
+    timeoutMs: details.timeoutMs,
+    suppressedDuplicateWarnings: suppressedCount,
+    dedupeWindowMs: DURABLE_ROOM_SNAPSHOT_LOAD_FAILURE_DEDUPE_WINDOW_MS,
+  });
+}
+
+function clearRecentDurableSnapshotLoadFailure(roomId: string, snapshotUrl: string) {
+  const keyPrefix = `${roomId}::${snapshotUrl}::`;
+
+  for (const key of recentDurableSnapshotLoadFailures.keys()) {
+    if (!key.startsWith(keyPrefix)) {
+      continue;
+    }
+
+    recentDurableSnapshotLoadFailures.delete(key);
+  }
 }
