@@ -1292,16 +1292,10 @@ export default function BoardStage({
   );
 
   const [selectedObjectId, setSelectedObjectId] = useState<string | null>(null);
+  const [selectionEventVersion, setSelectionEventVersion] = useState(0);
   const [editingTextCardId, setEditingTextCardId] = useState<string | null>(null);
   const [editingDraft, setEditingDraft] = useState("");
   const [editingOriginal, setEditingOriginal] = useState("");
-  const [liveNoteCardResizePreview, setLiveNoteCardResizePreview] = useState<{
-    noteCardId: string;
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-  } | null>(null);
   const [transformingImageId, setTransformingImageId] = useState<string | null>(
     null
   );
@@ -1487,11 +1481,12 @@ export default function BoardStage({
         }
       | null
   ) => {
-    if (!object || object.kind === "token") {
+    if (!object) {
       setSelectedObjectIdWithImageDrawingGuard(null);
       return;
     }
 
+    setSelectionEventVersion((current) => current + 1);
     setSelectedObjectIdWithImageDrawingGuard(object.id);
   };
 
@@ -1713,6 +1708,13 @@ export default function BoardStage({
   >({});
   const noteCardTransformerRef = useRef<Konva.Transformer | null>(null);
   const imageTransformerRef = useRef<Konva.Transformer | null>(null);
+  const [liveNoteCardResizePreview, setLiveNoteCardResizePreview] = useState<{
+    noteCardId: string;
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  } | null>(null);
   const liveNoteCardResizePreviewRef = useRef<{
     noteCardId: string;
     x: number;
@@ -1720,7 +1722,6 @@ export default function BoardStage({
     width: number;
     height: number;
   } | null>(null);
-  const liveNoteCardResizeFrameRef = useRef<number | null>(null);
   const boardBackgroundRef = useRef<Konva.Rect | null>(null);
   const panStateRef = useRef<{
     isPanning: boolean;
@@ -1778,24 +1779,13 @@ export default function BoardStage({
     onUpdateLocalPresenceRef.current = onUpdateLocalPresence;
   }, [onUpdateLocalPresence, stagePosition.x, stagePosition.y, stageScale]);
 
-  const scheduleNoteCardResizePreviewRender = () => {
-    if (liveNoteCardResizeFrameRef.current !== null) {
-      return;
-    }
-
-    liveNoteCardResizeFrameRef.current = window.requestAnimationFrame(() => {
-      liveNoteCardResizeFrameRef.current = null;
-      setLiveNoteCardResizePreview(liveNoteCardResizePreviewRef.current);
-    });
+  const clearLiveNoteCardResizePreviewRefSession = () => {
+    liveNoteCardResizePreviewRef.current = null;
   };
 
   const clearLiveNoteCardResizePreviewSession = () => {
-    liveNoteCardResizePreviewRef.current = null;
-
-    if (liveNoteCardResizeFrameRef.current !== null) {
-      window.cancelAnimationFrame(liveNoteCardResizeFrameRef.current);
-      liveNoteCardResizeFrameRef.current = null;
-    }
+    clearLiveNoteCardResizePreviewRefSession();
+    setLiveNoteCardResizePreview(null);
   };
 
   const hasSharedRoomContentLoaded =
@@ -2189,7 +2179,12 @@ export default function BoardStage({
     snapshotRecoveryAttemptedRoomRef.current = null;
     resetDurableWriteTracking();
     panStateRef.current = null;
-    clearLiveNoteCardResizePreviewSession();
+    clearLiveNoteCardResizePreviewRefSession();
+    queueMicrotask(() => {
+      if (!isCancelled) {
+        setLiveNoteCardResizePreview(null);
+      }
+    });
     clearActiveImageStrokeSession();
     queueMicrotask(() => {
       if (isCancelled) {
@@ -2216,7 +2211,6 @@ export default function BoardStage({
       setEditingTextCardId(null);
       setEditingDraft("");
       setEditingOriginal("");
-      setLiveNoteCardResizePreview(null);
       setDrawingImageSessionImageId(null);
       setTransformingImageId(null);
       setDraggingImageId(null);
@@ -3661,26 +3655,27 @@ export default function BoardStage({
 
   useEffect(() => {
     if (!selectedObjectId || editingTextCardId) {
-      clearLiveNoteCardResizePreviewSession();
+      clearLiveNoteCardResizePreviewRefSession();
+      queueMicrotask(() => {
+        setLiveNoteCardResizePreview(null);
+      });
       return;
     }
 
     if (!noteCardRefs.current[selectedObjectId]) {
-      clearLiveNoteCardResizePreviewSession();
+      clearLiveNoteCardResizePreviewRefSession();
+      queueMicrotask(() => {
+        setLiveNoteCardResizePreview(null);
+      });
     }
   }, [editingTextCardId, selectedObjectId]);
 
   useEffect(() => {
-    return () => {
-      if (liveNoteCardResizeFrameRef.current !== null) {
-        window.cancelAnimationFrame(liveNoteCardResizeFrameRef.current);
-      }
-    };
-  }, []);
-
-  useEffect(() => {
     if (editingTextCardId && !noteCardRefs.current[editingTextCardId]) {
-      clearLiveNoteCardResizePreviewSession();
+      clearLiveNoteCardResizePreviewRefSession();
+      queueMicrotask(() => {
+        setLiveNoteCardResizePreview(null);
+      });
     }
   }, [editingTextCardId]);
 
@@ -3752,23 +3747,9 @@ export default function BoardStage({
         (object) => object.id === editingTextCardId && isNoteCardObject(object)
       ) ?? null
     : null;
-  const visibleLiveNoteCardResizePreview =
-    liveNoteCardResizePreview &&
-    selectedObjectId === liveNoteCardResizePreview.noteCardId &&
-    !editingTextCardId &&
-    objects.some(
-      (object) =>
-        object.id === liveNoteCardResizePreview.noteCardId &&
-        isNoteCardObject(object)
-    )
-      ? liveNoteCardResizePreview
-      : null;
   const getNoteCardPreviewBounds = (object: BoardObject) => {
-    if (
-      visibleLiveNoteCardResizePreview &&
-      visibleLiveNoteCardResizePreview.noteCardId === object.id
-    ) {
-      return visibleLiveNoteCardResizePreview;
+    if (liveNoteCardResizePreview?.noteCardId === object.id) {
+      return liveNoteCardResizePreview;
     }
 
     return {
@@ -3797,6 +3778,67 @@ export default function BoardStage({
     selectedObjectId,
     editingTextCardId,
   });
+  const localSelectionTarget = useMemo<
+    {
+      objectId: string;
+      objectKind: BoardObject["kind"];
+    } | null
+  >(() => {
+    if (!selectedObjectId || editingTextCardId) {
+      return null;
+    }
+
+    const selectedObject =
+      objects.find((object) => object.id === selectedObjectId) ?? null;
+
+    if (!selectedObject) {
+      return null;
+    }
+
+    return {
+      objectId: selectedObject.id,
+      objectKind: selectedObject.kind,
+    };
+  }, [editingTextCardId, objects, selectedObjectId]);
+  const remoteSelectedObjects = useMemo(() => {
+    const knownObjectIds = new Set(objects.map((object) => object.id));
+    const lastSelectorByObjectId: Record<
+      string,
+      {
+        participantId: string;
+        participantColor: string;
+        objectKind: BoardObject["kind"];
+        selectedAt: number;
+      }
+    > = {};
+
+    Object.values(participantPresences).forEach((presence) => {
+      if (presence.participantId === participantSession.id) {
+        return;
+      }
+
+      const selectedObject = presence.selectedObject;
+
+      if (!selectedObject || !knownObjectIds.has(selectedObject.objectId)) {
+        return;
+      }
+
+      const currentWinner = lastSelectorByObjectId[selectedObject.objectId];
+
+      if (currentWinner && currentWinner.selectedAt > selectedObject.selectedAt) {
+        return;
+      }
+
+      lastSelectorByObjectId[selectedObject.objectId] = {
+        participantId: presence.participantId,
+        participantColor: presence.color,
+        objectKind: selectedObject.objectKind,
+        selectedAt: selectedObject.selectedAt,
+      };
+    });
+
+    return lastSelectorByObjectId;
+  }, [objects, participantPresences, participantSession.id]);
   const selectedImageLock = selectedImageObject
     ? getImageDrawingLock(selectedImageObject.id)
     : null;
@@ -3870,6 +3912,52 @@ export default function BoardStage({
     participantId: participantSession.id,
     getTokenAnchorPosition,
   });
+
+  useEffect(() => {
+    onUpdateLocalPresenceRef.current((presence) => {
+      if (!presence) {
+        return null;
+      }
+
+      const currentSelectedObject = presence.selectedObject;
+      const selectionChanged =
+        (currentSelectedObject === null) !== (localSelectionTarget === null) ||
+        (currentSelectedObject !== null &&
+          localSelectionTarget !== null &&
+          (currentSelectedObject.objectId !== localSelectionTarget.objectId ||
+            currentSelectedObject.objectKind !== localSelectionTarget.objectKind));
+
+      if (!selectionChanged && localSelectionTarget !== null) {
+        const now = Date.now();
+
+        return {
+          ...presence,
+          selectedObject: {
+            ...localSelectionTarget,
+            selectedAt: now,
+          },
+          lastActiveAt: now,
+        };
+      }
+
+      if (!selectionChanged) {
+        return presence;
+      }
+
+      const now = Date.now();
+
+      return {
+        ...presence,
+        selectedObject: localSelectionTarget
+          ? {
+              ...localSelectionTarget,
+              selectedAt: now,
+            }
+          : null,
+        lastActiveAt: now,
+      };
+    });
+  }, [localSelectionTarget, selectionEventVersion]);
   const {
     inspectableImageObject,
     inspectableTokenObject,
@@ -4601,6 +4689,7 @@ export default function BoardStage({
         selectedImageObject={selectedImageObject}
         selectedImageControlAnchor={selectedImageControlAnchor}
         selectedImageControlButtons={selectedImageControlButtons}
+        remoteSelectedObjects={remoteSelectedObjects}
         isSelectedImageLockedByAnotherParticipant={
           isSelectedImageLockedByAnotherParticipant
         }
@@ -4635,12 +4724,11 @@ export default function BoardStage({
         publishImageTransformPreview={publishImageTransformPreview}
         getLiveStrokeColor={getLiveStrokeColor}
         getNoteCardPreviewBounds={getNoteCardPreviewBounds}
+        setLiveNoteCardResizePreview={setLiveNoteCardResizePreview}
         setDraggingNoteCardId={setDraggingNoteCardId}
         setActiveTextCardResizeState={setActiveTextCardResizeState}
-        scheduleNoteCardResizePreviewRender={scheduleNoteCardResizePreviewRender}
         resizeTextCardBounds={resizeTextCardBounds}
         clearLiveNoteCardResizePreviewSession={clearLiveNoteCardResizePreviewSession}
-        setLiveNoteCardResizePreview={setLiveNoteCardResizePreview}
         startEditingTextCard={startEditingTextCard}
         getTokenAnchorPosition={getTokenAnchorPosition}
         getTokenFillColor={getTokenFillColor}

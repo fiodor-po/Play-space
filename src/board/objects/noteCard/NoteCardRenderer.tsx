@@ -8,7 +8,6 @@ import {
   TEXT_CARD_BODY_INSET_Y,
   TEXT_CARD_BODY_LINE_HEIGHT,
 } from "../../constants";
-import { RemoteInteractionIndicator } from "../../components/RemoteInteractionIndicator";
 import type { BoardObject } from "../../../types/board";
 
 type NoteCardRendererProps = {
@@ -18,14 +17,6 @@ type NoteCardRendererProps = {
   displayWidth?: number;
   displayHeight?: number;
   isEditing: boolean;
-  remoteEditingIndicator?: {
-    participantName: string;
-    participantColor: string;
-  } | null;
-  remoteResizeIndicator?: {
-    participantName: string;
-    participantColor: string;
-  } | null;
   onGroupRef: (node: Konva.Group | null) => void;
   onSelect: (event: KonvaEventObject<MouseEvent>) => void;
   onDragStart: (event: KonvaEventObject<DragEvent>) => void;
@@ -47,8 +38,6 @@ export function NoteCardRenderer({
   displayWidth,
   displayHeight,
   isEditing,
-  remoteEditingIndicator,
-  remoteResizeIndicator,
   onGroupRef,
   onSelect,
   onDragStart,
@@ -87,26 +76,6 @@ export function NoteCardRenderer({
       onMouseMove={onHoverMove}
       onMouseLeave={onHoverEnd}
     >
-      {remoteResizeIndicator && (
-        <RemoteInteractionIndicator
-          x={0}
-          y={0}
-          width={cardWidth}
-          height={cardHeight}
-          participantColor={remoteResizeIndicator.participantColor}
-        />
-      )}
-
-      {!remoteResizeIndicator && remoteEditingIndicator && (
-        <RemoteInteractionIndicator
-          x={0}
-          y={0}
-          width={cardWidth}
-          height={cardHeight}
-          participantColor={remoteEditingIndicator.participantColor}
-        />
-      )}
-
       <Rect
         width={cardWidth}
         height={cardHeight}

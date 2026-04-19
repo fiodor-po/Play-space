@@ -100,13 +100,18 @@ Current family mapping:
 
 - `image` selection = frame + resize handles + image-attached controls
 - `note-card` selection = frame + resize handles
-- `token` selection = selection indicator only
+- `token` selection mechanism stays in the runtime, but token selection chrome is
+  currently suppressed
+- token selection chrome path is still rough and needs a separate cleanup pass
+  before it can return as current product UI
 
 Current remote-selection rule:
 
 - remote selection uses the same viewport-stable object-anchored family;
 - if several remote participants select the same object at once, current
   aggregation reads as `last-selector-wins`.
+- current temporary product decision suppresses local and remote token selection
+  chrome while each participant has one non-deletable token.
 
 ### 2.2. `preview`
 
@@ -151,7 +156,6 @@ Current blocked-side reading:
 - the participant who owns the blocking corridor does not need extra treatment;
 - the blocked participant should see a light blocked treatment on the object;
 - current accepted blocked treatment for `image while drawing` is:
-  - slight object dim
   - blocked cursor
   - top-left viewport-stable pill with the blocking participant name and active
     verb, for example `Annie is drawing...`
@@ -213,7 +217,6 @@ Current canonical user:
 | `transient-preview` | preview frame / preview treatment |
 | `remote-occupied` | occupied frame / occupied ring |
 | `blocked` | occupied family with local action denial |
-| `blocked-object-surface` | slight dim on the blocked object |
 | `blocked-activity-pill` | top-left object-anchored viewport-stable activity label |
 | `local-actionable` | object-adjacent controls |
 | `local-shell-mode` | local overlay or shell |
@@ -230,7 +233,7 @@ Current canonical user:
 | `drag` | image moves live locally | remote preview frame | `preview` |
 | `transform` | bounds change live locally | remote preview frame | `preview` |
 | `drawing mode` | local drawing session | remote occupied lock | `occupied` |
-| `remote drawing lock` | move is gated, image is slightly dimmed, cursor is blocked, activity pill is visible | owner continues drawing with no extra blocked treatment | `occupied` / `gated` |
+| `remote drawing lock` | move is gated, cursor is blocked, activity pill is visible | owner continues drawing with no extra blocked treatment | `occupied` / `gated` |
 | `controls available` | `Draw / Save / Clear / Clear all` | not mirrored | `controls` |
 | `controls during drag` | controls stay hidden | none | controls suppression rule |
 
@@ -266,15 +269,19 @@ Current reading:
 | State | Local reading | Remote reading | Canonical family |
 | --- | --- | --- | --- |
 | `idle` | committed pin body | same committed pin body | base object |
-| `selected` | centered selection ring | remote-selected indicator by current owner if applicable | `selection` |
+| `selected` | selection state is kept without token selection chrome | remote token selection chrome is suppressed | `selection` |
 | `drag` | live local move | live shared move | `live-shared` |
-| `occupied move` | move is blocked by another active move | remote sees occupied token state | `occupied` |
+| `occupied move` | move is blocked by another active move | no extra remote chrome in the current checkpoint | `occupied` |
 | `attached` | token follows parent geometry | same committed attachment truth | committed property truth + pin presentation |
 
 Current reading:
 
 - `token` is the canonical pin exception;
 - token move stays in `live-shared`;
+- token selection chrome is currently suppressed while each participant has one
+  non-deletable token;
+- token move/blocked-move chrome is currently suppressed in the current
+  checkpoint;
 - occupied token state stays inside the same shared occupied family, not a
   separate token-only indication system.
 
@@ -308,8 +315,7 @@ The repo can now treat these as current canonical rules:
 8. remote selection currently aggregates as `last-selector-wins`.
 9. blocked treatment should stay minimal and explanatory:
    - no extra treatment for the blocker
-   - light object dim, blocked cursor, and top-left activity pill for the
-     blocked viewer.
+   - blocked cursor and top-left activity pill for the blocked viewer.
 10. the current `image while drawing` blocking model is temporary and should be
     revisited when concurrent drawing becomes part of the product.
 

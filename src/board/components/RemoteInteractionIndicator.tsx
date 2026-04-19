@@ -10,6 +10,7 @@ type RemoteInteractionIndicatorProps = {
   width: number;
   height: number;
   participantColor: string;
+  stageScale?: number;
   variant?: "interaction" | "preview";
   shape?: "rect" | "circle";
 };
@@ -20,13 +21,17 @@ export function RemoteInteractionIndicator({
   width,
   height,
   participantColor,
+  stageScale = 1,
   variant = "interaction",
   shape = "rect",
 }: RemoteInteractionIndicatorProps) {
   const frameOpacity = variant === "preview" ? 0.85 : 1;
+  const viewportOutset = REMOTE_INTERACTION_FRAME_OUTSET / stageScale;
+  const viewportStrokeWidth = REMOTE_INTERACTION_FRAME_STROKE_WIDTH / stageScale;
+  const viewportDash = [10 / stageScale, 6 / stageScale];
 
   if (shape === "circle") {
-    const radius = Math.max(width, height) / 2 + REMOTE_INTERACTION_FRAME_OUTSET;
+    const radius = Math.max(width, height) / 2 + viewportOutset;
 
     return (
       <Circle
@@ -34,8 +39,8 @@ export function RemoteInteractionIndicator({
         y={y + height / 2}
         radius={radius}
         stroke={participantColor}
-        strokeWidth={REMOTE_INTERACTION_FRAME_STROKE_WIDTH}
-        dash={[10, 6]}
+        strokeWidth={viewportStrokeWidth}
+        dash={viewportDash}
         opacity={frameOpacity}
         listening={false}
       />
@@ -44,13 +49,13 @@ export function RemoteInteractionIndicator({
 
   return (
     <Rect
-      x={x - REMOTE_INTERACTION_FRAME_OUTSET}
-      y={y - REMOTE_INTERACTION_FRAME_OUTSET}
-      width={width + REMOTE_INTERACTION_FRAME_OUTSET * 2}
-      height={height + REMOTE_INTERACTION_FRAME_OUTSET * 2}
+      x={x - viewportOutset}
+      y={y - viewportOutset}
+      width={width + viewportOutset * 2}
+      height={height + viewportOutset * 2}
       stroke={participantColor}
-      strokeWidth={REMOTE_INTERACTION_FRAME_STROKE_WIDTH}
-      dash={[10, 6]}
+      strokeWidth={viewportStrokeWidth}
+      dash={viewportDash}
       opacity={frameOpacity}
       listening={false}
     />

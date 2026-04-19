@@ -85,7 +85,6 @@ Current accepted exception:
 - while an image is in drawing mode, other participants should not move it
 - drawing lock remains the gating rule for that corridor
 - blocked viewer currently should read that state through:
-  - light image dim
   - blocked cursor
   - top-left activity pill with participant name and active verb
 - this is a temporary checkpoint rule and not the intended final model for
@@ -139,7 +138,7 @@ Current token interaction inventory:
 
 Current local view:
 
-- selected token uses centered selection ring
+- token selection chrome is currently suppressed
 - extra controls do not appear
 - local drag moves token live
 - attached token resolves from parent image effective bounds
@@ -148,7 +147,8 @@ Current local view:
 Current remote-facing view:
 
 - live token move currently appears as live shared movement
-- occupied move state appears as circular interaction frame
+- token move/blocked move currently adds no extra remote chrome
+- remote token selection chrome is currently suppressed
 - separate remote preview state for token move does not exist now
 
 Current canonical reading:
@@ -156,6 +156,13 @@ Current canonical reading:
 - `token` is a pin exception
 - it shares move/occupied semantics with the interaction layer
 - it does not share transformer or box-preview semantics
+- current product checkpoint keeps token selection mechanism in the runtime and
+  suppresses token selection chrome while each participant has one
+  non-deletable token
+- current product checkpoint also suppresses token move/blocked-move chrome and
+  keeps only the drag gating behavior
+- the previous token selection chrome path is still rough and needs a dedicated
+  polish pass before re-enable
 
 ## 3.4. Selection-system rule
 
@@ -186,9 +193,9 @@ Current selection-system truth:
 | `note-card` | local edit | textarea overlay + hidden rendered text | remote editing frame, not text shell mirror | local edit overlay + `remoteTextCardEditingStates` |
 | `note-card` | remote edit | local sees interaction frame around the card | remote editor sees local textarea and edit affordance | `RemoteInteractionIndicator` in `NoteCardRenderer` |
 | `token` | committed idle | viewport-stable pin body | same committed body | `TokenRenderer` |
-| `token` | selected | centered selection ring | no separate remote selected chrome by default | `TokenRenderer` |
+| `token` | selected | selection state is kept without token selection chrome | remote token selection chrome is suppressed | `TokenRenderer` |
 | `token` | local drag | live local move | live shared move | `updateTokenAnchorPosition` shared path |
-| `token` | occupied / blocked move | drag stops when another participant is the active mover | other participant sees occupied circle frame | `activeTokenMove`, `getBlockingActiveMove`, `RemoteInteractionIndicator` |
+| `token` | occupied / blocked move | drag stops when another participant is the active mover | no extra remote chrome; gating behavior stays active | `activeTokenMove`, `getBlockingActiveMove` |
 | `token` | attached positioning | anchor resolves against effective parent image bounds | same resolved position on remote-facing side | token attachment + effective image bounds |
 
 ## 5. Current classification by interaction model
@@ -222,9 +229,9 @@ Current key difference:
 
 - no transformer
 - viewport-stable body
-- centered selection ring
+- token selection chrome is currently suppressed
 - drag-only manipulation
-- occupied move frame uses circle shape
+- token move/blocked-move chrome is currently suppressed
 - image-attachment geometry is resolved from parent image bounds
 
 ## 6. Current local vs remote pattern families

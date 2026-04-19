@@ -7,7 +7,7 @@ export const MIN_SCALE = 0.4;
 export const MAX_SCALE = 2.5;
 export const SCALE_BY = 1.05;
 export const TEXT_CARD_HEADER_HEIGHT = 36;
-export const NOTE_HANDLE_SIZE = 18;
+export const NOTE_HANDLE_SIZE = 9;
 export const TEXT_CARD_BODY_INSET_X = 16;
 export const TEXT_CARD_BODY_INSET_Y = 16;
 export const TEXT_CARD_BODY_FONT_SIZE = 22;
@@ -19,7 +19,7 @@ export const MAX_INITIAL_IMAGE_DISPLAY_WIDTH = 360;
 export const MAX_INITIAL_IMAGE_DISPLAY_HEIGHT = 240;
 export const HTML_UI_FONT_FAMILY =
   'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
-export const REMOTE_INTERACTION_FRAME_OUTSET = 6;
+export const REMOTE_INTERACTION_FRAME_OUTSET = 4;
 export const REMOTE_INTERACTION_FRAME_STROKE_WIDTH = 2;
 
 export const objectLayerOrder: Record<BoardObjectKind, number> = {

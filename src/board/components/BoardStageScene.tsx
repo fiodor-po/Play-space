@@ -1,5 +1,6 @@
 import type { MutableRefObject } from "react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { flushSync } from "react-dom";
 import {
   Group,
   Image as KonvaImage,
@@ -17,6 +18,7 @@ import {
   BOARD_WIDTH,
   HTML_UI_FONT_FAMILY,
   MIN_IMAGE_SIZE,
+  NOTE_HANDLE_SIZE,
 } from "../constants";
 import {
   DEFAULT_IMAGE_STROKE_WIDTH,
@@ -54,8 +56,36 @@ import type {
   TokenAttachment,
 } from "../../types/board";
 
+type RemoteSelectedObjectIndicator = {
+  participantId: string;
+  participantColor: string;
+  objectKind: BoardObject["kind"];
+  selectedAt: number;
+};
+
 const IMAGE_ATTACHED_CONTROLS_GAP = 8;
 const IMAGE_ATTACHED_CONTROLS_OUTER_OFFSET_Y = 12;
+const BLOCKED_IMAGE_PILL_INSET = 10;
+const BLOCKED_IMAGE_PILL_HEIGHT = 28;
+const BLOCKED_IMAGE_PILL_RADIUS = 999;
+const BLOCKED_IMAGE_PILL_FONT_SIZE = 13;
+const BLOCKED_IMAGE_PILL_PADDING_X = 12;
+
+function getBlockedImagePillWidth(label: string) {
+  let measuredTextWidth = label.length * BLOCKED_IMAGE_PILL_FONT_SIZE * 0.56;
+
+  if (typeof document !== "undefined") {
+    const canvas = document.createElement("canvas");
+    const context = canvas.getContext("2d");
+
+    if (context) {
+      context.font = `600 ${BLOCKED_IMAGE_PILL_FONT_SIZE}px ${HTML_UI_FONT_FAMILY}`;
+      measuredTextWidth = context.measureText(label).width;
+    }
+  }
+
+  return Math.ceil(measuredTextWidth + BLOCKED_IMAGE_PILL_PADDING_X * 2);
+}
 
 type NoteCardPreviewBounds = {
   noteCardId: string;
@@ -119,6 +149,7 @@ type BoardStageSceneProps = {
     y: number;
   } | null;
   selectedImageControlButtons: BoardStageSelectedImageControlButton[];
+  remoteSelectedObjects: Record<string, RemoteSelectedObjectIndicator>;
   isSelectedImageLockedByAnotherParticipant: boolean;
   onStageMouseDown: (event: KonvaEventObject<MouseEvent>) => void;
   onStageMouseMove: (event: KonvaEventObject<MouseEvent>) => void;
@@ -211,11 +242,11 @@ type BoardStageSceneProps = {
   ) => void;
   getLiveStrokeColor: (stroke: ImageStroke) => string;
   getNoteCardPreviewBounds: (object: BoardObject) => NoteCardPreviewBounds;
+  setLiveNoteCardResizePreview: (bounds: NoteCardPreviewBounds | null) => void;
   setDraggingNoteCardId: (noteCardId: string | null) => void;
   setActiveTextCardResizeState: (
     resizePresence: TextCardResizePresence | null
   ) => void;
-  scheduleNoteCardResizePreviewRender: () => void;
   resizeTextCardBounds: (
     id: string,
     nextBounds: {
@@ -227,7 +258,6 @@ type BoardStageSceneProps = {
     localOptions?: LocalObjectsChangeOptions
   ) => void;
   clearLiveNoteCardResizePreviewSession: () => void;
-  setLiveNoteCardResizePreview: (preview: NoteCardPreviewBounds | null) => void;
   startEditingTextCard: (object: BoardObject) => void;
   getTokenAnchorPosition: (object: BoardObject) => {
     x: number;
@@ -387,6 +417,7 @@ export function BoardStageScene({
   selectedImageObject,
   selectedImageControlAnchor,
   selectedImageControlButtons,
+  remoteSelectedObjects,
   isSelectedImageLockedByAnotherParticipant,
   onStageMouseDown,
   onStageMouseMove,
@@ -419,12 +450,11 @@ export function BoardStageScene({
   publishImageTransformPreview,
   getLiveStrokeColor,
   getNoteCardPreviewBounds,
+  setLiveNoteCardResizePreview,
   setDraggingNoteCardId,
   setActiveTextCardResizeState,
-  scheduleNoteCardResizePreviewRender,
   resizeTextCardBounds,
   clearLiveNoteCardResizePreviewSession,
-  setLiveNoteCardResizePreview,
   startEditingTextCard,
   getTokenAnchorPosition,
   getTokenFillColor,
@@ -436,6 +466,22 @@ export function BoardStageScene({
   updateTokenPlacementAfterDrop,
   onSelectedImageControlClick,
 }: BoardStageSceneProps) {
+  const [blockedImageHoverId, setBlockedImageHoverId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const wrapper = stageWrapperRef.current;
+
+    if (!wrapper) {
+      return;
+    }
+
+    wrapper.style.cursor = blockedImageHoverId ? "not-allowed" : "";
+
+    return () => {
+      wrapper.style.cursor = "";
+    };
+  }, [blockedImageHoverId, stageWrapperRef]);
+
   return (
     <div ref={stageWrapperRef}>
       <Stage
@@ -451,11 +497,13 @@ export function BoardStageScene({
           onStageMouseUp();
         }}
         onMouseLeave={() => {
+          setBlockedImageHoverId(null);
           onStageMouseLeave();
         }}
         onTouchStart={onStageTouchStart}
         onTouchMove={onStageTouchMove}
         onTouchEnd={() => {
+          setBlockedImageHoverId(null);
           onStageTouchEnd();
         }}
         onWheel={onStageWheel}
@@ -480,7 +528,12 @@ export function BoardStageScene({
               const isLockedByAnotherParticipant =
                 !!imageDrawingLock &&
                 imageDrawingLock.participantId !== participantSession.id;
+              const blockedImageActivityLabel =
+                isLockedByAnotherParticipant && imageDrawingLock
+                  ? `${imageDrawingLock.participantName} is drawing...`
+                  : null;
               const previewPosition = remoteImagePreviewPositions[object.id];
+              const remoteSelectionIndicator = remoteSelectedObjects[object.id];
               const isRemoteDragPreviewActive =
                 draggingImageId !== object.id &&
                 !isLockedByAnotherParticipant &&
@@ -495,12 +548,24 @@ export function BoardStageScene({
                 <Group
                   key={object.id}
                   onMouseEnter={(event) => {
+                    if (isLockedByAnotherParticipant) {
+                      setBlockedImageHoverId(object.id);
+                    }
+
                     updateObjectSemanticsHover(object, event);
                   }}
                   onMouseMove={(event) => {
+                    if (isLockedByAnotherParticipant) {
+                      setBlockedImageHoverId(object.id);
+                    }
+
                     updateObjectSemanticsHover(object, event);
                   }}
                   onMouseLeave={() => {
+                    if (blockedImageHoverId === object.id) {
+                      setBlockedImageHoverId(null);
+                    }
+
                     clearObjectSemanticsHover();
                   }}
                 >
@@ -511,9 +576,23 @@ export function BoardStageScene({
                       width={previewPosition.width ?? object.width}
                       height={previewPosition.height ?? object.height}
                       participantColor={previewPosition.participantColor ?? "#94a3b8"}
+                      stageScale={stageScale}
                       variant="preview"
                     />
                   )}
+
+                  {!isRemoteDragPreviewActive &&
+                    !isLockedByAnotherParticipant &&
+                    remoteSelectionIndicator && (
+                      <RemoteInteractionIndicator
+                        x={object.x}
+                        y={object.y}
+                        width={object.width}
+                        height={object.height}
+                        participantColor={remoteSelectionIndicator.participantColor}
+                        stageScale={stageScale}
+                      />
+                    )}
 
                   <KonvaImage
                     ref={(node) => {
@@ -540,6 +619,7 @@ export function BoardStageScene({
                       }
 
                       if (isLockedByAnotherParticipant) {
+                        setBlockedImageHoverId(object.id);
                         return;
                       }
 
@@ -577,6 +657,7 @@ export function BoardStageScene({
                       event.cancelBubble = true;
 
                       if (isLockedByAnotherParticipant) {
+                        setBlockedImageHoverId(object.id);
                         event.target.stopDrag();
                         return;
                       }
@@ -765,13 +846,45 @@ export function BoardStageScene({
                   </Group>
 
                   {isLockedByAnotherParticipant && imageDrawingLock && (
-                    <RemoteInteractionIndicator
-                      x={object.x}
-                      y={object.y}
-                      width={object.width}
-                      height={object.height}
-                      participantColor={imageDrawingLock.participantColor}
-                    />
+                    <>
+                      <RemoteInteractionIndicator
+                        x={object.x}
+                        y={object.y}
+                        width={object.width}
+                        height={object.height}
+                        participantColor={imageDrawingLock.participantColor}
+                        stageScale={stageScale}
+                      />
+
+                      {blockedImageActivityLabel ? (
+                        <Group
+                          x={object.x + BLOCKED_IMAGE_PILL_INSET / stageScale}
+                          y={object.y + BLOCKED_IMAGE_PILL_INSET / stageScale}
+                          scaleX={1 / stageScale}
+                          scaleY={1 / stageScale}
+                          listening={false}
+                        >
+                          <Rect
+                            width={getBlockedImagePillWidth(blockedImageActivityLabel)}
+                            height={BLOCKED_IMAGE_PILL_HEIGHT}
+                            cornerRadius={BLOCKED_IMAGE_PILL_RADIUS}
+                            fill="rgba(15, 23, 42, 0.88)"
+                            stroke={imageDrawingLock.participantColor}
+                            strokeWidth={1}
+                          />
+                          <Text
+                            x={BLOCKED_IMAGE_PILL_PADDING_X}
+                            y={6}
+                            text={blockedImageActivityLabel}
+                            fontSize={BLOCKED_IMAGE_PILL_FONT_SIZE}
+                            fontStyle="bold"
+                            fontFamily={HTML_UI_FONT_FAMILY}
+                            fill="#f8fafc"
+                            listening={false}
+                          />
+                        </Group>
+                      ) : null}
+                    </>
                   )}
                 </Group>
               );
@@ -798,124 +911,169 @@ export function BoardStageScene({
                       participantColor: remoteResizeState.participantColor,
                     }
                   : null;
+              const remoteSelectionIndicator =
+                !remoteResizeIndicator && !remoteEditingIndicator
+                  ? remoteSelectedObjects[object.id] ?? null
+                  : null;
+
+              const noteCardDisplayHeight =
+                object.id === editingTextCardId
+                  ? editingTextCardDisplayHeight ?? noteCardPreviewBounds.height
+                  : noteCardPreviewBounds.height;
 
               return (
-                <NoteCardRenderer
-                  key={object.id}
-                  object={object}
-                  displayX={noteCardPreviewBounds.x}
-                  displayY={noteCardPreviewBounds.y}
-                  displayWidth={noteCardPreviewBounds.width}
-                  displayHeight={
-                    object.id === editingTextCardId
-                      ? editingTextCardDisplayHeight ?? undefined
-                      : noteCardPreviewBounds.height
-                  }
-                  isEditing={isEditing}
-                  remoteEditingIndicator={remoteEditingIndicator}
-                  remoteResizeIndicator={remoteResizeIndicator}
-                  onHoverStart={(event) => {
-                    updateObjectSemanticsHover(object, event);
-                  }}
-                  onHoverMove={(event) => {
-                    updateObjectSemanticsHover(object, event);
-                  }}
-                  onHoverEnd={() => {
-                    clearObjectSemanticsHover();
-                  }}
-                  onGroupRef={(node) => {
-                    noteCardRefs.current[object.id] = node;
-                  }}
-                  onSelect={(event) => {
-                    event.cancelBubble = true;
-                    selectBoardObject(object);
-                  }}
-                  onDragStart={(event) => {
-                    event.cancelBubble = true;
-                    selectBoardObject(object);
-                    setDraggingNoteCardId(object.id);
-                  }}
-                  onDragMove={(event) => {
-                    event.cancelBubble = true;
-                    updateObjectPosition(object.id, event.target.x(), event.target.y());
-                  }}
-                  onDragEnd={(event) => {
-                    event.cancelBubble = true;
-                    updateObjectPosition(
-                      object.id,
-                      event.target.x(),
-                      event.target.y(),
-                      { commitBoundary: "note-drag-end" }
-                    );
-                    setDraggingNoteCardId(null);
-                  }}
-                  onTransformStart={(event) => {
-                    event.cancelBubble = true;
-                    selectBoardObject(object);
-                    setActiveTextCardResizeState({
-                      textCardId: object.id,
-                      participantId: participantSession.id,
-                      participantName: participantSession.name,
-                      participantColor: participantSession.color,
-                    });
-                    liveNoteCardResizePreviewRef.current = {
-                      noteCardId: object.id,
-                      x: object.x,
-                      y: object.y,
-                      width: object.width,
-                      height: object.height,
-                    };
-                    setLiveNoteCardResizePreview(
-                      liveNoteCardResizePreviewRef.current
-                    );
-                  }}
-                  onTransform={(event) => {
-                    event.cancelBubble = true;
+                <Group key={object.id}>
+                  {!remoteResizeIndicator && !remoteEditingIndicator && remoteSelectionIndicator && (
+                    <RemoteInteractionIndicator
+                      x={noteCardPreviewBounds.x}
+                      y={noteCardPreviewBounds.y}
+                      width={noteCardPreviewBounds.width}
+                      height={noteCardDisplayHeight}
+                      participantColor={remoteSelectionIndicator.participantColor}
+                      stageScale={stageScale}
+                    />
+                  )}
 
-                    const node = event.target as Konva.Group;
-                    const nextWidth = clampNoteCardWidth(
-                      Math.abs(node.width() * node.scaleX())
-                    );
-                    const nextHeight = Math.max(
-                      Math.round(Math.abs(node.height() * node.scaleY())),
-                      MIN_NOTE_CARD_HEIGHT
-                    );
+                  {remoteResizeIndicator && (
+                    <RemoteInteractionIndicator
+                      x={noteCardPreviewBounds.x}
+                      y={noteCardPreviewBounds.y}
+                      width={noteCardPreviewBounds.width}
+                      height={noteCardDisplayHeight}
+                      participantColor={remoteResizeIndicator.participantColor}
+                      stageScale={stageScale}
+                    />
+                  )}
 
-                    liveNoteCardResizePreviewRef.current = {
-                      noteCardId: object.id,
-                      x: node.x(),
-                      y: node.y(),
-                      width: nextWidth,
-                      height: nextHeight,
-                    };
-                    scheduleNoteCardResizePreviewRender();
+                  {!remoteResizeIndicator && remoteEditingIndicator && (
+                    <RemoteInteractionIndicator
+                      x={noteCardPreviewBounds.x}
+                      y={noteCardPreviewBounds.y}
+                      width={noteCardPreviewBounds.width}
+                      height={noteCardDisplayHeight}
+                      participantColor={remoteEditingIndicator.participantColor}
+                      stageScale={stageScale}
+                    />
+                  )}
 
-                    node.scaleX(1);
-                    node.scaleY(1);
-                  }}
-                  onTransformEnd={(event) => {
-                    event.cancelBubble = true;
+                  <NoteCardRenderer
+                    object={object}
+                    displayX={noteCardPreviewBounds.x}
+                    displayY={noteCardPreviewBounds.y}
+                    displayWidth={noteCardPreviewBounds.width}
+                    displayHeight={
+                      object.id === editingTextCardId
+                        ? editingTextCardDisplayHeight ?? undefined
+                        : noteCardPreviewBounds.height
+                    }
+                    isEditing={isEditing}
+                    onHoverStart={(event) => {
+                      updateObjectSemanticsHover(object, event);
+                    }}
+                    onHoverMove={(event) => {
+                      updateObjectSemanticsHover(object, event);
+                    }}
+                    onHoverEnd={() => {
+                      clearObjectSemanticsHover();
+                    }}
+                    onGroupRef={(node) => {
+                      noteCardRefs.current[object.id] = node;
+                    }}
+                    onSelect={(event) => {
+                      event.cancelBubble = true;
+                      selectBoardObject(object);
+                    }}
+                    onDragStart={(event) => {
+                      event.cancelBubble = true;
+                      selectBoardObject(object);
+                      setDraggingNoteCardId(object.id);
+                    }}
+                    onDragMove={(event) => {
+                      event.cancelBubble = true;
+                      updateObjectPosition(object.id, event.target.x(), event.target.y());
+                    }}
+                    onDragEnd={(event) => {
+                      event.cancelBubble = true;
+                      updateObjectPosition(
+                        object.id,
+                        event.target.x(),
+                        event.target.y(),
+                        { commitBoundary: "note-drag-end" }
+                      );
+                      setDraggingNoteCardId(null);
+                    }}
+                    onTransformStart={(event) => {
+                      event.cancelBubble = true;
+                      selectBoardObject(object);
+                      setActiveTextCardResizeState({
+                        textCardId: object.id,
+                        participantId: participantSession.id,
+                        participantName: participantSession.name,
+                        participantColor: participantSession.color,
+                      });
+                      const initialBounds = {
+                        noteCardId: object.id,
+                        x: object.x,
+                        y: object.y,
+                        width: object.width,
+                        height: object.height,
+                      };
 
-                    const node = event.target as Konva.Group;
-                    const nextBounds =
-                      liveNoteCardResizePreviewRef.current?.noteCardId === object.id
-                        ? {
-                            x: liveNoteCardResizePreviewRef.current.x,
-                            y: liveNoteCardResizePreviewRef.current.y,
-                            width: liveNoteCardResizePreviewRef.current.width,
-                            height: liveNoteCardResizePreviewRef.current.height,
-                          }
-                        : {
-                            x: node.x(),
-                            y: node.y(),
-                            width: clampNoteCardWidth(
-                              Math.abs(node.width() * node.scaleX())
-                            ),
-                            height: Math.max(
-                              Math.round(Math.abs(node.height() * node.scaleY())),
-                              MIN_NOTE_CARD_HEIGHT
-                            ),
-                          };
+                      liveNoteCardResizePreviewRef.current = initialBounds;
+                      setLiveNoteCardResizePreview(initialBounds);
+                    }}
+                    onTransform={(event) => {
+                      event.cancelBubble = true;
+
+                      const node = event.target as Konva.Group;
+                      const nextBounds = {
+                        noteCardId: object.id,
+                        x: node.x(),
+                        y: node.y(),
+                        width: clampNoteCardWidth(
+                          Math.abs(node.width() * node.scaleX())
+                        ),
+                        height: Math.max(
+                          Math.round(Math.abs(node.height() * node.scaleY())),
+                          MIN_NOTE_CARD_HEIGHT
+                        ),
+                      };
+
+                      liveNoteCardResizePreviewRef.current = nextBounds;
+                      node.position({ x: nextBounds.x, y: nextBounds.y });
+                      node.width(nextBounds.width);
+                      node.height(nextBounds.height);
+                      node.scaleX(1);
+                      node.scaleY(1);
+                      flushSync(() => {
+                        setLiveNoteCardResizePreview(nextBounds);
+                      });
+                      noteCardTransformerRef.current?.forceUpdate();
+                      node.getLayer()?.batchDraw();
+                    }}
+                    onTransformEnd={(event) => {
+                      event.cancelBubble = true;
+
+                      const node = event.target as Konva.Group;
+                      const nextBounds =
+                        liveNoteCardResizePreviewRef.current?.noteCardId === object.id
+                          ? {
+                              x: liveNoteCardResizePreviewRef.current.x,
+                              y: liveNoteCardResizePreviewRef.current.y,
+                              width: liveNoteCardResizePreviewRef.current.width,
+                              height: liveNoteCardResizePreviewRef.current.height,
+                            }
+                          : {
+                              x: node.x(),
+                              y: node.y(),
+                              width: clampNoteCardWidth(
+                                Math.abs(node.width() * node.scaleX())
+                              ),
+                              height: Math.max(
+                                Math.round(Math.abs(node.height() * node.scaleY())),
+                                MIN_NOTE_CARD_HEIGHT
+                              ),
+                            };
 
                     node.scaleX(1);
                     node.scaleY(1);
@@ -924,13 +1082,13 @@ export function BoardStageScene({
                     });
                     setActiveTextCardResizeState(null);
                     clearLiveNoteCardResizePreviewSession();
-                    setLiveNoteCardResizePreview(null);
                   }}
-                  onDoubleClick={(event) => {
-                    event.cancelBubble = true;
-                    startEditingTextCard(object);
-                  }}
-                />
+                    onDoubleClick={(event) => {
+                      event.cancelBubble = true;
+                      startEditingTextCard(object);
+                    }}
+                  />
+                </Group>
               );
             }
 
@@ -943,9 +1101,6 @@ export function BoardStageScene({
                 isSelected={false}
                 selectionColor={participantSession.color}
                 fillColor={getTokenFillColor(object)}
-                occupiedIndicatorColor={
-                  getBlockingActiveMove(object.id)?.participantColor ?? null
-                }
                 onHoverStart={(event) => {
                   updateObjectSemanticsHover(object, event);
                 }}
@@ -957,6 +1112,7 @@ export function BoardStageScene({
                 }}
                 onSelect={(event) => {
                   event.cancelBubble = true;
+                  selectBoardObject(object);
                 }}
                 onDragStart={(event) => {
                   event.cancelBubble = true;
@@ -1071,8 +1227,10 @@ export function BoardStageScene({
             borderStroke={participantSession.color}
             borderStrokeWidth={3}
             anchorStroke={participantSession.color}
+            anchorStrokeWidth={2}
             anchorFill="#f8fafc"
             anchorCornerRadius={999}
+            anchorSize={NOTE_HANDLE_SIZE}
             enabledAnchors={[
               "top-left",
               "top-right",
@@ -1098,8 +1256,10 @@ export function BoardStageScene({
             borderStroke={participantSession.color}
             borderStrokeWidth={3}
             anchorStroke={participantSession.color}
+            anchorStrokeWidth={2}
             anchorFill="#f8fafc"
             anchorCornerRadius={999}
+            anchorSize={NOTE_HANDLE_SIZE}
             enabledAnchors={[
               "top-left",
               "top-right",

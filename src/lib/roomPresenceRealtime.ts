@@ -214,6 +214,12 @@ function areParticipantPresencesEqual(
     current.name === next.name &&
     current.color === next.color &&
     current.lastActiveAt === next.lastActiveAt &&
+    ((current.selectedObject === null && next.selectedObject === null) ||
+      (current.selectedObject !== null &&
+        next.selectedObject !== null &&
+        current.selectedObject.objectId === next.selectedObject.objectId &&
+        current.selectedObject.objectKind === next.selectedObject.objectKind &&
+        current.selectedObject.selectedAt === next.selectedObject.selectedAt)) &&
     ((current.cursor === null && next.cursor === null) ||
       (current.cursor !== null &&
         next.cursor !== null &&

@@ -1038,13 +1038,13 @@ export function BoardInteractionLayerSandbox() {
     [activeLocalTokenMove]
   );
 
-  const getSelectedImageObject = useMemo(
+  const selectedBoardObject = useMemo(
     () => (selectedObjectId ? getLocalObjectById(selectedObjectId) : null),
     [getLocalObjectById, selectedObjectId]
   );
 
   const selectedImageObject =
-    getSelectedImageObject?.kind === "image" ? getSelectedImageObject : null;
+    selectedBoardObject?.kind === "image" ? selectedBoardObject : null;
 
   const selectedImageControlsViewModel = useMemo(
     () => {
@@ -1183,10 +1183,6 @@ export function BoardInteractionLayerSandbox() {
       x: bounds.x,
       y: bounds.y,
     });
-  }, []);
-
-  const scheduleNoteCardResizePreviewRender = useCallback(() => {
-    setLiveNoteCardResizePreview(liveNoteCardResizePreviewRef.current);
   }, []);
 
   const clearLiveNoteCardResizePreviewSession = useCallback(() => {
@@ -1670,6 +1666,7 @@ export function BoardInteractionLayerSandbox() {
             selectedImageControlButtons={
               selectedImageControlsViewModel.selectedImageControlButtons
             }
+            remoteSelectedObjects={{}}
             isSelectedImageLockedByAnotherParticipant={false}
             onStageMouseDown={handleLocalStageMouseDown}
             onStageMouseMove={handleLocalStageMouseMove}
@@ -1717,12 +1714,11 @@ export function BoardInteractionLayerSandbox() {
                     height: object.height,
                   }
             }
+            setLiveNoteCardResizePreview={setLiveNoteCardResizePreview}
             setDraggingNoteCardId={() => {}}
             setActiveTextCardResizeState={setActiveTextCardResizeState}
-            scheduleNoteCardResizePreviewRender={scheduleNoteCardResizePreviewRender}
             resizeTextCardBounds={resizeTextCardBounds}
             clearLiveNoteCardResizePreviewSession={clearLiveNoteCardResizePreviewSession}
-            setLiveNoteCardResizePreview={setLiveNoteCardResizePreview}
             startEditingTextCard={startEditingTextCard}
             getTokenAnchorPosition={(object) =>
               getTokenAnchorPosition(localObjects, localImageRefs, object, true)
@@ -1799,6 +1795,7 @@ export function BoardInteractionLayerSandbox() {
             selectedImageObject={null}
             selectedImageControlAnchor={null}
             selectedImageControlButtons={[]}
+            remoteSelectedObjects={{}}
             isSelectedImageLockedByAnotherParticipant={false}
             onStageMouseDown={noopMouseStageHandler}
             onStageMouseMove={noopMouseStageHandler}
@@ -1837,12 +1834,11 @@ export function BoardInteractionLayerSandbox() {
               width: object.width,
               height: object.height,
             })}
+            setLiveNoteCardResizePreview={() => {}}
             setDraggingNoteCardId={() => {}}
             setActiveTextCardResizeState={() => {}}
-            scheduleNoteCardResizePreviewRender={() => {}}
             resizeTextCardBounds={() => {}}
             clearLiveNoteCardResizePreviewSession={() => {}}
-            setLiveNoteCardResizePreview={() => {}}
             startEditingTextCard={() => {}}
             getTokenAnchorPosition={(object) =>
               getTokenAnchorPosition(sharedObjects, remoteImageRefs, object, false)

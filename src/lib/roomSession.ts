@@ -1,5 +1,6 @@
 import { createClientId } from "./id";
 import { normalizeRoomId } from "./roomId";
+import type { BoardObject } from "../types/board";
 
 export type LocalParticipantSession = {
   id: string;
@@ -7,11 +8,18 @@ export type LocalParticipantSession = {
   color: string;
 };
 
+export type ParticipantSelectionTarget = {
+  objectId: string;
+  objectKind: BoardObject["kind"];
+  selectedAt: number;
+};
+
 export type ParticipantPresence = {
   participantId: string;
   name: string;
   color: string;
   cursor: { x: number; y: number } | null;
+  selectedObject: ParticipantSelectionTarget | null;
   lastActiveAt: number;
 };
 
@@ -286,6 +294,7 @@ export function createLocalParticipantPresence(
     name: session.name,
     color: session.color,
     cursor: null,
+    selectedObject: null,
     lastActiveAt: Date.now(),
   };
 }

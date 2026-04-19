@@ -56,12 +56,18 @@ export function useJoinedRoomPresenceTransport({
         return;
       }
 
+      const basePresence =
+        nextLocalParticipantPresence ??
+        createLocalParticipantPresence(nextParticipantSession);
+
       connection.setLocalOccupancy(createRoomOccupancy(nextParticipantSession));
       connection.setLocalPresence(
         isForegroundPresenceCarrier
-          ? nextLocalParticipantPresence ??
-              createLocalParticipantPresence(nextParticipantSession)
-          : null
+          ? basePresence
+          : {
+              ...basePresence,
+              cursor: null,
+            }
       );
     },
     [activeRoomId, isForegroundPresenceCarrier, isInRoom]

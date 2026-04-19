@@ -67,6 +67,17 @@ Recommended statuses:
 
 ## Open entries
 
+### RF-2026-04-19-01
+
+- `id`: `RF-2026-04-19-01`
+- `date`: `2026-04-19`
+- `source`: strategist decision after suppressing token selection chrome in the selection normalization pass
+- `finding`: token selection mechanism stays in the runtime, but the previous local and remote token selection chrome path is still rough and adds visual noise in the current one-token-per-player checkpoint
+- `why_deferred`: current product checkpoint keeps one non-deletable token per participant, so token selection chrome is not needed for current play and does not justify a separate polish pass inside the current chapter
+- `expected_action`: before re-enabling token selection chrome, run a dedicated token-selection polish pass and verify local and remote token selection treatment, readability, and delete-flow readiness for a future multi-token product state
+- `target_chapter`: `token selection polish before re-enable`
+- `status`: `planned`
+
 ### RF-2026-04-15-01
 
 - `id`: `RF-2026-04-15-01`

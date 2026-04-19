@@ -1,7 +1,6 @@
 import { Circle, Group } from "react-konva";
 import type { KonvaEventObject } from "konva/lib/Node";
 import type { BoardObject } from "../../../types/board";
-import { RemoteInteractionIndicator } from "../../components/RemoteInteractionIndicator";
 
 type TokenRendererProps = {
   object: BoardObject;
@@ -13,7 +12,6 @@ type TokenRendererProps = {
   isSelected: boolean;
   selectionColor: string;
   fillColor: string;
-  occupiedIndicatorColor?: string | null;
   onSelect: (event: KonvaEventObject<MouseEvent>) => void;
   onDragStart: (event: KonvaEventObject<DragEvent>) => void;
   onDragMove: (event: KonvaEventObject<DragEvent>) => void;
@@ -30,7 +28,6 @@ export function TokenRenderer({
   isSelected,
   selectionColor,
   fillColor,
-  occupiedIndicatorColor,
   onSelect,
   onDragStart,
   onDragMove,
@@ -58,17 +55,6 @@ export function TokenRenderer({
       onMouseMove={onHoverMove}
       onMouseLeave={onHoverEnd}
     >
-      {occupiedIndicatorColor ? (
-        <RemoteInteractionIndicator
-          x={-object.width / 2}
-          y={-object.height / 2}
-          width={object.width}
-          height={object.height}
-          participantColor={occupiedIndicatorColor}
-          shape="circle"
-        />
-      ) : null}
-
       {isSelected && (
         <Circle
           x={0}

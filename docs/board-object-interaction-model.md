@@ -292,7 +292,6 @@ Current blocked-indication rule for that corridor:
 
 - the participant who owns the drawing lock needs no extra blocked treatment;
 - the blocked participant should get:
-  - slight object dim
   - blocked cursor
   - object-anchored viewport-stable top-left activity pill with participant
     name and active verb.
