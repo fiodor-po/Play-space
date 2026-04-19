@@ -1,5 +1,5 @@
 type RuntimeUrlSource = "env" | "derived-hostname";
-type ApiUrlSource = "derived-realtime" | "derived-hostname";
+type ApiUrlSource = "env" | "derived-hostname";
 type LiveKitTokenUrlSource = "env" | "derived-api";
 
 const warnedRuntimeAssumptions = new Set<string>();
@@ -26,21 +26,32 @@ export function getRealtimeServerWsUrl(explicitServerUrl?: string) {
 }
 
 export function getApiServerBaseUrl(explicitRealtimeServerUrl?: string) {
-  const realtimeServerUrl =
-    explicitRealtimeServerUrl ??
-    (typeof import.meta.env.VITE_Y_WEBSOCKET_URL === "string"
-      ? import.meta.env.VITE_Y_WEBSOCKET_URL
-      : "");
+  const configuredUrl = import.meta.env.VITE_API_BASE_URL;
 
-  if (realtimeServerUrl.length > 0) {
-    return realtimeServerUrl.replace(/^ws/i, "http");
+  if (typeof configuredUrl === "string" && configuredUrl.length > 0) {
+    return configuredUrl;
   }
 
-  const protocol = window.location.protocol === "https:" ? "https:" : "http:";
-  const fallbackUrl = `${protocol}//${window.location.hostname}:1234`;
+  if (explicitRealtimeServerUrl) {
+    try {
+      const realtimeUrl = new URL(explicitRealtimeServerUrl);
+      const fallbackUrl = realtimeUrl.origin;
+      warnRuntimeAssumptionOnce("api-realtime-origin-fallback", "[runtime-config][api][fallback-url]", {
+        fallbackUrl,
+        reason: "VITE_API_BASE_URL is not configured",
+        fallback: "realtime-origin",
+      });
+      return fallbackUrl;
+    } catch {
+      // Keep the hostname fallback below if the explicit websocket URL is malformed.
+    }
+  }
+
+  const fallbackUrl = window.location.origin;
   warnRuntimeAssumptionOnce("api-fallback", "[runtime-config][api][fallback-url]", {
     fallbackUrl,
-    reason: "VITE_Y_WEBSOCKET_URL is not configured",
+    reason: "VITE_API_BASE_URL is not configured",
+    fallback: "window-origin",
   });
   return fallbackUrl;
 }
@@ -125,9 +136,9 @@ function getRealtimeUrlSource(): RuntimeUrlSource {
 }
 
 function getApiBaseUrlSource(): ApiUrlSource {
-  return typeof import.meta.env.VITE_Y_WEBSOCKET_URL === "string" &&
-    import.meta.env.VITE_Y_WEBSOCKET_URL.length > 0
-    ? "derived-realtime"
+  return typeof import.meta.env.VITE_API_BASE_URL === "string" &&
+    import.meta.env.VITE_API_BASE_URL.length > 0
+    ? "env"
     : "derived-hostname";
 }
 

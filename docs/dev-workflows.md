@@ -176,6 +176,7 @@ The wrapper scripts should stop child services too.
 - when your LAN IP changes, update `.env.landev`:
   - `LAN_HOST`
   - `VITE_Y_WEBSOCKET_URL`
+  - `VITE_API_BASE_URL`
   - `VITE_LIVEKIT_URL`
 
 ## 8. Recommended sanity checks

@@ -130,6 +130,7 @@ Before first hosted alpha, make these runtime assumptions explicit:
 
 ### Frontend
 - `VITE_Y_WEBSOCKET_URL`
+- `VITE_API_BASE_URL`
 - `VITE_LIVEKIT_URL` if video is enabled
 - `VITE_LIVEKIT_TOKEN_URL` if using the Vercel token-route fallback
 - `VITE_ENABLE_LIVEKIT_MEDIA`
@@ -156,6 +157,7 @@ Important hosted persistence rule:
 Rule:
 
 - do not rely on silent same-host fallback assumptions in hosted alpha unless that topology is explicitly intentional.
+- keep websocket and HTTP API bases as separate runtime inputs even when they point to the same host today.
 
 Suggested first hosted-alpha default:
 
@@ -222,7 +224,7 @@ Suggested first hosted-alpha default:
 After deploy, verify:
 
 - hosted app loads over HTTPS
-- frontend resolves the intended hosted realtime/API URL
+- frontend resolves the intended hosted realtime URL and the intended hosted API base URL
 - realtime/API health endpoint responds
 - room join works
 - presence/cursors work
