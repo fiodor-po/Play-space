@@ -2,7 +2,7 @@
 
 ## 1. Current state summary
 
-## 0. Working planning mode
+## 0. Current working mode
 
 Current-context distinguishes two working modes.
 
@@ -29,6 +29,23 @@ In hard sprint mode:
 - the chosen slice order may be written as the working sprint sequence;
 - other future work remains `candidate`, `backlog`, or `optional`.
 
+Current active chapter:
+
+- `board navigation and secondary-click behavior`
+  - focus on board navigation, primary / secondary click behavior, and related
+    pointer interaction rules;
+  - keep hosted core + video baseline stable while changing navigation
+    behavior;
+  - do not mix this chapter with mobile work, loading-progress polish, media,
+    or new runtime migration tracks.
+  - canonical focused doc:
+    - `docs/board-navigation-secondary-click-chapter.md`
+
+Immediate next chapters after that:
+
+- `Mobile experience`
+- `room loading progress and async-state polish`
+
 Current branch reached its cleanup sprint checkpoint:
 
 - branch: `sprint/cleanup-lint-boardstage-foundation`
@@ -42,7 +59,8 @@ Current branch reached its cleanup sprint checkpoint:
 - hosted validation after this cleanup checkpoint is closed
 - note editor overlay and hosted debug gate hotfixes are verified on the exact preview deploy
 - hosted room hydration and bootstrap coordination checkpoint is closed after the `scene-usable` split and hosted re-benchmark
-- staged room-open waves remain a visible product rough edge, but there is no current hydration implementation pass active
+- staged room-open waves remain a visible product rough edge and now define the
+  newly selected loading-progress chapter
 - explicit `Leave room` now switches creator-colored participant-marker tokens to `room-document`, while abrupt tab close still leaves stale `live-occupancy`
 
 Проект остаётся в стадии `play-space-alpha`.
@@ -1058,14 +1076,15 @@ Closed chapter:
   - `primaryNeutral` `default / hover / active` contrast was tuned to read as a
     real state sequence.
 
-Active chapter:
+Closed chapter checkpoint:
 
 - `Board object controls UI layer`
-  - focus on the control layer attached to board objects;
-  - use the closed `UI controls polish` chapter as the current control-state
-    baseline;
-  - do not expand this chapter into broad board navigation rewrites, mobile
-    work, or media polish.
+  - coherent board-object control layer baseline is now documented and landed;
+  - indication and selection model are now aligned with the current board
+    object layer;
+  - the chapter stays closed as a narrow control-layer checkpoint;
+  - the project returns to planning mode instead of extending this chapter into
+    board navigation, mobile, or media work.
 
 ## 8.7. Repo/runtime health work closed the current `App` chapter
 

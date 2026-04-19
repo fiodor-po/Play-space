@@ -17,6 +17,7 @@ type NoteCardRendererProps = {
   displayWidth?: number;
   displayHeight?: number;
   isEditing: boolean;
+  draggable?: boolean;
   onGroupRef: (node: Konva.Group | null) => void;
   onSelect: (event: KonvaEventObject<MouseEvent>) => void;
   onDragStart: (event: KonvaEventObject<DragEvent>) => void;
@@ -38,6 +39,7 @@ export function NoteCardRenderer({
   displayWidth,
   displayHeight,
   isEditing,
+  draggable = true,
   onGroupRef,
   onSelect,
   onDragStart,
@@ -63,7 +65,7 @@ export function NoteCardRenderer({
       y={cardY}
       width={cardWidth}
       height={cardHeight}
-      draggable={!isEditing}
+      draggable={draggable && !isEditing}
       onMouseDown={onSelect}
       onDblClick={onDoubleClick}
       onDragStart={onDragStart}

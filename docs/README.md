@@ -16,6 +16,7 @@ This is the fastest index for the repo's working docs.
 - `room-memory-model.md` — state categories and memory boundaries
 - `indication-design.md` — canonical behavior indication model
 - `color-model-design.md` — participant/color semantics
+- `board-navigation-secondary-click-chapter.md` — active chapter control doc for board navigation, desktop pan/zoom behavior, and placeholder secondary click
 - `board-object-controls-ui-layer.md` — active chapter control doc for the board-object control layer
 - `board-object-interaction-model.md` — high-level model for board-object geometry, interaction space, and viewport behavior
 - `board-object-indication-matrix.md` — normalized indication matrix for abstract board objects and current object families

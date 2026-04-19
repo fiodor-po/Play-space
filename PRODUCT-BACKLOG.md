@@ -31,23 +31,23 @@
 
 ## 3. Now
 
-- `Board object controls UI layer`
-  Доделать UI слой контролов объектов доски.
-  Tags: `#now`
-
-## 4. Soon
-
-- `Room entry empty-name default without URL room`
-  Если room не задана в URL, поле имени комнаты на entry должно стартовать пустым, а не со значением `alpha`.
-  Tags: `#soon`
-
 - `Board navigation and secondary-click behavior`
   Переделать навигацию по доске и поведение primary / secondary click и связанных pointer interactions.
-  Tags: `#soon`
+  Tags: `#now`
 
 - `Mobile experience`
   Сделать рабочий и целостный mobile experience для входа в комнату, доски, controls и media surfaces.
-  Tags: `#soon`
+  Tags: `#now`
+
+- `Room loading progress and async-state polish`
+  Добавить честные loading / settling states и цельный прогресс открытия комнаты на entry, room open, recovery, media и других async поверхностях.
+  Tags: `#now`
+
+- `Room entry empty-name default without URL room`
+  Если room не задана в URL, поле имени комнаты на entry должно стартовать пустым, а не со значением `alpha`.
+  Tags: `#now`
+
+## 4. Soon
 
 - `Legacy room-snapshot write-cache cleanup`
   Убрать или изолировать legacy `room-snapshot` write tail, чтобы упростить persistence story без нового широкого migration pass.
@@ -57,10 +57,6 @@
 
 - `Tab-close room-occupancy liveness`
   После обычного закрытия вкладки stale `live-occupancy` может висеть дольше, чем нужно. `Leave room` уже ведёт себя правильно.
-  Tags: `#later`
-
-- `Loading placeholders and async-state polish`
-  Добавить честные loading / settling states и сгладить переходы на entry, room open, recovery, media и других async поверхностях.
   Tags: `#later`
 
 - `Large-image add benchmark`
@@ -93,6 +89,12 @@
 
 - `Deploy-stable durable store only on product signal`
   Вернуться к durable infra layer только при реальной потребности в deploy-stable durability. Source: [docs/architecture-audit-2026-04-17.md](/Users/fedorpodrezov/Developer/play-space-alpha/docs/architecture-audit-2026-04-17.md)
+  Tags: `#later`
+
+- `Follow-up по комментариям Виталика`
+  Зафиксировать отдельный follow-up block из двух связанных частей:
+  1. настроить security agent для проекта как отдельный operational lane;
+  2. разложить проект на архитектурные слои и описать работу слоёв диаграммами.
   Tags: `#later`
 
 - `Alpha 2 product requirements`

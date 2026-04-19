@@ -9,6 +9,73 @@
 
 ---
 
+## 2026-04-19 — Device-specific mouse-wheel tilt bug observed on Razer Pro Click Mini
+
+Observed local limitation:
+
+- on the current Razer Pro Click Mini, mouse-wheel tilt can leave horizontal
+  wheel signaling in a bad state;
+- the same behavior is reproducible in Figma, so this is recorded as a
+  device-specific compatibility bug rather than an active chapter blocker.
+
+---
+
+## 2026-04-19 — Board object controls UI layer closed as a coherent chapter checkpoint
+
+### Type
+- milestone
+- design
+- workflow
+
+### Context
+После closure `UI controls polish` проекту нужен был отдельный chapter для
+board-object control layer. Нужна была одна честная baseline-модель для
+object-attached controls, indication и selection, без broad design-system
+restart и без смешивания с mobile, media или board-navigation work.
+
+### Goal or problem
+Нужно было довести board-object control layer до coherent checkpoint и
+перестать держать этот слой как open-ended active chapter.
+
+### What happened
+Chapter собрал три опорных документа:
+
+- `board-object-controls-ui-layer.md`
+- `board-object-indication-matrix.md`
+- `board-object-interaction-model.md`
+
+После этого current interaction layer was normalized on `main`:
+
+- object-attached control baseline is now explicit;
+- indication and selection model are now aligned with the current board-object
+  layer;
+- chapter boundary stayed narrow and did not expand into mobile, media, or
+  navigation rewrites.
+
+### Decision / change
+Зафиксировано следующее:
+
+- `Board object controls UI layer` is now a closed chapter checkpoint;
+- this layer is now a stable baseline for later board-object work;
+- the project returns to planning mode after this checkpoint.
+
+### Why
+Этот checkpoint убирает двусмысленность:
+
+- board-object controls now have one documented product baseline;
+- later board-object or sync work can build on that baseline;
+- next chapter can be selected separately instead of stretching one control
+  chapter across unrelated work.
+
+### Result
+Проект получил:
+
+- closed board-object control checkpoint;
+- aligned indication/selection baseline for current object families;
+- cleaner planning boundary before the next chapter selection.
+
+---
+
 ## 2026-04-19 — Property-level board-object sync passed hosted two-client regression on the critical image corridor
 
 ### Type

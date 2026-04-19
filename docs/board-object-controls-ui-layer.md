@@ -1,6 +1,6 @@
 # Board Object Controls UI Layer
 
-Status: active chapter control doc  
+Status: closed chapter checkpoint  
 Scope: board-object control layer for the current alpha
 
 Этот документ задаёт рабочую рамку chapter `Board object controls UI layer`.
@@ -13,6 +13,14 @@ Scope: board-object control layer for the current alpha
 - split `now` / `later`;
 - immediate implementation scope;
 - chapter-close expectations.
+
+Current status:
+
+- the chapter checkpoint is closed;
+- this doc now acts as the stable control-layer baseline for later board-object
+  work;
+- future chapters should reuse this baseline instead of reopening this chapter
+  by default.
 
 ## 1. Порядок работы в chapter
 

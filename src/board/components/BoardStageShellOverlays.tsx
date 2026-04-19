@@ -8,10 +8,13 @@ import type {
 import {
   buttonRecipes,
   createDraftLocalUserButtonRecipeForSlot,
+  createTextButtonRecipe,
   getButtonProps,
 } from "../../ui/system/families/button";
+import { boardSurfaceRecipes } from "../../ui/system/boardSurfaces";
 import { getDesignSystemDebugAttrs } from "../../ui/system/debugMeta";
 import { getParticipantColorSlotNumber } from "../../lib/roomSession";
+import { radiusPrimitive } from "../../ui/system/foundations";
 import {
   BoardStageObjectSemanticsTooltip,
 } from "./BoardStageDevToolsContent";
@@ -30,6 +33,11 @@ type EditingTextareaStyle = {
 };
 
 type ObjectSemanticsHoverState = {
+  clientX: number;
+  clientY: number;
+} | null;
+
+type BoardContextMenuState = {
   clientX: number;
   clientY: number;
 } | null;
@@ -71,6 +79,9 @@ type BoardStageShellOverlaysProps = {
     value: string;
   }>;
   isObjectSemanticsTooltipVisible: boolean;
+  boardContextMenuState: BoardContextMenuState;
+  boardContextMenuRef: RefObject<HTMLDivElement | null>;
+  onShowBoardMenuAction: () => void;
 };
 
 export function BoardStageShellOverlays({
@@ -107,11 +118,18 @@ export function BoardStageShellOverlays({
   objectSemanticsHoverState,
   objectSemanticsRows,
   isObjectSemanticsTooltipVisible,
+  boardContextMenuState,
+  boardContextMenuRef,
+  onShowBoardMenuAction,
 }: BoardStageShellOverlaysProps) {
   const addImageButtonRecipe = createDraftLocalUserButtonRecipeForSlot(
     buttonRecipes.secondary.small,
     getParticipantColorSlotNumber(addImageButtonColor),
     "border"
+  );
+  const boardContextMenuRecipe = createTextButtonRecipe(
+    buttonRecipes.secondary.compact,
+    "secondary"
   );
 
   return (
@@ -215,6 +233,39 @@ export function BoardStageShellOverlays({
         rows={objectSemanticsRows}
         isVisible={isObjectSemanticsTooltipVisible}
       />
+
+      {boardContextMenuState ? (
+        <div
+          ref={boardContextMenuRef}
+          style={{
+            position: "fixed",
+            left: Math.min(boardContextMenuState.clientX, window.innerWidth - 180),
+            top: Math.min(boardContextMenuState.clientY, window.innerHeight - 88),
+            zIndex: 41,
+            minWidth: 160,
+            display: "grid",
+            gap: 8,
+            padding: 8,
+            ...boardSurfaceRecipes.floatingShell.shell.style,
+            borderRadius: radiusPrimitive.r8,
+          }}
+          {...getDesignSystemDebugAttrs(boardSurfaceRecipes.floatingShell.shell.debug)}
+        >
+          <button
+            type="button"
+            onClick={onShowBoardMenuAction}
+            {...getButtonProps(boardContextMenuRecipe)}
+            {...getDesignSystemDebugAttrs(boardContextMenuRecipe.debug)}
+            style={{
+              ...getButtonProps(boardContextMenuRecipe).style,
+              justifyContent: "flex-start",
+              textAlign: "left",
+            }}
+          >
+            Center board
+          </button>
+        </div>
+      ) : null}
     </>
   );
 }

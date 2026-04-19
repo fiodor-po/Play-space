@@ -127,13 +127,14 @@ Use these statuses in roadmap notes when useful:
 
 ## 4. Текущий активный этап
 
-## Phase C — Planning mode after cleanup and creator-color checkpoints
+## Phase D — Active chapter: board navigation and secondary-click behavior
 
-**Статус:** persistence/recovery complete, participant identity stabilization closed, BoardStage cleanup checkpoint closed, creator-color room-document fallback checkpoint closed, planning mode on `main`
+**Статус:** persistence/recovery complete, participant identity stabilization closed, BoardStage cleanup checkpoint closed, creator-color room-document fallback checkpoint closed, board-object controls UI layer checkpoint closed, active chapter selected on `main`
 
 ### Цель
-Держать проект в planning mode после серии закрытых checkpoints и не смешивать
-новый chapter selection с уже закрытыми migration и cleanup tracks.
+Открыть chapter вокруг board navigation и secondary-click behavior, затем
+перейти к mobile experience и только потом к room loading progress and
+async-state polish.
 
 ### Основная последовательность
 1. держать hosted core + optional video checkpoint как current baseline;
@@ -141,15 +142,22 @@ Use these statuses in roadmap notes when useful:
 3. считать `browser-local participant identity stabilization` закрытым chapter;
 4. считать cleanup sprint `sprint/cleanup-lint-boardstage-foundation` закрытым checkpoint;
 5. считать `participant-marker / creator-color` room-document fallback закрытым chapter checkpoint;
-6. вернуть проект в planning mode на `main`;
-7. держать hosted validation как повторяемый checkpoint после крупных шагов и новых demo snapshots;
-8. выбирать следующий chapter отдельно, без смешивания с закрытыми cleanup и fallback checkpoints.
+6. считать `Board object controls UI layer` закрытым chapter checkpoint;
+7. открыть `board navigation and secondary-click behavior` как новый active chapter;
+8. держать `Mobile experience` как следующий chapter сразу после navigation;
+9. держать `room loading progress and async-state polish` как следующий chapter после navigation и mobile;
+10. не смешивать navigation chapter с broad runtime cleanup или новыми migration tracks;
+11. держать hosted validation как повторяемый checkpoint после крупных шагов и новых demo snapshots.
 
 ### Что это теперь значит
 Persistence/recovery spine уже дошёл до финального semantic cutover.
 Browser-local participant identity stabilization закрыт.
 BoardStage cleanup sprint закрыт.
 Creator-color fallback checkpoint тоже закрыт.
+Board object controls UI layer checkpoint тоже закрыт.
+Следующий active chapter выбран: `board navigation and secondary-click behavior`.
+Mobile experience идёт следующим chapter.
+`room loading progress and async-state polish` идёт после navigation и mobile.
 
 Current creator-color truth now looks like this:
 
@@ -184,6 +192,7 @@ Remaining deferred runtime tail from this chapter:
 - completed checkpoint: `Checkpoint 3`;
 - completed migration track: `room document persistence / recovery architecture`;
 - completed chapter: `browser-local participant identity stabilization`;
+- active chapter: `board navigation and secondary-click behavior`;
 - completed narrow follow-up: `debug-tools usability cleanup`;
 - later follow-up task: `room-ops durability ergonomics`;
 - optional follow-up task: `legacy room-snapshot write-cache cleanup`;
@@ -235,11 +244,11 @@ Remaining deferred runtime tail from this chapter:
    - sandbox now exposes honest filled vs non-filled disabled comparison;
    - color swatches now have readable `selected`, `disabled`, and `occupied` states;
    - `primaryNeutral` state contrast tuning completed for `default / hover / active`;
-5. открыть `Board object controls UI layer` как новый active chapter:
-   - focus on the board-object control layer only;
-   - do not reopen broad design-system migration;
-   - do not mix this chapter with mobile, media, or board-navigation rewrites;
-   - use the now-closed controls chapter as the stable control-state baseline;
+5. считать `Board object controls UI layer` закрытым chapter checkpoint:
+   - coherent board-object control layer baseline is now documented and implemented;
+   - indication and selection model are now aligned with the current object layer;
+   - chapter stays narrow and does not reopen broad design-system migration;
+   - project returns to planning mode after this checkpoint instead of expanding the same chapter;
 6. считать `App.tsx` chapter structurally closed;
 7. считать current `BoardStage.tsx` cleanup chapter checkpoint-closed;
 8. считать refreshed architecture/runtime audit completed;
@@ -348,11 +357,16 @@ Remaining deferred runtime tail from this chapter:
   - a narrow `scene-usable` split moved the early usable boundary forward
   - a live-attach follow-up moved `scene-usable` materially closer to first visible live scene
   - late `bootstrap-terminal` / `live-active` truth stayed intentionally later
+- [x] close `Board object controls UI layer` as a coherent chapter checkpoint
+  - board-object control layer baseline is now documented
+  - indication and selection model are now aligned with current board objects
+  - current interaction layer checkpoint is normalized on `main`
+  - the chapter stays closed and does not expand into mobile, media, or board-navigation work
 - [ ] add loading placeholders and polish async state transitions around room open and other delayed surfaces:
   - make loading and settling states visible instead of leaving silent empty gaps
   - add placeholders or equivalent lightweight loading affordances where delayed content arrival is expected
   - align state transitions for entry, room open, recovery, media, and other async surfaces so the UI reads as one coherent system
-  - do this after the current hydration timing and bootstrap coordination work has a clear baseline and a chosen runtime boundary
+  - planned after board navigation and mobile experience
 - [ ] benchmark large-image add flow and optimize around it as a separate pass:
   - measure add-image timing for heavy image payloads, including very large files such as `40 MB`
   - distinguish early visible feedback, usable preview time, and full ready time

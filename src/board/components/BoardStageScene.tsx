@@ -151,6 +151,9 @@ type BoardStageSceneProps = {
   selectedImageControlButtons: BoardStageSelectedImageControlButton[];
   remoteSelectedObjects: Record<string, RemoteSelectedObjectIndicator>;
   isSelectedImageLockedByAnotherParticipant: boolean;
+  isSpacePanActive: boolean;
+  isSpacePanDragging: boolean;
+  isMiddleMousePanDragging: boolean;
   onStageMouseDown: (event: KonvaEventObject<MouseEvent>) => void;
   onStageMouseMove: (event: KonvaEventObject<MouseEvent>) => void;
   onStageMouseUp: () => void;
@@ -164,6 +167,7 @@ type BoardStageSceneProps = {
     object: BoardObject,
     event: KonvaEventObject<MouseEvent>
   ) => void;
+  onStageContextMenu: (event: KonvaEventObject<PointerEvent>) => void;
   clearObjectSemanticsHover: () => void;
   getImageDrawingLock: (imageId: string) => ImageDrawingLock | null;
   finishImageDrawingMode: () => void;
@@ -419,6 +423,9 @@ export function BoardStageScene({
   selectedImageControlButtons,
   remoteSelectedObjects,
   isSelectedImageLockedByAnotherParticipant,
+  isSpacePanActive,
+  isSpacePanDragging,
+  isMiddleMousePanDragging,
   onStageMouseDown,
   onStageMouseMove,
   onStageMouseUp,
@@ -429,6 +436,7 @@ export function BoardStageScene({
   onStageWheel,
   onBoardBackgroundMouseDown,
   updateObjectSemanticsHover,
+  onStageContextMenu,
   clearObjectSemanticsHover,
   getImageDrawingLock,
   finishImageDrawingMode,
@@ -467,6 +475,8 @@ export function BoardStageScene({
   onSelectedImageControlClick,
 }: BoardStageSceneProps) {
   const [blockedImageHoverId, setBlockedImageHoverId] = useState<string | null>(null);
+  const isPanInteractionOverrideActive =
+    isSpacePanActive || isMiddleMousePanDragging;
 
   useEffect(() => {
     const wrapper = stageWrapperRef.current;
@@ -475,12 +485,24 @@ export function BoardStageScene({
       return;
     }
 
-    wrapper.style.cursor = blockedImageHoverId ? "not-allowed" : "";
+    wrapper.style.cursor = blockedImageHoverId
+      ? "not-allowed"
+      : isSpacePanDragging || isMiddleMousePanDragging
+        ? "grabbing"
+        : isSpacePanActive
+          ? "grab"
+          : "";
 
     return () => {
       wrapper.style.cursor = "";
     };
-  }, [blockedImageHoverId, stageWrapperRef]);
+  }, [
+    blockedImageHoverId,
+    isMiddleMousePanDragging,
+    isSpacePanActive,
+    isSpacePanDragging,
+    stageWrapperRef,
+  ]);
 
   return (
     <div ref={stageWrapperRef}>
@@ -496,6 +518,7 @@ export function BoardStageScene({
         onMouseUp={() => {
           onStageMouseUp();
         }}
+        onContextMenu={onStageContextMenu}
         onMouseLeave={() => {
           setBlockedImageHoverId(null);
           onStageMouseLeave();
@@ -517,7 +540,13 @@ export function BoardStageScene({
             height={BOARD_HEIGHT}
             fill={boardSurfaceFill}
             cornerRadius={boardSurfaceRadius}
-            onMouseDown={onBoardBackgroundMouseDown}
+            onMouseDown={(event) => {
+              if (event.evt.button === 1) {
+                return;
+              }
+
+              onBoardBackgroundMouseDown();
+            }}
           />
 
           {sortedObjects.map((object) => {
@@ -554,16 +583,16 @@ export function BoardStageScene({
 
                     updateObjectSemanticsHover(object, event);
                   }}
-                  onMouseMove={(event) => {
-                    if (isLockedByAnotherParticipant) {
-                      setBlockedImageHoverId(object.id);
-                    }
+                    onMouseMove={(event) => {
+                      if (isLockedByAnotherParticipant) {
+                        setBlockedImageHoverId(object.id);
+                      }
 
-                    updateObjectSemanticsHover(object, event);
-                  }}
-                  onMouseLeave={() => {
-                    if (blockedImageHoverId === object.id) {
-                      setBlockedImageHoverId(null);
+                      updateObjectSemanticsHover(object, event);
+                    }}
+                    onMouseLeave={() => {
+                      if (blockedImageHoverId === object.id) {
+                        setBlockedImageHoverId(null);
                     }
 
                     clearObjectSemanticsHover();
@@ -607,11 +636,16 @@ export function BoardStageScene({
                     opacity={isRemoteDragPreviewActive ? 0.28 : 1}
                     shadowBlur={8}
                     draggable={
+                      !isPanInteractionOverrideActive &&
                       !isDrawing &&
                       transformingImageId !== object.id &&
                       !isLockedByAnotherParticipant
                     }
                     onMouseDown={(event) => {
+                      if (isPanInteractionOverrideActive || event.evt.button === 1) {
+                        return;
+                      }
+
                       event.cancelBubble = true;
 
                       if (drawingImageId && drawingImageId !== object.id) {
@@ -654,6 +688,10 @@ export function BoardStageScene({
                       endImageStroke();
                     }}
                     onDragStart={(event) => {
+                      if (isPanInteractionOverrideActive) {
+                        return;
+                      }
+
                       event.cancelBubble = true;
 
                       if (isLockedByAnotherParticipant) {
@@ -732,6 +770,10 @@ export function BoardStageScene({
                       );
                     }}
                     onTransformStart={(event) => {
+                      if (isPanInteractionOverrideActive) {
+                        return;
+                      }
+
                       event.cancelBubble = true;
 
                       if (isLockedByAnotherParticipant) {
@@ -967,6 +1009,7 @@ export function BoardStageScene({
                         : noteCardPreviewBounds.height
                     }
                     isEditing={isEditing}
+                    draggable={!isPanInteractionOverrideActive}
                     onHoverStart={(event) => {
                       updateObjectSemanticsHover(object, event);
                     }}
@@ -980,10 +1023,18 @@ export function BoardStageScene({
                       noteCardRefs.current[object.id] = node;
                     }}
                     onSelect={(event) => {
+                      if (isPanInteractionOverrideActive || event.evt.button === 1) {
+                        return;
+                      }
+
                       event.cancelBubble = true;
                       selectBoardObject(object);
                     }}
                     onDragStart={(event) => {
+                      if (isPanInteractionOverrideActive) {
+                        return;
+                      }
+
                       event.cancelBubble = true;
                       selectBoardObject(object);
                       setDraggingNoteCardId(object.id);
@@ -1003,6 +1054,10 @@ export function BoardStageScene({
                       setDraggingNoteCardId(null);
                     }}
                     onTransformStart={(event) => {
+                      if (isPanInteractionOverrideActive) {
+                        return;
+                      }
+
                       event.cancelBubble = true;
                       selectBoardObject(object);
                       setActiveTextCardResizeState({
@@ -1084,6 +1139,10 @@ export function BoardStageScene({
                     clearLiveNoteCardResizePreviewSession();
                   }}
                     onDoubleClick={(event) => {
+                      if (isPanInteractionOverrideActive) {
+                        return;
+                      }
+
                       event.cancelBubble = true;
                       startEditingTextCard(object);
                     }}
@@ -1101,6 +1160,7 @@ export function BoardStageScene({
                 isSelected={false}
                 selectionColor={participantSession.color}
                 fillColor={getTokenFillColor(object)}
+                draggable={!isPanInteractionOverrideActive}
                 onHoverStart={(event) => {
                   updateObjectSemanticsHover(object, event);
                 }}
@@ -1111,10 +1171,18 @@ export function BoardStageScene({
                   clearObjectSemanticsHover();
                 }}
                 onSelect={(event) => {
+                  if (isPanInteractionOverrideActive || event.evt.button === 1) {
+                    return;
+                  }
+
                   event.cancelBubble = true;
                   selectBoardObject(object);
                 }}
                 onDragStart={(event) => {
+                  if (isPanInteractionOverrideActive) {
+                    return;
+                  }
+
                   event.cancelBubble = true;
 
                   const blockingMove = getBlockingActiveMove(object.id);

@@ -12,6 +12,7 @@ type TokenRendererProps = {
   isSelected: boolean;
   selectionColor: string;
   fillColor: string;
+  draggable?: boolean;
   onSelect: (event: KonvaEventObject<MouseEvent>) => void;
   onDragStart: (event: KonvaEventObject<DragEvent>) => void;
   onDragMove: (event: KonvaEventObject<DragEvent>) => void;
@@ -28,6 +29,7 @@ export function TokenRenderer({
   isSelected,
   selectionColor,
   fillColor,
+  draggable = true,
   onSelect,
   onDragStart,
   onDragMove,
@@ -46,7 +48,7 @@ export function TokenRenderer({
       y={renderPosition.y}
       scaleX={1 / stageScale}
       scaleY={1 / stageScale}
-      draggable
+      draggable={draggable}
       onMouseDown={onSelect}
       onDragStart={onDragStart}
       onDragMove={onDragMove}

@@ -96,6 +96,23 @@ type DurableReplicaInspectionViewModel = {
   lastError: string | null;
 };
 
+type NavigationDriftInspectionEntryViewModel = {
+  id: string;
+  at: number;
+  kind: "lifecycle" | "input" | "viewport";
+  corridor: string;
+  summary: string;
+  detail: string;
+};
+
+type NavigationDriftInspectionViewModel = {
+  captureStartedAt: number | null;
+  entries: NavigationDriftInspectionEntryViewModel[];
+  firstWheelEvent: NavigationDriftInspectionEntryViewModel | null;
+  firstViewportChange: NavigationDriftInspectionEntryViewModel | null;
+  firstHorizontalViewportChange: NavigationDriftInspectionEntryViewModel | null;
+};
+
 export type BoardStageGovernanceInspectionEntry = {
   id: string;
   resolution: GovernedActionAccessResolution;
@@ -133,6 +150,7 @@ type BoardStageDevToolsContentProps = {
   onSaveInspectableNoteCardTextForSmoke: () => void;
   onResizeInspectableNoteCardForSmoke: () => void;
   onDeleteInspectableNoteCardForSmoke: () => void;
+  navigationDriftInspection: NavigationDriftInspectionViewModel;
   participantColor: string;
   onParticipantColorChange: (color: string) => void;
   isObjectInspectionEnabled: boolean;
@@ -215,6 +233,18 @@ function formatIsoDebugTimestamp(timestamp: string | null) {
     minute: "2-digit",
     second: "2-digit",
   });
+}
+
+function formatNavigationInspectEntry(
+  entry: NavigationDriftInspectionEntryViewModel | null
+) {
+  if (!entry) {
+    return "none";
+  }
+
+  return `${entry.summary} · ${entry.corridor} · ${formatDebugTimestamp(
+    entry.at
+  )} · ${entry.detail}`;
 }
 
 function formatPropertySyncStoredValues(
@@ -309,6 +339,7 @@ export function BoardStageDevToolsContent({
   onSaveInspectableNoteCardTextForSmoke,
   onResizeInspectableNoteCardForSmoke,
   onDeleteInspectableNoteCardForSmoke,
+  navigationDriftInspection,
   participantColor,
   onParticipantColorChange,
   isObjectInspectionEnabled,
@@ -644,6 +675,67 @@ export function BoardStageDevToolsContent({
       </div>
 
       <div style={debugPanelSectionHeadingStyle}>Recovery and runtime</div>
+
+      <div
+        className={surfaceRecipes.inset.default.className}
+        style={debugInsetCardStyle}
+        data-testid="debug-navigation-drift-inspection"
+        {...getDesignSystemDebugAttrs(surfaceRecipes.inset.default.debug)}
+      >
+        <div style={debugInsetCardTitleStyle}>Fresh-room navigation capture</div>
+        <div style={debugPrimaryTextStyle}>
+          Started: {formatDebugTimestamp(navigationDriftInspection.captureStartedAt)}
+        </div>
+        <div data-testid="debug-navigation-first-wheel" style={debugMutedTextStyle}>
+          First wheel:{" "}
+          {formatNavigationInspectEntry(navigationDriftInspection.firstWheelEvent)}
+        </div>
+        <div
+          data-testid="debug-navigation-first-viewport-change"
+          style={debugMutedTextStyle}
+        >
+          First viewport change:{" "}
+          {formatNavigationInspectEntry(
+            navigationDriftInspection.firstViewportChange
+          )}
+        </div>
+        <div
+          data-testid="debug-navigation-first-horizontal-drift"
+          style={debugMutedTextStyle}
+        >
+          First horizontal move:{" "}
+          {formatNavigationInspectEntry(
+            navigationDriftInspection.firstHorizontalViewportChange
+          )}
+        </div>
+        <div style={{ display: "grid", gap: 4 }}>
+          {navigationDriftInspection.entries.length > 0 ? (
+            navigationDriftInspection.entries.map((entry) => (
+              <div
+                key={entry.id}
+                className={surfaceRecipes.infoCard.default.className}
+                style={surfaceRecipes.infoCard.default.style}
+                {...getDesignSystemDebugAttrs(surfaceRecipes.infoCard.default.debug)}
+              >
+                <div style={debugPrimaryTextStyle}>
+                  {formatDebugTimestamp(entry.at)}
+                  {" · "}
+                  {entry.kind}
+                  {" · "}
+                  {entry.corridor}
+                </div>
+                <div style={debugMutedTextStyle}>{entry.summary}</div>
+                <div style={debugMutedTextStyle}>{entry.detail}</div>
+              </div>
+            ))
+          ) : (
+            <div style={debugMutedTextStyle}>
+              Open a fresh room and watch the first wheel, viewport, focus, and
+              resize events here.
+            </div>
+          )}
+        </div>
+      </div>
 
       <div
         className={surfaceRecipes.inset.default.className}

@@ -32,6 +32,7 @@ import { resolveEffectiveImageBounds } from "../../board/images/effectiveBounds"
 import {
   getBoardPointFromScreen,
   getInitialRoomViewport,
+  getWheelPanDelta,
   getZoomedViewport,
 } from "../../board/viewport";
 import { appendImageStrokePointInObjects, clearImageStrokesByCreatorInObjects, clearImageStrokesInObjects, createImageObject, DEFAULT_IMAGE_STROKE_WIDTH } from "../../lib/boardImage";
@@ -429,6 +430,9 @@ export function BoardInteractionLayerSandbox() {
   const [drawingImageId, setDrawingImageId] = useState<string | null>(null);
   const [draggingImageId, setDraggingImageId] = useState<string | null>(null);
   const [transformingImageId, setTransformingImageId] = useState<string | null>(null);
+  const [isSpacePanActive, setIsSpacePanActive] = useState(false);
+  const [isSpacePanDragging, setIsSpacePanDragging] = useState(false);
+  const [isMiddleMousePanDragging, setIsMiddleMousePanDragging] = useState(false);
   const [editingTextCardId, setEditingTextCardId] = useState<string | null>(null);
   const [editingDraft, setEditingDraft] = useState("");
   const [editingOriginal, setEditingOriginal] = useState("");
@@ -1412,8 +1416,34 @@ export function BoardInteractionLayerSandbox() {
     (event: KonvaEventObject<MouseEvent>) => {
       const stage = event.target.getStage();
       const pointer = stage?.getPointerPosition();
+      const shouldStartMiddleMousePan = event.evt.button === 1 && !!pointer;
+      const shouldStartSpacePan =
+        isSpacePanActive && event.evt.button === 0 && !!pointer;
       const clickedOnEmptyStage =
         event.target === stage || event.target === localBoardBackgroundRef.current;
+
+      if (shouldStartMiddleMousePan) {
+        event.evt.preventDefault();
+        setIsMiddleMousePanDragging(true);
+        panStateRef.current = {
+          startPointerX: pointer.x,
+          startPointerY: pointer.y,
+          startStageX: stagePosition.x,
+          startStageY: stagePosition.y,
+        };
+        return;
+      }
+
+      if (shouldStartSpacePan) {
+        setIsSpacePanDragging(true);
+        panStateRef.current = {
+          startPointerX: pointer.x,
+          startPointerY: pointer.y,
+          startStageX: stagePosition.x,
+          startStageY: stagePosition.y,
+        };
+        return;
+      }
 
       if (clickedOnEmptyStage) {
         if (drawingImageId) {
@@ -1434,7 +1464,13 @@ export function BoardInteractionLayerSandbox() {
         startStageY: stagePosition.y,
       };
     },
-    [drawingImageId, finishImageDrawingMode, stagePosition.x, stagePosition.y]
+    [
+      drawingImageId,
+      finishImageDrawingMode,
+      isSpacePanActive,
+      stagePosition.x,
+      stagePosition.y,
+    ]
   );
 
   const handleLocalStageMouseMove = useCallback(
@@ -1457,12 +1493,28 @@ export function BoardInteractionLayerSandbox() {
 
   const handleLocalStageMouseUp = useCallback(() => {
     panStateRef.current = null;
+    setIsSpacePanDragging(false);
+    setIsMiddleMousePanDragging(false);
     endImageStroke();
   }, [endImageStroke]);
 
   const handleLocalStageWheel = useCallback(
     (event: KonvaEventObject<WheelEvent>) => {
       event.evt.preventDefault();
+
+      if (!event.evt.ctrlKey) {
+        const panDelta = getWheelPanDelta({
+          deltaMode: event.evt.deltaMode,
+          deltaX: event.evt.deltaX,
+          deltaY: event.evt.deltaY,
+        });
+
+        setStagePosition((current) => ({
+          x: current.x - panDelta.x,
+          y: current.y - panDelta.y,
+        }));
+        return;
+      }
 
       const pointer = event.target.getStage()?.getPointerPosition();
 
@@ -1520,6 +1572,54 @@ export function BoardInteractionLayerSandbox() {
       startImageDrawingMode,
     ]
   );
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const target = event.target;
+      const isEditableTarget =
+        target instanceof HTMLElement &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.isContentEditable);
+
+      if (
+        isEditableTarget ||
+        event.altKey ||
+        event.ctrlKey ||
+        event.metaKey ||
+        event.code !== "Space"
+      ) {
+        return;
+      }
+
+      event.preventDefault();
+      setIsSpacePanActive(true);
+    };
+
+    const handleKeyUp = (event: KeyboardEvent) => {
+      if (event.code === "Space") {
+        setIsSpacePanActive(false);
+        setIsSpacePanDragging(false);
+        setIsMiddleMousePanDragging(false);
+      }
+    };
+
+    const handleWindowBlur = () => {
+      setIsSpacePanActive(false);
+      setIsSpacePanDragging(false);
+      setIsMiddleMousePanDragging(false);
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("keyup", handleKeyUp);
+    window.addEventListener("blur", handleWindowBlur);
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("keyup", handleKeyUp);
+      window.removeEventListener("blur", handleWindowBlur);
+    };
+  }, []);
 
   const handleResetBoard = useCallback(() => {
     const nextObjects = createInitialObjects();
@@ -1668,6 +1768,9 @@ export function BoardInteractionLayerSandbox() {
             }
             remoteSelectedObjects={{}}
             isSelectedImageLockedByAnotherParticipant={false}
+            isSpacePanActive={isSpacePanActive}
+            isSpacePanDragging={isSpacePanDragging}
+            isMiddleMousePanDragging={isMiddleMousePanDragging}
             onStageMouseDown={handleLocalStageMouseDown}
             onStageMouseMove={handleLocalStageMouseMove}
             onStageMouseUp={handleLocalStageMouseUp}
@@ -1683,6 +1786,7 @@ export function BoardInteractionLayerSandbox() {
               setSelectedObjectId(null);
             }}
             updateObjectSemanticsHover={() => {}}
+            onStageContextMenu={() => {}}
             clearObjectSemanticsHover={() => {}}
             getImageDrawingLock={() => null}
             finishImageDrawingMode={finishImageDrawingMode}
@@ -1797,6 +1901,9 @@ export function BoardInteractionLayerSandbox() {
             selectedImageControlButtons={[]}
             remoteSelectedObjects={{}}
             isSelectedImageLockedByAnotherParticipant={false}
+            isSpacePanActive={false}
+            isSpacePanDragging={false}
+            isMiddleMousePanDragging={false}
             onStageMouseDown={noopMouseStageHandler}
             onStageMouseMove={noopMouseStageHandler}
             onStageMouseUp={() => {}}
@@ -1807,6 +1914,7 @@ export function BoardInteractionLayerSandbox() {
             onStageWheel={noopWheelStageHandler}
             onBoardBackgroundMouseDown={() => {}}
             updateObjectSemanticsHover={() => {}}
+            onStageContextMenu={() => {}}
             clearObjectSemanticsHover={() => {}}
             getImageDrawingLock={getImageDrawingLockForRemote}
             finishImageDrawingMode={() => {}}

@@ -62,9 +62,11 @@ import {
   TEXT_CARD_BODY_LINE_HEIGHT,
 } from "../board/constants";
 import {
+  getCenteredBoardViewportAtScale,
   getBoardPointFromScreen,
   getInitialRoomViewport,
   getViewportCenterInBoardCoords,
+  getWheelPanDelta,
   getZoomedViewport,
 } from "../board/viewport";
 import { EMPTY_BOARD_STATE } from "../data/emptyBoard";
@@ -216,6 +218,22 @@ function getErrorMessage(error: unknown) {
   return String(error);
 }
 
+function createInitialNavigationDriftInspectionState(): NavigationDriftInspectionState {
+  return {
+    captureStartedAt: null,
+    entries: [],
+    firstWheelEvent: null,
+    firstViewportChange: null,
+    firstHorizontalViewportChange: null,
+  };
+}
+
+function hasHorizontalViewportMovement(detail: string) {
+  const match = detail.match(/dx (-?\d+(?:\.\d+)?)/);
+
+  return match ? Math.abs(Number(match[1])) > 0 : false;
+}
+
 type BoardStageProps = {
   participantSession: LocalParticipantSession;
   participantPresences: ParticipantPresenceMap;
@@ -242,6 +260,11 @@ type ObjectSemanticsHoverState = {
   clientY: number;
 };
 
+type BoardContextMenuState = {
+  clientX: number;
+  clientY: number;
+};
+
 type ActiveImageStrokeSession = {
   imageId: string;
   strokeIndex: number;
@@ -256,6 +279,49 @@ type EditingTextareaStyle = {
   lineHeight: number;
   fontFamily: string;
   color: string;
+};
+
+type NavigationInspectCorridor =
+  | "room-open-bootstrap"
+  | "keyboard-recover-shortcut"
+  | "wheel-pan"
+  | "wheel-zoom"
+  | "pointer-pan-drag"
+  | "touch-pan-drag"
+  | "window-focus"
+  | "window-blur"
+  | "visibility-change"
+  | "window-resize"
+  | "unknown";
+
+type NavigationInspectEntry = {
+  id: string;
+  at: number;
+  kind: "lifecycle" | "input" | "viewport";
+  corridor: NavigationInspectCorridor;
+  summary: string;
+  detail: string;
+};
+
+type NavigationDriftInspectionState = {
+  captureStartedAt: number | null;
+  entries: NavigationInspectEntry[];
+  firstWheelEvent: NavigationInspectEntry | null;
+  firstViewportChange: NavigationInspectEntry | null;
+  firstHorizontalViewportChange: NavigationInspectEntry | null;
+};
+
+type PendingViewportCause = {
+  corridor: NavigationInspectCorridor;
+  summary: string;
+  detail: string;
+  expiresAt: number;
+};
+
+type ViewportSnapshot = {
+  x: number;
+  y: number;
+  scale: number;
 };
 
 type ContainerRect = {
@@ -608,6 +674,7 @@ export default function BoardStage({
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const imageInputRef = useRef<HTMLInputElement | null>(null);
   const sessionPanelRef = useRef<HTMLDivElement | null>(null);
+  const boardContextMenuRef = useRef<HTMLDivElement | null>(null);
   const stageWrapperRef = useRef<HTMLDivElement | null>(null);
   const activeRoomIdRef = useRef(roomId);
   const [stageSize, setStageSize] = useState({
@@ -1305,6 +1372,9 @@ export default function BoardStage({
   const [draggingNoteCardId, setDraggingNoteCardId] = useState<string | null>(
     null
   );
+  const [isSpacePanActive, setIsSpacePanActive] = useState(false);
+  const [isSpacePanDragging, setIsSpacePanDragging] = useState(false);
+  const [isMiddleMousePanDragging, setIsMiddleMousePanDragging] = useState(false);
   const [isEditingParticipantName, setIsEditingParticipantName] = useState(false);
   const [participantNameDraft, setParticipantNameDraft] = useState(
     participantSession.name
@@ -1313,9 +1383,15 @@ export default function BoardStage({
   const [isObjectInspectionEnabled, setIsObjectInspectionEnabled] = useState(false);
   const [objectSemanticsHoverState, setObjectSemanticsHoverState] =
     useState<ObjectSemanticsHoverState | null>(null);
+  const [boardContextMenuState, setBoardContextMenuState] =
+    useState<BoardContextMenuState | null>(null);
   const [governanceInspectionEntries, setGovernanceInspectionEntries] = useState<
     BoardStageGovernanceInspectionEntry[]
   >([]);
+  const [navigationDriftInspection, setNavigationDriftInspection] =
+    useState<NavigationDriftInspectionState>(
+      createInitialNavigationDriftInspectionState
+    );
   const [remoteImagePreviewPositions, setRemoteImagePreviewPositions] = useState<
     Record<
       string,
@@ -1749,6 +1825,19 @@ export default function BoardStage({
     writeQueue: Promise.resolve(),
   });
   const governanceInspectionSequenceRef = useRef(0);
+  const navigationInspectSequenceRef = useRef(0);
+  const navigationInspectCaptureRef = useRef<{
+    roomId: string;
+    bootstrapEntryId: number;
+    startedAt: number;
+    deadlineAt: number;
+  } | null>(null);
+  const pendingViewportCauseRef = useRef<PendingViewportCause | null>(null);
+  const previousViewportSnapshotRef = useRef<ViewportSnapshot>({
+    x: stagePosition.x,
+    y: stagePosition.y,
+    scale: stageScale,
+  });
   const pendingLocalCursorPresenceFrameRef = useRef<number | null>(null);
   const pendingLocalCursorPresencePointRef = useRef<{
     clientX: number;
@@ -1769,6 +1858,115 @@ export default function BoardStage({
   const [loadedImages, setLoadedImages] = useState<Record<string, HTMLImageElement>>(
     {}
   );
+
+  const isNavigationInspectCaptureActive = useCallback(() => {
+    const capture = navigationInspectCaptureRef.current;
+
+    return (
+      !!capture &&
+      capture.roomId === roomId &&
+      capture.deadlineAt >= Date.now()
+    );
+  }, [roomId]);
+
+  const appendNavigationInspectEntry = useCallback(
+    (
+      entry: Omit<NavigationInspectEntry, "id" | "at"> & {
+        at?: number;
+      }
+    ) => {
+      if (!isNavigationInspectCaptureActive()) {
+        return null;
+      }
+
+      const nextAt = entry.at ?? Date.now();
+      const nextEntryId = navigationInspectSequenceRef.current + 1;
+      navigationInspectSequenceRef.current = nextEntryId;
+      const nextEntry: NavigationInspectEntry = {
+        ...entry,
+        id: `navigation-inspect-${nextEntryId}`,
+        at: nextAt,
+      };
+
+      setNavigationDriftInspection((current) => ({
+        captureStartedAt:
+          current.captureStartedAt ??
+          navigationInspectCaptureRef.current?.startedAt ??
+          nextAt,
+        entries: [...current.entries, nextEntry].slice(-18),
+        firstWheelEvent:
+          current.firstWheelEvent ??
+          (nextEntry.kind === "input" &&
+          (nextEntry.corridor === "wheel-pan" ||
+            nextEntry.corridor === "wheel-zoom")
+            ? nextEntry
+            : null),
+        firstViewportChange:
+          current.firstViewportChange ??
+          (nextEntry.kind === "viewport" ? nextEntry : null),
+        firstHorizontalViewportChange:
+          current.firstHorizontalViewportChange ??
+          (nextEntry.kind === "viewport" &&
+          hasHorizontalViewportMovement(nextEntry.detail)
+            ? nextEntry
+            : null),
+      }));
+
+      return nextEntry.id;
+    },
+    [isNavigationInspectCaptureActive]
+  );
+
+  const armPendingViewportCause = useCallback(
+    (
+      corridor: NavigationInspectCorridor,
+      summary: string,
+      detail: string,
+      lifetimeMs = 250
+    ) => {
+      if (!isNavigationInspectCaptureActive()) {
+        return;
+      }
+
+      pendingViewportCauseRef.current = {
+        corridor,
+        summary,
+        detail,
+        expiresAt: Date.now() + lifetimeMs,
+      };
+    },
+    [isNavigationInspectCaptureActive]
+  );
+
+  const recoverBoardViewportToCenteredMinScale = useCallback(() => {
+    const nextViewport = getCenteredBoardViewportAtScale({
+      stageWidth: stageSize.width,
+      stageHeight: stageSize.height,
+      scale: MIN_SCALE,
+    });
+
+    appendNavigationInspectEntry({
+      kind: "input",
+      corridor: "keyboard-recover-shortcut",
+      summary: "Viewport recovery shortcut",
+      detail: `Shift + 1 · stage ${Math.round(stageSize.width)}x${Math.round(
+        stageSize.height
+      )} · scale ${MIN_SCALE.toFixed(3)}`,
+    });
+    armPendingViewportCause(
+      "keyboard-recover-shortcut",
+      "Viewport recovery applied",
+      `center board · scale ${MIN_SCALE.toFixed(3)}`,
+      250
+    );
+    setStageScale(nextViewport.scale);
+    setStagePosition({ x: nextViewport.x, y: nextViewport.y });
+  }, [
+    appendNavigationInspectEntry,
+    armPendingViewportCause,
+    stageSize.height,
+    stageSize.width,
+  ]);
 
   useLayoutEffect(() => {
     localCursorViewportRef.current = {
@@ -2167,6 +2365,13 @@ export default function BoardStage({
       savedViewport.y !== 80 ||
       savedViewport.scale !== 1;
     const nextBootstrapEntryId = roomBootstrapEntryIdRef.current + 1;
+    const nextViewportPosition = hasSavedViewport
+      ? { x: savedViewport.x, y: savedViewport.y }
+      : { x: initialRoomViewport.x, y: initialRoomViewport.y };
+    const nextViewportScale = hasSavedViewport
+      ? savedViewport.scale
+      : initialRoomViewport.scale;
+    const captureStartedAt = Date.now();
 
     console.info("[room-recovery][board-stage][bootstrap-start]", {
       roomId,
@@ -2176,6 +2381,14 @@ export default function BoardStage({
     });
 
     roomBootstrapEntryIdRef.current = nextBootstrapEntryId;
+    navigationInspectSequenceRef.current = 0;
+    navigationInspectCaptureRef.current = {
+      roomId,
+      bootstrapEntryId: nextBootstrapEntryId,
+      startedAt: captureStartedAt,
+      deadlineAt: captureStartedAt + 8000,
+    };
+    pendingViewportCauseRef.current = null;
     snapshotRecoveryAttemptedRoomRef.current = null;
     resetDurableWriteTracking();
     panStateRef.current = null;
@@ -2191,6 +2404,23 @@ export default function BoardStage({
         return;
       }
 
+      setNavigationDriftInspection({
+        ...createInitialNavigationDriftInspectionState(),
+        captureStartedAt,
+      });
+      appendNavigationInspectEntry({
+        at: captureStartedAt,
+        kind: "lifecycle",
+        corridor: "room-open-bootstrap",
+        summary: `Fresh-room capture started · viewport ${
+          hasSavedViewport ? "saved" : "initial-default"
+        }`,
+        detail: `bootstrap ${nextBootstrapEntryId} · x ${Math.round(
+          nextViewportPosition.x
+        )} · y ${Math.round(nextViewportPosition.y)} · scale ${nextViewportScale.toFixed(
+          3
+        )}`,
+      });
       setLocalReplicaInspection({
         ...createInitialLocalReplicaInspectionState(),
         initialOpenStatus: "pending",
@@ -2199,14 +2429,16 @@ export default function BoardStage({
       });
       setDurableReplicaInspection(createInitialDurableReplicaInspectionState());
       replaceBoardObjects(getRoomScopedBoardObjects(roomId));
-      setStagePosition(
-        hasSavedViewport
-          ? { x: savedViewport.x, y: savedViewport.y }
-          : { x: initialRoomViewport.x, y: initialRoomViewport.y }
+      armPendingViewportCause(
+        "room-open-bootstrap",
+        "Room open bootstrap viewport",
+        `bootstrap ${nextBootstrapEntryId} · source ${
+          hasSavedViewport ? "saved" : "initial-default"
+        }`,
+        1000
       );
-      setStageScale(
-        hasSavedViewport ? savedViewport.scale : initialRoomViewport.scale
-      );
+      setStagePosition(nextViewportPosition);
+      setStageScale(nextViewportScale);
       setSelectedObjectId(null);
       setEditingTextCardId(null);
       setEditingDraft("");
@@ -2249,7 +2481,7 @@ export default function BoardStage({
     return () => {
       isCancelled = true;
     };
-  }, [replaceBoardObjects, roomId]);
+  }, [appendNavigationInspectEntry, armPendingViewportCause, replaceBoardObjects, roomId]);
 
   useEffect(() => {
     if (!isEditingParticipantName) {
@@ -3009,12 +3241,121 @@ export default function BoardStage({
   }, [loadedImages, objects]);
 
   useEffect(() => {
+    const previous = previousViewportSnapshotRef.current;
+    const dx = stagePosition.x - previous.x;
+    const dy = stagePosition.y - previous.y;
+    const dScale = stageScale - previous.scale;
+
+    if (dx === 0 && dy === 0 && dScale === 0) {
+      return;
+    }
+
+    previousViewportSnapshotRef.current = {
+      x: stagePosition.x,
+      y: stagePosition.y,
+      scale: stageScale,
+    };
+
+    if (!isNavigationInspectCaptureActive()) {
+      return;
+    }
+
+    const pendingCause = pendingViewportCauseRef.current;
+    const nextCause =
+      pendingCause && pendingCause.expiresAt >= Date.now()
+        ? pendingCause
+        : null;
+
+    pendingViewportCauseRef.current = null;
+
+    appendNavigationInspectEntry({
+      kind: "viewport",
+      corridor: nextCause?.corridor ?? "unknown",
+      summary: nextCause?.summary ?? "Viewport changed without explicit input tag",
+      detail: `dx ${Math.round(dx)} · dy ${Math.round(dy)} · dscale ${dScale.toFixed(
+        3
+      )} · x ${Math.round(stagePosition.x)} · y ${Math.round(
+        stagePosition.y
+      )} · scale ${stageScale.toFixed(3)}${
+        nextCause ? ` · ${nextCause.detail}` : ""
+      }`,
+    });
+  }, [
+    appendNavigationInspectEntry,
+    isNavigationInspectCaptureActive,
+    stagePosition.x,
+    stagePosition.y,
+    stageScale,
+  ]);
+
+  useEffect(() => {
     saveViewportState(roomId, {
       x: stagePosition.x,
       y: stagePosition.y,
       scale: stageScale,
     });
   }, [roomId, stagePosition, stageScale]);
+
+  useEffect(() => {
+    const recordWindowArtifact = (
+      corridor: NavigationInspectCorridor,
+      summary: string,
+      detail: string
+    ) => {
+      const now = Date.now();
+      const capture = navigationInspectCaptureRef.current;
+
+      if (
+        !capture ||
+        capture.roomId !== roomId ||
+        capture.deadlineAt < now
+      ) {
+        return;
+      }
+
+      appendNavigationInspectEntry({
+        at: now,
+        kind: "input",
+        corridor,
+        summary,
+        detail,
+      });
+      armPendingViewportCause(corridor, summary, detail, 250);
+    };
+
+    const handleFocus = () => {
+      recordWindowArtifact("window-focus", "Window focus", "window focused");
+    };
+    const handleBlur = () => {
+      recordWindowArtifact("window-blur", "Window blur", "window blurred");
+    };
+    const handleVisibilityChange = () => {
+      recordWindowArtifact(
+        "visibility-change",
+        "Visibility change",
+        `document ${document.visibilityState}`
+      );
+    };
+    const handleResize = () => {
+      recordWindowArtifact(
+        "window-resize",
+        "Window resize",
+        `window ${window.innerWidth}x${window.innerHeight}`
+      );
+    };
+
+    window.addEventListener("focus", handleFocus);
+    window.addEventListener("blur", handleBlur);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("resize", handleResize);
+
+    return () => {
+      window.removeEventListener("focus", handleFocus);
+      window.removeEventListener("blur", handleBlur);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("resize", handleResize);
+    };
+  }, [appendNavigationInspectEntry, armPendingViewportCause, roomId]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -3024,9 +3365,36 @@ export default function BoardStage({
         (target.tagName === "INPUT" ||
           target.tagName === "TEXTAREA" ||
           target.isContentEditable);
+      const isViewportRecoverShortcut =
+        event.shiftKey &&
+        !event.altKey &&
+        !event.ctrlKey &&
+        !event.metaKey &&
+        event.code === "Digit1";
+      const isSpaceKey =
+        !event.altKey &&
+        !event.ctrlKey &&
+        !event.metaKey &&
+        event.code === "Space";
       const isEnterKey = event.key === "Enter";
       const isEscapeKey = event.key === "Escape";
       const isDeleteKey = event.key === "Backspace" || event.key === "Delete";
+
+      if (isViewportRecoverShortcut && !isEditableTarget) {
+        event.preventDefault();
+        recoverBoardViewportToCenteredMinScale();
+        return;
+      }
+
+      if (isSpaceKey) {
+        if (isEditableTarget) {
+          return;
+        }
+
+        event.preventDefault();
+        setIsSpacePanActive(true);
+        return;
+      }
 
       if ((isEnterKey || isEscapeKey) && drawingImageId) {
         event.preventDefault();
@@ -3073,10 +3441,28 @@ export default function BoardStage({
       setSelectedObjectId(null);
     };
 
+    const handleKeyUp = (event: KeyboardEvent) => {
+      if (event.code === "Space") {
+        setIsSpacePanActive(false);
+        setIsSpacePanDragging(false);
+        setIsMiddleMousePanDragging(false);
+      }
+    };
+
+    const handleWindowBlur = () => {
+      setIsSpacePanActive(false);
+      setIsSpacePanDragging(false);
+      setIsMiddleMousePanDragging(false);
+    };
+
     window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("keyup", handleKeyUp);
+    window.addEventListener("blur", handleWindowBlur);
 
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("keyup", handleKeyUp);
+      window.removeEventListener("blur", handleWindowBlur);
     };
   }, [
     drawingImageId,
@@ -3084,6 +3470,7 @@ export default function BoardStage({
     finishImageDrawingMode,
     objects,
     removeBoardObject,
+    recoverBoardViewportToCenteredMinScale,
     resolveObjectActionAccess,
     selectedObjectId,
   ]);
@@ -3864,6 +4251,38 @@ export default function BoardStage({
     getCreatorColor: (object) => getCreatorColorResolution(object).color,
     getCreatorColorSource: (object) => getCreatorColorResolution(object).source,
   });
+
+  useEffect(() => {
+    if (!boardContextMenuState) {
+      return;
+    }
+
+    const handleMouseDown = (event: MouseEvent) => {
+      const target = event.target;
+
+      if (
+        target instanceof Node &&
+        boardContextMenuRef.current?.contains(target)
+      ) {
+        return;
+      }
+
+      setBoardContextMenuState(null);
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setBoardContextMenuState(null);
+      }
+    };
+
+    window.addEventListener("mousedown", handleMouseDown, true);
+    window.addEventListener("keydown", handleKeyDown, true);
+
+    return () => {
+      window.removeEventListener("mousedown", handleMouseDown, true);
+      window.removeEventListener("keydown", handleKeyDown, true);
+    };
+  }, [boardContextMenuState]);
   const {
     governanceRoomSummary,
     governanceSelectedObjectSummary,
@@ -4370,6 +4789,7 @@ export default function BoardStage({
   const devToolsContent = (
     <BoardStageDevToolsContent
       {...devToolsViewModel}
+      navigationDriftInspection={navigationDriftInspection}
       inspectableImagePropertyEntry={inspectableImagePropertyEntry}
       inspectableTokenPropertyEntry={inspectableTokenPropertyEntry}
       inspectableNoteCardPropertyEntry={inspectableNoteCardPropertyEntry}
@@ -4411,10 +4831,61 @@ export default function BoardStage({
   const handleStageMouseDown = (event: {
     target: Konva.Node;
   }) => {
+    const nativeEvent = "evt" in event ? event.evt : null;
     const stage = event.target.getStage();
     const pointer = stage?.getPointerPosition();
+    const shouldStartMiddleMousePan =
+      nativeEvent instanceof MouseEvent &&
+      nativeEvent.button === 1 &&
+      !!pointer;
+    const shouldStartSpacePan =
+      isSpacePanActive &&
+      nativeEvent instanceof MouseEvent &&
+      nativeEvent.button === 0 &&
+      !!pointer;
     const clickedOnEmptyStage =
       event.target === stage || event.target === boardBackgroundRef.current;
+
+    if (shouldStartMiddleMousePan) {
+      nativeEvent.preventDefault();
+      setIsMiddleMousePanDragging(true);
+      appendNavigationInspectEntry({
+        kind: "input",
+        corridor: "pointer-pan-drag",
+        summary: "Pointer pan start",
+        detail: `pointer ${Math.round(pointer.x)},${Math.round(
+          pointer.y
+        )} · button ${nativeEvent.button} · middle true`,
+      });
+      panStateRef.current = {
+        isPanning: true,
+        startPointerX: pointer.x,
+        startPointerY: pointer.y,
+        startStageX: stagePosition.x,
+        startStageY: stagePosition.y,
+      };
+      return;
+    }
+
+    if (shouldStartSpacePan) {
+      setIsSpacePanDragging(true);
+      appendNavigationInspectEntry({
+        kind: "input",
+        corridor: "pointer-pan-drag",
+        summary: "Pointer pan start",
+        detail: `pointer ${Math.round(pointer.x)},${Math.round(
+          pointer.y
+        )} · button ${nativeEvent.button} · space true`,
+      });
+      panStateRef.current = {
+        isPanning: true,
+        startPointerX: pointer.x,
+        startPointerY: pointer.y,
+        startStageX: stagePosition.x,
+        startStageY: stagePosition.y,
+      };
+      return;
+    }
 
     if (clickedOnEmptyStage) {
       if (drawingImageId) {
@@ -4428,6 +4899,16 @@ export default function BoardStage({
       return;
     }
 
+    if (!(nativeEvent instanceof TouchEvent)) {
+      appendNavigationInspectEntry({
+        kind: "input",
+        corridor: "pointer-pan-drag",
+        summary: "Pointer pan start",
+        detail: `pointer ${Math.round(pointer.x)},${Math.round(pointer.y)} · button ${
+          nativeEvent instanceof MouseEvent ? nativeEvent.button : "unknown"
+        }`,
+      });
+    }
     panStateRef.current = {
       isPanning: true,
       startPointerX: pointer.x,
@@ -4439,6 +4920,7 @@ export default function BoardStage({
   const handleStageMouseMove = (event: {
     target: Konva.Node;
   }) => {
+    const nativeEvent = "evt" in event ? event.evt : null;
     const pointer = event.target.getStage()?.getPointerPosition();
     const panState = panStateRef.current;
 
@@ -4446,6 +4928,14 @@ export default function BoardStage({
       return;
     }
 
+    if (!(nativeEvent instanceof TouchEvent)) {
+      armPendingViewportCause(
+        "pointer-pan-drag",
+        "Pointer drag pan",
+        `pointer ${Math.round(pointer.x)},${Math.round(pointer.y)}`,
+        100
+      );
+    }
     setStagePosition({
       x: panState.startStageX + (pointer.x - panState.startPointerX),
       y: panState.startStageY + (pointer.y - panState.startPointerY),
@@ -4453,16 +4943,90 @@ export default function BoardStage({
   };
   const handleStageMouseUp = () => {
     panStateRef.current = null;
+    setIsSpacePanDragging(false);
+    setIsMiddleMousePanDragging(false);
     endImageStroke();
   };
-  const handleStageTouchStart = handleStageMouseDown;
-  const handleStageTouchMove = handleStageMouseMove;
+  const handleStageTouchStart = (event: {
+    target: Konva.Node;
+    evt: TouchEvent;
+  }) => {
+    const stage = event.target.getStage();
+    const pointer = stage?.getPointerPosition();
+    const clickedOnEmptyStage =
+      event.target === stage || event.target === boardBackgroundRef.current;
+
+    if (clickedOnEmptyStage && pointer) {
+      appendNavigationInspectEntry({
+        kind: "input",
+        corridor: "touch-pan-drag",
+        summary: "Touch pan start",
+        detail: `pointer ${Math.round(pointer.x)},${Math.round(
+          pointer.y
+        )} · touches ${event.evt.touches.length}`,
+      });
+    }
+
+    handleStageMouseDown(event);
+  };
+  const handleStageTouchMove = (event: {
+    target: Konva.Node;
+    evt: TouchEvent;
+  }) => {
+    const pointer = event.target.getStage()?.getPointerPosition();
+    const panState = panStateRef.current;
+
+    if (panState?.isPanning && pointer) {
+      armPendingViewportCause(
+        "touch-pan-drag",
+        "Touch drag pan",
+        `pointer ${Math.round(pointer.x)},${Math.round(pointer.y)} · touches ${
+          event.evt.touches.length
+        }`,
+        100
+      );
+    }
+
+    handleStageMouseMove(event);
+  };
   const handleStageTouchEnd = handleStageMouseUp;
   const handleStageWheel = (event: {
     evt: WheelEvent;
     target: Konva.Node;
   }) => {
     event.evt.preventDefault();
+
+    if (!event.evt.ctrlKey) {
+      const panDelta = getWheelPanDelta({
+        deltaMode: event.evt.deltaMode,
+        deltaX: event.evt.deltaX,
+        deltaY: event.evt.deltaY,
+      });
+
+      appendNavigationInspectEntry({
+        kind: "input",
+        corridor: "wheel-pan",
+        summary: "Wheel pan input",
+        detail: `deltaMode ${event.evt.deltaMode} · deltaX ${event.evt.deltaX.toFixed(
+          2
+        )} · deltaY ${event.evt.deltaY.toFixed(2)} · panX ${panDelta.x.toFixed(
+          2
+        )} · panY ${panDelta.y.toFixed(2)} · ctrl false`,
+      });
+      armPendingViewportCause(
+        "wheel-pan",
+        "Wheel pan applied",
+        `deltaMode ${event.evt.deltaMode} · panX ${panDelta.x.toFixed(
+          2
+        )} · panY ${panDelta.y.toFixed(2)}`,
+        250
+      );
+      setStagePosition((current) => ({
+        x: current.x - panDelta.x,
+        y: current.y - panDelta.y,
+      }));
+      return;
+    }
 
     const oldScale = stageScale;
     const pointer = event.target.getStage()?.getPointerPosition();
@@ -4485,6 +5049,24 @@ export default function BoardStage({
       newScale,
     });
 
+    appendNavigationInspectEntry({
+      kind: "input",
+      corridor: "wheel-zoom",
+      summary: `Wheel zoom ${direction > 0 ? "in" : "out"}`,
+      detail: `deltaY ${event.evt.deltaY.toFixed(2)} · pointer ${Math.round(
+        pointer.x
+      )},${Math.round(pointer.y)} · oldScale ${oldScale.toFixed(
+        3
+      )} · newScale ${newScale.toFixed(3)} · ctrl true`,
+    });
+    armPendingViewportCause(
+      "wheel-zoom",
+      `Wheel zoom ${direction > 0 ? "in" : "out"} applied`,
+      `pointer ${Math.round(pointer.x)},${Math.round(
+        pointer.y
+      )} · oldScale ${oldScale.toFixed(3)} · newScale ${newScale.toFixed(3)}`,
+      250
+    );
     setStageScale(newScale);
     setStagePosition(newPosition);
   };
@@ -4511,6 +5093,18 @@ export default function BoardStage({
     if (buttonKey === "clear-all") {
       clearImageDrawing(imageId);
     }
+  };
+
+  const handleStageContextMenu = (event: { evt: PointerEvent }) => {
+    if (!(event.evt instanceof MouseEvent)) {
+      return;
+    }
+
+    event.evt.preventDefault();
+    setBoardContextMenuState({
+      clientX: event.evt.clientX,
+      clientY: event.evt.clientY,
+    });
   };
 
   return (
@@ -4658,6 +5252,12 @@ export default function BoardStage({
         objectSemanticsHoverState={objectSemanticsHoverState}
         objectSemanticsRows={inspectedObjectSemanticsRows}
         isObjectSemanticsTooltipVisible={isObjectSemanticsTooltipVisible}
+        boardContextMenuState={boardContextMenuState}
+        boardContextMenuRef={boardContextMenuRef}
+        onShowBoardMenuAction={() => {
+          setBoardContextMenuState(null);
+          recoverBoardViewportToCenteredMinScale();
+        }}
       />
 
       <BoardStageScene
@@ -4693,6 +5293,9 @@ export default function BoardStage({
         isSelectedImageLockedByAnotherParticipant={
           isSelectedImageLockedByAnotherParticipant
         }
+        isSpacePanActive={isSpacePanActive}
+        isSpacePanDragging={isSpacePanDragging}
+        isMiddleMousePanDragging={isMiddleMousePanDragging}
         onStageMouseDown={handleStageMouseDown}
         onStageMouseMove={handleStageMouseMove}
         onStageMouseUp={handleStageMouseUp}
@@ -4703,6 +5306,7 @@ export default function BoardStage({
         onStageWheel={handleStageWheel}
         onBoardBackgroundMouseDown={handleBoardBackgroundMouseDown}
         updateObjectSemanticsHover={updateObjectSemanticsHover}
+        onStageContextMenu={handleStageContextMenu}
         clearObjectSemanticsHover={clearObjectSemanticsHover}
         getImageDrawingLock={getImageDrawingLock}
         finishImageDrawingMode={finishImageDrawingMode}
