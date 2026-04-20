@@ -30,6 +30,7 @@ type DiceSpikeOverlayProps = {
 
 const NEUTRAL_DICE_COLOR = "#94a3b8";
 const SHARED_ROLL_TTL_MS = 5000;
+const DICE_OVERLAY_FADE_MS = 160;
 const DICE_TRAY_ITEMS = ["d4", "d6", "d8", "d10", "2d10", "d12", "d20"] as const;
 type DiceTrayItem = (typeof DICE_TRAY_ITEMS)[number];
 type PendingDicePool = Record<DiceTrayItem, number>;
@@ -79,6 +80,7 @@ export function DiceSpikeOverlay({
   const diceBoxRef = useRef<DiceBoxInstance | null>(null);
   const diceConnectionRef = useRef<RoomDiceConnection | null>(null);
   const cleanupTimeoutsRef = useRef<Record<string, number>>({});
+  const fadeCleanupTimeoutRef = useRef<number | null>(null);
   const playbackQueueRef = useRef(Promise.resolve());
   const liveEventIdsRef = useRef<Set<string>>(new Set());
   const scheduledEventIdsRef = useRef<Set<string>>(new Set());
@@ -88,6 +90,7 @@ export function DiceSpikeOverlay({
   const [isReady, setIsReady] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isOverlayFadingOut, setIsOverlayFadingOut] = useState(false);
   const [pendingPool, setPendingPool] = useState<PendingDicePool>(() =>
     createEmptyPendingPool()
   );
@@ -158,6 +161,10 @@ export function DiceSpikeOverlay({
         window.clearTimeout(timeoutId);
       });
       cleanupTimeoutsRef.current = {};
+      if (fadeCleanupTimeoutRef.current !== null) {
+        window.clearTimeout(fadeCleanupTimeoutRef.current);
+        fadeCleanupTimeoutRef.current = null;
+      }
 
       diceBoxRef.current?.clearDice();
       diceBoxRef.current = null;
@@ -188,6 +195,7 @@ export function DiceSpikeOverlay({
   useEffect(() => {
     diceBoxRef.current?.clearDice();
     setIsPublishing(false);
+    setIsOverlayFadingOut(false);
     setPendingPool(createEmptyPendingPool());
     playbackQueueRef.current = Promise.resolve();
     liveEventIdsRef.current = new Set();
@@ -199,6 +207,10 @@ export function DiceSpikeOverlay({
       window.clearTimeout(timeoutId);
     });
     cleanupTimeoutsRef.current = {};
+    if (fadeCleanupTimeoutRef.current !== null) {
+      window.clearTimeout(fadeCleanupTimeoutRef.current);
+      fadeCleanupTimeoutRef.current = null;
+    }
   }, [roomId]);
 
   const liveRollEvents = useMemo(() => {
@@ -234,6 +246,15 @@ export function DiceSpikeOverlay({
     liveEventIdsRef.current = new Set(liveRollEvents.map((event) => event.id));
 
     if (liveRollEvents.length > 0) {
+      if (fadeCleanupTimeoutRef.current !== null) {
+        window.clearTimeout(fadeCleanupTimeoutRef.current);
+        fadeCleanupTimeoutRef.current = null;
+      }
+
+      if (isOverlayFadingOut) {
+        setIsOverlayFadingOut(false);
+      }
+
       return;
     }
 
@@ -244,17 +265,33 @@ export function DiceSpikeOverlay({
             return;
           }
 
-          diceBoxRef.current?.clearDice();
-          sceneHasDiceRef.current = false;
-          scheduledEventIdsRef.current = new Set();
-          sceneEventIdsRef.current = new Set();
-          playedEventIdsRef.current = new Set();
+          setIsOverlayFadingOut(true);
+
+          if (fadeCleanupTimeoutRef.current !== null) {
+            window.clearTimeout(fadeCleanupTimeoutRef.current);
+          }
+
+          fadeCleanupTimeoutRef.current = window.setTimeout(() => {
+            fadeCleanupTimeoutRef.current = null;
+
+            if (liveEventIdsRef.current.size > 0 || !sceneHasDiceRef.current) {
+              setIsOverlayFadingOut(false);
+              return;
+            }
+
+            diceBoxRef.current?.clearDice();
+            sceneHasDiceRef.current = false;
+            scheduledEventIdsRef.current = new Set();
+            sceneEventIdsRef.current = new Set();
+            playedEventIdsRef.current = new Set();
+            setIsOverlayFadingOut(false);
+          }, DICE_OVERLAY_FADE_MS);
         })
         .catch((clearError) => {
           console.error("Failed to clear shared dice scene", clearError);
         });
     }
-  }, [liveRollEvents]);
+  }, [isOverlayFadingOut, liveRollEvents]);
 
   useEffect(() => {
     const diceBox = diceBoxRef.current;
@@ -299,6 +336,13 @@ export function DiceSpikeOverlay({
           const notation = buildRollNotation(event.outcomes);
 
           setError(null);
+          if (fadeCleanupTimeoutRef.current !== null) {
+            window.clearTimeout(fadeCleanupTimeoutRef.current);
+            fadeCleanupTimeoutRef.current = null;
+          }
+          if (isOverlayFadingOut) {
+            setIsOverlayFadingOut(false);
+          }
           await activeDiceBox.updateConfig({
             theme_customColorset: createActorColorset(actorColor),
           });
@@ -380,6 +424,8 @@ export function DiceSpikeOverlay({
           position: "fixed",
           inset: 0,
           pointerEvents: "none",
+          opacity: isOverlayFadingOut ? 0 : 1,
+          transition: `opacity ${DICE_OVERLAY_FADE_MS}ms ease-out`,
           zIndex: 30,
         }}
       >
