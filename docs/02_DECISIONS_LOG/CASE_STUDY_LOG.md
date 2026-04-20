@@ -9,6 +9,42 @@
 
 ---
 
+## 2026-04-20 — Demo 2 got a canonical execution order on the current architecture
+
+### Type
+- planning
+- execution
+- decision
+
+### Context
+После фиксации Demo 2 requirements проекту нужен был один execution order,
+который не смешивает product decisions, risk probes и implementation passes.
+
+### Decision / change
+Зафиксирован такой порядок:
+
+1. dice concurrency validation;
+2. token-creation UX decision;
+3. video default/fallback contract;
+4. token-creation implementation;
+5. video implementation;
+6. drawing tools implementation;
+7. dice UX tightening;
+8. demo integration QA and release prep.
+
+### Why
+Этот порядок:
+
+- сначала закрывает dice/video/token decisions;
+- потом собирает demo-critical capabilities;
+- потом делает dice-feel pass и финальную demo QA.
+
+### Result
+У demo chapter теперь есть не только requirements, но и canonical sequence for
+implementation planning.
+
+---
+
 ## 2026-04-20 — Demo-first planning pivot parked the runtime migration track until after release
 
 ### Type

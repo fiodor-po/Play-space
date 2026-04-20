@@ -200,6 +200,17 @@ Current demo requirement set:
 - token creation must move beyond the current single-token baseline, with
   `dock/tray` versus `button` still open.
 
+Current Demo 2 execution order:
+
+1. dice concurrency validation;
+2. token-creation UX decision;
+3. video default/fallback contract;
+4. token-creation implementation;
+5. video implementation;
+6. drawing tools implementation;
+7. dice UX tightening;
+8. demo integration QA and release prep.
+
 Current target-architecture truth is now recorded explicitly in:
 
 - `docs/04_ARCHITECTURE/01_RUNTIME/board-runtime-target-architecture.md`

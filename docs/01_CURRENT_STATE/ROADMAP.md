@@ -188,6 +188,17 @@ Current demo requirement set:
 - token creation gets a stronger path than the current single-token baseline,
   with `dock/tray` versus `button` still open as a product choice.
 
+Current Demo 2 execution order:
+
+1. dice concurrency validation;
+2. token-creation UX decision;
+3. video default/fallback contract;
+4. token-creation implementation;
+5. video implementation;
+6. drawing tools implementation;
+7. dice UX tightening;
+8. demo integration QA and release prep.
+
 Current creator-color truth now looks like this:
 
 - room-scoped `participantAppearance` now stores last-known participant color and
