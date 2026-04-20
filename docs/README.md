@@ -1,76 +1,129 @@
-# Documentation Index
+# Карта документации
 
-This is the fastest index for the repo's working docs.
+`docs/` теперь разделён по роли документа.
 
-## Onboarding
+Главная цель структуры:
 
-- `../README.md` — top-level project overview, install, startup, validation
-- `../AGENTS.md` — repo guardrails and strategist/executor workflow
-- `EXECUTOR_QUICKSTART.md` — quick entry path for a fresh implementation thread
-- `ARCHITECTURE.md` — concise runtime/system overview
+- отделить current control docs от durable truth;
+- отделить product docs от architecture docs;
+- отделить agent-operating context от общей проектной документации;
+- отделить execution artifacts от canonical docs;
+- держать archive отдельно от живого слоя.
 
-## Architecture / System Understanding
+## Быстрый вход
 
-- `ARCHITECTURE.md` — runtime pieces and deployment shape
-- `room-behavior-spec.md` — current room lifecycle semantics
-- `room-memory-model.md` — state categories and memory boundaries
-- `indication-design.md` — canonical behavior indication model
-- `color-model-design.md` — participant/color semantics
-- `room-loading-progress-async-state-chapter.md` — active chapter control doc for room-open observability, phase diagnostics, and later async-state UI
-- `board-runtime-target-architecture.md` — strategist target architecture memo for room runtime, document store, tools, persistence, and diagnostics boundaries
-- `board-navigation-secondary-click-chapter.md` — active chapter control doc for board navigation, desktop pan/zoom behavior, and placeholder secondary click
-- `board-object-controls-ui-layer.md` — active chapter control doc for the board-object control layer
-- `board-object-interaction-model.md` — high-level model for board-object geometry, interaction space, and viewport behavior
-- `board-object-indication-matrix.md` — normalized indication matrix for abstract board objects and current object families
-- `board-object-interaction-matrix.md` — working matrix of board-object interactions, local view, and remote-facing view
-- `property-lww-sync-experiment-plan.md` — accepted migration track for Figma-like property-level sync
-- `design-system-control-state-matrix.md` — current control-family state matrix and current-track rollout scope
-- `participant-color-tokenization-draft.md` — current draft model for participant-color tokenization inside the active `UI controls polish` chapter
-- `dice-spike-design.md` — accepted dice-layer direction
-- `governance-runtime-design.md` and `governance-model-design.md` — governance direction
+Для живого входа в проект сначала открывать:
 
-## Local Development / Operations
+- [`../README.md`](/Users/fedorpodrezov/Developer/play-space-alpha/README.md)
+- [`../AGENTS.md`](/Users/fedorpodrezov/Developer/play-space-alpha/AGENTS.md)
+- [`00_AGENT_OS/DOC_SYSTEM_RULES.md`](/Users/fedorpodrezov/Developer/play-space-alpha/docs/00_AGENT_OS/DOC_SYSTEM_RULES.md)
+- [`01_CURRENT_STATE/ROADMAP.md`](/Users/fedorpodrezov/Developer/play-space-alpha/docs/01_CURRENT_STATE/ROADMAP.md)
+- [`00_AGENT_OS/PLANS.md`](/Users/fedorpodrezov/Developer/play-space-alpha/docs/00_AGENT_OS/PLANS.md)
+- [`03_PRODUCT/00_OVERVIEW/PRODUCT_FOUNDATION.md`](/Users/fedorpodrezov/Developer/play-space-alpha/docs/03_PRODUCT/00_OVERVIEW/PRODUCT_FOUNDATION.md)
+- [`00_AGENT_OS/CURRENT_CONTEXT.md`](/Users/fedorpodrezov/Developer/play-space-alpha/docs/00_AGENT_OS/CURRENT_CONTEXT.md)
 
-- `dev-workflows.md` — canonical local startup guide
-- `livekit-local-dev.md` — LiveKit-specific local debugging and expectations
-- `lan-https-trust.md` — LAN HTTPS certificate/trust setup
-- `hosted-alpha-deployment-plan.md` — current hosted deployment shape and smoke expectations
+Потом открывать только нужный тематический кластер.
 
-## Planning / Roadmap / Context
+## Новая структура
 
-- `../ROADMAP.md` — live project priorities and backlog
-- `../PRODUCT-BACKLOG.md` — live product backlog with tags, rough edges, and later tasks
-- `../PLANS.md` — ExecPlan rules for larger work
-- `../play-space-project-foundation.md` — stable product/architecture frame
-- `../play-space-alpha_current-context.md` — current handoff/operational context
-- `review-followups-log.md` — concrete review findings and deferred follow-up actions
-- `room-document-persistence-target-memo.md` — canonical technical target for the room-document replica migration track
-- `room-document-replica-map.md` — canonical human-facing control map for the room-document replica migration track
-- `room-document-replica-track-plan.md` — canonical agent-facing execution/control plan for the room-document replica migration track
-- `task-brief-template.md` — strategist to executor brief template
-- `task-brief-indexeddb-local-replica-phase-1.md` — narrow implementation brief for the current local-replica storage phase
-- `executor-report-template.md` — executor return format
+- [`00_AGENT_OS/README.md`](/Users/fedorpodrezov/Developer/play-space-alpha/docs/00_AGENT_OS/README.md) — правила работы агентов, handoff context, doc-system rules
+- [`01_CURRENT_STATE/README.md`](/Users/fedorpodrezov/Developer/play-space-alpha/docs/01_CURRENT_STATE/README.md) — roadmap, backlog, follow-ups и active chapters
+- [`02_DECISIONS_LOG/README.md`](/Users/fedorpodrezov/Developer/play-space-alpha/docs/02_DECISIONS_LOG/README.md) — долговременная project memory
+- [`03_PRODUCT/README.md`](/Users/fedorpodrezov/Developer/play-space-alpha/docs/03_PRODUCT/README.md) — product overview, flows, semantics и interface-system cluster
+- [`04_ARCHITECTURE/README.md`](/Users/fedorpodrezov/Developer/play-space-alpha/docs/04_ARCHITECTURE/README.md) — runtime, data/sync и governance architecture docs
+- [`05_OPERATIONS_AND_VALIDATION/README.md`](/Users/fedorpodrezov/Developer/play-space-alpha/docs/05_OPERATIONS_AND_VALIDATION/README.md) — local-dev, deploy, QA и validation docs
+- [`06_EXECUTION/README.md`](/Users/fedorpodrezov/Developer/play-space-alpha/docs/06_EXECUTION/README.md) — plans, execplans, task briefs и templates
+- [`90_ARCHIVE/README.md`](/Users/fedorpodrezov/Developer/play-space-alpha/docs/90_ARCHIVE/README.md) — audits, baselines и closed chapter bundles
 
-## QA / Validation
+## Как пользоваться системой
 
-- `playwright-smoke-harness.md` — local browser smoke harness, commands, current coverage, and accepted runtime allowlist
-- `manual-qa-runbook.md` — detailed manual QA scenarios
-- `stabilization-checklist.md` — short regression/pre-deploy checklist
+Сначала определить роль документа:
 
-## Historical / Narrative Documents
+1. это agent-operating or doc-system rule;
+2. это live current-state control doc;
+3. это product truth;
+4. это architecture truth;
+5. это operational runbook or validation doc;
+6. это execution artifact;
+7. это archive artifact.
 
-- `refactor-audit.md` — historical architecture baseline
-- `refactor-plan.md` — supporting architecture migration companion, not the primary current control doc
-- `../play-space-alpha_case-study-log.md` — decisions, milestones, bugs, workflow lessons
-- `project-health-audit-2026-04-13.md` — repo health snapshot
-- `project-health-audit-2026-04-13-agent-readiness-followup.md` — follow-up findings for onboarding/agent readiness
+Подробные правила зафиксированы в:
 
-## Design-System Migration Cluster
+- [`00_AGENT_OS/DOC_SYSTEM_RULES.md`](/Users/fedorpodrezov/Developer/play-space-alpha/docs/00_AGENT_OS/DOC_SYSTEM_RULES.md)
+- [`01_CURRENT_STATE/ACTIVE_CHAPTERS/README.md`](/Users/fedorpodrezov/Developer/play-space-alpha/docs/01_CURRENT_STATE/ACTIVE_CHAPTERS/README.md)
 
-Open only when the task is actually in that migration chapter:
+## Current canonical docs by role
 
-- `design-system-working-principles.md`
-- `design-system-migration-map.md`
-- `design-system-audit-synthesis.md`
-- `design-system-canonical.md`
-- the related `task-brief-design-system-*.md` files
+### Agent / operating context
+
+- [`../AGENTS.md`](/Users/fedorpodrezov/Developer/play-space-alpha/AGENTS.md)
+- [`00_AGENT_OS/EXECUTOR_QUICKSTART.md`](/Users/fedorpodrezov/Developer/play-space-alpha/docs/00_AGENT_OS/EXECUTOR_QUICKSTART.md)
+- [`00_AGENT_OS/CURRENT_CONTEXT.md`](/Users/fedorpodrezov/Developer/play-space-alpha/docs/00_AGENT_OS/CURRENT_CONTEXT.md)
+- [`00_AGENT_OS/PLANS.md`](/Users/fedorpodrezov/Developer/play-space-alpha/docs/00_AGENT_OS/PLANS.md)
+
+### Current state / planning
+
+- [`01_CURRENT_STATE/ROADMAP.md`](/Users/fedorpodrezov/Developer/play-space-alpha/docs/01_CURRENT_STATE/ROADMAP.md)
+- [`01_CURRENT_STATE/PRODUCT_BACKLOG.md`](/Users/fedorpodrezov/Developer/play-space-alpha/docs/01_CURRENT_STATE/PRODUCT_BACKLOG.md)
+- [`01_CURRENT_STATE/REVIEW_FOLLOWUPS.md`](/Users/fedorpodrezov/Developer/play-space-alpha/docs/01_CURRENT_STATE/REVIEW_FOLLOWUPS.md)
+- [`01_CURRENT_STATE/ACTIVE_CHAPTERS/README.md`](/Users/fedorpodrezov/Developer/play-space-alpha/docs/01_CURRENT_STATE/ACTIVE_CHAPTERS/README.md)
+
+### Product / semantics
+
+- [`03_PRODUCT/00_OVERVIEW/PRODUCT_FOUNDATION.md`](/Users/fedorpodrezov/Developer/play-space-alpha/docs/03_PRODUCT/00_OVERVIEW/PRODUCT_FOUNDATION.md)
+- [`03_PRODUCT/01_FLOWS/room-behavior-spec.md`](/Users/fedorpodrezov/Developer/play-space-alpha/docs/03_PRODUCT/01_FLOWS/room-behavior-spec.md)
+- [`03_PRODUCT/01_FLOWS/participant-identity-design.md`](/Users/fedorpodrezov/Developer/play-space-alpha/docs/03_PRODUCT/01_FLOWS/participant-identity-design.md)
+- [`03_PRODUCT/02_SEMANTICS/color-model-design.md`](/Users/fedorpodrezov/Developer/play-space-alpha/docs/03_PRODUCT/02_SEMANTICS/color-model-design.md)
+- [`03_PRODUCT/02_SEMANTICS/object-semantics-design.md`](/Users/fedorpodrezov/Developer/play-space-alpha/docs/03_PRODUCT/02_SEMANTICS/object-semantics-design.md)
+- [`03_PRODUCT/02_SEMANTICS/indication-design.md`](/Users/fedorpodrezov/Developer/play-space-alpha/docs/03_PRODUCT/02_SEMANTICS/indication-design.md)
+- [`03_PRODUCT/03_INTERFACE_SYSTEM/README.md`](/Users/fedorpodrezov/Developer/play-space-alpha/docs/03_PRODUCT/03_INTERFACE_SYSTEM/README.md)
+
+### Architecture / system understanding
+
+- [`04_ARCHITECTURE/00_OVERVIEW/ARCHITECTURE.md`](/Users/fedorpodrezov/Developer/play-space-alpha/docs/04_ARCHITECTURE/00_OVERVIEW/ARCHITECTURE.md)
+- [`04_ARCHITECTURE/00_OVERVIEW/architecture-layer-map.md`](/Users/fedorpodrezov/Developer/play-space-alpha/docs/04_ARCHITECTURE/00_OVERVIEW/architecture-layer-map.md)
+- [`04_ARCHITECTURE/00_OVERVIEW/architecture-summary.md`](/Users/fedorpodrezov/Developer/play-space-alpha/docs/04_ARCHITECTURE/00_OVERVIEW/architecture-summary.md)
+- [`04_ARCHITECTURE/02_DATA_AND_SYNC/room-memory-model.md`](/Users/fedorpodrezov/Developer/play-space-alpha/docs/04_ARCHITECTURE/02_DATA_AND_SYNC/room-memory-model.md)
+- [`04_ARCHITECTURE/01_RUNTIME/board-runtime-target-architecture.md`](/Users/fedorpodrezov/Developer/play-space-alpha/docs/04_ARCHITECTURE/01_RUNTIME/board-runtime-target-architecture.md)
+- [`04_ARCHITECTURE/01_RUNTIME/board-runtime-staged-roadmap.md`](/Users/fedorpodrezov/Developer/play-space-alpha/docs/04_ARCHITECTURE/01_RUNTIME/board-runtime-staged-roadmap.md)
+- [`04_ARCHITECTURE/02_DATA_AND_SYNC/room-document-persistence-target-memo.md`](/Users/fedorpodrezov/Developer/play-space-alpha/docs/04_ARCHITECTURE/02_DATA_AND_SYNC/room-document-persistence-target-memo.md)
+- [`04_ARCHITECTURE/02_DATA_AND_SYNC/room-document-replica-map.md`](/Users/fedorpodrezov/Developer/play-space-alpha/docs/04_ARCHITECTURE/02_DATA_AND_SYNC/room-document-replica-map.md)
+- [`04_ARCHITECTURE/02_DATA_AND_SYNC/room-document-replica-track-plan.md`](/Users/fedorpodrezov/Developer/play-space-alpha/docs/04_ARCHITECTURE/02_DATA_AND_SYNC/room-document-replica-track-plan.md)
+
+### Operations / validation
+
+- [`05_OPERATIONS_AND_VALIDATION/01_LOCAL_DEV/dev-workflows.md`](/Users/fedorpodrezov/Developer/play-space-alpha/docs/05_OPERATIONS_AND_VALIDATION/01_LOCAL_DEV/dev-workflows.md)
+- [`05_OPERATIONS_AND_VALIDATION/01_LOCAL_DEV/livekit-local-dev.md`](/Users/fedorpodrezov/Developer/play-space-alpha/docs/05_OPERATIONS_AND_VALIDATION/01_LOCAL_DEV/livekit-local-dev.md)
+- [`05_OPERATIONS_AND_VALIDATION/01_LOCAL_DEV/lan-https-trust.md`](/Users/fedorpodrezov/Developer/play-space-alpha/docs/05_OPERATIONS_AND_VALIDATION/01_LOCAL_DEV/lan-https-trust.md)
+- [`05_OPERATIONS_AND_VALIDATION/02_DEPLOYMENT/hosted-alpha-deployment-plan.md`](/Users/fedorpodrezov/Developer/play-space-alpha/docs/05_OPERATIONS_AND_VALIDATION/02_DEPLOYMENT/hosted-alpha-deployment-plan.md)
+- [`05_OPERATIONS_AND_VALIDATION/03_QA_AND_SMOKE/playwright-smoke-harness.md`](/Users/fedorpodrezov/Developer/play-space-alpha/docs/05_OPERATIONS_AND_VALIDATION/03_QA_AND_SMOKE/playwright-smoke-harness.md)
+- [`05_OPERATIONS_AND_VALIDATION/03_QA_AND_SMOKE/manual-qa-runbook.md`](/Users/fedorpodrezov/Developer/play-space-alpha/docs/05_OPERATIONS_AND_VALIDATION/03_QA_AND_SMOKE/manual-qa-runbook.md)
+- [`05_OPERATIONS_AND_VALIDATION/03_QA_AND_SMOKE/stabilization-checklist.md`](/Users/fedorpodrezov/Developer/play-space-alpha/docs/05_OPERATIONS_AND_VALIDATION/03_QA_AND_SMOKE/stabilization-checklist.md)
+
+### Execution artifacts
+
+- [`06_EXECUTION/03_TEMPLATES/task-brief-template.md`](/Users/fedorpodrezov/Developer/play-space-alpha/docs/06_EXECUTION/03_TEMPLATES/task-brief-template.md)
+- [`06_EXECUTION/03_TEMPLATES/executor-report-template.md`](/Users/fedorpodrezov/Developer/play-space-alpha/docs/06_EXECUTION/03_TEMPLATES/executor-report-template.md)
+- [`06_EXECUTION/02_TASK_BRIEFS/task-brief-indexeddb-local-replica-phase-1.md`](/Users/fedorpodrezov/Developer/play-space-alpha/docs/06_EXECUTION/02_TASK_BRIEFS/task-brief-indexeddb-local-replica-phase-1.md)
+
+### Historical baseline / long-running memory
+
+- [`90_ARCHIVE/02_HISTORICAL_BASELINE/refactor-audit.md`](/Users/fedorpodrezov/Developer/play-space-alpha/docs/90_ARCHIVE/02_HISTORICAL_BASELINE/refactor-audit.md)
+- [`90_ARCHIVE/02_HISTORICAL_BASELINE/refactor-plan.md`](/Users/fedorpodrezov/Developer/play-space-alpha/docs/90_ARCHIVE/02_HISTORICAL_BASELINE/refactor-plan.md)
+- [`02_DECISIONS_LOG/CASE_STUDY_LOG.md`](/Users/fedorpodrezov/Developer/play-space-alpha/docs/02_DECISIONS_LOG/CASE_STUDY_LOG.md)
+- [`90_ARCHIVE/01_AUDITS/`](</Users/fedorpodrezov/Developer/play-space-alpha/docs/90_ARCHIVE/01_AUDITS>)
+
+## Current active chapters
+
+Current chapter control docs now live only in:
+
+- [`01_CURRENT_STATE/ACTIVE_CHAPTERS/`](</Users/fedorpodrezov/Developer/play-space-alpha/docs/01_CURRENT_STATE/ACTIVE_CHAPTERS>)
+
+Current chapter examples:
+
+- [`01_CURRENT_STATE/ACTIVE_CHAPTERS/room-loading-progress-and-async-state/CHAPTER.md`](/Users/fedorpodrezov/Developer/play-space-alpha/docs/01_CURRENT_STATE/ACTIVE_CHAPTERS/room-loading-progress-and-async-state/CHAPTER.md)
+- [`01_CURRENT_STATE/ACTIVE_CHAPTERS/board-navigation-and-secondary-click/CHAPTER.md`](/Users/fedorpodrezov/Developer/play-space-alpha/docs/01_CURRENT_STATE/ACTIVE_CHAPTERS/board-navigation-and-secondary-click/CHAPTER.md)
+
+Closed chapter bundles live in:
+
+- [`90_ARCHIVE/03_CLOSED_CHAPTERS/`](</Users/fedorpodrezov/Developer/play-space-alpha/docs/90_ARCHIVE/03_CLOSED_CHAPTERS>)

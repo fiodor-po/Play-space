@@ -85,15 +85,15 @@ Before finishing:
 
 For a fresh narrow implementation thread:
 
-1. read `ROADMAP.md`
+1. read `docs/01_CURRENT_STATE/ROADMAP.md`
 2. read `AGENTS.md`
-3. read `play-space-alpha_current-context.md`
+3. read `docs/00_AGENT_OS/CURRENT_CONTEXT.md`
 4. open the focused doc for the touched area via `docs/README.md`
 
 For non-trivial or semantics-changing work, also read:
 
-- `PLANS.md`
-- `play-space-project-foundation.md`
+- `docs/00_AGENT_OS/PLANS.md`
+- `docs/03_PRODUCT/00_OVERVIEW/PRODUCT_FOUNDATION.md`
 
 Core commands:
 
@@ -108,8 +108,9 @@ Core commands:
 
 Fast orientation docs:
 
-- `docs/EXECUTOR_QUICKSTART.md`
-- `docs/ARCHITECTURE.md`
+- `docs/00_AGENT_OS/DOC_SYSTEM_RULES.md`
+- `docs/00_AGENT_OS/EXECUTOR_QUICKSTART.md`
+- `docs/04_ARCHITECTURE/00_OVERVIEW/ARCHITECTURE.md`
 - `docs/README.md`
 
 ## Current project stage
@@ -181,37 +182,37 @@ This is now a project workflow rule, not just an incidental lesson.
 
 Before non-trivial work, read:
 
-- `ROADMAP.md`
+- `docs/01_CURRENT_STATE/ROADMAP.md`
 - `AGENTS.md`
-- `PLANS.md`
-- `play-space-project-foundation.md`
-- `play-space-alpha_current-context.md`
+- `docs/00_AGENT_OS/PLANS.md`
+- `docs/03_PRODUCT/00_OVERVIEW/PRODUCT_FOUNDATION.md`
+- `docs/00_AGENT_OS/CURRENT_CONTEXT.md`
 
 Then read only the directly relevant focused docs, for example:
 
-- `docs/color-model-design.md`
-- `docs/indication-design.md`
-- `docs/playwright-smoke-harness.md`
-- `docs/room-document-replica-map.md`
-- `docs/room-document-replica-track-plan.md`
-- `docs/room-document-persistence-target-memo.md`
-- `docs/room-behavior-spec.md`
-- `docs/room-memory-model.md`
-- `docs/dev-workflows.md`
-- `docs/manual-qa-runbook.md`
-- `docs/dice-spike-design.md`
-- `docs/hosted-alpha-deployment-plan.md`
+- `docs/03_PRODUCT/02_SEMANTICS/color-model-design.md`
+- `docs/03_PRODUCT/02_SEMANTICS/indication-design.md`
+- `docs/05_OPERATIONS_AND_VALIDATION/03_QA_AND_SMOKE/playwright-smoke-harness.md`
+- `docs/04_ARCHITECTURE/02_DATA_AND_SYNC/room-document-replica-map.md`
+- `docs/04_ARCHITECTURE/02_DATA_AND_SYNC/room-document-replica-track-plan.md`
+- `docs/04_ARCHITECTURE/02_DATA_AND_SYNC/room-document-persistence-target-memo.md`
+- `docs/03_PRODUCT/01_FLOWS/room-behavior-spec.md`
+- `docs/04_ARCHITECTURE/02_DATA_AND_SYNC/room-memory-model.md`
+- `docs/05_OPERATIONS_AND_VALIDATION/01_LOCAL_DEV/dev-workflows.md`
+- `docs/05_OPERATIONS_AND_VALIDATION/03_QA_AND_SMOKE/manual-qa-runbook.md`
+- `docs/03_PRODUCT/01_FLOWS/dice-layer-spec.md`
+- `docs/05_OPERATIONS_AND_VALIDATION/02_DEPLOYMENT/hosted-alpha-deployment-plan.md`
 
 Historical baseline docs:
 
-- `docs/refactor-audit.md`
+- `docs/90_ARCHIVE/02_HISTORICAL_BASELINE/refactor-audit.md`
 
 Supporting migration companion:
 
-- `docs/refactor-plan.md`
+- `docs/90_ARCHIVE/02_HISTORICAL_BASELINE/refactor-plan.md`
 
-Treat `docs/refactor-audit.md` as historical architecture baseline.
-Treat `docs/refactor-plan.md` as supporting architecture migration context, not
+Treat `docs/90_ARCHIVE/02_HISTORICAL_BASELINE/refactor-audit.md` as historical architecture baseline.
+Treat `docs/90_ARCHIVE/02_HISTORICAL_BASELINE/refactor-plan.md` as supporting architecture migration context, not
 as the primary current control doc.
 
 ## Quick repo map
@@ -226,10 +227,10 @@ Top-level working areas:
 - `src/ui/` and `src/ui/system/` — interface/system/debug surfaces
 - `scripts/yjs-dev-server.mjs` — long-running realtime/API backend
 - `api/livekit/token.ts` — narrow hosted LiveKit token fallback
-- `data/` — mutable room snapshot / room identity runtime data
+- `.runtime-data/` — ignored mutable room snapshot / room identity runtime data
 - `docs/` — design docs, runbooks, audits, templates, and task briefs
 
-Use `docs/ARCHITECTURE.md` for a compact runtime overview before reading deeper focused docs.
+Use `docs/04_ARCHITECTURE/00_OVERVIEW/ARCHITECTURE.md` for a compact runtime overview before reading deeper focused docs.
 
 ## Product guardrails
 
@@ -258,10 +259,10 @@ When several options are possible, prefer:
 
 When a change adds or modifies an important multiplayer, remote-state, occupied-state, or interaction-preview indication:
 
-1. read `docs/indication-design.md` first;
+1. read `docs/03_PRODUCT/02_SEMANTICS/indication-design.md` first;
 2. classify the indication into an existing indication family if possible;
 3. reuse the canonical indication source rather than inventing a local variant in the implementation file;
-4. if a genuinely new variant is required, record that distinction in `docs/indication-design.md`.
+4. if a genuinely new variant is required, record that distinction in `docs/03_PRODUCT/02_SEMANTICS/indication-design.md`.
 
 Do not rely on "roughly matches the existing look" as sufficient.
 For indication work, reuse of the canonical source is the default rule.
@@ -311,9 +312,9 @@ Unless a task explicitly requires it, do not:
 
 Current documented env/workflow sources:
 
-- `docs/dev-workflows.md`
-- `docs/livekit-local-dev.md`
-- `docs/hosted-alpha-deployment-plan.md`
+- `docs/05_OPERATIONS_AND_VALIDATION/01_LOCAL_DEV/dev-workflows.md`
+- `docs/05_OPERATIONS_AND_VALIDATION/01_LOCAL_DEV/livekit-local-dev.md`
+- `docs/05_OPERATIONS_AND_VALIDATION/02_DEPLOYMENT/hosted-alpha-deployment-plan.md`
 
 Default policy:
 
@@ -418,8 +419,8 @@ Rules:
 
 Canonical templates:
 
-- `docs/task-brief-template.md`
-- `docs/executor-report-template.md`
+- `docs/06_EXECUTION/03_TEMPLATES/task-brief-template.md`
+- `docs/06_EXECUTION/03_TEMPLATES/executor-report-template.md`
 
 ## When to use analysis-first vs implementation-first
 
@@ -507,7 +508,7 @@ When asked for architecture audit or refactor planning:
 - produce a phased plan before touching production code;
 - implement only one safe phase at a time.
 
-For major refactors or multi-step reorganizations, use an ExecPlan that follows `PLANS.md`.
+For major refactors or multi-step reorganizations, use an ExecPlan that follows `docs/00_AGENT_OS/PLANS.md`.
 
 ## Deployment-readiness mindset
 
@@ -533,7 +534,7 @@ After any meaningful implementation pass:
 - run `npm run smoke:e2e` for board/runtime/recovery/persistence changes;
 - explain what behavior might have regressed;
 - list manual QA steps for the touched flow;
-- if the change touches board/runtime behavior, use `docs/playwright-smoke-harness.md`, `docs/manual-qa-runbook.md` and `docs/stabilization-checklist.md` as the baseline.
+- if the change touches board/runtime behavior, use `docs/05_OPERATIONS_AND_VALIDATION/03_QA_AND_SMOKE/playwright-smoke-harness.md`, `docs/05_OPERATIONS_AND_VALIDATION/03_QA_AND_SMOKE/manual-qa-runbook.md` and `docs/05_OPERATIONS_AND_VALIDATION/03_QA_AND_SMOKE/stabilization-checklist.md` as the baseline.
 
 For docs-only or guidance-only passes, say which commands were intentionally not run if you skipped them.
 
@@ -541,8 +542,8 @@ For docs-only or guidance-only passes, say which commands were intentionally not
 regression checks.
 It does not replace hosted validation or human product judgement.
 If a pass changes replica-track recovery semantics, review bridge-bound smoke
-assertions in `docs/playwright-smoke-harness.md` and
-`docs/room-document-replica-track-plan.md` before treating the current smoke
+assertions in `docs/05_OPERATIONS_AND_VALIDATION/03_QA_AND_SMOKE/playwright-smoke-harness.md` and
+`docs/04_ARCHITECTURE/02_DATA_AND_SYNC/room-document-replica-track-plan.md` before treating the current smoke
 
 ## Access and auth checks
 
@@ -577,41 +578,41 @@ Scope this narrowly:
 
 ### Fast doc routing
 
-- onboarding / repo entry: `README.md`, `docs/README.md`, `docs/EXECUTOR_QUICKSTART.md`
-- architecture overview: `docs/ARCHITECTURE.md`
-- roadmap / current priorities: `ROADMAP.md`
-- current operational context: `play-space-alpha_current-context.md`
-- larger multi-step work planning: `PLANS.md`
-- stable product frame: `play-space-project-foundation.md`
-- room lifecycle / recovery: `docs/room-behavior-spec.md`, `docs/room-memory-model.md`
-- color / participant semantics: `docs/color-model-design.md`
-- indication / multiplayer cues: `docs/indication-design.md`
-- replica migration control: `docs/room-document-replica-map.md`, `docs/room-document-replica-track-plan.md`, `docs/room-document-persistence-target-memo.md`
-- local browser smoke harness: `docs/playwright-smoke-harness.md`
-- local startup and ops: `docs/dev-workflows.md`
-- LiveKit specifics: `docs/livekit-local-dev.md`
-- hosted deploy/runtime assumptions: `docs/hosted-alpha-deployment-plan.md`
-- manual regression checks: `docs/manual-qa-runbook.md`, `docs/stabilization-checklist.md`
-- concrete review follow-ups: `docs/review-followups-log.md`
-- task brief / executor report format: `docs/task-brief-template.md`, `docs/executor-report-template.md`
+- onboarding / repo entry: `README.md`, `docs/README.md`, `docs/00_AGENT_OS/EXECUTOR_QUICKSTART.md`
+- architecture overview: `docs/04_ARCHITECTURE/00_OVERVIEW/ARCHITECTURE.md`
+- roadmap / current priorities: `docs/01_CURRENT_STATE/ROADMAP.md`
+- current operational context: `docs/00_AGENT_OS/CURRENT_CONTEXT.md`
+- larger multi-step work planning: `docs/00_AGENT_OS/PLANS.md`
+- stable product frame: `docs/03_PRODUCT/00_OVERVIEW/PRODUCT_FOUNDATION.md`
+- room lifecycle / recovery: `docs/03_PRODUCT/01_FLOWS/room-behavior-spec.md`, `docs/04_ARCHITECTURE/02_DATA_AND_SYNC/room-memory-model.md`
+- color / participant semantics: `docs/03_PRODUCT/02_SEMANTICS/color-model-design.md`
+- indication / multiplayer cues: `docs/03_PRODUCT/02_SEMANTICS/indication-design.md`
+- replica migration control: `docs/04_ARCHITECTURE/02_DATA_AND_SYNC/room-document-replica-map.md`, `docs/04_ARCHITECTURE/02_DATA_AND_SYNC/room-document-replica-track-plan.md`, `docs/04_ARCHITECTURE/02_DATA_AND_SYNC/room-document-persistence-target-memo.md`
+- local browser smoke harness: `docs/05_OPERATIONS_AND_VALIDATION/03_QA_AND_SMOKE/playwright-smoke-harness.md`
+- local startup and ops: `docs/05_OPERATIONS_AND_VALIDATION/01_LOCAL_DEV/dev-workflows.md`
+- LiveKit specifics: `docs/05_OPERATIONS_AND_VALIDATION/01_LOCAL_DEV/livekit-local-dev.md`
+- hosted deploy/runtime assumptions: `docs/05_OPERATIONS_AND_VALIDATION/02_DEPLOYMENT/hosted-alpha-deployment-plan.md`
+- manual regression checks: `docs/05_OPERATIONS_AND_VALIDATION/03_QA_AND_SMOKE/manual-qa-runbook.md`, `docs/05_OPERATIONS_AND_VALIDATION/03_QA_AND_SMOKE/stabilization-checklist.md`
+- concrete review follow-ups: `docs/01_CURRENT_STATE/REVIEW_FOLLOWUPS.md`
+- task brief / executor report format: `docs/06_EXECUTION/03_TEMPLATES/task-brief-template.md`, `docs/06_EXECUTION/03_TEMPLATES/executor-report-template.md`
 
 ### Color
-`docs/color-model-design.md`
+`docs/03_PRODUCT/02_SEMANTICS/color-model-design.md`
 
 ### Room lifecycle and memory
-- `docs/room-behavior-spec.md`
-- `docs/room-memory-model.md`
+- `docs/03_PRODUCT/01_FLOWS/room-behavior-spec.md`
+- `docs/04_ARCHITECTURE/02_DATA_AND_SYNC/room-memory-model.md`
 
 ### Dev/runtime workflows
-- `docs/dev-workflows.md`
-- `docs/livekit-local-dev.md`
-- `docs/lan-https-trust.md`
+- `docs/05_OPERATIONS_AND_VALIDATION/01_LOCAL_DEV/dev-workflows.md`
+- `docs/05_OPERATIONS_AND_VALIDATION/01_LOCAL_DEV/livekit-local-dev.md`
+- `docs/05_OPERATIONS_AND_VALIDATION/01_LOCAL_DEV/lan-https-trust.md`
 
 ### Dice layer
-`docs/dice-spike-design.md`
+`docs/03_PRODUCT/01_FLOWS/dice-layer-spec.md`
 
 ### Hosted alpha deployment
-`docs/hosted-alpha-deployment-plan.md`
+`docs/05_OPERATIONS_AND_VALIDATION/02_DEPLOYMENT/hosted-alpha-deployment-plan.md`
 
 Do not silently change semantic behavior or deployment assumptions in code unless the relevant design/planning doc is also aligned or explicitly superseded.
 
@@ -619,28 +620,28 @@ Do not silently change semantic behavior or deployment assumptions in code unles
 
 After any meaningful step, decide whether to update:
 
-- `ROADMAP.md`
-- `play-space-alpha_current-context.md`
-- `play-space-alpha_case-study-log.md`
-- `docs/review-followups-log.md`
+- `docs/01_CURRENT_STATE/ROADMAP.md`
+- `docs/00_AGENT_OS/CURRENT_CONTEXT.md`
+- `docs/02_DECISIONS_LOG/CASE_STUDY_LOG.md`
+- `docs/01_CURRENT_STATE/REVIEW_FOLLOWUPS.md`
 
 Rules:
 
-- `play-space-project-foundation.md` changes rarely;
-- `ROADMAP.md` is the live development plan and priority map;
-- `play-space-alpha_current-context.md` is short and operational;
-- `play-space-alpha_case-study-log.md` stores decisions, milestones, bugs, and workflow lessons;
-- `docs/review-followups-log.md` stores concrete review findings that still need later action;
+- `docs/03_PRODUCT/00_OVERVIEW/PRODUCT_FOUNDATION.md` changes rarely;
+- `docs/01_CURRENT_STATE/ROADMAP.md` is the live development plan and priority map;
+- `docs/00_AGENT_OS/CURRENT_CONTEXT.md` is short and operational;
+- `docs/02_DECISIONS_LOG/CASE_STUDY_LOG.md` stores decisions, milestones, bugs, and workflow lessons;
+- `docs/01_CURRENT_STATE/REVIEW_FOLLOWUPS.md` stores concrete review findings that still need later action;
 - do not lose major reasoning between chats.
 
-If a step changes priorities, closes a roadmap item, changes the intended sequence of work, or changes product/deployment direction, update `ROADMAP.md` in the same change set when appropriate.
+If a step changes priorities, closes a roadmap item, changes the intended sequence of work, or changes product/deployment direction, update `docs/01_CURRENT_STATE/ROADMAP.md` in the same change set when appropriate.
 
 ## Review follow-up discipline
 
 When a strategist review, executor review, or read-only audit reveals concrete
 later work:
 
-- record it in `docs/review-followups-log.md`;
+- record it in `docs/01_CURRENT_STATE/REVIEW_FOLLOWUPS.md`;
 - keep the entry concrete:
   - finding
   - why it is deferred
@@ -656,6 +657,6 @@ At chapter or checkpoint closure:
   - stay deferred
   - become the next task in the same chapter
   - become a new later chapter candidate
-- when a new task or chapter is created, reflect it in `ROADMAP.md` and
-  `play-space-alpha_current-context.md` as needed;
+- when a new task or chapter is created, reflect it in `docs/01_CURRENT_STATE/ROADMAP.md` and
+  `docs/00_AGENT_OS/CURRENT_CONTEXT.md` as needed;
 - update the follow-up entry status in the same pass.

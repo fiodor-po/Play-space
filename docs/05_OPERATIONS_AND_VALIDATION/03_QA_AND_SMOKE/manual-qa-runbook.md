@@ -1,0 +1,426 @@
+# Manual QA Runbook
+
+Этот runbook нужен для ручной проверки текущего alpha core и для pre-deploy / post-change smoke testing.
+
+Он опирается на:
+
+- `docs/01_CURRENT_STATE/ROADMAP.md`
+- `docs/05_OPERATIONS_AND_VALIDATION/03_QA_AND_SMOKE/stabilization-checklist.md`
+- `docs/03_PRODUCT/01_FLOWS/room-behavior-spec.md`
+- `docs/05_OPERATIONS_AND_VALIDATION/01_LOCAL_DEV/dev-workflows.md`
+
+## Recommended baseline setup
+
+Минимальный useful setup:
+
+- клиент A: обычное окно браузера
+- клиент B: второе окно / инкогнито / другой браузер
+- комната `alpha-qa-1` для основных shared checks
+- комната `alpha-qa-2` для room-switching checks
+
+Когда видео важно проверить честно, лучше использовать:
+- localhost two-tab path для fast smoke
+- LAN HTTPS path для multi-device media smoke
+
+---
+
+## 1. Single-client board checks
+
+### 1.1. Empty-space panning
+
+- Setup:
+  - открыть комнату `alpha-qa-1`;
+  - убедиться, что на доске есть хотя бы один объект.
+- Exact actions:
+  - кликнуть по пустому месту доски;
+  - потянуть пустое пространство мышью;
+  - повторить после выбора объекта и после снятия выбора.
+- Expected result:
+  - двигается viewport, а не объект;
+  - selection не ломает panning;
+  - panning остаётся ручным и предсказуемым.
+
+### 1.2. Wheel zoom
+
+- Setup:
+  - открыть комнату `alpha-qa-1`.
+- Exact actions:
+  - покрутить колесо мыши над разными точками доски;
+  - zoom in, потом zoom out.
+- Expected result:
+  - zoom anchored around pointer;
+  - после zoom доска остаётся usable;
+  - selection, overlays и panning не ломаются.
+
+### 1.3. Participant marker local interactions
+
+- Exact actions:
+  - убедиться, что у текущего участника уже есть marker;
+  - переместить marker;
+  - поменять zoom и снова переместить marker.
+- Expected result:
+  - marker двигается без ошибок;
+  - marker остаётся viewport-stable по размеру;
+  - marker move не ломает selection и board control.
+
+### 1.4. Text-card local interactions
+
+- Exact actions:
+  - нажать `Add note`;
+  - перетащить note за handle в header;
+  - кликнуть по body;
+  - double-click по body;
+  - изменить текст и сохранить.
+- Expected result:
+  - header handle остаётся основным способом drag;
+  - body double-click открывает editing;
+  - edit сохраняется без побочных эффектов.
+
+### 1.5. Image interactions
+
+- Exact actions:
+  - добавить image;
+  - переместить её;
+  - изменить размер;
+  - выбрать её;
+  - при необходимости проверить draw mode отдельно.
+- Expected result:
+  - drag/resize ведут себя стабильно;
+  - image interaction не ломает unrelated board control.
+
+---
+
+## 2. Two-client shared board checks
+
+### 2.1. Presence / cursors
+
+- Setup:
+  - открыть `alpha-qa-1` в клиентах A и B;
+  - войти под разными именами/цветами.
+- Exact actions:
+  - подвигать курсором в A;
+  - подвигать курсором в B;
+  - закрыть B.
+- Expected result:
+  - каждый клиент видит удалённый курсор и label второго клиента;
+  - локальный курсор не дублируется как remote;
+  - после закрытия B его presence исчезает.
+
+### 2.2. Shared participant markers
+
+- Exact actions:
+  - в клиенте A переместить свой marker;
+  - подвигать marker ещё раз после zoom;
+  - смотреть клиент B.
+- Expected result:
+  - marker move отражается в клиенте B;
+  - marker остаётся readable и viewport-stable.
+
+### 2.3. Shared text-cards
+
+- Exact actions:
+  - в A создать note;
+  - перетащить её;
+  - отредактировать текст;
+  - смотреть B.
+- Expected result:
+  - create / move / edit отражаются в B;
+  - header drag-handle остаётся рабочим.
+
+### 2.4. Shared images
+
+- Exact actions:
+  - в A добавить image;
+  - переместить image;
+  - изменить размер image;
+  - смотреть B.
+- Expected result:
+  - committed image state приходит в B;
+  - drag/resize не ломают image state.
+
+---
+
+## 3. Room lifecycle and recovery checks
+
+### 3.1. Leave room, join another room, return
+
+- Setup:
+  - открыть `alpha-qa-1`, создать там несколько объектов;
+  - подготовить `alpha-qa-2` как отдельную комнату.
+- Exact actions:
+  - в A нажать `Leave room`;
+  - на entry screen выбрать `alpha-qa-2` и войти;
+  - затем через entry screen вернуться в `alpha-qa-1`.
+- Expected result:
+  - `Leave room` возвращает на entry screen;
+  - URL и active room меняются предсказуемо;
+  - presence и shared objects не протекают между комнатами;
+  - при возврате показывается live state исходной комнаты.
+
+### 3.2. Remote preview should not leak across rooms
+
+- Setup:
+  - открыть `alpha-qa-1` в A и B;
+  - в B начать drag или transform image так, чтобы в A был виден remote preview.
+- Exact actions:
+  - пока preview активен, в A нажать `Leave room`;
+  - на entry screen войти в `alpha-qa-2`.
+- Expected result:
+  - в новой комнате не остаётся ghost preview из предыдущей комнаты.
+
+### 3.3. Refresh in active room
+
+- Setup:
+  - открыть `alpha-qa-1`;
+  - создать/подвигать несколько объектов;
+  - слегка изменить viewport.
+- Exact actions:
+  - сделать browser refresh.
+- Expected result:
+  - participant session для этой комнаты сохраняется в том же браузере;
+  - viewport восстанавливается;
+  - клиент снова подключается к current live room state.
+
+### 3.4. Same-browser second-tab attach
+
+- Setup:
+  - открыть `alpha-qa-1` в A;
+  - создать хотя бы один объект, чтобы joined state был легко заметен.
+- Exact actions:
+  - в том же browser profile открыть вторую вкладку B с той же комнатой;
+  - не проходить отдельный fresh join в B, если вкладка already attached itself.
+- Expected result:
+  - B подхватывает active room session того же browser profile;
+  - B остаётся в joined state;
+  - в B visible settled state остаётся `live-active`;
+  - joined board state совпадает с A.
+
+### 3.5. Rejoin while room is still live
+
+- Setup:
+  - открыть `alpha-qa-1` в A и B;
+  - оставить B в комнате.
+- Exact actions:
+  - в A закрыть вкладку или выйти;
+  - снова открыть `alpha-qa-1` в том же браузере.
+- Expected result:
+  - A снова видит текущее live state комнаты.
+
+### 3.6. Durable snapshot smoke
+
+- Setup:
+  - в `alpha-qa-1` создать несколько объектов;
+  - убедиться, что room state уже был сохранён обычным рабочим циклом.
+- Exact actions:
+  - убрать live room state scenario настолько, насколько это возможно в текущем dev flow;
+  - снова зайти в комнату.
+- Expected result:
+  - если live room уже отсутствует, alpha делает local-first open when usable local replica exists and then settles through replica convergence;
+  - это best-effort alpha behavior, а не final persistence guarantee.
+- Also verify:
+  - в Dev tools или console/logs видно settled recovery outcome и settled slice sources;
+  - если recovery не удался, ошибка выглядит диагностируемой, а не silent.
+- Note:
+  - если этот сценарий ведёт себя странно, это уже не "известная нормальность по контракту", а повод перепроверить current durable path.
+
+### 3.7. Config failure visibility smoke
+
+- Setup:
+  - использовать environment с намеренно отсутствующим или неправильным hosted config only if это безопасно для локальной smoke-проверки;
+  - не менять product semantics, проверять только diagnostics.
+- Exact actions:
+  - открыть приложение;
+  - посмотреть console / backend logs;
+  - если видео включено, попробовать `Join media` при misconfigured LiveKit path.
+- Expected result:
+  - видно, какие runtime URLs реально используются;
+  - fallback assumptions не остаются полностью silent;
+  - media/token failure не схлопывается в полностью безликую ошибку.
+
+### 3.8. Hosted hydration benchmark checklist
+
+Этот сценарий нужен для measurement-first pass по room-open timing и staged
+hydration shape.
+
+- Capture these user-facing timings for each scenario:
+  - `join click -> room shell visible`
+  - `join click -> board surface visible`
+  - `join click -> first object visible`
+  - `join click -> first token visible`
+  - `join click -> first note visible`
+  - `join click -> first image visible`
+  - `join click -> all expected objects visible`
+  - `join click -> room feels usable`
+- Also capture these phase gaps:
+  - `room shell -> board surface`
+  - `board surface -> first object`
+  - `first object -> first token`
+  - `first token -> first note`
+  - `first note -> first image`
+  - `first object -> all expected objects`
+- Also record these internal runtime events when inspectability or logs make
+  them visible:
+  - local replica read start / end
+  - durable snapshot read start / end / fail
+  - tokens realtime connection start / ready
+  - images realtime connection start / ready
+  - textCards realtime connection start / ready
+  - settled recovery reached
+  - first token visible in scene
+  - first note visible in scene
+  - first image visible in scene
+- Run the benchmark on these scenarios:
+  - fresh empty room
+  - fresh room with token only
+  - fresh room with note + image
+  - same tab reopen
+  - new tab in the same browser
+  - fresh incognito / fresh browser context
+  - two live room contexts in one browser session
+  - room with many images
+  - room with many large images
+- Record these qualitative observations:
+  - one-block hydration vs staged waves
+  - which slice consistently appears first
+  - which slice consistently lags
+  - whether many-images and large-images rooms amplify the tail
+  - whether multi-context scenarios amplify the tail
+
+---
+
+## 4. Image draw-mode checks
+
+### 4.1. Draw / Save / Clear in one client
+
+- Exact actions:
+  - выбрать image;
+  - нажать `Draw`;
+  - нарисовать stroke;
+  - нажать `Save`;
+  - затем `Clear`.
+- Expected result:
+  - draw mode включается только явно;
+  - `Save` коммитит результат;
+  - `Clear` очищает strokes только у этой image.
+
+### 4.2. Awareness lock between two clients
+
+- Setup:
+  - открыть одну и ту же image у A и B.
+- Exact actions:
+  - в A нажать `Draw`;
+  - попробовать начать drawing в B на той же image;
+  - затем завершить drawing в A и проверить B ещё раз.
+- Expected result:
+  - B не получает параллельный draw control над той же image, пока lock активен;
+  - после завершения drawing mode в A lock снимается.
+
+---
+
+## 5. Dice smoke checks
+
+### 5.1. Local dice tray
+
+- Exact actions:
+  - проверить, что tray доступен;
+  - сделать броски `d4 / d6 / d8 / d10 / d12 / d20 / d100`.
+- Expected result:
+  - броски запускаются без визуального развала overlay;
+  - результат выглядит осмысленно;
+  - tray остаётся usable и не ломает board interaction.
+
+### 5.2. Shared public roll
+
+- Setup:
+  - открыть комнату в A и B.
+- Exact actions:
+  - в A бросить несколько dice;
+  - проверить B.
+- Expected result:
+  - оба клиента видят один и тот же public roll moment;
+  - финальный visible result совпадает;
+  - цвет dice совпадает с color rolling participant.
+
+### 5.3. Sequential actor-color check
+
+- Setup:
+  - A и B под разными цветами.
+- Exact actions:
+  - сначала роллит A;
+  - затем роллит B.
+- Expected result:
+  - actor color корректно меняется от ролля к роллю;
+  - нет viewer-local color substitution.
+
+---
+
+## 6. Media dock smoke checks
+
+### 6.1. Localhost media join
+
+- Recommended setup:
+  - `npm run dev:local`
+- Exact actions:
+  - открыть room;
+  - зайти в media dock;
+  - включить/выключить mic/cam;
+  - выйти.
+- Expected result:
+  - join / leave работают;
+  - intentional leave не выглядит как error;
+  - stale banners не остаются после successful recovery.
+
+### 6.2. Two-tab basic media smoke
+
+- Setup:
+  - localhost two-tab or two-browser.
+- Exact actions:
+  - зайти в room в двух клиентах;
+  - проверить local/remote tile appearance;
+  - toggles mic/cam.
+- Expected result:
+  - базовый local/remote AV path работает;
+  - media dock не ломает board shell.
+
+### 6.3. LAN secure-origin smoke
+
+- Recommended setup:
+  - `npm run dev:lan`
+- Exact actions:
+  - открыть app с другого устройства;
+  - проверить secure context и media availability.
+- Expected result:
+  - URL открывается по HTTPS;
+  - `window.isSecureContext === true`;
+  - `navigator.mediaDevices` доступен;
+  - basic join works if trust is correctly configured.
+
+---
+
+## 7. Highest-risk flows after any BoardStage-related change
+
+- empty-space panning
+- wheel zoom around pointer
+- room switching with live shared objects
+- remote image preview during room switch
+- image drag / resize
+- image draw mode: `Draw / Save / Clear`
+- awareness lock on the same image in two clients
+- text-card drag-handle in header
+- text-card body double-click editing
+
+## 8. Highest-risk flows before hosted alpha
+
+- room entry / rejoin / refresh semantics
+- durable snapshot smoke
+- dice public roll consistency
+- media join/leave/toggle state handling
+- env/runtime assumptions in `dev:local` and `dev:lan`
+
+## 9. Known current alpha limitations
+
+- durable room memory остаётся best-effort, а не final collaborative durable platform;
+- media dock UX остаётся spike-level;
+- local CA trust ergonomics для LAN media testing остаются rough;
+- dice layer usable, но всё ещё имеет residual polish debt;
+- hosted alpha environment ещё не собран, поэтому некоторые проблемы могут проявиться только после deploy.
