@@ -108,6 +108,7 @@ type SmallFloatingActionButtonProps = {
   y: number;
   label: string;
   recipe?: ButtonRecipe;
+  strokeWidth?: number;
   onClick: () => void;
 };
 
@@ -144,6 +145,7 @@ type BoardStageSceneProps = {
   remoteTextCardEditingStates: Record<string, TextCardEditingPresence>;
   remoteTextCardResizeStates: Record<string, TextCardResizePresence>;
   selectedImageObject: BoardObject | null;
+  selectedTokenObject: BoardObject | null;
   selectedImageControlAnchor: {
     x: number;
     y: number;
@@ -314,6 +316,7 @@ function SmallFloatingActionButton({
   y,
   label,
   recipe = buttonRecipes.secondary.small,
+  strokeWidth = 1,
   onClick,
 }: SmallFloatingActionButtonProps) {
   const metrics = resolveCanvasButtonMetrics(recipe);
@@ -370,7 +373,7 @@ function SmallFloatingActionButton({
         cornerRadius={metrics.borderRadius}
         fill={toneStyles.fill}
         stroke={toneStyles.stroke}
-        strokeWidth={1}
+        strokeWidth={strokeWidth}
       />
       <Text
         x={0}
@@ -419,6 +422,7 @@ export function BoardStageScene({
   remoteTextCardEditingStates,
   remoteTextCardResizeStates,
   selectedImageObject,
+  selectedTokenObject,
   selectedImageControlAnchor,
   selectedImageControlButtons,
   remoteSelectedObjects,
@@ -1157,7 +1161,7 @@ export function BoardStageScene({
                 object={object}
                 position={getTokenAnchorPosition(object)}
                 stageScale={stageScale}
-                isSelected={false}
+                isSelected={selectedTokenObject?.id === object.id}
                 selectionColor={participantSession.color}
                 fillColor={getTokenFillColor(object)}
                 draggable={!isPanInteractionOverrideActive}
@@ -1275,6 +1279,7 @@ export function BoardStageScene({
                       y={-(buttonMetrics.minHeight + IMAGE_ATTACHED_CONTROLS_OUTER_OFFSET_Y)}
                       label={button.label}
                       recipe={button.recipe}
+                      strokeWidth={2}
                       onClick={() => {
                         onSelectedImageControlClick(
                           button.key,

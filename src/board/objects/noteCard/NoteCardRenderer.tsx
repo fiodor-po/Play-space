@@ -10,6 +10,10 @@ import {
 } from "../../constants";
 import type { BoardObject } from "../../../types/board";
 
+const NOTE_CARD_AUTHOR_STRIPE_HEIGHT = 8;
+const NOTE_CARD_AUTHOR_STRIPE_FALLBACK = "#94a3b8";
+const NOTE_CARD_CORNER_RADIUS = 10;
+
 type NoteCardRendererProps = {
   object: BoardObject;
   displayX?: number;
@@ -57,6 +61,8 @@ export function NoteCardRenderer({
   const cardY = displayY ?? object.y;
   const cardWidth = displayWidth ?? object.width;
   const cardHeight = displayHeight ?? object.height;
+  const authorStripeColor =
+    object.authorColor?.trim() || NOTE_CARD_AUTHOR_STRIPE_FALLBACK;
 
   return (
     <Group
@@ -65,6 +71,29 @@ export function NoteCardRenderer({
       y={cardY}
       width={cardWidth}
       height={cardHeight}
+      clipFunc={(context) => {
+        context.beginPath();
+        context.moveTo(NOTE_CARD_CORNER_RADIUS, 0);
+        context.lineTo(cardWidth - NOTE_CARD_CORNER_RADIUS, 0);
+        context.quadraticCurveTo(cardWidth, 0, cardWidth, NOTE_CARD_CORNER_RADIUS);
+        context.lineTo(cardWidth, cardHeight - NOTE_CARD_CORNER_RADIUS);
+        context.quadraticCurveTo(
+          cardWidth,
+          cardHeight,
+          cardWidth - NOTE_CARD_CORNER_RADIUS,
+          cardHeight
+        );
+        context.lineTo(NOTE_CARD_CORNER_RADIUS, cardHeight);
+        context.quadraticCurveTo(
+          0,
+          cardHeight,
+          0,
+          cardHeight - NOTE_CARD_CORNER_RADIUS
+        );
+        context.lineTo(0, NOTE_CARD_CORNER_RADIUS);
+        context.quadraticCurveTo(0, 0, NOTE_CARD_CORNER_RADIUS, 0);
+        context.closePath();
+      }}
       draggable={draggable && !isEditing}
       onMouseDown={onSelect}
       onDblClick={onDoubleClick}
@@ -84,11 +113,18 @@ export function NoteCardRenderer({
         fill={object.fill || "#ffffff"}
         stroke="#cbd5e1"
         strokeWidth={1}
-        cornerRadius={10}
+        cornerRadius={NOTE_CARD_CORNER_RADIUS}
         shadowColor="#0f172a"
         shadowBlur={10}
         shadowOpacity={0.08}
         shadowOffsetY={4}
+      />
+
+      <Rect
+        width={cardWidth}
+        height={NOTE_CARD_AUTHOR_STRIPE_HEIGHT}
+        fill={authorStripeColor}
+        listening={false}
       />
 
       {!isEditing && (

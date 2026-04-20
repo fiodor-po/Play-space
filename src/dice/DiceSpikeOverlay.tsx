@@ -31,6 +31,7 @@ type DiceSpikeOverlayProps = {
 const NEUTRAL_DICE_COLOR = "#94a3b8";
 const SHARED_ROLL_TTL_MS = 5000;
 const DICE_OVERLAY_FADE_MS = 160;
+const BOARD_SURFACE_CONTROL_BORDER_WIDTH = 2;
 const DICE_TRAY_ITEMS = ["d4", "d6", "d8", "d10", "2d10", "d12", "d20"] as const;
 type DiceTrayItem = (typeof DICE_TRAY_ITEMS)[number];
 type PendingDicePool = Record<DiceTrayItem, number>;
@@ -458,7 +459,10 @@ export function DiceSpikeOverlay({
               disabled={!isReady || isPublishing}
               className={rollButtonRecipe.className}
               {...getDesignSystemDebugAttrs(rollButtonRecipe.debug)}
-              style={rollButtonRecipe.style}
+              style={{
+                ...rollButtonRecipe.style,
+                borderWidth: BOARD_SURFACE_CONTROL_BORDER_WIDTH,
+              }}
             >
               Roll
             </button>
@@ -469,7 +473,10 @@ export function DiceSpikeOverlay({
               disabled={isPublishing}
               className={resetButtonRecipe.className}
               {...getDesignSystemDebugAttrs(resetButtonRecipe.debug)}
-              style={resetButtonRecipe.style}
+              style={{
+                ...resetButtonRecipe.style,
+                borderWidth: BOARD_SURFACE_CONTROL_BORDER_WIDTH,
+              }}
             >
               Reset
             </button>
@@ -499,6 +506,7 @@ export function DiceSpikeOverlay({
                 {...getDesignSystemDebugAttrs(diceButtonRecipe.debug)}
                 style={{
                   ...diceButtonRecipe.style,
+                  borderWidth: BOARD_SURFACE_CONTROL_BORDER_WIDTH,
                   pointerEvents: "auto",
                 }}
               >

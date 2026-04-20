@@ -15,12 +15,12 @@ import {
 import { BoardStageScene } from "../board/components/BoardStageScene";
 import { BoardStageShellOverlays } from "../board/components/BoardStageShellOverlays";
 import { createNoteCardObject } from "../board/objects/noteCard/createNoteCardObject";
+import { createTokenObject } from "../board/objects/token/createTokenObject";
 import {
   clampNoteCardWidth,
   getNoteCardHeightForLabel,
   isNoteCardObject,
 } from "../board/objects/noteCard/sizing";
-import { createTokenObject } from "../board/objects/token/createTokenObject";
 import { isDesignSystemHoverDebugEnabled } from "../ui/system/debugMeta";
 import {
   boardMaterials,
@@ -1684,14 +1684,6 @@ export default function BoardStage({
   const getTokenFillColor = (object: BoardObject) => {
     return getCreatorColorResolution(object).color ?? object.fill;
   };
-
-  const getParticipantMarkerTokens = (
-    nextObjects: BoardObject[],
-    participantId: string
-  ) =>
-    nextObjects.filter(
-      (object) => object.kind === "token" && object.creatorId === participantId
-    );
 
   const getBlockingActiveMove = (objectId: string): ActiveObjectMove | null => {
     const move = remoteActiveObjectMoves[objectId];
@@ -3734,12 +3726,6 @@ export default function BoardStage({
       }
 
       event.preventDefault();
-      const selectedObject = objects.find((object) => object.id === selectedObjectId);
-
-      if (selectedObject?.kind === "token") {
-        return;
-      }
-
       const deleteAccess = resolveObjectActionAccess(
         selectedObjectId,
         "board-object.delete"
@@ -4042,111 +4028,6 @@ export default function BoardStage({
     stopLockedImageDragRef.current = stopLockedImageDrag;
   });
 
-  const createParticipantMarker = useCallback(
-    (position?: { x: number; y: number }) => {
-      const createTokenAccess = resolveRoomActionAccess("room.add-token");
-
-      if (!createTokenAccess.isAllowed) {
-        return null;
-      }
-
-      const markerPosition =
-        position ??
-        getViewportCenterInBoardCoords({
-          stageWidth: stageSize.width,
-          stageHeight: stageSize.height,
-          stageX: stagePosition.x,
-          stageY: stagePosition.y,
-          stageScale,
-        });
-
-      return createTokenObject({
-        id: `token-${createClientId()}`,
-        color: currentUserColor,
-        creatorId: participantSession.id,
-        position: markerPosition,
-      });
-    },
-    [
-      currentUserColor,
-      participantSession.id,
-      resolveRoomActionAccess,
-      stagePosition.x,
-      stagePosition.y,
-      stageScale,
-      stageSize.height,
-      stageSize.width,
-    ]
-  );
-
-  useEffect(() => {
-    if (tokenInitialSyncRoomId !== roomId) {
-      return;
-    }
-
-    if (resolvedSnapshotBootstrapRoomId !== roomId) {
-      return;
-    }
-
-    const participantMarkers = getParticipantMarkerTokens(
-      objects,
-      participantSession.id
-    ).sort((a, b) => a.id.localeCompare(b.id));
-
-    if (participantMarkers.length === 1) {
-      return;
-    }
-
-    if (participantMarkers.length === 0) {
-      const marker = createParticipantMarker();
-
-      if (!marker) {
-        return;
-      }
-
-      addBoardObject(marker);
-      return;
-    }
-
-    applyBoardObjectsUpdate(
-      (currentObjects) => {
-        const currentParticipantMarkers = getParticipantMarkerTokens(
-          currentObjects,
-          participantSession.id
-        ).sort((a, b) => a.id.localeCompare(b.id));
-
-        if (currentParticipantMarkers.length <= 1) {
-          return currentObjects;
-        }
-
-        const [, ...markersToRemove] = currentParticipantMarkers;
-        const removeIds = new Set(markersToRemove.map((marker) => marker.id));
-
-        return currentObjects.filter((object) => !removeIds.has(object.id));
-      },
-      { syncSharedTokens: true },
-      {
-        durableBoundary: "object-remove",
-        durableSlice: "tokens",
-      }
-    );
-  }, [
-    addBoardObject,
-    applyBoardObjectsUpdate,
-    createParticipantMarker,
-    currentUserColor,
-    objects,
-    participantSession.id,
-    roomId,
-    resolvedSnapshotBootstrapRoomId,
-    stagePosition.x,
-    stagePosition.y,
-    stageScale,
-    stageSize.height,
-    stageSize.width,
-    tokenInitialSyncRoomId,
-  ]);
-
   const createNote = () => {
     const createNoteAccess = resolveRoomActionAccess("room.add-note");
 
@@ -4170,6 +4051,31 @@ export default function BoardStage({
 
     addBoardObject(newNote);
     selectBoardObject(newNote);
+  };
+
+  const createToken = () => {
+    const createTokenAccess = resolveRoomActionAccess("room.add-token");
+
+    if (!createTokenAccess.isAllowed) {
+      return;
+    }
+
+    const center = getViewportCenterInBoardCoords({
+      stageWidth: stageSize.width,
+      stageHeight: stageSize.height,
+      stageX: stagePosition.x,
+      stageY: stagePosition.y,
+      stageScale,
+    });
+    const newToken = createTokenObject({
+      id: `token-${createClientId()}`,
+      color: currentUserColor,
+      creatorId: participantSession.id,
+      position: center,
+    });
+
+    addBoardObject(newToken);
+    selectBoardObject(newToken);
   };
 
   const createImageFromFile = (
@@ -5489,7 +5395,10 @@ export default function BoardStage({
     >
       <BoardStageShellOverlays
         cursors={participantCursorScreenPositions}
+        addTokenButtonColor={participantSession.color}
         addImageButtonColor={participantSession.color}
+        onAddTokenButtonClick={createToken}
+        onAddTextCardButtonClick={createNote}
         onAddImageButtonClick={() => {
           imageInputRef.current?.click();
         }}
@@ -5604,6 +5513,7 @@ export default function BoardStage({
         remoteTextCardEditingStates={remoteTextCardEditingStates}
         remoteTextCardResizeStates={remoteTextCardResizeStates}
         selectedImageObject={selectedImageObject}
+        selectedTokenObject={selectedTokenObject}
         selectedImageControlAnchor={selectedImageControlAnchor}
         selectedImageControlButtons={selectedImageControlButtons}
         remoteSelectedObjects={remoteSelectedObjects}

@@ -42,9 +42,14 @@ type BoardContextMenuState = {
   clientY: number;
 } | null;
 
+const BOARD_SURFACE_CONTROL_BORDER_WIDTH = 2;
+
 type BoardStageShellOverlaysProps = {
   cursors: CursorOverlayItem[];
+  addTokenButtonColor: string;
   addImageButtonColor: string;
+  onAddTokenButtonClick: () => void;
+  onAddTextCardButtonClick: () => void;
   onAddImageButtonClick: () => void;
   sessionPanelRef: RefObject<HTMLDivElement | null>;
   roomId: string;
@@ -86,7 +91,10 @@ type BoardStageShellOverlaysProps = {
 
 export function BoardStageShellOverlays({
   cursors,
+  addTokenButtonColor,
   addImageButtonColor,
+  onAddTokenButtonClick,
+  onAddTextCardButtonClick,
   onAddImageButtonClick,
   sessionPanelRef,
   roomId,
@@ -122,6 +130,12 @@ export function BoardStageShellOverlays({
   boardContextMenuRef,
   onShowBoardMenuAction,
 }: BoardStageShellOverlaysProps) {
+  const addTokenButtonRecipe = createDraftLocalUserButtonRecipeForSlot(
+    buttonRecipes.primary.small,
+    getParticipantColorSlotNumber(addTokenButtonColor),
+    "fill"
+  );
+  const addTextCardButtonRecipe = buttonRecipes.primaryNeutral.small;
   const addImageButtonRecipe = createDraftLocalUserButtonRecipeForSlot(
     buttonRecipes.secondary.small,
     getParticipantColorSlotNumber(addImageButtonColor),
@@ -135,6 +149,57 @@ export function BoardStageShellOverlays({
   return (
     <>
       <CursorOverlay cursors={cursors} />
+
+      <button
+        type="button"
+        onClick={onAddTokenButtonClick}
+        aria-label="Add token"
+        {...getButtonProps(addTokenButtonRecipe)}
+        {...getDesignSystemDebugAttrs(addTokenButtonRecipe.debug)}
+        style={{
+          ...getButtonProps(addTokenButtonRecipe).style,
+          position: "fixed",
+          top: 20,
+          right: 100,
+          zIndex: 30,
+          pointerEvents: "auto",
+          width: 32,
+          minWidth: 32,
+          height: 32,
+          minHeight: 32,
+          padding: 0,
+          borderRadius: 999,
+          fontSize: 18,
+          lineHeight: 1,
+        }}
+      >
+        +
+      </button>
+
+      <button
+        type="button"
+        onClick={onAddTextCardButtonClick}
+        aria-label="Add text card"
+        {...getButtonProps(addTextCardButtonRecipe)}
+        {...getDesignSystemDebugAttrs(addTextCardButtonRecipe.debug)}
+        style={{
+          ...getButtonProps(addTextCardButtonRecipe).style,
+          position: "fixed",
+          top: 20,
+          right: 60,
+          zIndex: 30,
+          pointerEvents: "auto",
+          width: 32,
+          minWidth: 32,
+          height: 32,
+          minHeight: 32,
+          padding: 0,
+          fontSize: 18,
+          lineHeight: 1,
+        }}
+      >
+        +
+      </button>
 
       <button
         type="button"
@@ -154,6 +219,7 @@ export function BoardStageShellOverlays({
           height: 32,
           minHeight: 32,
           padding: 0,
+          borderWidth: BOARD_SURFACE_CONTROL_BORDER_WIDTH,
           fontSize: 18,
           lineHeight: 1,
         }}

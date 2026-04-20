@@ -1049,6 +1049,8 @@ export function BoardInteractionLayerSandbox() {
 
   const selectedImageObject =
     selectedBoardObject?.kind === "image" ? selectedBoardObject : null;
+  const selectedTokenObject =
+    selectedBoardObject?.kind === "token" ? selectedBoardObject : null;
 
   const selectedImageControlsViewModel = useMemo(
     () => {
@@ -1760,6 +1762,7 @@ export function BoardInteractionLayerSandbox() {
             remoteTextCardEditingStates={{}}
             remoteTextCardResizeStates={{}}
             selectedImageObject={selectedImageObject}
+            selectedTokenObject={selectedTokenObject}
             selectedImageControlAnchor={
               selectedImageControlsViewModel.selectedImageControlAnchor
             }
@@ -1897,6 +1900,7 @@ export function BoardInteractionLayerSandbox() {
                 : {}
             }
             selectedImageObject={null}
+            selectedTokenObject={null}
             selectedImageControlAnchor={null}
             selectedImageControlButtons={[]}
             remoteSelectedObjects={{}}
