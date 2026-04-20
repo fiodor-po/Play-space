@@ -6,15 +6,17 @@ import {
 import { calloutRecipes } from "../ui/system/families/callout";
 import { boardSurfaceRecipes } from "../ui/system/boardSurfaces";
 import { getDesignSystemDebugAttrs } from "../ui/system/debugMeta";
+import { fontSize } from "../ui/system/typography";
 import { createClientId } from "../lib/id";
 import {
   createRoomDiceConnection,
   type DiceRollOutcome,
   type RoomDiceConnection,
+  type SharedRollKind,
   type SharedDiceRollEvent,
-  type SupportedRollKind,
   SUPPORTED_DICE,
 } from "../lib/roomDiceRealtime";
+import { HTML_UI_FONT_FAMILY } from "../board/constants";
 import { getParticipantColorSlotNumber } from "../lib/roomSession";
 import type { LocalParticipantSession } from "../lib/roomSession";
 
@@ -27,7 +29,11 @@ type DiceSpikeOverlayProps = {
 };
 
 const NEUTRAL_DICE_COLOR = "#94a3b8";
+const SHARED_ROLL_TTL_MS = 5000;
 const DICE_TRAY_ITEMS = ["d4", "d6", "d8", "d10", "2d10", "d12", "d20"] as const;
+type DiceTrayItem = (typeof DICE_TRAY_ITEMS)[number];
+type PendingDicePool = Record<DiceTrayItem, number>;
+
 const SINGLE_DIE_SIDES: Record<(typeof SUPPORTED_DICE)[number], number> = {
   d4: 4,
   d6: 6,
@@ -41,24 +47,50 @@ export function DiceSpikeOverlay({
   participantSession,
   roomId,
 }: DiceSpikeOverlayProps) {
+  const participantColorSlot = getParticipantColorSlotNumber(participantSession.color);
   const diceButtonRecipe = useMemo(
     () =>
       createDraftLocalUserButtonRecipeForSlot(
         buttonRecipes.secondary.small,
-        getParticipantColorSlotNumber(participantSession.color),
+        participantColorSlot,
         "border"
       ),
-    [participantSession.color]
+    [participantColorSlot]
+  );
+  const rollButtonRecipe = useMemo(
+    () =>
+      createDraftLocalUserButtonRecipeForSlot(
+        buttonRecipes.primary.small,
+        participantColorSlot,
+        "fill"
+      ),
+    [participantColorSlot]
+  );
+  const resetButtonRecipe = useMemo(
+    () =>
+      createDraftLocalUserButtonRecipeForSlot(
+        buttonRecipes.secondary.small,
+        participantColorSlot,
+        "border"
+      ),
+    [participantColorSlot]
   );
   const containerId = useId().replace(/:/g, "-");
   const diceBoxRef = useRef<DiceBoxInstance | null>(null);
   const diceConnectionRef = useRef<RoomDiceConnection | null>(null);
-  const clearTimeoutRef = useRef<number | null>(null);
   const cleanupTimeoutsRef = useRef<Record<string, number>>({});
-  const lastPlayedEventIdRef = useRef<string | null>(null);
+  const playbackQueueRef = useRef(Promise.resolve());
+  const liveEventIdsRef = useRef<Set<string>>(new Set());
+  const scheduledEventIdsRef = useRef<Set<string>>(new Set());
+  const playedEventIdsRef = useRef<Set<string>>(new Set());
+  const sceneEventIdsRef = useRef<Set<string>>(new Set());
+  const sceneHasDiceRef = useRef(false);
   const [isReady, setIsReady] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pendingPool, setPendingPool] = useState<PendingDicePool>(() =>
+    createEmptyPendingPool()
+  );
   const [rollEvents, setRollEvents] = useState<SharedDiceRollEvent[]>([]);
 
   useEffect(() => {
@@ -74,7 +106,7 @@ export function DiceSpikeOverlay({
         }
 
         const DiceBox = module.default;
-        nextDiceBox = new DiceBox(`#${containerId}`, {
+        const createdDiceBox = new DiceBox(`#${containerId}`, {
           assetPath: "/",
           baseScale: 120,
           color_spotlight: 0xffffff,
@@ -89,9 +121,9 @@ export function DiceSpikeOverlay({
           theme_customColorset: createActorColorset(participantSession.color),
         });
 
-        await nextDiceBox.initialize();
+        await createdDiceBox.initialize();
 
-        const renderer = (nextDiceBox as DiceBoxInstance & {
+        const renderer = (createdDiceBox as DiceBoxInstance & {
           renderer?: { setPixelRatio?: (value: number) => void };
         }).renderer;
 
@@ -101,6 +133,7 @@ export function DiceSpikeOverlay({
           return;
         }
 
+        nextDiceBox = createdDiceBox;
         diceBoxRef.current = nextDiceBox;
         setIsReady(true);
         setError(null);
@@ -120,11 +153,6 @@ export function DiceSpikeOverlay({
 
     return () => {
       isCancelled = true;
-
-      if (clearTimeoutRef.current !== null) {
-        window.clearTimeout(clearTimeoutRef.current);
-        clearTimeoutRef.current = null;
-      }
 
       Object.values(cleanupTimeoutsRef.current).forEach((timeoutId) => {
         window.clearTimeout(timeoutId);
@@ -160,26 +188,30 @@ export function DiceSpikeOverlay({
   useEffect(() => {
     diceBoxRef.current?.clearDice();
     setIsPublishing(false);
-    lastPlayedEventIdRef.current = null;
-
-    if (clearTimeoutRef.current !== null) {
-      window.clearTimeout(clearTimeoutRef.current);
-      clearTimeoutRef.current = null;
-    }
-
+    setPendingPool(createEmptyPendingPool());
+    playbackQueueRef.current = Promise.resolve();
+    liveEventIdsRef.current = new Set();
+    scheduledEventIdsRef.current = new Set();
+    playedEventIdsRef.current = new Set();
+    sceneEventIdsRef.current = new Set();
+    sceneHasDiceRef.current = false;
     Object.values(cleanupTimeoutsRef.current).forEach((timeoutId) => {
       window.clearTimeout(timeoutId);
     });
     cleanupTimeoutsRef.current = {};
   }, [roomId]);
 
-  const activeRollEvent = useMemo(() => {
+  const liveRollEvents = useMemo(() => {
     const now = Date.now();
 
-    return [...rollEvents]
-      .filter((event) => now - event.createdAt < event.ttlMs)
-      .sort((left, right) => right.createdAt - left.createdAt)[0] ?? null;
+    return rollEvents.filter((event) => now - event.createdAt < event.ttlMs);
   }, [rollEvents]);
+
+  const pendingDiceCount = useMemo(
+    () =>
+      DICE_TRAY_ITEMS.reduce((total, die) => total + pendingPool[die], 0),
+    [pendingPool]
+  );
 
   useEffect(() => {
     rollEvents.forEach((event) => {
@@ -199,50 +231,118 @@ export function DiceSpikeOverlay({
   }, [rollEvents]);
 
   useEffect(() => {
+    liveEventIdsRef.current = new Set(liveRollEvents.map((event) => event.id));
+
+    if (liveRollEvents.length > 0) {
+      return;
+    }
+
+    if (sceneHasDiceRef.current) {
+      playbackQueueRef.current = playbackQueueRef.current
+        .then(() => {
+          if (liveEventIdsRef.current.size > 0 || !sceneHasDiceRef.current) {
+            return;
+          }
+
+          diceBoxRef.current?.clearDice();
+          sceneHasDiceRef.current = false;
+          scheduledEventIdsRef.current = new Set();
+          sceneEventIdsRef.current = new Set();
+          playedEventIdsRef.current = new Set();
+        })
+        .catch((clearError) => {
+          console.error("Failed to clear shared dice scene", clearError);
+        });
+    }
+  }, [liveRollEvents]);
+
+  useEffect(() => {
     const diceBox = diceBoxRef.current;
 
-    if (!diceBox || !activeRollEvent) {
+    if (!diceBox || !isReady) {
       return;
     }
 
-    if (lastPlayedEventIdRef.current === activeRollEvent.id) {
+    const unplayedEvents = liveRollEvents.filter(
+      (event) =>
+        !playedEventIdsRef.current.has(event.id) &&
+        !scheduledEventIdsRef.current.has(event.id)
+    );
+
+    if (unplayedEvents.length === 0) {
       return;
     }
 
-    lastPlayedEventIdRef.current = activeRollEvent.id;
+    unplayedEvents.forEach((event) => {
+      scheduledEventIdsRef.current = new Set(scheduledEventIdsRef.current).add(event.id);
 
-    if (clearTimeoutRef.current !== null) {
-      window.clearTimeout(clearTimeoutRef.current);
-      clearTimeoutRef.current = null;
-    }
+      playbackQueueRef.current = playbackQueueRef.current
+        .then(async () => {
+          if (
+            playedEventIdsRef.current.has(event.id) ||
+            !scheduledEventIdsRef.current.has(event.id)
+          ) {
+            return;
+          }
 
-    const actorColor = activeRollEvent.actorColor || NEUTRAL_DICE_COLOR;
+          if (!liveEventIdsRef.current.has(event.id)) {
+            return;
+          }
 
-    setError(null);
-    void diceBox
-      .updateConfig({
-        theme_customColorset: createActorColorset(actorColor),
-      })
-      .then(() => diceBox.roll(buildRollNotation(activeRollEvent.outcomes)))
-      .then(() => {
-        const remainingMs =
-          activeRollEvent.createdAt + activeRollEvent.ttlMs - Date.now();
+          const activeDiceBox = diceBoxRef.current;
 
-        clearTimeoutRef.current = window.setTimeout(() => {
-          diceBoxRef.current?.clearDice();
-          clearTimeoutRef.current = null;
-        }, Math.max(remainingMs, 0));
-      })
-      .catch((rollError) => {
-        console.error("Failed to play shared d20 roll", rollError);
-        setError("Shared test roll failed.");
-      });
-  }, [activeRollEvent, isReady]);
+          if (!activeDiceBox) {
+            return;
+          }
 
-  const rollTestDie = (rollKind: SupportedRollKind) => {
+          const actorColor = event.actorColor || NEUTRAL_DICE_COLOR;
+          const notation = buildRollNotation(event.outcomes);
+
+          setError(null);
+          await activeDiceBox.updateConfig({
+            theme_customColorset: createActorColorset(actorColor),
+          });
+
+          let playbackPromise: Promise<unknown>;
+
+          if (sceneHasDiceRef.current) {
+            playbackPromise = activeDiceBox.add(notation);
+          } else {
+            sceneHasDiceRef.current = true;
+            playbackPromise = activeDiceBox.roll(notation);
+          }
+
+          await playbackPromise;
+
+          playedEventIdsRef.current = new Set(playedEventIdsRef.current).add(event.id);
+          scheduledEventIdsRef.current = new Set(scheduledEventIdsRef.current);
+          scheduledEventIdsRef.current.delete(event.id);
+          sceneEventIdsRef.current = new Set(sceneEventIdsRef.current).add(event.id);
+        })
+        .catch((rollError) => {
+          scheduledEventIdsRef.current = new Set(scheduledEventIdsRef.current);
+          scheduledEventIdsRef.current.delete(event.id);
+          console.error("Failed to play shared dice roll", rollError);
+          setError("Shared test roll failed.");
+        });
+    });
+  }, [isReady, liveRollEvents]);
+
+  const addDieToPendingPool = (rollKind: DiceTrayItem) => {
+    setPendingPool((currentPool) => ({
+      ...currentPool,
+      [rollKind]: currentPool[rollKind] + 1,
+    }));
+  };
+
+  const resetPendingPool = () => {
+    setPendingPool(createEmptyPendingPool());
+  };
+
+  const publishPendingPool = () => {
     const connection = diceConnectionRef.current;
 
-    if (!connection || isPublishing) {
+    if (!connection || isPublishing || pendingDiceCount === 0) {
       return;
     }
 
@@ -250,20 +350,21 @@ export function DiceSpikeOverlay({
     setError(null);
 
     try {
-      const rollEvent = createSharedRollEvent({
+      const rollEvent = createSharedRollEventFromPool({
         actorColor: participantSession.color,
         actorId: participantSession.id,
         actorName: participantSession.name,
+        pendingPool,
         roomId,
-        rollKind,
       });
 
       connection.publishRollEvent({
         ...rollEvent,
       });
+      setPendingPool(createEmptyPendingPool());
     } catch (publishError) {
-      console.error("Failed to publish shared d20 roll", publishError);
-      setError("Could not publish shared test roll.");
+      console.error("Failed to publish shared pooled roll", publishError);
+      setError("Could not publish shared roll.");
     }
 
     window.setTimeout(() => {
@@ -297,26 +398,94 @@ export function DiceSpikeOverlay({
         style={boardSurfaceRecipes.diceTray.shell.style}
         {...getDesignSystemDebugAttrs(boardSurfaceRecipes.diceTray.shell.debug)}
       >
+        {pendingDiceCount > 0 && (
+          <div
+            style={{
+              display: "flex",
+              gap: 8,
+              pointerEvents: "auto",
+            }}
+          >
+            <button
+              type="button"
+              onClick={publishPendingPool}
+              disabled={!isReady || isPublishing}
+              className={rollButtonRecipe.className}
+              {...getDesignSystemDebugAttrs(rollButtonRecipe.debug)}
+              style={rollButtonRecipe.style}
+            >
+              Roll
+            </button>
+
+            <button
+              type="button"
+              onClick={resetPendingPool}
+              disabled={isPublishing}
+              className={resetButtonRecipe.className}
+              {...getDesignSystemDebugAttrs(resetButtonRecipe.debug)}
+              style={resetButtonRecipe.style}
+            >
+              Reset
+            </button>
+          </div>
+        )}
+
         <div
           style={boardSurfaceRecipes.diceTray.stack.style}
         >
           {DICE_TRAY_ITEMS.map((die) => (
-            <button
+            <div
               key={die}
-              type="button"
-              onClick={() => {
-                rollTestDie(die);
-              }}
-              disabled={!isReady || isPublishing}
-              className={diceButtonRecipe.className}
-              {...getDesignSystemDebugAttrs(diceButtonRecipe.debug)}
               style={{
-                ...diceButtonRecipe.style,
-                pointerEvents: "auto",
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                pointerEvents: "none",
               }}
             >
-              {die === "2d10" ? "d100" : die}
-            </button>
+              <button
+                type="button"
+                onClick={() => {
+                  addDieToPendingPool(die);
+                }}
+                disabled={!isReady}
+                className={diceButtonRecipe.className}
+                {...getDesignSystemDebugAttrs(diceButtonRecipe.debug)}
+                style={{
+                  ...diceButtonRecipe.style,
+                  pointerEvents: "auto",
+                }}
+              >
+                {die === "2d10" ? "d100" : die}
+              </button>
+
+              {pendingPool[die] > 0 && (
+                <span
+                  style={{
+                    minWidth: 34,
+                    padding: "2px 6px",
+                    borderRadius: 999,
+                    border: "1px solid rgba(248, 250, 252, 0.22)",
+                    background: "rgba(15, 23, 42, 0.72)",
+                    boxShadow:
+                      "0 1px 2px rgba(2, 6, 23, 0.38), 0 0 0 1px rgba(255, 255, 255, 0.08) inset",
+                    color: "rgba(248, 250, 252, 0.98)",
+                    fontFamily: HTML_UI_FONT_FAMILY,
+                    fontSize: fontSize.md,
+                    fontWeight: 700,
+                    lineHeight: 1,
+                    letterSpacing: "0",
+                    textAlign: "center",
+                    textShadow:
+                      "0 1px 1px rgba(2, 6, 23, 0.85), 0 0 1px rgba(255, 255, 255, 0.18)",
+                    backdropFilter: "blur(6px)",
+                    pointerEvents: "none",
+                  }}
+                >
+                  x{pendingPool[die]}
+                </span>
+              )}
+            </div>
           ))}
         </div>
 
@@ -350,39 +519,58 @@ function createActorColorset(actorColor: string) {
   };
 }
 
-function createSharedRollEvent(params: {
+function createSharedRollEventFromPool(params: {
   actorColor: string;
   actorId: string;
   actorName: string;
+  pendingPool: PendingDicePool;
   roomId: string;
-  rollKind: SupportedRollKind;
 }): SharedDiceRollEvent {
-  if (params.rollKind === "2d10") {
-    const percentile = Math.floor(Math.random() * 100) + 1;
-    const onesDigit = percentile % 10;
-    const tensDigit = Math.floor(percentile / 10) * 10;
-    const tensValue = tensDigit === 0 ? 100 : tensDigit;
-    const onesValue = onesDigit === 0 ? 10 : onesDigit;
+  const outcomes: DiceRollOutcome[] = [];
+  const rollGroups: SharedRollKind[] = [];
+  const logicalResults: number[] = [];
 
-    return {
-      id: createClientId(),
-      roomId: params.roomId,
-      actorId: params.actorId,
-      actorName: params.actorName,
-      actorColor: params.actorColor,
-      rollKind: params.rollKind,
-      outcomes: [
-        { die: "d100", value: tensValue },
-        { die: "d10", value: onesValue },
-      ],
-      result: percentile,
-      seed: createClientId(),
-      createdAt: Date.now(),
-      ttlMs: 5200,
-    };
+  DICE_TRAY_ITEMS.forEach((rollKind) => {
+    const count = params.pendingPool[rollKind];
+
+    for (let index = 0; index < count; index += 1) {
+      if (rollKind === "2d10") {
+        const percentile = Math.floor(Math.random() * 100) + 1;
+        const onesDigit = percentile % 10;
+        const tensDigit = Math.floor(percentile / 10) * 10;
+        const tensValue = tensDigit === 0 ? 100 : tensDigit;
+        const onesValue = onesDigit === 0 ? 10 : onesDigit;
+
+        outcomes.push(
+          { die: "d100", value: tensValue },
+          { die: "d10", value: onesValue }
+        );
+        rollGroups.push(rollKind);
+        logicalResults.push(percentile);
+        continue;
+      }
+
+      const value = Math.floor(Math.random() * SINGLE_DIE_SIDES[rollKind]) + 1;
+
+      outcomes.push({ die: rollKind, value });
+      rollGroups.push(rollKind);
+      logicalResults.push(value);
+    }
+  });
+
+  if (outcomes.length === 0) {
+    throw new Error("Cannot publish an empty dice pool.");
   }
 
-  const result = Math.floor(Math.random() * SINGLE_DIE_SIDES[params.rollKind]) + 1;
+  const uniqueRollKinds = Array.from(new Set(rollGroups));
+  const rollKind =
+    uniqueRollKinds.length === 1
+      ? uniqueRollKinds[0]
+      : ("mixed" as SharedRollKind);
+  const result =
+    logicalResults.length === 1
+      ? logicalResults[0]
+      : logicalResults.reduce((sum, value) => sum + value, 0);
 
   return {
     id: createClientId(),
@@ -390,12 +578,12 @@ function createSharedRollEvent(params: {
     actorId: params.actorId,
     actorName: params.actorName,
     actorColor: params.actorColor,
-    rollKind: params.rollKind,
-    outcomes: [{ die: params.rollKind, value: result }],
+    rollKind,
+    outcomes,
     result,
     seed: createClientId(),
     createdAt: Date.now(),
-    ttlMs: 5200,
+    ttlMs: SHARED_ROLL_TTL_MS,
   };
 }
 
@@ -403,4 +591,16 @@ function buildRollNotation(outcomes: DiceRollOutcome[]) {
   return `${outcomes.map((outcome) => outcome.die).join("+")}@${outcomes
     .map((outcome) => outcome.value)
     .join(",")}`;
+}
+
+function createEmptyPendingPool(): PendingDicePool {
+  return {
+    d4: 0,
+    d6: 0,
+    d8: 0,
+    d10: 0,
+    "2d10": 0,
+    d12: 0,
+    d20: 0,
+  };
 }

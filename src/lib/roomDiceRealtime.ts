@@ -7,6 +7,7 @@ export const SUPPORTED_ROLL_KINDS = [...SUPPORTED_DICE, "2d10"] as const;
 
 export type SupportedDie = (typeof SUPPORTED_DICE)[number];
 export type SupportedRollKind = (typeof SUPPORTED_ROLL_KINDS)[number];
+export type SharedRollKind = SupportedRollKind | "mixed";
 export type DiceOutcomeDie = SupportedDie | "d100";
 
 export type DiceRollOutcome = {
@@ -20,7 +21,7 @@ export type SharedDiceRollEvent = {
   actorId: string;
   actorName: string;
   actorColor: string;
-  rollKind: SupportedRollKind;
+  rollKind: SharedRollKind;
   outcomes: DiceRollOutcome[];
   result: number;
   seed: string;
@@ -134,6 +135,10 @@ function isSupportedRollKind(value: unknown): value is SupportedRollKind {
   );
 }
 
+function isSharedRollKind(value: unknown): value is SharedRollKind {
+  return value === "mixed" || isSupportedRollKind(value);
+}
+
 function isDiceOutcomeDie(value: unknown): value is DiceOutcomeDie {
   return value === "d100" || isSupportedDie(value);
 }
@@ -149,7 +154,7 @@ function isDiceRollOutcome(value: unknown): value is DiceRollOutcome {
 }
 
 function getRollKind(event: Partial<SharedDiceRollEvent> & { die?: unknown }) {
-  if (isSupportedRollKind(event.rollKind)) {
+  if (isSharedRollKind(event.rollKind)) {
     return event.rollKind;
   }
 

@@ -32,5 +32,6 @@ declare module "@3d-dice/dice-box-threejs" {
     updateConfig(config?: Partial<DiceBoxThreeConfig>): Promise<void>;
     clearDice(): void;
     roll(notation: string): Promise<unknown>;
+    add(notation: string): Promise<unknown>;
   }
 }

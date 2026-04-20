@@ -174,7 +174,10 @@ The current accepted control surface is intentionally minimal:
 
 - compact tray;
 - buttons for `d4 / d6 / d8 / d10 / d12 / d20 / d100`;
-- one click = one public roll.
+- each die button adds that die to a local pending pool;
+- the tray shows `xN` count next to each die family already added to the pool;
+- when the pool is non-empty, `Roll` publishes one shared public roll event for the full pool;
+- `Reset` clears the local pending pool before publish.
 
 This remains the right alpha scope.
 
@@ -203,8 +206,10 @@ This debt is acceptable for current alpha.
 When validating dice, check:
 
 - local one-user roll
+- local pooled multi-die roll
 - two-client shared public roll
 - sequential rolls by different participants
+- mixed pooled roll as one shared batch
 - actor color correctness for remote rolls
 - visible final outcome consistency
 - tray usability
