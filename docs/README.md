@@ -16,6 +16,8 @@ This is the fastest index for the repo's working docs.
 - `room-memory-model.md` — state categories and memory boundaries
 - `indication-design.md` — canonical behavior indication model
 - `color-model-design.md` — participant/color semantics
+- `room-loading-progress-async-state-chapter.md` — active chapter control doc for room-open observability, phase diagnostics, and later async-state UI
+- `board-runtime-target-architecture.md` — strategist target architecture memo for room runtime, document store, tools, persistence, and diagnostics boundaries
 - `board-navigation-secondary-click-chapter.md` — active chapter control doc for board navigation, desktop pan/zoom behavior, and placeholder secondary click
 - `board-object-controls-ui-layer.md` — active chapter control doc for the board-object control layer
 - `board-object-interaction-model.md` — high-level model for board-object geometry, interaction space, and viewport behavior

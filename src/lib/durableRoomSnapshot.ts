@@ -93,6 +93,11 @@ export type DurableRoomSnapshotSliceSaveResult =
   | { status: "skipped-page-transition" }
   | { status: "unavailable" };
 
+export type DurableRoomSnapshotLoadResult =
+  | { status: "ready"; snapshot: DurableRoomSnapshot }
+  | { status: "missing" }
+  | { status: "failed"; reason: string };
+
 let pageTransitionInProgress = false;
 let pageTransitionTrackingAttached = false;
 const DURABLE_ROOM_SNAPSHOT_LOAD_TIMEOUT_MS = 5000;
@@ -136,9 +141,9 @@ function ensurePageTransitionTracking() {
   });
 }
 
-export async function loadDurableRoomSnapshot(
+export async function loadDurableRoomSnapshotWithStatus(
   roomId: string
-): Promise<DurableRoomSnapshot | null> {
+): Promise<DurableRoomSnapshotLoadResult> {
   const snapshotUrl = getDurableRoomSnapshotUrl(roomId);
   const controller = new AbortController();
   const timeoutId = window.setTimeout(() => {
@@ -155,7 +160,7 @@ export async function loadDurableRoomSnapshot(
         roomId,
         snapshotUrl,
       });
-      return null;
+      return { status: "missing" };
     }
 
     if (!response.ok) {
@@ -171,10 +176,17 @@ export async function loadDurableRoomSnapshot(
       console.warn("[room-recovery][durable-snapshot][load-invalid]", {
         roomId,
       });
+      return {
+        status: "failed",
+        reason: "invalid-payload",
+      };
     }
 
     clearRecentDurableSnapshotLoadFailure(roomId, snapshotUrl);
-    return snapshot;
+    return {
+      status: "ready",
+      snapshot,
+    };
   } catch (error) {
     const reason = error instanceof DOMException ? error.name : "request-failed";
     logDurableSnapshotLoadFailure({
@@ -183,10 +195,21 @@ export async function loadDurableRoomSnapshot(
       reason,
       timeoutMs: DURABLE_ROOM_SNAPSHOT_LOAD_TIMEOUT_MS,
     });
-    return null;
+    return {
+      status: "failed",
+      reason,
+    };
   } finally {
     window.clearTimeout(timeoutId);
   }
+}
+
+export async function loadDurableRoomSnapshot(
+  roomId: string
+): Promise<DurableRoomSnapshot | null> {
+  const result = await loadDurableRoomSnapshotWithStatus(roomId);
+
+  return result.status === "ready" ? result.snapshot : null;
 }
 
 export async function saveDurableRoomSnapshot(

@@ -44,6 +44,56 @@ export type BoardStageSelectedImageControlButton = {
   recipe?: ButtonRecipe;
 };
 
+export type RoomOpenInspectionPhaseKey =
+  | "room-activation"
+  | "shared-transport-attach"
+  | "shared-bootstrap-sync"
+  | "local-replica-read"
+  | "durable-snapshot-read"
+  | "bootstrap-decision"
+  | "scene-usable"
+  | "room-settled";
+
+export type RoomOpenInspectionPhaseStatus =
+  | "idle"
+  | "started"
+  | "ready"
+  | "missing"
+  | "failed"
+  | "skipped";
+
+export type RoomOpenInspectionPhase = {
+  key: RoomOpenInspectionPhaseKey;
+  label: string;
+  status: RoomOpenInspectionPhaseStatus;
+  detail: string | null;
+  startedAt: number | null;
+  updatedAt: number | null;
+};
+
+export type RoomOpenInspectionModel = {
+  roomId: string;
+  bootstrapEntryId: number;
+  phases: Record<RoomOpenInspectionPhaseKey, RoomOpenInspectionPhase>;
+};
+
+export const ROOM_OPEN_INSPECTION_PHASE_ORDER: RoomOpenInspectionPhaseKey[] = [
+  "room-activation",
+  "shared-transport-attach",
+  "shared-bootstrap-sync",
+  "local-replica-read",
+  "durable-snapshot-read",
+  "bootstrap-decision",
+  "scene-usable",
+  "room-settled",
+];
+
+export function getRoomOpenInspectionPhases(
+  model: RoomOpenInspectionModel
+): RoomOpenInspectionPhase[] {
+  return ROOM_OPEN_INSPECTION_PHASE_ORDER.map((key) => model.phases[key]);
+}
+
 export type BoardStageInspectableBounds = {
   x: number;
   y: number;

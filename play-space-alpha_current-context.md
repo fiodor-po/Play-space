@@ -31,20 +31,19 @@ In hard sprint mode:
 
 Current active chapter:
 
-- `board navigation and secondary-click behavior`
-  - focus on board navigation, primary / secondary click behavior, and related
-    pointer interaction rules;
-  - keep hosted core + video baseline stable while changing navigation
-    behavior;
-  - do not mix this chapter with mobile work, loading-progress polish, media,
-    or new runtime migration tracks.
+- `room loading progress and async-state polish`
+  - focus on robust room-open observability, phase-level diagnostics, and
+    inspectability before any user-facing loading/recovery UI;
+  - keep hosted core + video baseline stable while changing room-open
+    diagnostics;
+  - do not mix this chapter with mobile work, broad runtime rewrites, or new
+    migration tracks;
   - canonical focused doc:
-    - `docs/board-navigation-secondary-click-chapter.md`
+    - `docs/room-loading-progress-async-state-chapter.md`
 
 Immediate next chapters after that:
 
 - `Mobile experience`
-- `room loading progress and async-state polish`
 
 Current branch reached its cleanup sprint checkpoint:
 
@@ -60,8 +59,12 @@ Current branch reached its cleanup sprint checkpoint:
 - note editor overlay and hosted debug gate hotfixes are verified on the exact preview deploy
 - hosted room hydration and bootstrap coordination checkpoint is closed after the `scene-usable` split and hosted re-benchmark
 - staged room-open waves remain a visible product rough edge and now define the
-  newly selected loading-progress chapter
+  active room-open observability chapter
 - explicit `Leave room` now switches creator-colored participant-marker tokens to `room-document`, while abrupt tab close still leaves stale `live-occupancy`
+- an earlier room-open UI/status experiment was rolled back to the stable
+  baseline `40e0594`;
+- current chapter truth now prioritizes phase-level diagnostics over user-facing
+  loading copy
 
 Проект остаётся в стадии `play-space-alpha`.
 
@@ -173,7 +176,18 @@ Current expected order from here:
 3. carry forward the per-property sync baseline from `main` rather than from a separate experiment branch;
 4. carry forward staged hosted hydration waves and multi-context slowdown as a separate hosted/runtime follow-up;
 5. carry forward stale `live-occupancy` after abrupt tab close as a separate room-liveness follow-up;
-6. avoid reopening `BoardStage` cleanup micro-slices unless a new sprint is started explicitly.
+6. build a room-open inspectability baseline before returning to user-facing loading/recovery UI;
+7. avoid reopening `BoardStage` cleanup micro-slices unless a new sprint is started explicitly.
+
+Current room-open chapter framing:
+
+- the big problem is room-open robustness and inspectability, not loading text by
+  itself;
+- first safe slice is a room-open phase model with room-scoped diagnostics;
+- user-facing loading/progress UI is a later derivative layer;
+- recovery/fallback/degraded messaging must not be inferred from weak transient
+  signals;
+- timeout is not an acceptable room-open outcome signal by itself.
 
 Current agreed `BoardStage` target model for this cleanup sprint:
 

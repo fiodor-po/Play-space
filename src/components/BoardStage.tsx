@@ -45,6 +45,10 @@ import {
   getBoardStageObjectSemanticsViewModel,
   getBoardStageSelectedImageControlsViewModel,
   getBoardStageSelectedObjectsViewModel,
+  type RoomOpenInspectionModel,
+  type RoomOpenInspectionPhase,
+  type RoomOpenInspectionPhaseKey,
+  type RoomOpenInspectionPhaseStatus,
 } from "../board/viewModels/boardStageInspectability";
 import {
   MAX_INITIAL_IMAGE_DISPLAY_HEIGHT,
@@ -81,6 +85,7 @@ import {
 } from "../lib/boardImage";
 import {
   loadDurableRoomSnapshot,
+  loadDurableRoomSnapshotWithStatus,
   saveDurableRoomParticipantAppearance,
   saveDurableRoomSnapshot,
   saveDurableRoomSnapshotSlice,
@@ -450,11 +455,93 @@ type CreatorColorResolution = {
   source: CreatorColorSource;
 };
 
+const ROOM_OPEN_PHASE_LABELS: Record<RoomOpenInspectionPhaseKey, string> = {
+  "room-activation": "Room activation",
+  "shared-transport-attach": "Shared transport attach",
+  "shared-bootstrap-sync": "Shared initial sync",
+  "local-replica-read": "Local replica read",
+  "durable-snapshot-read": "Durable snapshot read",
+  "bootstrap-decision": "Bootstrap decision",
+  "scene-usable": "Scene usable",
+  "room-settled": "Room settled",
+};
+
 function createInitialSharedBootstrapSliceCounts(): SharedBootstrapSliceCounts {
   return {
     tokens: 0,
     images: 0,
     textCards: 0,
+  };
+}
+
+function createRoomOpenInspectionPhase(
+  key: RoomOpenInspectionPhaseKey
+): RoomOpenInspectionPhase {
+  return {
+    key,
+    label: ROOM_OPEN_PHASE_LABELS[key],
+    status: "idle",
+    detail: null,
+    startedAt: null,
+    updatedAt: null,
+  };
+}
+
+function createInitialRoomOpenInspectionState(params: {
+  roomId: string;
+  bootstrapEntryId: number;
+  startedAt: number;
+}): RoomOpenInspectionModel {
+  return {
+    roomId: params.roomId,
+    bootstrapEntryId: params.bootstrapEntryId,
+    phases: {
+      "room-activation": {
+        ...createRoomOpenInspectionPhase("room-activation"),
+        status: "ready",
+        detail: `Bootstrap ${params.bootstrapEntryId} started`,
+        startedAt: params.startedAt,
+        updatedAt: params.startedAt,
+      },
+      "shared-transport-attach": {
+        ...createRoomOpenInspectionPhase("shared-transport-attach"),
+        status: "started",
+        detail: "Waiting for token, image, and note transport wiring",
+        startedAt: params.startedAt,
+        updatedAt: params.startedAt,
+      },
+      "shared-bootstrap-sync": {
+        ...createRoomOpenInspectionPhase("shared-bootstrap-sync"),
+        status: "started",
+        detail: "Waiting for shared bootstrap payload and initial sync",
+        startedAt: params.startedAt,
+        updatedAt: params.startedAt,
+      },
+      "local-replica-read": createRoomOpenInspectionPhase("local-replica-read"),
+      "durable-snapshot-read":
+        createRoomOpenInspectionPhase("durable-snapshot-read"),
+      "bootstrap-decision": {
+        ...createRoomOpenInspectionPhase("bootstrap-decision"),
+        status: "started",
+        detail: "Waiting for recovery corridor to choose the terminal path",
+        startedAt: params.startedAt,
+        updatedAt: params.startedAt,
+      },
+      "scene-usable": {
+        ...createRoomOpenInspectionPhase("scene-usable"),
+        status: "started",
+        detail: "Waiting for the first usable room scene",
+        startedAt: params.startedAt,
+        updatedAt: params.startedAt,
+      },
+      "room-settled": {
+        ...createRoomOpenInspectionPhase("room-settled"),
+        status: "started",
+        detail: "Waiting for room bootstrap to resolve for this room",
+        startedAt: params.startedAt,
+        updatedAt: params.startedAt,
+      },
+    },
   };
 }
 
@@ -687,6 +774,14 @@ export default function BoardStage({
     useState<DurableReplicaInspectionState>(
       createInitialDurableReplicaInspectionState
     );
+  const [roomOpenInspection, setRoomOpenInspection] = useState<RoomOpenInspectionModel>(
+    () =>
+      createInitialRoomOpenInspectionState({
+        roomId,
+        bootstrapEntryId: 0,
+        startedAt: Date.now(),
+      })
+  );
   const [roomParticipantAppearance, setRoomParticipantAppearance] =
     useState<RoomParticipantAppearanceMap>(createEmptyRoomParticipantAppearance);
   const lastPersistedParticipantAppearanceKeyRef = useRef<string | null>(null);
@@ -733,6 +828,67 @@ export default function BoardStage({
   useEffect(() => {
     activeRoomIdRef.current = roomId;
   }, [roomId]);
+
+  const updateRoomOpenPhase = useEffectEvent(
+    (
+      key: RoomOpenInspectionPhaseKey,
+      nextState: {
+        status: RoomOpenInspectionPhaseStatus;
+        detail: string | null;
+      }
+    ) => {
+      const nextRoomId = roomId;
+      const nextBootstrapEntryId = roomBootstrapEntryIdRef.current;
+
+      setRoomOpenInspection((current) => {
+        if (
+          current.roomId !== nextRoomId ||
+          current.bootstrapEntryId !== nextBootstrapEntryId
+        ) {
+          return current;
+        }
+
+        const currentPhase = current.phases[key];
+        const now = Date.now();
+        const startedAt =
+          nextState.status === "idle"
+            ? null
+            : currentPhase.startedAt ?? now;
+        const hasChanged =
+          currentPhase.status !== nextState.status ||
+          currentPhase.detail !== nextState.detail ||
+          currentPhase.startedAt !== startedAt;
+
+        if (!hasChanged) {
+          return current;
+        }
+
+        const nextPhase: RoomOpenInspectionPhase = {
+          ...currentPhase,
+          status: nextState.status,
+          detail: nextState.detail,
+          startedAt,
+          updatedAt: now,
+        };
+
+        console.info("[room-open][phase]", {
+          roomId: nextRoomId,
+          bootstrapEntryId: nextBootstrapEntryId,
+          phase: key,
+          status: nextState.status,
+          detail: nextState.detail,
+        });
+
+        return {
+          ...current,
+          phases: {
+            ...current.phases,
+            [key]: nextPhase,
+          },
+        };
+      });
+    }
+  );
 
   useEffect(() => {
     let isCancelled = false;
@@ -1434,12 +1590,22 @@ export default function BoardStage({
   const [tokenInitialSyncRoomId, setTokenInitialSyncRoomId] = useState<
     string | null
   >(null);
+  const [tokenTransportAttachedRoomId, setTokenTransportAttachedRoomId] = useState<
+    string | null
+  >(null);
   const [imageInitialSyncRoomId, setImageInitialSyncRoomId] = useState<
+    string | null
+  >(null);
+  const [imageTransportAttachedRoomId, setImageTransportAttachedRoomId] = useState<
     string | null
   >(null);
   const [textCardInitialSyncRoomId, setTextCardInitialSyncRoomId] = useState<
     string | null
   >(null);
+  const [
+    textCardTransportAttachedRoomId,
+    setTextCardTransportAttachedRoomId,
+  ] = useState<string | null>(null);
   const [tokenBootstrapPayloadRoomId, setTokenBootstrapPayloadRoomId] = useState<
     string | null
   >(null);
@@ -1990,6 +2156,10 @@ export default function BoardStage({
     tokenInitialSyncRoomId === roomId &&
     imageInitialSyncRoomId === roomId &&
     textCardInitialSyncRoomId === roomId;
+  const hasSharedTransportAttached =
+    tokenTransportAttachedRoomId === roomId &&
+    imageTransportAttachedRoomId === roomId &&
+    textCardTransportAttachedRoomId === roomId;
   const hasReceivedSharedBootstrapPayload =
     tokenBootstrapPayloadRoomId === roomId &&
     imageBootstrapPayloadRoomId === roomId &&
@@ -2002,6 +2172,73 @@ export default function BoardStage({
   useEffect(() => {
     sharedBootstrapObjectCountRef.current = sharedBootstrapObjectCount;
   }, [sharedBootstrapObjectCount]);
+
+  useEffect(() => {
+    const attachedSlices = [
+      tokenTransportAttachedRoomId === roomId ? "tokens" : null,
+      imageTransportAttachedRoomId === roomId ? "images" : null,
+      textCardTransportAttachedRoomId === roomId ? "textCards" : null,
+    ].filter((slice): slice is string => slice !== null);
+
+    updateRoomOpenPhase("shared-transport-attach", {
+      status: hasSharedTransportAttached ? "ready" : "started",
+      detail: `Attached ${attachedSlices.join(", ") || "none"} of token, image, text-card corridors`,
+    });
+  }, [
+    hasSharedTransportAttached,
+    imageTransportAttachedRoomId,
+    roomId,
+    textCardTransportAttachedRoomId,
+    tokenTransportAttachedRoomId,
+    updateRoomOpenPhase,
+  ]);
+
+  useEffect(() => {
+    const syncedSlices = [
+      tokenInitialSyncRoomId === roomId ? "tokens" : null,
+      imageInitialSyncRoomId === roomId ? "images" : null,
+      textCardInitialSyncRoomId === roomId ? "textCards" : null,
+    ].filter((slice): slice is string => slice !== null);
+    const payloadSlices = [
+      tokenBootstrapPayloadRoomId === roomId
+        ? `tokens ${sharedBootstrapSliceCounts.tokens}`
+        : null,
+      imageBootstrapPayloadRoomId === roomId
+        ? `images ${sharedBootstrapSliceCounts.images}`
+        : null,
+      textCardBootstrapPayloadRoomId === roomId
+        ? `textCards ${sharedBootstrapSliceCounts.textCards}`
+        : null,
+    ].filter((slice): slice is string => slice !== null);
+    const status =
+      hasSharedRoomContentLoaded && hasReceivedSharedBootstrapPayload
+        ? "ready"
+        : resolvedSnapshotBootstrapRoomId === roomId
+          ? "missing"
+          : "started";
+
+    updateRoomOpenPhase("shared-bootstrap-sync", {
+      status,
+      detail: `Payload ${payloadSlices.join(", ") || "none"} · initial sync ${
+        syncedSlices.join(", ") || "none"
+      }`,
+    });
+  }, [
+    hasReceivedSharedBootstrapPayload,
+    hasSharedRoomContentLoaded,
+    imageBootstrapPayloadRoomId,
+    imageInitialSyncRoomId,
+    resolvedSnapshotBootstrapRoomId,
+    roomId,
+    sharedBootstrapSliceCounts.images,
+    sharedBootstrapSliceCounts.textCards,
+    sharedBootstrapSliceCounts.tokens,
+    textCardBootstrapPayloadRoomId,
+    textCardInitialSyncRoomId,
+    tokenBootstrapPayloadRoomId,
+    tokenInitialSyncRoomId,
+    updateRoomOpenPhase,
+  ]);
 
   const markSceneUsable = useEffectEvent(
     (source: SceneUsableSource, objectCount: number) => {
@@ -2031,6 +2268,10 @@ export default function BoardStage({
         sceneUsableObjectCount: objectCount,
         sceneUsableAt,
       }));
+      updateRoomOpenPhase("scene-usable", {
+        status: "ready",
+        detail: `Source ${source} · objects ${objectCount}`,
+      });
     }
   );
 
@@ -2408,6 +2649,13 @@ export default function BoardStage({
         ...createInitialNavigationDriftInspectionState(),
         captureStartedAt,
       });
+      setRoomOpenInspection(
+        createInitialRoomOpenInspectionState({
+          roomId,
+          bootstrapEntryId: nextBootstrapEntryId,
+          startedAt: captureStartedAt,
+        })
+      );
       appendNavigationInspectEntry({
         at: captureStartedAt,
         kind: "lifecycle",
@@ -2649,6 +2897,14 @@ export default function BoardStage({
         settledSliceSources: createInitialSettledRecoverySliceSourceState("live"),
         durableRevision: snapshot?.revision ?? null,
       });
+      updateRoomOpenPhase("bootstrap-decision", {
+        status: "ready",
+        detail: "Settled live-active from shared room state",
+      });
+      updateRoomOpenPhase("room-settled", {
+        status: "ready",
+        detail: "Room bootstrap resolved as live-active",
+      });
       setLocalReplicaInspection((current) => ({
         ...current,
         initialOpenStatus:
@@ -2675,25 +2931,49 @@ export default function BoardStage({
       setResolvedSnapshotBootstrapRoomId(roomId);
     };
     const resolveLiveBootstrap = async () => {
-      let snapshot = null;
-
-      try {
-        snapshot = await loadDurableRoomSnapshot(roomId);
-      } catch (error) {
-        console.error(
-          "Failed to resolve durable room snapshot during live bootstrap",
-          error
-        );
-      }
+      updateRoomOpenPhase("local-replica-read", {
+        status: "skipped",
+        detail: "Live shared room content arrived before local bootstrap read",
+      });
+      updateRoomOpenPhase("durable-snapshot-read", {
+        status: "started",
+        detail: "Reading durable snapshot for live-active inspection",
+      });
+      const snapshotResult = await loadDurableRoomSnapshotWithStatus(roomId);
 
       if (isCancelled) {
         return;
       }
 
-      settleLiveWinsBootstrap(snapshot);
+      if (snapshotResult.status === "ready") {
+        updateRoomOpenPhase("durable-snapshot-read", {
+          status: "ready",
+          detail: `Revision ${snapshotResult.snapshot.revision} · objects ${getSnapshotObjectCount(
+            snapshotResult.snapshot
+          )}`,
+        });
+      } else if (snapshotResult.status === "missing") {
+        updateRoomOpenPhase("durable-snapshot-read", {
+          status: "missing",
+          detail: "No durable snapshot was stored for this room",
+        });
+      } else {
+        updateRoomOpenPhase("durable-snapshot-read", {
+          status: "failed",
+          detail: `Durable snapshot read failed: ${snapshotResult.reason}`,
+        });
+      }
+
+      settleLiveWinsBootstrap(
+        snapshotResult.status === "ready" ? snapshotResult.snapshot : null
+      );
     };
 
     const resolveRoomBootstrap = async () => {
+      updateRoomOpenPhase("local-replica-read", {
+        status: "started",
+        detail: "Reading local room-document bootstrap state",
+      });
       const localBootstrapState = await loadLocalRoomDocumentBootstrapState(
         roomId
       );
@@ -2737,6 +3017,12 @@ export default function BoardStage({
         lastReadKnownDurableSliceRevisions:
           localRecoveryKnownDurableSliceRevisions,
       }));
+      updateRoomOpenPhase("local-replica-read", {
+        status: localRecoverySnapshot ? "ready" : "missing",
+        detail: `Source ${localRecoverySource} · revision ${
+          localRecoveryRevision ?? "none"
+        } · objects ${localRecoveryObjectCount}`,
+      });
 
       if (shouldApplyProvisionalLocalOpen && localRecoverySnapshot) {
         console.info("[room-recovery][board-stage][initial-open]", {
@@ -2764,15 +3050,34 @@ export default function BoardStage({
       }
 
       let durableSnapshot = null;
-
-      try {
-        durableSnapshot = await loadDurableRoomSnapshot(roomId);
-      } catch (error) {
-        console.error("Failed to resolve durable room snapshot during bootstrap", error);
-      }
+      updateRoomOpenPhase("durable-snapshot-read", {
+        status: "started",
+        detail: "Reading durable snapshot for bootstrap convergence",
+      });
+      const durableSnapshotResult = await loadDurableRoomSnapshotWithStatus(roomId);
 
       if (isCancelled) {
         return;
+      }
+
+      if (durableSnapshotResult.status === "ready") {
+        durableSnapshot = durableSnapshotResult.snapshot;
+        updateRoomOpenPhase("durable-snapshot-read", {
+          status: "ready",
+          detail: `Revision ${durableSnapshot.revision} · objects ${getSnapshotObjectCount(
+            durableSnapshot
+          )}`,
+        });
+      } else if (durableSnapshotResult.status === "missing") {
+        updateRoomOpenPhase("durable-snapshot-read", {
+          status: "missing",
+          detail: "No durable snapshot was stored for this room",
+        });
+      } else {
+        updateRoomOpenPhase("durable-snapshot-read", {
+          status: "failed",
+          detail: `Durable snapshot read failed: ${durableSnapshotResult.reason}`,
+        });
       }
 
       if (sharedBootstrapObjectCountRef.current > 0) {
@@ -2864,6 +3169,10 @@ export default function BoardStage({
         textCardCount: terminalContent?.textCards.length ?? 0,
         settledSliceSources,
       });
+      updateRoomOpenPhase("bootstrap-decision", {
+        status: "ready",
+        detail: `Settled ${settledState} · tokens ${settledSliceSources.tokens} · images ${settledSliceSources.images} · textCards ${settledSliceSources.textCards}`,
+      });
       setLocalReplicaInspection((current) => ({
         ...current,
         lastSettledRecoveryState: settledState,
@@ -2893,6 +3202,10 @@ export default function BoardStage({
       }
 
       setResolvedSnapshotBootstrapRoomId(roomId);
+      updateRoomOpenPhase("room-settled", {
+        status: "ready",
+        detail: `Bootstrap resolved as ${settledState}`,
+      });
 
       if (baselineIdToApply) {
         onRoomBaselineApplied(baselineIdToApply);
@@ -3094,6 +3407,7 @@ export default function BoardStage({
       },
     });
     attachTokenConnection(connection);
+    setTokenTransportAttachedRoomId(roomId);
 
     return () => {
       detachTokenConnection(connection);
@@ -3143,6 +3457,7 @@ export default function BoardStage({
       onImageDrawingLocksChange: handleRemoteImageDrawingLocksChange,
     });
     attachImageConnection(connection);
+    setImageTransportAttachedRoomId(roomId);
 
     return () => {
       detachImageConnection(connection);
@@ -3181,6 +3496,7 @@ export default function BoardStage({
       onTextCardResizeStatesChange: setRemoteTextCardResizeStates,
     });
     attachTextCardConnection(connection);
+    setTextCardTransportAttachedRoomId(roomId);
 
     return () => {
       detachTextCardConnection(connection);
@@ -4789,6 +5105,7 @@ export default function BoardStage({
   const devToolsContent = (
     <BoardStageDevToolsContent
       {...devToolsViewModel}
+      roomOpenInspection={roomOpenInspection}
       navigationDriftInspection={navigationDriftInspection}
       inspectableImagePropertyEntry={inspectableImagePropertyEntry}
       inspectableTokenPropertyEntry={inspectableTokenPropertyEntry}

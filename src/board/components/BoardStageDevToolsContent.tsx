@@ -20,6 +20,10 @@ import { text } from "../../ui/system/foundations";
 import { surfaceRecipes } from "../../ui/system/surfaces";
 import { uiTextStyleSmall } from "../../ui/system/typography";
 import type { BoardObjectPropertySyncDebugEntry } from "../../lib/boardObjectPropertySync";
+import {
+  getRoomOpenInspectionPhases,
+  type RoomOpenInspectionModel,
+} from "../viewModels/boardStageInspectability";
 
 type InspectableBounds = {
   x: number;
@@ -120,6 +124,7 @@ export type BoardStageGovernanceInspectionEntry = {
 };
 
 type BoardStageDevToolsContentProps = {
+  roomOpenInspection: RoomOpenInspectionModel;
   sharedObjectCount: number;
   sharedTokenCount: number;
   sharedImageCount: number;
@@ -309,6 +314,7 @@ function formatPropertySyncReconstruction(
 }
 
 export function BoardStageDevToolsContent({
+  roomOpenInspection,
   sharedObjectCount,
   sharedTokenCount,
   sharedImageCount,
@@ -356,6 +362,7 @@ export function BoardStageDevToolsContent({
   onResetBoard,
 }: BoardStageDevToolsContentProps) {
   const objectInspectionSelectionRecipe = selectionControlRecipes.checkbox.small;
+  const roomOpenPhases = getRoomOpenInspectionPhases(roomOpenInspection);
 
   return (
     <div style={{ display: "grid", gap: 12, minWidth: 0 }}>
@@ -373,6 +380,37 @@ export function BoardStageDevToolsContent({
           onAddNote={onAddNote}
           onResetBoard={onResetBoard}
         />
+      </div>
+
+      <div
+        className={surfaceRecipes.inset.default.className}
+        style={debugInsetCardStyle}
+        data-testid="debug-room-open-inspection"
+        {...getDesignSystemDebugAttrs(surfaceRecipes.inset.default.debug)}
+      >
+        <div style={debugInsetCardTitleStyle}>Room open phases</div>
+        <div style={debugPrimaryTextStyle}>
+          Room: {roomOpenInspection.roomId}
+          {" · "}bootstrap {roomOpenInspection.bootstrapEntryId}
+        </div>
+        <div style={{ display: "grid", gap: 6 }}>
+          {roomOpenPhases.map((phase) => (
+            <div
+              key={phase.key}
+              data-testid={`debug-room-open-phase-${phase.key}`}
+              style={{ display: "grid", gap: 2 }}
+            >
+              <div style={debugPrimaryTextStyle}>
+                {phase.label}: {phase.status}
+              </div>
+              <div style={debugMutedTextStyle}>
+                Started {formatDebugTimestamp(phase.startedAt)}
+                {" · "}updated {formatDebugTimestamp(phase.updatedAt)}
+              </div>
+              <div style={debugMutedTextStyle}>{phase.detail ?? "Detail: none"}</div>
+            </div>
+          ))}
+        </div>
       </div>
 
       <div

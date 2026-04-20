@@ -127,14 +127,21 @@ Use these statuses in roadmap notes when useful:
 
 ## 4. Текущий активный этап
 
-## Phase D — Active chapter: board navigation and secondary-click behavior
+## Phase D — Active chapter: room loading progress and async-state polish
 
-**Статус:** persistence/recovery complete, participant identity stabilization closed, BoardStage cleanup checkpoint closed, creator-color room-document fallback checkpoint closed, board-object controls UI layer checkpoint closed, active chapter selected on `main`
+**Статус:** navigation checkpoint closed, earlier room-open UI experiment rolled back to stable baseline `40e0594`, chapter reframed around room-open observability and diagnostics
+
+Control doc:
+
+- `docs/room-loading-progress-async-state-chapter.md`
 
 ### Цель
-Открыть chapter вокруг board navigation и secondary-click behavior, затем
-перейти к mobile experience и только потом к room loading progress and
-async-state polish.
+Сделать `room open` наблюдаемым и диагностируемым pipeline:
+
+- phase-level inspectability;
+- room-scoped debug signals;
+- clear failure and waiting corridors;
+- safe foundation for later user-facing status.
 
 ### Основная последовательность
 1. держать hosted core + optional video checkpoint как current baseline;
@@ -143,10 +150,10 @@ async-state polish.
 4. считать cleanup sprint `sprint/cleanup-lint-boardstage-foundation` закрытым checkpoint;
 5. считать `participant-marker / creator-color` room-document fallback закрытым chapter checkpoint;
 6. считать `Board object controls UI layer` закрытым chapter checkpoint;
-7. открыть `board navigation and secondary-click behavior` как новый active chapter;
-8. держать `Mobile experience` как следующий chapter сразу после navigation;
-9. держать `room loading progress and async-state polish` как следующий chapter после navigation и mobile;
-10. не смешивать navigation chapter с broad runtime cleanup или новыми migration tracks;
+7. считать `board navigation and secondary-click behavior` закрытым working checkpoint;
+8. открыть `room loading progress and async-state polish` как новый active chapter;
+9. держать `Mobile experience` как следующий chapter после room-open observability baseline;
+10. не смешивать этот chapter с broad runtime cleanup или новыми migration tracks;
 11. держать hosted validation как повторяемый checkpoint после крупных шагов и новых demo snapshots.
 
 ### Что это теперь значит
@@ -155,9 +162,16 @@ Browser-local participant identity stabilization закрыт.
 BoardStage cleanup sprint закрыт.
 Creator-color fallback checkpoint тоже закрыт.
 Board object controls UI layer checkpoint тоже закрыт.
-Следующий active chapter выбран: `board navigation and secondary-click behavior`.
+Board navigation checkpoint тоже закрыт.
+Новый active chapter: `room loading progress and async-state polish`.
+Этот chapter теперь читается шире, чем loading text polish:
+
+- room open должен стать inspectable pipeline;
+- phase-level diagnostics идут раньше user-facing messaging;
+- timeout не считается допустимым основанием для room-open outcome;
+- local-recovery special handling остаётся later slice после inspectability baseline.
+
 Mobile experience идёт следующим chapter.
-`room loading progress and async-state polish` идёт после navigation и mobile.
 
 Current creator-color truth now looks like this:
 
@@ -192,7 +206,7 @@ Remaining deferred runtime tail from this chapter:
 - completed checkpoint: `Checkpoint 3`;
 - completed migration track: `room document persistence / recovery architecture`;
 - completed chapter: `browser-local participant identity stabilization`;
-- active chapter: `board navigation and secondary-click behavior`;
+- active chapter: `room loading progress and async-state polish`;
 - completed narrow follow-up: `debug-tools usability cleanup`;
 - later follow-up task: `room-ops durability ergonomics`;
 - optional follow-up task: `legacy room-snapshot write-cache cleanup`;
@@ -206,8 +220,10 @@ Remaining deferred runtime tail from this chapter:
 - closed chapter checkpoint:
   - `hosted room hydration and bootstrap coordination`;
 - completed follow-up checkpoint: hosted validation after the cleanup branch deploy;
+- current chapter track:
+  - room-open phase model and inspectability baseline;
 - later hosted/runtime follow-up:
-  - loading placeholders and async-state polish around room open and other delayed surfaces;
+  - user-facing room-open status and other delayed-surface polish on top of the inspectability baseline;
   - large-image add benchmarks and later optimization;
   - stale `live-occupancy` after abrupt tab close;
 - hosted validation как повторяемая проверка после крупных шагов, выкатываний и
