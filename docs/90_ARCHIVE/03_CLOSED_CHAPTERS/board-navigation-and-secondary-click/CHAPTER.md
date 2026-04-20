@@ -1,9 +1,10 @@
 # Board Navigation And Secondary-Click Chapter
 
-Status: active chapter control doc  
+Status: archived closed chapter bundle  
+Closure: accepted working checkpoint, archived on 2026-04-20  
 Scope: board navigation, wheel behavior, explicit desktop pan gestures, and placeholder secondary-click behavior
 
-Этот документ фиксирует рабочую рамку chapter `board navigation and
+Этот bundle хранит финальную рабочую рамку chapter `board navigation and
 secondary-click behavior`.
 
 ## 1. Chapter goal

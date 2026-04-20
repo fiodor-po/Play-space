@@ -31,16 +31,8 @@
 
 ## 3. Now
 
-- `Board navigation and secondary-click behavior`
-  Переделать навигацию по доске и поведение primary / secondary click и связанных pointer interactions.
-  Tags: `#now`
-
-- `Mobile experience`
-  Сделать рабочий и целостный mobile experience для входа в комнату, доски, controls и media surfaces.
-  Tags: `#now`
-
-- `Room loading progress and async-state polish`
-  Добавить честные loading / settling states и цельный прогресс открытия комнаты на entry, room open, recovery, media и других async поверхностях.
+- `Board runtime architecture review`
+  Согласовать runtime ownership boundaries, staged migration order и первый safe implementation slice.
   Tags: `#now`
 
 - `Room entry empty-name default without URL room`
@@ -48,6 +40,14 @@
   Tags: `#now`
 
 ## 4. Soon
+
+- `Mobile experience`
+  Собрать рабочий и целостный mobile experience для входа в комнату, доски, controls и media surfaces после architecture review.
+  Tags: `#soon`
+
+- `Room-open user-facing status after runtime review`
+  Вернуться к loading / recovery messaging после runtime review и выбора безопасного room-open ownership slice.
+  Tags: `#soon`
 
 - `Legacy room-snapshot write-cache cleanup`
   Убрать или изолировать legacy `room-snapshot` write tail, чтобы упростить persistence story без нового широкого migration pass.

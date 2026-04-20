@@ -9,6 +9,38 @@
 
 ---
 
+## 2026-04-20 — Active chapters closed and architecture review promoted as the next chapter
+
+### Type
+- planning
+- decision
+- workflow
+
+### Context
+После rollback к stable baseline, room-open inspectability baseline и target
+runtime docs уже были зафиксированы. Дальше проекту нужен был один чистый
+planning pivot before the next implementation lane.
+
+### Decision / change
+Зафиксировано следующее:
+
+- `board navigation and secondary-click behavior` archived as a closed chapter
+  bundle;
+- `room loading progress and async-state polish` archived as a paused chapter
+  bundle after planning pivot;
+- `board runtime architecture review` promoted as the active chapter;
+- next implementation chapter will be selected after this review.
+
+### Result
+Current planning truth now reads like this:
+
+- active chapter is architecture review;
+- room-open inspectability stays as review input;
+- later runtime work remains candidate until the review chooses one lane;
+- `Mobile experience` returns to candidate product work after the review.
+
+---
+
 ## 2026-04-20 — RoomRuntime + RoomDocument target architecture accepted as a staged runtime direction
 
 ### Type

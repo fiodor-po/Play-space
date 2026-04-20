@@ -127,21 +127,21 @@ Use these statuses in roadmap notes when useful:
 
 ## 4. Текущий активный этап
 
-## Phase D — Active chapter: room loading progress and async-state polish
+## Phase D — Active chapter: board runtime architecture review
 
-**Статус:** navigation checkpoint closed, earlier room-open UI experiment rolled back to stable baseline `40e0594`, chapter reframed around room-open observability and diagnostics
+**Статус:** board-navigation chapter archived as closed checkpoint, room-loading chapter archived after planning pivot, active work switched to read-only architecture review
 
 Control doc:
 
-- `docs/01_CURRENT_STATE/ACTIVE_CHAPTERS/room-loading-progress-and-async-state/CHAPTER.md`
+- `docs/01_CURRENT_STATE/ACTIVE_CHAPTERS/board-runtime-architecture-review/CHAPTER.md`
 
 ### Цель
-Сделать `room open` наблюдаемым и диагностируемым pipeline:
+Согласовать один рабочий runtime direction перед следующим implementation
+chapter:
 
-- phase-level inspectability;
-- room-scoped debug signals;
-- clear failure and waiting corridors;
-- safe foundation for later user-facing status.
+- room/runtime ownership boundaries;
+- staged migration order;
+- first safe implementation slice after the review.
 
 ### Основная последовательность
 1. держать hosted core + optional video checkpoint как current baseline;
@@ -150,10 +150,10 @@ Control doc:
 4. считать cleanup sprint `sprint/cleanup-lint-boardstage-foundation` закрытым checkpoint;
 5. считать `participant-marker / creator-color` room-document fallback закрытым chapter checkpoint;
 6. считать `Board object controls UI layer` закрытым chapter checkpoint;
-7. считать `board navigation and secondary-click behavior` закрытым working checkpoint;
-8. открыть `room loading progress and async-state polish` как новый active chapter;
-9. держать `Mobile experience` как следующий chapter после room-open observability baseline;
-10. не смешивать этот chapter с broad runtime cleanup или новыми migration tracks;
+7. считать `board navigation and secondary-click behavior` закрытым working checkpoint и архивным bundle;
+8. считать `room loading progress and async-state polish` архивным paused bundle после planning pivot;
+9. открыть `board runtime architecture review` как active read-only chapter;
+10. выбрать следующий implementation chapter уже из результата architecture review;
 11. держать hosted validation как повторяемый checkpoint после крупных шагов и новых demo snapshots.
 
 ### Что это теперь значит
@@ -163,15 +163,17 @@ BoardStage cleanup sprint закрыт.
 Creator-color fallback checkpoint тоже закрыт.
 Board object controls UI layer checkpoint тоже закрыт.
 Board navigation checkpoint тоже закрыт.
-Новый active chapter: `room loading progress and async-state polish`.
-Этот chapter теперь читается шире, чем loading text polish:
+Room-loading chapter больше не управляет текущей работой и хранится в archive
+как paused bundle.
+Новый active chapter: `board runtime architecture review`.
+Этот chapter собирает один согласованный runtime plan перед новым
+implementation pass:
 
-- room open должен стать inspectable pipeline;
-- phase-level diagnostics идут раньше user-facing messaging;
-- timeout не считается допустимым основанием для room-open outcome;
-- local-recovery special handling остаётся later slice после inspectability baseline.
-
-Mobile experience идёт следующим chapter.
+- accepted room-open inspectability baseline stays a useful input;
+- user-facing loading/recovery UI returns to later work;
+- runtime implementation order is decided through the review;
+- `Mobile experience` stays candidate product work, not the current promised
+  next chapter.
 
 Current creator-color truth now looks like this:
 
@@ -189,7 +191,7 @@ Remaining deferred runtime tail from this chapter:
 - this is now treated as a separate room-occupancy liveness follow-up rather
   than as an open creator-color fallback blocker.
 
-## 5. Что вошло в этот checkpoint
+## 5. Что зафиксировано к текущему planning pivot
 
 - удержание core hosted stack в честном рабочем состоянии;
 - удержание working hosted video path как optional layer без лишнего scope creep;
@@ -206,7 +208,7 @@ Remaining deferred runtime tail from this chapter:
 - completed checkpoint: `Checkpoint 3`;
 - completed migration track: `room document persistence / recovery architecture`;
 - completed chapter: `browser-local participant identity stabilization`;
-- active chapter: `room loading progress and async-state polish`;
+- active chapter: `board runtime architecture review`;
 - completed narrow follow-up: `debug-tools usability cleanup`;
 - later follow-up task: `room-ops durability ergonomics`;
 - optional follow-up task: `legacy room-snapshot write-cache cleanup`;
@@ -220,7 +222,11 @@ Remaining deferred runtime tail from this chapter:
 - closed chapter checkpoint:
   - `hosted room hydration and bootstrap coordination`;
 - completed follow-up checkpoint: hosted validation after the cleanup branch deploy;
-- current chapter track:
+- archived closed chapter bundle:
+  - `board navigation and secondary-click behavior`;
+- archived paused chapter bundle:
+  - `room loading progress and async-state polish`;
+- accepted review input:
   - room-open phase model and inspectability baseline;
 - later hosted/runtime follow-up:
   - user-facing room-open status and other delayed-surface polish on top of the inspectability baseline;
@@ -231,10 +237,9 @@ Remaining deferred runtime tail from this chapter:
 - accepted runtime target architecture now lives in:
   - `docs/04_ARCHITECTURE/01_RUNTIME/board-runtime-target-architecture.md`
   - `docs/04_ARCHITECTURE/01_RUNTIME/board-runtime-staged-roadmap.md`
-- current chapter absorbs only the room-open runtime/diagnostics ownership slice
-  from that target;
-- later runtime phases stay `candidate` and require explicit planning promotion
-  after the current chapter order.
+- current chapter reviews that target and chooses the next safe implementation
+  slice;
+- later runtime phases stay `candidate` until the review promotes one of them.
 
 ## 6. Что сознательно не является главным фокусом сейчас
 

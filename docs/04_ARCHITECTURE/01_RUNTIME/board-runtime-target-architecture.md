@@ -358,7 +358,7 @@ This decision does not open:
 
 Review this ADR when one of the following becomes true:
 
-- runtime work is selected after the current chapter and `Mobile experience`;
+- runtime implementation work is promoted out of `board runtime architecture review`;
 - `RoomRuntime` extraction starts implementation;
 - `RoomDocumentV1` schema is proposed;
 - image asset extraction starts;

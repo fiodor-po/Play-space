@@ -24,8 +24,8 @@ The safe order is:
 5. separate tool ownership;
 6. revisit physical transport unification later.
 
-This roadmap does not change the current active chapter.
-It gives the next safe architecture track after explicit planning promotion.
+This roadmap now anchors the active chapter `board runtime architecture review`.
+The chapter stays read-only and chooses the first safe implementation phase.
 
 ## 2. Global guardrails
 
@@ -53,7 +53,7 @@ Every phase also keeps these constraints:
 
 Status:
 
-- active through the current chapter `room loading progress and async-state polish`
+- active review target inside `board runtime architecture review`
 
 Purpose:
 
@@ -361,13 +361,14 @@ Stop conditions:
 
 ## 4. Relationship to the current roadmap
 
-This roadmap supports the current active chapter and the current next-chapter
-order.
+This roadmap supports the current active chapter and the next implementation
+choice that follows it.
 
 Current truth:
 
-- Phase 1 aligns with `room loading progress and async-state polish`;
-- `Mobile experience` stays the next chapter by the current roadmap;
+- the active chapter is `board runtime architecture review`;
+- Phase 1 is the first candidate implementation phase under that review;
+- `Mobile experience` stays candidate product work after the review;
 - phases `2–7` stay candidate architecture work until explicit planning
   promotion.
 

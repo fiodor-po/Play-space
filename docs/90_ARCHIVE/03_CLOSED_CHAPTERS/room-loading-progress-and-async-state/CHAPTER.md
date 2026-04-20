@@ -1,6 +1,12 @@
 # Room Loading Progress And Async-State Chapter
 
-Этот chapter теперь решает более крупную задачу: сделать `room open`
+Status: archived paused chapter bundle  
+Closure: archived on 2026-04-20 after planning pivot into `board runtime architecture review`
+
+Этот bundle сохраняет последнюю рамку chapter, который был остановлен
+planning-pivot'ом до нового implementation continuation.
+
+Этот chapter решал более крупную задачу: сделать `room open`
 наблюдаемым, диагностируемым и пригодным для робастной recovery-логики.
 
 ## Что решаем

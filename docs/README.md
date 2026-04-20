@@ -121,8 +121,7 @@ Current chapter control docs now live only in:
 
 Current chapter examples:
 
-- [`01_CURRENT_STATE/ACTIVE_CHAPTERS/room-loading-progress-and-async-state/CHAPTER.md`](/Users/fedorpodrezov/Developer/play-space-alpha/docs/01_CURRENT_STATE/ACTIVE_CHAPTERS/room-loading-progress-and-async-state/CHAPTER.md)
-- [`01_CURRENT_STATE/ACTIVE_CHAPTERS/board-navigation-and-secondary-click/CHAPTER.md`](/Users/fedorpodrezov/Developer/play-space-alpha/docs/01_CURRENT_STATE/ACTIVE_CHAPTERS/board-navigation-and-secondary-click/CHAPTER.md)
+- [`01_CURRENT_STATE/ACTIVE_CHAPTERS/board-runtime-architecture-review/CHAPTER.md`](/Users/fedorpodrezov/Developer/play-space-alpha/docs/01_CURRENT_STATE/ACTIVE_CHAPTERS/board-runtime-architecture-review/CHAPTER.md)
 
 Closed chapter bundles live in:
 
