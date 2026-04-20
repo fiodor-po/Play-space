@@ -32,13 +32,14 @@ Scope: demo scenario, release requirements, allowed fix scope on current archite
 - broad runtime refactor;
 - broad `BoardStage` rewrite;
 - новый migration chapter до demo release;
-- feature expansion, которая не нужна для demo scenario.
+- feature expansion outside the demo scenario.
 
 ## 4. Canonical inputs
 
 - `docs/03_PRODUCT/00_OVERVIEW/PRODUCT_FOUNDATION.md`
 - `docs/01_CURRENT_STATE/ROADMAP.md`
 - `docs/00_AGENT_OS/CURRENT_CONTEXT.md`
+- `docs/01_CURRENT_STATE/ACTIVE_CHAPTERS/demo-requirements-and-release-prep/DEMO_REQUIREMENTS.md`
 - `docs/04_ARCHITECTURE/01_RUNTIME/board-runtime-target-architecture.md`
 - `docs/04_ARCHITECTURE/01_RUNTIME/board-runtime-staged-roadmap.md`
 - current hosted/demo baseline in `main`
@@ -49,6 +50,10 @@ Scope: demo scenario, release requirements, allowed fix scope on current archite
 - один список release gates;
 - один bounded lane для pre-release fixes;
 - одно явное правило, когда начинается post-demo architecture track.
+
+Current canonical brief:
+
+- `docs/01_CURRENT_STATE/ACTIVE_CHAPTERS/demo-requirements-and-release-prep/DEMO_REQUIREMENTS.md`
 
 ## 6. Acceptance direction
 

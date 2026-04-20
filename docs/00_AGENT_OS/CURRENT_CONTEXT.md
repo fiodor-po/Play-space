@@ -190,6 +190,16 @@ Current demo chapter framing:
   itself;
 - demo-critical fixes must stay narrow and safe on the current architecture.
 
+Current demo requirement set:
+
+- dice experience now targets a tighter `D&D Beyond`-like feel;
+- simultaneous multi-player dice rolls must be checked before the dice UX pass;
+- drawing must gain eraser, partial stroke erase, and `Shift` straight lines;
+- video must become the demo-default layer with a clear fallback path;
+- video preview must become draggable and resizable;
+- token creation must move beyond the current single-token baseline, with
+  `dock/tray` versus `button` still open.
+
 Current target-architecture truth is now recorded explicitly in:
 
 - `docs/04_ARCHITECTURE/01_RUNTIME/board-runtime-target-architecture.md`

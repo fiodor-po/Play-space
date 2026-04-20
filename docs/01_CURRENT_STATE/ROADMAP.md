@@ -178,6 +178,16 @@ archive как paused bundle.
 - accepted architecture track stays documented and approved for later;
 - pre-release fixes stay narrow and demo-driven.
 
+Current demo requirement set:
+
+- dice experience gets a `D&D Beyond`-like tightening, with simultaneous
+  multi-player roll validation first;
+- drawing gets eraser, partial stroke erase, and `Shift` straight-line support;
+- video becomes the default-facing demo layer with fallback plus draggable and
+  resizable preview;
+- token creation gets a stronger path than the current single-token baseline,
+  with `dock/tray` versus `button` still open as a product choice.
+
 Current creator-color truth now looks like this:
 
 - room-scoped `participantAppearance` now stores last-known participant color and

@@ -35,6 +35,10 @@
   Зафиксировать demo scenario, must-have flows, release gates и границы safe fixes на текущей архитектуре.
   Tags: `#now`
 
+- `Demo 2 dice concurrency check`
+  Проверить simultaneous multi-player rolls на current dice layer до нового demo-facing dice polish pass.
+  Tags: `#now`
+
 - `Room entry empty-name default without URL room`
   Если room не задана в URL, поле имени комнаты на entry должно стартовать пустым, а не со значением `alpha`.
   Tags: `#now`
@@ -43,6 +47,18 @@
 
 - `Demo implementation and release fixes on current architecture`
   Собрать и зарелизить новую демку на текущей архитектуре после согласования demo requirements.
+  Tags: `#soon`
+
+- `Drawing tools for Demo 2`
+  Добавить eraser, partial stroke erase и `Shift` straight-line support.
+  Tags: `#soon`
+
+- `Video default path for Demo 2`
+  Сделать video default-facing layer для демки, добавить fallback и draggable/resizable preview.
+  Tags: `#soon`
+
+- `Token creation UX for Demo 2`
+  Дать демке multi-token creation path: проверить `dock/tray` versus `button` и довести выбранный вариант до рабочего состояния.
   Tags: `#soon`
 
 - `Board runtime migration track after demo release`
