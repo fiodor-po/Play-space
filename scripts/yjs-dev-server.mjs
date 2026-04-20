@@ -83,6 +83,8 @@ class WSSharedDoc extends Y.Doc {
 }
 
 const server = http.createServer((req, res) => {
+  installCorsWriteHead(req, res);
+
   void handleHttpRequest(req, res).catch((error) => {
     console.error("Failed to handle HTTP request", error);
 
@@ -224,7 +226,7 @@ function loadDotEnvFile(filePath) {
 }
 
 async function handleHttpRequest(req, res) {
-  setCorsHeaders(res);
+  setCorsHeaders(req, res);
 
   if (req.method === "OPTIONS") {
     res.writeHead(204);
@@ -1296,10 +1298,66 @@ function getLiveDocSharedObjectCount(doc, kind) {
   }
 }
 
-function setCorsHeaders(res) {
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET,PUT,PATCH,POST,DELETE,OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, X-Play-Space-Ops-Key");
+function installCorsWriteHead(req, res) {
+  if (res.__playSpaceCorsWriteHeadInstalled) {
+    return;
+  }
+
+  const originalWriteHead = res.writeHead.bind(res);
+  res.__playSpaceCorsWriteHeadInstalled = true;
+  res.writeHead = (statusCode, statusMessage, headers) => {
+    let nextStatusMessage = statusMessage;
+    let nextHeaders = headers;
+
+    if (
+      nextHeaders === undefined &&
+      nextStatusMessage &&
+      typeof nextStatusMessage === "object" &&
+      !Array.isArray(nextStatusMessage)
+    ) {
+      nextHeaders = nextStatusMessage;
+      nextStatusMessage = undefined;
+    }
+
+    const mergedHeaders = {
+      ...getCorsHeaders(req),
+      ...(nextHeaders ?? {}),
+    };
+
+    if (typeof nextStatusMessage === "string") {
+      return originalWriteHead(statusCode, nextStatusMessage, mergedHeaders);
+    }
+
+    return originalWriteHead(statusCode, mergedHeaders);
+  };
+}
+
+function setCorsHeaders(req, res) {
+  const corsHeaders = getCorsHeaders(req);
+
+  Object.entries(corsHeaders).forEach(([name, value]) => {
+    res.setHeader(name, value);
+  });
+}
+
+function getCorsHeaders(req) {
+  const requestOrigin = readHeaderString(req, "origin");
+  const allowOrigin = requestOrigin || "*";
+  const headers = {
+    "Access-Control-Allow-Origin": allowOrigin,
+    "Access-Control-Allow-Methods": "GET,PUT,PATCH,POST,DELETE,OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type, X-Play-Space-Ops-Key",
+  };
+
+  if (requestOrigin) {
+    return {
+      ...headers,
+      "Access-Control-Allow-Credentials": "true",
+      Vary: "Origin",
+    };
+  }
+
+  return headers;
 }
 
 async function createLiveKitToken({
