@@ -31,19 +31,20 @@ In hard sprint mode:
 
 Current active chapter:
 
-- `board runtime architecture review`
-  - focus on runtime ownership boundaries, staged migration order, and the
-    first safe implementation slice after review;
-  - keep hosted core + video baseline stable during this read-only chapter;
-  - do not mix this chapter with mobile work, broad runtime rewrites, or new
-    product UI experiments;
+- `demo requirements and release prep`
+  - focus on demo scenario, release gates, and allowed pre-release fix scope on
+    the current architecture;
+  - keep hosted core + video baseline stable while the demo requirements are
+    fixed;
+  - do not mix this chapter with broad runtime rewrites or post-demo migration
+    work;
   - canonical focused doc:
-    - `docs/01_CURRENT_STATE/ACTIVE_CHAPTERS/board-runtime-architecture-review/CHAPTER.md`
+    - `docs/01_CURRENT_STATE/ACTIVE_CHAPTERS/demo-requirements-and-release-prep/CHAPTER.md`
 
-Immediate next implementation candidates after that:
+Immediate next chapters after that:
 
-- `room-open runtime ownership and diagnostics extraction`
-- `Mobile experience`
+- `demo implementation and release fixes on current architecture`
+- `board runtime migration track after demo release`
 
 Current branch reached its cleanup sprint checkpoint:
 
@@ -59,12 +60,12 @@ Current branch reached its cleanup sprint checkpoint:
 - note editor overlay and hosted debug gate hotfixes are verified on the exact preview deploy
 - hosted room hydration and bootstrap coordination checkpoint is closed after the `scene-usable` split and hosted re-benchmark
 - staged room-open waves remain a visible product rough edge and now serve as
-  one input into the active architecture review
+  one input into later demo requirements and the post-demo migration track
 - explicit `Leave room` now switches creator-colored participant-marker tokens to `room-document`, while abrupt tab close still leaves stale `live-occupancy`
 - an earlier room-open UI/status experiment was rolled back to the stable
   baseline `40e0594`;
-- current chapter truth now prioritizes runtime ownership review over new
-  loading/recovery UI work
+- current chapter truth now prioritizes demo requirements and release discipline
+  over architecture execution
 
 Проект остаётся в стадии `play-space-alpha`.
 
@@ -100,8 +101,7 @@ Current branch reached its cleanup sprint checkpoint:
 - `App` structural hotspot is closed for the current phase;
 - narrow `BoardStage` cleanup chapter is checkpoint-closed;
 - refreshed architecture/runtime audit is completed;
-- current active architecture hotspot is room/runtime ownership and migration
-  sequencing.
+- current active planning hotspot is the next demo and its release scope.
 - `Durable write model` is now closed after human gate:
   - covered local token/image/note commits write durable updates through a narrow slice corridor;
   - commit-owned durable corridors now own ordinary runtime durable writes;
@@ -177,19 +177,18 @@ Current expected order from here:
 3. carry forward the per-property sync baseline from `main` rather than from a separate experiment branch;
 4. carry forward staged hosted hydration waves and multi-context slowdown as a separate hosted/runtime follow-up;
 5. carry forward stale `live-occupancy` after abrupt tab close as a separate room-liveness follow-up;
-6. use the room-open inspectability baseline as architecture-review input;
-7. choose the next narrow implementation chapter only after the current review;
-8. avoid reopening `BoardStage` cleanup micro-slices unless a new sprint is started explicitly.
+6. define demo requirements and release gates on the current architecture;
+7. build and release the next demo without opening the runtime migration track;
+8. promote the runtime migration track only after demo release;
+9. avoid reopening `BoardStage` cleanup micro-slices unless a new sprint is started explicitly.
 
-Current architecture-review chapter framing:
+Current demo chapter framing:
 
-- the big problem is room/runtime robustness and explicit ownership, not loading
-  copy by itself;
-- room-open inspectability is already useful input and no longer the active
-  standalone chapter;
-- the current chapter chooses the next safe runtime lane instead of shipping
-  new UI;
-- timeout is not an acceptable room-open outcome signal by itself.
+- the immediate problem is the next demo and its release criteria;
+- the runtime migration track is approved but parked until after demo release;
+- room-open inspectability is now useful input, not the active chapter by
+  itself;
+- demo-critical fixes must stay narrow and safe on the current architecture.
 
 Current target-architecture truth is now recorded explicitly in:
 
@@ -198,13 +197,13 @@ Current target-architecture truth is now recorded explicitly in:
 
 Important planning rule for those docs:
 
-- the current chapter is a read-only architecture review;
-- the first likely implementation lane is room-open runtime/diagnostics
-  ownership extraction, but the review still has to confirm it;
+- the runtime migration track is approved but not active before demo release;
+- the first likely implementation lane after the demo is still room-open
+  runtime/diagnostics ownership extraction;
 - later runtime phases such as `RoomRuntime` bridge extraction,
   `RoomDocumentV1`, asset references, tool separation, and transport cleanup
   stay candidate work until explicit planning promotion;
-- `Mobile experience` stays candidate product work after this review.
+- demo work now uses the current architecture as the temporary baseline.
 
 Current agreed `BoardStage` target model for this cleanup sprint:
 

@@ -9,6 +9,36 @@
 
 ---
 
+## 2026-04-20 — Demo-first planning pivot parked the runtime migration track until after release
+
+### Type
+- planning
+- decision
+- workflow
+
+### Context
+После architecture review и фиксации target runtime docs стало ясно, что
+следующий practical objective — новая демка, а не немедленный migration pass.
+
+### Decision / change
+Зафиксировано следующее:
+
+- новая демка готовится на текущей архитектуре;
+- active chapter switched to `demo requirements and release prep`;
+- `board runtime architecture review` moved to archive as a paused bundle;
+- accepted runtime migration track stays canonical, but starts only after demo
+  release.
+
+### Result
+Current planning truth now reads like this:
+
+- current architecture is the demo baseline;
+- pre-release fixes must stay narrow and demo-driven;
+- the long runtime migration track becomes the next major lane after the demo is
+  released.
+
+---
+
 ## 2026-04-20 — Active chapters closed and architecture review promoted as the next chapter
 
 ### Type

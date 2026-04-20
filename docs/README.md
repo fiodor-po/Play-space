@@ -121,7 +121,7 @@ Current chapter control docs now live only in:
 
 Current chapter examples:
 
-- [`01_CURRENT_STATE/ACTIVE_CHAPTERS/board-runtime-architecture-review/CHAPTER.md`](/Users/fedorpodrezov/Developer/play-space-alpha/docs/01_CURRENT_STATE/ACTIVE_CHAPTERS/board-runtime-architecture-review/CHAPTER.md)
+- [`01_CURRENT_STATE/ACTIVE_CHAPTERS/demo-requirements-and-release-prep/CHAPTER.md`](/Users/fedorpodrezov/Developer/play-space-alpha/docs/01_CURRENT_STATE/ACTIVE_CHAPTERS/demo-requirements-and-release-prep/CHAPTER.md)
 
 Closed chapter bundles live in:
 

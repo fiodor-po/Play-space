@@ -103,6 +103,19 @@ That increases:
 
 The project accepts the following target architecture.
 
+Planning assumptions for this target:
+
+- demo preparation and release stay on the current architecture before this
+  migration starts;
+- current work is in architecture-planning mode rather than mandatory execution
+  sequencing;
+- backward compatibility with old room states is not required for this
+  migration;
+- room wipe is an accepted migration tool when the new runtime/document shape is
+  introduced;
+- bridge code is allowed where it reduces runtime risk, but legacy support is
+  not itself a goal.
+
 ### 3.1. One logical room document
 
 Committed shared board content is one logical room document per room.
@@ -177,6 +190,11 @@ Target image fields:
 - creator metadata
 - draw metadata
 - resolved preview/source refs
+
+Migration consequence:
+
+- the target model does not require long-lived support for embedded legacy
+  `data:` image records once the new canonical room-document shape is adopted.
 
 ### 3.6. `BoardStage` becomes a composition shell
 
@@ -354,11 +372,22 @@ This decision does not open:
 - asset pipeline work across frontend, backend, and hosted environments;
 - temporary bridge code while old and new paths coexist.
 
+### Migration planning consequence
+
+This target is small enough to pursue as one focused architecture cycle.
+
+Approximate duration with the current project tempo and without backward
+compatibility burden:
+
+- strong foundation checkpoint: `2–3 weeks`
+- strong target checkpoint: `3–4 weeks`
+- near-complete target state: `4–6 weeks`
+
 ## 9. Review Trigger
 
 Review this ADR when one of the following becomes true:
 
-- runtime implementation work is promoted out of `board runtime architecture review`;
+- runtime implementation work is promoted after the demo release;
 - `RoomRuntime` extraction starts implementation;
 - `RoomDocumentV1` schema is proposed;
 - image asset extraction starts;

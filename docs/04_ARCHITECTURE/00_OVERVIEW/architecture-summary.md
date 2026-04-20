@@ -42,6 +42,14 @@ Yjs`.
 - делать narrow bridge phases;
 - держать текущий продукт стабильным.
 
+Planning assumptions:
+
+- demo preparation and release stay on the current architecture first;
+- backward compatibility for old room states is not required;
+- room wipe is an accepted migration tool;
+- target migration is planned as one focused architecture cycle rather than a
+  long compatibility program.
+
 ## 3. Что считать current truth
 
 Current truth находится здесь:
@@ -90,3 +98,11 @@ Target truth находится здесь:
 1. `architecture-layer-map.md`;
 2. `board-runtime-target-architecture.md`;
 3. `board-runtime-staged-roadmap.md`.
+
+## 7. Примерная стоимость переезда
+
+При текущем темпе проекта и без backward-compatibility burden:
+
+- foundation checkpoint: `2–3 недели`
+- strong target checkpoint: `3–4 недели`
+- near-complete target state: `4–6 недель`

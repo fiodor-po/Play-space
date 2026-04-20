@@ -127,21 +127,22 @@ Use these statuses in roadmap notes when useful:
 
 ## 4. Текущий активный этап
 
-## Phase D — Active chapter: board runtime architecture review
+## Phase D — Active chapter: demo requirements and release prep
 
-**Статус:** board-navigation chapter archived as closed checkpoint, room-loading chapter archived after planning pivot, active work switched to read-only architecture review
+**Статус:** architecture review chapter paused, active work switched to demo-first planning on the current architecture
 
 Control doc:
 
-- `docs/01_CURRENT_STATE/ACTIVE_CHAPTERS/board-runtime-architecture-review/CHAPTER.md`
+- `docs/01_CURRENT_STATE/ACTIVE_CHAPTERS/demo-requirements-and-release-prep/CHAPTER.md`
 
 ### Цель
-Согласовать один рабочий runtime direction перед следующим implementation
-chapter:
+Подготовить новую демку и её release requirements без архитектурного переезда до
+релиза:
 
-- room/runtime ownership boundaries;
-- staged migration order;
-- first safe implementation slice after the review.
+- agreed demo scenario;
+- agreed must-have flows;
+- explicit release gates;
+- narrow allowed fix scope on the current architecture.
 
 ### Основная последовательность
 1. держать hosted core + optional video checkpoint как current baseline;
@@ -152,9 +153,11 @@ chapter:
 6. считать `Board object controls UI layer` закрытым chapter checkpoint;
 7. считать `board navigation and secondary-click behavior` закрытым working checkpoint и архивным bundle;
 8. считать `room loading progress and async-state polish` архивным paused bundle после planning pivot;
-9. открыть `board runtime architecture review` как active read-only chapter;
-10. выбрать следующий implementation chapter уже из результата architecture review;
-11. держать hosted validation как повторяемый checkpoint после крупных шагов и новых demo snapshots.
+9. считать `board runtime architecture review` архивным paused bundle;
+10. открыть `demo requirements and release prep` как active chapter;
+11. собрать и зарелизить новую демку на текущей архитектуре;
+12. открыть длинный runtime migration track только после demo release;
+13. держать hosted validation как повторяемый checkpoint после крупных шагов и новых demo snapshots.
 
 ### Что это теперь значит
 Persistence/recovery spine уже дошёл до финального semantic cutover.
@@ -165,15 +168,15 @@ Board object controls UI layer checkpoint тоже закрыт.
 Board navigation checkpoint тоже закрыт.
 Room-loading chapter больше не управляет текущей работой и хранится в archive
 как paused bundle.
-Новый active chapter: `board runtime architecture review`.
-Этот chapter собирает один согласованный runtime plan перед новым
-implementation pass:
+Architecture-review chapter больше не управляет текущей работой и хранится в
+archive как paused bundle.
+Новый active chapter: `demo requirements and release prep`.
+Этот chapter фиксирует demo-first порядок:
 
-- accepted room-open inspectability baseline stays a useful input;
-- user-facing loading/recovery UI returns to later work;
-- runtime implementation order is decided through the review;
-- `Mobile experience` stays candidate product work, not the current promised
-  next chapter.
+- новая демка делается на текущей архитектуре;
+- broad runtime migration до demo release не открывается;
+- accepted architecture track stays documented and approved for later;
+- pre-release fixes stay narrow and demo-driven.
 
 Current creator-color truth now looks like this:
 
@@ -208,7 +211,7 @@ Remaining deferred runtime tail from this chapter:
 - completed checkpoint: `Checkpoint 3`;
 - completed migration track: `room document persistence / recovery architecture`;
 - completed chapter: `browser-local participant identity stabilization`;
-- active chapter: `board runtime architecture review`;
+- active chapter: `demo requirements and release prep`;
 - completed narrow follow-up: `debug-tools usability cleanup`;
 - later follow-up task: `room-ops durability ergonomics`;
 - optional follow-up task: `legacy room-snapshot write-cache cleanup`;
@@ -226,8 +229,12 @@ Remaining deferred runtime tail from this chapter:
   - `board navigation and secondary-click behavior`;
 - archived paused chapter bundle:
   - `room loading progress and async-state polish`;
+- archived paused chapter bundle:
+  - `board runtime architecture review`;
 - accepted review input:
   - room-open phase model and inspectability baseline;
+- demo-first planning rule:
+  - current architecture is the demo baseline until release;
 - later hosted/runtime follow-up:
   - user-facing room-open status and other delayed-surface polish on top of the inspectability baseline;
   - large-image add benchmarks and later optimization;
@@ -237,9 +244,9 @@ Remaining deferred runtime tail from this chapter:
 - accepted runtime target architecture now lives in:
   - `docs/04_ARCHITECTURE/01_RUNTIME/board-runtime-target-architecture.md`
   - `docs/04_ARCHITECTURE/01_RUNTIME/board-runtime-staged-roadmap.md`
-- current chapter reviews that target and chooses the next safe implementation
-  slice;
-- later runtime phases stay `candidate` until the review promotes one of them.
+- post-demo migration track will use those docs as canonical control input;
+- later runtime phases stay `candidate` until demo release and explicit planning
+  promotion.
 
 ## 6. Что сознательно не является главным фокусом сейчас
 

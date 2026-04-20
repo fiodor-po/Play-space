@@ -31,8 +31,8 @@
 
 ## 3. Now
 
-- `Board runtime architecture review`
-  Согласовать runtime ownership boundaries, staged migration order и первый safe implementation slice.
+- `Demo requirements and release prep`
+  Зафиксировать demo scenario, must-have flows, release gates и границы safe fixes на текущей архитектуре.
   Tags: `#now`
 
 - `Room entry empty-name default without URL room`
@@ -41,12 +41,12 @@
 
 ## 4. Soon
 
-- `Mobile experience`
-  Собрать рабочий и целостный mobile experience для входа в комнату, доски, controls и media surfaces после architecture review.
+- `Demo implementation and release fixes on current architecture`
+  Собрать и зарелизить новую демку на текущей архитектуре после согласования demo requirements.
   Tags: `#soon`
 
-- `Room-open user-facing status after runtime review`
-  Вернуться к loading / recovery messaging после runtime review и выбора безопасного room-open ownership slice.
+- `Board runtime migration track after demo release`
+  Открыть длинный architecture migration track после релиза демки. Source: [docs/04_ARCHITECTURE/01_RUNTIME/board-runtime-target-architecture.md](/Users/fedorpodrezov/Developer/play-space-alpha/docs/04_ARCHITECTURE/01_RUNTIME/board-runtime-target-architecture.md), [docs/04_ARCHITECTURE/01_RUNTIME/board-runtime-staged-roadmap.md](/Users/fedorpodrezov/Developer/play-space-alpha/docs/04_ARCHITECTURE/01_RUNTIME/board-runtime-staged-roadmap.md)
   Tags: `#soon`
 
 - `Legacy room-snapshot write-cache cleanup`
@@ -85,10 +85,6 @@
 
 - `Image ownership boundary cleanup before next image-heavy chapter`
   Довести image ownership до более явной domain boundary перед следующим image-heavy chapter. Source: [docs/90_ARCHIVE/01_AUDITS/architecture-audit-2026-04-17.md](/Users/fedorpodrezov/Developer/play-space-alpha/docs/90_ARCHIVE/01_AUDITS/architecture-audit-2026-04-17.md)
-  Tags: `#later`
-
-- `RoomRuntime and RoomDocumentV1 architecture track`
-  Вернуться к runtime architecture track после явного planning decision: вынести room-open/runtime ownership в `RoomRuntime`, зафиксировать typed `RoomDocumentV1`, потом отдельно идти в asset-reference path и позже в transport cleanup. Source: [docs/04_ARCHITECTURE/01_RUNTIME/board-runtime-target-architecture.md](/Users/fedorpodrezov/Developer/play-space-alpha/docs/04_ARCHITECTURE/01_RUNTIME/board-runtime-target-architecture.md), [docs/04_ARCHITECTURE/01_RUNTIME/board-runtime-staged-roadmap.md](/Users/fedorpodrezov/Developer/play-space-alpha/docs/04_ARCHITECTURE/01_RUNTIME/board-runtime-staged-roadmap.md)
   Tags: `#later`
 
 - `Deploy-stable durable store only on product signal`

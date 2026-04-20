@@ -1,10 +1,11 @@
 # Board Runtime Architecture Review Chapter
 
-Status: active chapter control doc  
+Status: archived paused chapter bundle  
+Closure: archived on 2026-04-20 after demo-first planning pivot  
 Scope: read-only runtime review, ownership boundaries, staged migration choice
 
-Этот chapter фиксирует high-level architecture review перед следующим
-implementation lane.
+Этот bundle сохраняет рамку architecture review, который подтвердил target
+runtime direction и был остановлен до post-demo migration track.
 
 ## 1. Chapter goal
 

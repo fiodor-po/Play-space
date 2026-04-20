@@ -20,12 +20,40 @@ The safe order is:
 1. finish room-open runtime ownership and diagnostics;
 2. introduce `RoomRuntime` on top of current adapters;
 3. introduce `RoomDocumentV1`;
-4. move image writes to asset references with legacy read compatibility;
+4. move image writes to asset references;
 5. separate tool ownership;
 6. revisit physical transport unification later.
 
-This roadmap now anchors the active chapter `board runtime architecture review`.
-The chapter stays read-only and chooses the first safe implementation phase.
+This roadmap now records the approved post-demo runtime migration track.
+Demo prep and release continue on the current architecture before this track
+starts.
+
+## 1.1. Planning assumptions
+
+This roadmap is written for the current architecture-planning mode.
+
+Current planning assumptions:
+
+- demo preparation and release stay on the current architecture first;
+- there is no mandatory next implementation step yet;
+- backward compatibility with old room states is not required;
+- room wipe is an accepted migration tool;
+- the target migration may prefer clean cutover over long-lived compatibility
+  bridges;
+- transport topology cleanup remains optional until later evidence shows clear
+  value.
+
+## 1.2. Approximate duration
+
+Approximate duration with the current project tempo and no backward
+compatibility burden:
+
+- Wave 1 foundation checkpoint: `2–3 weeks`
+- Wave 2 strong target checkpoint: `3–4 weeks`
+- Wave 3 near-complete target state: `4–6 weeks`
+
+These are focused engineering-time estimates for the architecture track itself.
+They are not promises about calendar time under mixed feature work.
 
 ## 2. Global guardrails
 
@@ -46,6 +74,8 @@ Every phase also keeps these constraints:
 - no canvas-engine change;
 - no backend service split as part of this roadmap;
 - no forced one-`Y.Doc` rewrite before the later transport phase.
+- no long-lived compatibility work for obsolete room-document shapes unless a
+  later decision explicitly reintroduces that requirement.
 
 ## 3. Phase status map
 
@@ -53,7 +83,7 @@ Every phase also keeps these constraints:
 
 Status:
 
-- active review target inside `board runtime architecture review`
+- first candidate phase when the post-demo runtime migration track starts
 
 Purpose:
 
@@ -262,20 +292,19 @@ Purpose:
 Scope:
 
 - add asset reference fields to image document records;
-- keep legacy read path for existing `data:` images;
 - make new image writes produce asset references;
 - keep durable snapshot and local replica aligned with the new record shape.
 
 Migration rules:
 
-- existing `data:` URL images continue to read through the legacy path;
-- new writes go through asset references;
-- hard migration of old rooms is optional and may stay deferred;
+- old rooms may be wiped instead of carried through a compatibility layer;
+- new canonical rooms use asset references;
+- temporary import helpers are optional narrow tooling, not a required product
+  path;
 - physical transport unification stays later.
 
 Acceptance:
 
-- current images still load after migration;
 - new image writes no longer embed binary into room objects;
 - room document and persistence payloads shrink for the new path.
 
@@ -359,20 +388,92 @@ Stop conditions:
 - if the change is driven by aesthetic cleanup rather than product/runtime
   benefit.
 
-## 4. Relationship to the current roadmap
+## 4. Suggested migration waves
 
-This roadmap supports the current active chapter and the next implementation
-choice that follows it.
+### Wave 1 — Foundation checkpoint
+
+Goal:
+
+- move the project onto the new runtime/document foundation without chasing full
+  architectural completion.
+
+Recommended scope:
+
+- Phase 1 `Room-open runtime and diagnostics ownership`
+- Phase 2 `RoomRuntime bridge extraction`
+- Phase 3 `RoomDocumentV1 schema boundary`
+- enough of Phase 4 to ensure `BoardStage` no longer owns the room-open graph
+  directly
+
+Expected result:
+
+- `RoomRuntime` exists as the room-scoped coordinator;
+- `RoomDocumentV1` exists as the canonical shared-content contract;
+- `BoardStage` no longer owns room-open state directly;
+- current board and recovery behavior still hold.
+
+Approximate duration:
+
+- `2–3 weeks`
+
+### Wave 2 — Strong target checkpoint
+
+Goal:
+
+- finish the main ownership cut and make the internal shape clearly read like
+  the target architecture.
+
+Recommended scope:
+
+- complete Phase 4 `BoardStage composition-shell cut`
+- harden adapter ownership around `RoomRuntime`
+- tighten document/runtime boundaries after the first cut
+
+Expected result:
+
+- `BoardStage` reads as composition shell;
+- room/runtime/document responsibilities are clearly separated;
+- persistence and transport read as adapters to the room runtime/document spine.
+
+Approximate duration:
+
+- `3–4 weeks` cumulative
+
+### Wave 3 — Near-complete target state
+
+Goal:
+
+- close the most important remaining target-shape gaps.
+
+Recommended scope:
+
+- Phase 5 `Asset-reference write path`
+- Phase 6 `Tool ownership separation`
+- optional narrow transport review from Phase 7
+
+Expected result:
+
+- image binary is out of the canonical room document;
+- main interaction families no longer live in render orchestration;
+- transport topology is either accepted as-is or narrowed by explicit review.
+
+Approximate duration:
+
+- `4–6 weeks` cumulative
+
+## 5. Relationship to the current roadmap
+
+This roadmap supports the later runtime migration track that follows the demo.
 
 Current truth:
 
-- the active chapter is `board runtime architecture review`;
-- Phase 1 is the first candidate implementation phase under that review;
-- `Mobile experience` stays candidate product work after the review;
+- the active chapter is `demo requirements and release prep`;
+- Phase 1 is the first candidate implementation phase after demo release;
+- there is no mandatory next implementation chapter fixed by this roadmap;
 - phases `2–7` stay candidate architecture work until explicit planning
   promotion.
 
-## 5. What this roadmap intentionally avoids
+## 6. What this roadmap intentionally avoids
 
 - broad cleanup for aesthetics;
 - mixed feature + refactor bundles;
