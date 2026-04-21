@@ -1,4 +1,4 @@
-import { Circle, Group } from "react-konva";
+import { Circle, Group, Text } from "react-konva";
 import type { KonvaEventObject } from "konva/lib/Node";
 import type { BoardObject } from "../../../types/board";
 
@@ -17,6 +17,7 @@ type TokenRendererProps = {
   onDragStart: (event: KonvaEventObject<DragEvent>) => void;
   onDragMove: (event: KonvaEventObject<DragEvent>) => void;
   onDragEnd: (event: KonvaEventObject<DragEvent>) => void;
+  onContextMenu?: (event: KonvaEventObject<PointerEvent>) => void;
   onHoverStart?: (event: KonvaEventObject<MouseEvent>) => void;
   onHoverMove?: (event: KonvaEventObject<MouseEvent>) => void;
   onHoverEnd?: () => void;
@@ -34,6 +35,7 @@ export function TokenRenderer({
   onDragStart,
   onDragMove,
   onDragEnd,
+  onContextMenu,
   onHoverStart,
   onHoverMove,
   onHoverEnd,
@@ -41,6 +43,9 @@ export function TokenRenderer({
   const radius = Math.min(object.width, object.height) / 2;
   const bodyRadius = Math.max(radius - 3, 8);
   const renderPosition = position ?? { x: object.x, y: object.y };
+  const tokenGlyph = object.label?.trim() ?? "";
+  const glyphFontSize = resolveTokenGlyphFontSize(tokenGlyph, radius);
+  const glyphVisualOffsetY = resolveTokenGlyphVisualOffsetY(tokenGlyph);
 
   return (
     <Group
@@ -53,6 +58,7 @@ export function TokenRenderer({
       onDragStart={onDragStart}
       onDragMove={onDragMove}
       onDragEnd={onDragEnd}
+      onContextMenu={onContextMenu}
       onMouseEnter={onHoverStart}
       onMouseMove={onHoverMove}
       onMouseLeave={onHoverEnd}
@@ -86,6 +92,46 @@ export function TokenRenderer({
         shadowBlur={8}
         shadowColor="rgba(15, 23, 42, 0.45)"
       />
+
+      {tokenGlyph ? (
+        <Text
+          x={-radius}
+          y={-radius - glyphVisualOffsetY}
+          width={radius * 2}
+          height={radius * 2}
+          text={tokenGlyph}
+          align="center"
+          verticalAlign="middle"
+          fontSize={glyphFontSize}
+          fontStyle="700"
+          fill="#f8fafc"
+          listening={false}
+        />
+      ) : null}
     </Group>
   );
+}
+
+function resolveTokenGlyphVisualOffsetY(glyph: string) {
+  if (glyph === "■") {
+    return 2;
+  }
+
+  if (glyph === "▲") {
+    return 1;
+  }
+
+  if (glyph === "▼") {
+    return -1;
+  }
+
+  return 1;
+}
+
+function resolveTokenGlyphFontSize(glyph: string, radius: number) {
+  if (glyph === "▲" || glyph === "▼") {
+    return Math.max(radius * 0.98, 12);
+  }
+
+  return Math.max(radius * 1.2, 14);
 }

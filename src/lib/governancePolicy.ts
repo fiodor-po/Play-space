@@ -23,6 +23,24 @@ export function resolveBoardObjectDeletePolicyAccess(params: {
   });
 }
 
+export function resolveTokenGlyphChangePolicyAccess(params: {
+  object: BoardObject;
+  participantId?: string | null;
+  roomCreatorId?: string | null;
+}): GovernedActionAccessResolution {
+  const isRoomCreatorOverride =
+    !!params.roomCreatorId && params.roomCreatorId === params.participantId;
+
+  return resolveGovernedActionAccess({
+    entity: createBoardObjectGovernedEntityRef(params.object),
+    actionKey: "board-object.change-token-glyph",
+    participantId: params.participantId,
+    explicitAccessLevel: isRoomCreatorOverride ? "full" : undefined,
+    creatorAccessLevel: "full",
+    defaultAccessLevel: "none",
+  });
+}
+
 export function resolveImageClearAllDrawingPolicyAccess(params: {
   object: BoardObject;
   participantId?: string | null;

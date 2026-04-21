@@ -8,6 +8,7 @@ export type GovernanceActionKey =
   | "room.reset-board"
   | "board-object.move"
   | "board-object.edit"
+  | "board-object.change-token-glyph"
   | "board-object.delete"
   | "board-object.clear-own-drawing"
   | "board-object.clear-all-drawing"
@@ -97,6 +98,7 @@ export function classifyGovernedAction(params: {
 }): GovernedAction {
   const requiredAccessLevel =
     params.actionKey === "room.reset-board" ||
+    params.actionKey === "board-object.change-token-glyph" ||
     params.actionKey === "board-object.delete" ||
     params.actionKey === "board-object.clear-all-drawing"
       ? "full"

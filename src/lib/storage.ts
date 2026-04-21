@@ -64,6 +64,7 @@ export type LocalRoomDocumentReplicaWriteOptions = {
     | "image-transform-end"
     | "image-draw-commit"
     | "token-drop"
+    | "token-property-save"
     | "note-drag-end"
     | "note-resize-end"
     | "note-text-save";

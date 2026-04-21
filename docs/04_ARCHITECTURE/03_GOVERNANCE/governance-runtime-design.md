@@ -45,6 +45,7 @@ type GovernanceActionKey =
   | "room.reset-board"
   | "board-object.move"
   | "board-object.edit"
+  | "board-object.change-token-glyph"
   | "board-object.delete"
   | "board-object.clear-own-drawing"
   | "board-object.clear-all-drawing"
@@ -73,6 +74,7 @@ Current runtime helper path:
 - `hasRequiredAccessLevel(...)`
 - `resolveGovernedActionAccess(...)`
 - `resolveBoardObjectDeletePolicyAccess(...)`
+- `resolveTokenGlyphChangePolicyAccess(...)`
 - `resolveImageClearOwnDrawingPolicyAccess(...)`
 - `resolveImageClearAllDrawingPolicyAccess(...)`
 
@@ -104,6 +106,7 @@ Current runtime helper path:
 - `room.reset-board`
 - `board-object.move`
 - `board-object.edit`
+- `board-object.change-token-glyph`
 - `board-object.delete`
 - `board-object.clear-own-drawing`
 - `board-object.clear-all-drawing`
@@ -124,6 +127,7 @@ Current runtime classification is:
 | `room.reset-board` | `full` |
 | `board-object.move` | `none` |
 | `board-object.edit` | `none` |
+| `board-object.change-token-glyph` | `full` |
 | `board-object.delete` | `full` |
 | `board-object.clear-own-drawing` | `none` |
 | `board-object.clear-all-drawing` | `full` |
@@ -134,6 +138,7 @@ Important:
 
 - this is the current runtime classification matrix;
 - only `board-object.delete` is now backed by a real restrictive policy rule;
+- `board-object.change-token-glyph` is now also backed by a real restrictive policy rule;
 - `board-object.clear-own-drawing` is now a real governed action for personal stroke cleanup;
 - `board-object.clear-all-drawing` is now also backed by a real restrictive policy rule;
 - ordinary shared board actions now intentionally use `none`;
@@ -149,9 +154,10 @@ In practice:
 - room access currently resolves through permissive defaults
 - ordinary shared room/object actions now require no special governance access by classification
 - `board-object.delete` is now the first real restrictive policy family
+- token glyph change now uses its own restrictive creator policy family
 - image `Clear` now exists as a governed personal-cleanup action
 - image `Clear drawing` is now a second restrictive governed action
-- visible product behavior remains intentionally unchanged except for object deletion and image clear-all policy
+- visible product behavior remains intentionally unchanged except for object deletion, token glyph change, and image clear-all policy
 
 This is deliberate.
 
@@ -192,6 +198,16 @@ Current runtime now enforces:
 
 This is currently implemented in `src/lib/governancePolicy.ts` as a narrow image-parent / room-parent override for the existing full-image clear action.
 
+### Current enforced token glyph change rule
+
+Current runtime now enforces:
+
+- token creator may change glyph on their own token
+- room creator may change glyph on any token in that room
+- other participants may not open the token glyph context menu or commit a glyph change on someone else's token
+
+This is currently implemented in `src/lib/governancePolicy.ts` as a narrow room-to-token creator override for a dedicated token glyph action.
+
 ## 7. Inspectability
 
 Current governance runtime is inspectable in Dev tools.
@@ -200,6 +216,7 @@ The current `Governance` block in Dev tools exposes:
 
 - room governance summary
 - selected-object delete governance summary
+- selected-token glyph governance summary via recent action resolution trace
 - selected-image clear-own governance summary
 - selected-image clear-drawing governance summary
 - recent action resolution trace
@@ -223,6 +240,7 @@ Creator semantics are real runtime inputs, but current permissive runtime does n
 Current exception:
 
 - `board-object.delete` now uses object creator semantics plus a room-creator override
+- `board-object.change-token-glyph` now uses token creator semantics plus a room-creator override
 - `board-object.clear-own-drawing` now uses stroke-creator applicability rather than elevated parent access
 - `board-object.clear-all-drawing` now uses image creator semantics plus a room-creator override
 

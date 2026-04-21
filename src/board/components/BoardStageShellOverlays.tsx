@@ -38,11 +38,21 @@ type ObjectSemanticsHoverState = {
 } | null;
 
 type BoardContextMenuState = {
+  kind: "board";
   clientX: number;
   clientY: number;
+} | {
+  kind: "token";
+  clientX: number;
+  clientY: number;
+  currentGlyph: string;
 } | null;
 
 const BOARD_SURFACE_CONTROL_BORDER_WIDTH = 2;
+const PLUS_BUTTON_GLYPH_STYLE = {
+  display: "block",
+  transform: "translateY(-1px)",
+} as const;
 
 type BoardStageShellOverlaysProps = {
   cursors: CursorOverlayItem[];
@@ -87,6 +97,7 @@ type BoardStageShellOverlaysProps = {
   boardContextMenuState: BoardContextMenuState;
   boardContextMenuRef: RefObject<HTMLDivElement | null>;
   onShowBoardMenuAction: () => void;
+  onSelectTokenShapeAction: (glyph: string) => void;
 };
 
 export function BoardStageShellOverlays({
@@ -129,6 +140,7 @@ export function BoardStageShellOverlays({
   boardContextMenuState,
   boardContextMenuRef,
   onShowBoardMenuAction,
+  onSelectTokenShapeAction,
 }: BoardStageShellOverlaysProps) {
   const addTokenButtonRecipe = createDraftLocalUserButtonRecipeForSlot(
     buttonRecipes.primary.small,
@@ -145,6 +157,13 @@ export function BoardStageShellOverlays({
     buttonRecipes.secondary.compact,
     "secondary"
   );
+  const tokenShapeGlyphs = ["○", "●", "■", "▲", "▼"] as const;
+  const tokenShapeMenuGlyphs =
+    boardContextMenuState?.kind === "token"
+      ? tokenShapeGlyphs.filter(
+          (glyph) => glyph !== boardContextMenuState.currentGlyph
+        )
+      : [];
 
   return (
     <>
@@ -173,7 +192,7 @@ export function BoardStageShellOverlays({
           lineHeight: 1,
         }}
       >
-        +
+        <span style={PLUS_BUTTON_GLYPH_STYLE}>+</span>
       </button>
 
       <button
@@ -198,7 +217,7 @@ export function BoardStageShellOverlays({
           lineHeight: 1,
         }}
       >
-        +
+        <span style={PLUS_BUTTON_GLYPH_STYLE}>+</span>
       </button>
 
       <button
@@ -224,7 +243,7 @@ export function BoardStageShellOverlays({
           lineHeight: 1,
         }}
       >
-        +
+        <span style={PLUS_BUTTON_GLYPH_STYLE}>+</span>
       </button>
 
       <ParticipantSessionPanel
@@ -306,7 +325,11 @@ export function BoardStageShellOverlays({
           style={{
             position: "fixed",
             left: Math.min(boardContextMenuState.clientX, window.innerWidth - 180),
-            top: Math.min(boardContextMenuState.clientY, window.innerHeight - 88),
+            top: Math.min(
+              boardContextMenuState.clientY,
+              window.innerHeight -
+                (boardContextMenuState.kind === "token" ? 240 : 88)
+            ),
             zIndex: 41,
             minWidth: 160,
             display: "grid",
@@ -317,19 +340,43 @@ export function BoardStageShellOverlays({
           }}
           {...getDesignSystemDebugAttrs(boardSurfaceRecipes.floatingShell.shell.debug)}
         >
-          <button
-            type="button"
-            onClick={onShowBoardMenuAction}
-            {...getButtonProps(boardContextMenuRecipe)}
-            {...getDesignSystemDebugAttrs(boardContextMenuRecipe.debug)}
-            style={{
-              ...getButtonProps(boardContextMenuRecipe).style,
-              justifyContent: "flex-start",
-              textAlign: "left",
-            }}
-          >
-            Center board
-          </button>
+          {boardContextMenuState.kind === "board" ? (
+            <button
+              type="button"
+              onClick={onShowBoardMenuAction}
+              {...getButtonProps(boardContextMenuRecipe)}
+              {...getDesignSystemDebugAttrs(boardContextMenuRecipe.debug)}
+              style={{
+                ...getButtonProps(boardContextMenuRecipe).style,
+                justifyContent: "flex-start",
+                textAlign: "left",
+              }}
+            >
+              Center board
+            </button>
+          ) : (
+            tokenShapeMenuGlyphs.map((glyph) => (
+              <button
+                key={glyph}
+                type="button"
+                onClick={() => {
+                  onSelectTokenShapeAction(glyph);
+                }}
+                aria-label={`Token symbol ${glyph}`}
+                {...getButtonProps(boardContextMenuRecipe)}
+                {...getDesignSystemDebugAttrs(boardContextMenuRecipe.debug)}
+                style={{
+                  ...getButtonProps(boardContextMenuRecipe).style,
+                  justifyContent: "center",
+                  textAlign: "center",
+                  fontSize: 18,
+                  lineHeight: 1,
+                }}
+              >
+                {glyph}
+              </button>
+            ))
+          )}
         </div>
       ) : null}
     </>

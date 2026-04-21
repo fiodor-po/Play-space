@@ -237,6 +237,12 @@ The first restrictive governance policy now fixed in the project is:
 | --- | --- | --- | --- |
 | any current board object | `board-object.delete` | `full` | object creator may delete own object; room creator may delete any room object; other participants may not delete another participant's object |
 
+#### Token glyph change policy
+
+| Entity type | Action | Required access | Notes |
+| --- | --- | --- | --- |
+| token | `board-object.change-token-glyph` | `full` | token creator may change own glyph; room creator may change any token glyph in that room; other participants may not change another participant's token glyph |
+
 #### Image drawing clear-all policy
 
 | Entity type | Action | Required access | Notes |

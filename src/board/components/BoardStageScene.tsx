@@ -282,6 +282,10 @@ type BoardStageSceneProps = {
       y: number;
     }
   ) => void;
+  onTokenContextMenu?: (
+    event: KonvaEventObject<PointerEvent>,
+    object: BoardObject
+  ) => void;
   onSelectedImageControlClick: (buttonKey: string, imageId: string) => void;
 };
 
@@ -476,6 +480,7 @@ export function BoardStageScene({
   updateTokenAnchorPosition,
   setActiveTokenMove,
   updateTokenPlacementAfterDrop,
+  onTokenContextMenu,
   onSelectedImageControlClick,
 }: BoardStageSceneProps) {
   const [blockedImageHoverId, setBlockedImageHoverId] = useState<string | null>(null);
@@ -1238,6 +1243,10 @@ export function BoardStageScene({
                     y: event.target.y(),
                   });
                   setDraggingTokenId(null);
+                }}
+                onContextMenu={(event) => {
+                  event.cancelBubble = true;
+                  onTokenContextMenu?.(event, object);
                 }}
               />
             );

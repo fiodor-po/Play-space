@@ -15,7 +15,10 @@ import {
 import { BoardStageScene } from "../board/components/BoardStageScene";
 import { BoardStageShellOverlays } from "../board/components/BoardStageShellOverlays";
 import { createNoteCardObject } from "../board/objects/noteCard/createNoteCardObject";
-import { createTokenObject } from "../board/objects/token/createTokenObject";
+import {
+  createTokenObject,
+  EMPTY_TOKEN_GLYPH,
+} from "../board/objects/token/createTokenObject";
 import {
   clampNoteCardWidth,
   getNoteCardHeightForLabel,
@@ -150,6 +153,7 @@ import {
   resolveBoardObjectDeletePolicyAccess,
   resolveImageClearOwnDrawingPolicyAccess,
   resolveImageClearAllDrawingPolicyAccess,
+  resolveTokenGlyphChangePolicyAccess,
 } from "../lib/governancePolicy";
 import type { RoomBaselineDescriptor, RoomBaselineId } from "../lib/roomMetadata";
 import type { BoardObject, TokenAttachment } from "../types/board";
@@ -192,7 +196,10 @@ function getDurableSliceObjects(
 function getDurableSliceForCommitBoundary(
   commitBoundary: LocalObjectsChangeOptions["commitBoundary"] | null | undefined
 ): DurableRoomSnapshotSlice | null {
-  if (commitBoundary === "token-drop") {
+  if (
+    commitBoundary === "token-drop" ||
+    commitBoundary === "token-property-save"
+  ) {
     return "tokens";
   }
 
@@ -266,8 +273,15 @@ type ObjectSemanticsHoverState = {
 };
 
 type BoardContextMenuState = {
+  kind: "board";
   clientX: number;
   clientY: number;
+} | {
+  kind: "token";
+  clientX: number;
+  clientY: number;
+  tokenId: string;
+  currentGlyph: string;
 };
 
 type ActiveImageStrokeSession = {
@@ -404,6 +418,7 @@ type DurableDebugBoundary =
   | "image-transform-end"
   | "image-draw-commit"
   | "token-drop"
+  | "token-property-save"
   | "note-drag-end"
   | "note-resize-end"
   | "note-text-save"
@@ -1900,6 +1915,12 @@ export default function BoardStage({
               participantId: participantSession.id,
               roomCreatorId,
             })
+          : actionKey === "board-object.change-token-glyph"
+            ? resolveTokenGlyphChangePolicyAccess({
+                object,
+                participantId: participantSession.id,
+                roomCreatorId,
+              })
           : actionKey === "board-object.clear-all-drawing"
             ? resolveImageClearAllDrawingPolicyAccess({
                 object,
@@ -5318,6 +5339,33 @@ export default function BoardStage({
     }
   };
 
+  const updateTokenGlyph = (tokenId: string, glyph: string) => {
+    const glyphAccess = resolveObjectActionAccess(
+      tokenId,
+      "board-object.change-token-glyph"
+    );
+
+    if (!glyphAccess?.isAllowed) {
+      return;
+    }
+
+    applyBoardObjectsUpdate(
+      (currentObjects) =>
+        updateBoardObjectById(currentObjects, tokenId, (object) => {
+          if (object.kind !== "token") {
+            return object;
+          }
+
+          return {
+            ...object,
+            label: glyph === EMPTY_TOKEN_GLYPH ? "" : glyph,
+          };
+        }),
+      (currentObjects) => getUpdateBoardObjectSyncOptions(currentObjects, tokenId),
+      { commitBoundary: "token-property-save" }
+    );
+  };
+
   const handleStageContextMenu = (event: { evt: PointerEvent }) => {
     if (!(event.evt instanceof MouseEvent)) {
       return;
@@ -5325,8 +5373,39 @@ export default function BoardStage({
 
     event.evt.preventDefault();
     setBoardContextMenuState({
+      kind: "board",
       clientX: event.evt.clientX,
       clientY: event.evt.clientY,
+    });
+  };
+
+  const handleTokenContextMenu = (
+    event: { evt: PointerEvent },
+    object: BoardObject
+  ) => {
+    if (!(event.evt instanceof MouseEvent) || object.kind !== "token") {
+      return;
+    }
+
+    event.evt.preventDefault();
+    event.evt.stopPropagation();
+
+    const glyphAccess = resolveObjectActionAccess(
+      object.id,
+      "board-object.change-token-glyph"
+    );
+
+    if (!glyphAccess?.isAllowed) {
+      return;
+    }
+
+    selectBoardObject(object);
+    setBoardContextMenuState({
+      kind: "token",
+      clientX: event.evt.clientX,
+      clientY: event.evt.clientY,
+      tokenId: object.id,
+      currentGlyph: object.label?.trim() || EMPTY_TOKEN_GLYPH,
     });
   };
 
@@ -5484,6 +5563,24 @@ export default function BoardStage({
           setBoardContextMenuState(null);
           recoverBoardViewportToCenteredMinScale();
         }}
+        onSelectTokenShapeAction={(glyph) => {
+          if (boardContextMenuState?.kind !== "token") {
+            return;
+          }
+
+          const glyphAccess = resolveObjectActionAccess(
+            boardContextMenuState.tokenId,
+            "board-object.change-token-glyph"
+          );
+
+          if (!glyphAccess?.isAllowed) {
+            setBoardContextMenuState(null);
+            return;
+          }
+
+          updateTokenGlyph(boardContextMenuState.tokenId, glyph);
+          setBoardContextMenuState(null);
+        }}
       />
 
       <BoardStageScene
@@ -5569,6 +5666,7 @@ export default function BoardStage({
         updateTokenAnchorPosition={updateTokenAnchorPosition}
         setActiveTokenMove={setActiveTokenMove}
         updateTokenPlacementAfterDrop={updateTokenPlacementAfterDrop}
+        onTokenContextMenu={handleTokenContextMenu}
         onSelectedImageControlClick={handleSelectedImageControlClick}
       />
 
