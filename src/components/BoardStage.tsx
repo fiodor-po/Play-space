@@ -5602,6 +5602,8 @@ export default function BoardStage({
         sortedObjects={sortedObjects}
         loadedImages={loadedImages}
         drawingImageId={drawingImageId}
+        drawingCursorTool={drawingImageId ? "marker" : null}
+        drawingCursorParticipantColor={participantSession.color}
         draggingImageId={draggingImageId}
         transformingImageId={transformingImageId}
         editingTextCardId={editingTextCardId}

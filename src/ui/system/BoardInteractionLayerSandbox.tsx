@@ -1754,6 +1754,8 @@ export function BoardInteractionLayerSandbox() {
             sortedObjects={sortedLocalObjects}
             loadedImages={loadedImages}
             drawingImageId={drawingImageId}
+            drawingCursorTool={drawingImageId ? "marker" : null}
+            drawingCursorParticipantColor={LOCAL_PARTICIPANT.color}
             draggingImageId={draggingImageId}
             transformingImageId={transformingImageId}
             editingTextCardId={editingTextCardId}
@@ -1884,6 +1886,8 @@ export function BoardInteractionLayerSandbox() {
             sortedObjects={sortedSharedObjects}
             loadedImages={loadedImages}
             drawingImageId={null}
+            drawingCursorTool={null}
+            drawingCursorParticipantColor={REMOTE_PARTICIPANT.color}
             draggingImageId={null}
             transformingImageId={null}
             editingTextCardId={null}

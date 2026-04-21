@@ -1,5 +1,5 @@
 import type { MutableRefObject } from "react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { flushSync } from "react-dom";
 import {
   Group,
@@ -23,6 +23,11 @@ import {
 import {
   DEFAULT_IMAGE_STROKE_WIDTH,
 } from "../../lib/boardImage";
+import {
+  createEraserDrawingCursor,
+  createMarkerDrawingCursor,
+  type BoardDrawingCursorTool,
+} from "../cursors";
 import { NoteCardRenderer } from "../objects/noteCard/NoteCardRenderer";
 import {
   clampNoteCardWidth,
@@ -137,6 +142,8 @@ type BoardStageSceneProps = {
   sortedObjects: BoardObject[];
   loadedImages: Record<string, HTMLImageElement>;
   drawingImageId: string | null;
+  drawingCursorTool: BoardDrawingCursorTool | null;
+  drawingCursorParticipantColor: string;
   draggingImageId: string | null;
   transformingImageId: string | null;
   editingTextCardId: string | null;
@@ -418,6 +425,8 @@ export function BoardStageScene({
   sortedObjects,
   loadedImages,
   drawingImageId,
+  drawingCursorTool,
+  drawingCursorParticipantColor,
   draggingImageId,
   transformingImageId,
   editingTextCardId,
@@ -486,6 +495,14 @@ export function BoardStageScene({
   const [blockedImageHoverId, setBlockedImageHoverId] = useState<string | null>(null);
   const isPanInteractionOverrideActive =
     isSpacePanActive || isMiddleMousePanDragging;
+  const markerDrawingCursor = useMemo(
+    () => createMarkerDrawingCursor(drawingCursorParticipantColor),
+    [drawingCursorParticipantColor]
+  );
+  const eraserDrawingCursor = useMemo(
+    () => createEraserDrawingCursor(),
+    []
+  );
 
   useEffect(() => {
     const wrapper = stageWrapperRef.current;
@@ -494,22 +511,33 @@ export function BoardStageScene({
       return;
     }
 
-    wrapper.style.cursor = blockedImageHoverId
-      ? "not-allowed"
-      : isSpacePanDragging || isMiddleMousePanDragging
-        ? "grabbing"
-        : isSpacePanActive
-          ? "grab"
-          : "";
+    let cursor = "";
+
+    if (blockedImageHoverId) {
+      cursor = "not-allowed";
+    } else if (isSpacePanDragging || isMiddleMousePanDragging) {
+      cursor = "grabbing";
+    } else if (isSpacePanActive) {
+      cursor = "grab";
+    } else if (drawingCursorTool === "eraser") {
+      cursor = eraserDrawingCursor;
+    } else if (drawingCursorTool === "marker") {
+      cursor = markerDrawingCursor;
+    }
+
+    wrapper.style.cursor = cursor;
 
     return () => {
       wrapper.style.cursor = "";
     };
   }, [
     blockedImageHoverId,
+    drawingCursorTool,
+    eraserDrawingCursor,
     isMiddleMousePanDragging,
     isSpacePanActive,
     isSpacePanDragging,
+    markerDrawingCursor,
     stageWrapperRef,
   ]);
 

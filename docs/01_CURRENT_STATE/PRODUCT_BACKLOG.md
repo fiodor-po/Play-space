@@ -145,6 +145,10 @@
   Довести video layer до хорошего состояния: управление размером и позицией preview, polishing внешнего вида.
   Tags: `#later`
 
+- `UI kit context menu`
+  Добавить канонический context-menu building block в UI kit, чтобы token menu и будущие board/object menus собирались на общей menu surface, а не на локальных реализациях.
+  Tags: `#later`
+
 ## 6. Someday
 
 - `Media-centered session polish`
