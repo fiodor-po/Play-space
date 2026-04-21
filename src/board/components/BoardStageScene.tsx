@@ -75,6 +75,7 @@ const BLOCKED_IMAGE_PILL_HEIGHT = 28;
 const BLOCKED_IMAGE_PILL_RADIUS = 999;
 const BLOCKED_IMAGE_PILL_FONT_SIZE = 13;
 const BLOCKED_IMAGE_PILL_PADDING_X = 12;
+const ERASER_CURSOR_RADIUS_SCREEN_PX = 8;
 
 function getBlockedImagePillWidth(label: string) {
   let measuredTextWidth = label.length * BLOCKED_IMAGE_PILL_FONT_SIZE * 0.56;
@@ -203,6 +204,15 @@ type BoardStageSceneProps = {
       x: number;
       y: number;
     }
+  ) => void;
+  eraseImageStrokesAtPoint: (
+    imageId: string,
+    point: {
+      x: number;
+      y: number;
+    },
+    radius: number,
+    mode: "partial" | "whole-stroke"
   ) => void;
   endImageStroke: () => void;
   updateLiveSelectedImageControlAnchor: (
@@ -460,6 +470,7 @@ export function BoardStageScene({
   selectBoardObject,
   startImageStroke,
   appendStrokePoint,
+  eraseImageStrokesAtPoint,
   endImageStroke,
   updateLiveSelectedImageControlAnchor,
   syncImageStrokeLayerPosition,
@@ -706,6 +717,16 @@ export function BoardStageScene({
                         return;
                       }
 
+                      if (drawingCursorTool === "eraser") {
+                        eraseImageStrokesAtPoint(
+                          object.id,
+                          point,
+                          ERASER_CURSOR_RADIUS_SCREEN_PX / stageScale,
+                          event.evt.altKey ? "whole-stroke" : "partial"
+                        );
+                        return;
+                      }
+
                       startImageStroke(object.id, point, participantSession.color);
                     }}
                     onMouseMove={(event) => {
@@ -713,9 +734,27 @@ export function BoardStageScene({
                         return;
                       }
 
+                      if (drawingCursorTool !== "eraser" && event.evt.buttons !== 1) {
+                        return;
+                      }
+
                       const point = event.target.getRelativePointerPosition();
 
                       if (!point) {
+                        return;
+                      }
+
+                      if (drawingCursorTool === "eraser") {
+                        if (event.evt.buttons !== 1) {
+                          return;
+                        }
+
+                        eraseImageStrokesAtPoint(
+                          object.id,
+                          point,
+                          ERASER_CURSOR_RADIUS_SCREEN_PX / stageScale,
+                          event.evt.altKey ? "whole-stroke" : "partial"
+                        );
                         return;
                       }
 

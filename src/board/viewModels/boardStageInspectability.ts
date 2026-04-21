@@ -18,6 +18,7 @@ import {
   resolveImageClearOwnDrawingPolicyAccess,
 } from "../../lib/governancePolicy";
 import type { BoardObject } from "../../types/board";
+import type { BoardDrawingCursorTool } from "../cursors";
 import type { ImageEffectiveBounds } from "../images/effectiveBounds";
 import { isNoteCardObject } from "../objects/noteCard/sizing";
 
@@ -200,6 +201,7 @@ type BoardStageSelectedImageControlsViewModelParams = {
   isSelectedImageLocallyDragging: boolean;
   isSelectedImageLocallyInteracting: boolean;
   drawingImageId: string | null;
+  drawingTool: BoardDrawingCursorTool;
   participantColor: string;
   governanceSelectedImageClearSummary: GovernedActionAccessResolution | null;
   governanceSelectedImageClearOwnSummary: GovernedActionAccessResolution | null;
@@ -421,6 +423,7 @@ export function getBoardStageSelectedImageControlsViewModel({
   isSelectedImageLocallyDragging,
   isSelectedImageLocallyInteracting,
   drawingImageId,
+  drawingTool,
   participantColor,
   governanceSelectedImageClearSummary,
   governanceSelectedImageClearOwnSummary,
@@ -450,6 +453,14 @@ export function getBoardStageSelectedImageControlsViewModel({
               "border"
             ),
     });
+
+    if (drawingImageId === selectedImageObject.id) {
+      selectedImageControlButtons.push({
+        key: "toggle-drawing-tool",
+        label: drawingTool === "eraser" ? "Draw" : "Erase",
+        recipe: interactionButtonRecipes.secondary.pill,
+      });
+    }
 
     if (
       drawingImageId !== selectedImageObject.id &&

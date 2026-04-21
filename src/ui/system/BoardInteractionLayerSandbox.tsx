@@ -17,6 +17,7 @@ import {
 } from "../../board/objects/noteCard/sizing";
 import { createTokenObject } from "../../board/objects/token/createTokenObject";
 import { BoardStageScene } from "../../board/components/BoardStageScene";
+import type { BoardDrawingCursorTool } from "../../board/cursors";
 import type { LocalObjectsChangeOptions } from "../../board/runtime/useBoardObjectRuntime";
 import {
   MAX_SCALE,
@@ -35,7 +36,15 @@ import {
   getWheelPanDelta,
   getZoomedViewport,
 } from "../../board/viewport";
-import { appendImageStrokePointInObjects, clearImageStrokesByCreatorInObjects, clearImageStrokesInObjects, createImageObject, DEFAULT_IMAGE_STROKE_WIDTH } from "../../lib/boardImage";
+import {
+  appendImageStrokePointInObjects,
+  clearImageStrokesByCreatorInObjects,
+  clearImageStrokesInObjects,
+  createImageObject,
+  DEFAULT_IMAGE_STROKE_WIDTH,
+  removeImageStrokePartsIntersectingCircleInObjects,
+  removeImageStrokesIntersectingCircleInObjects,
+} from "../../lib/boardImage";
 import { demoImageSrc } from "../../lib/demoImage";
 import { updateBoardObjectLabel } from "../../lib/boardObjects";
 import type { GovernedActionAccessResolution } from "../../lib/governance";
@@ -428,6 +437,8 @@ export function BoardInteractionLayerSandbox() {
   const [stageScale, setStageScale] = useState(initialViewport.scale);
   const [selectedObjectId, setSelectedObjectId] = useState<string | null>(null);
   const [drawingImageId, setDrawingImageId] = useState<string | null>(null);
+  const [drawingTool, setDrawingTool] =
+    useState<BoardDrawingCursorTool>("marker");
   const [draggingImageId, setDraggingImageId] = useState<string | null>(null);
   const [transformingImageId, setTransformingImageId] = useState<string | null>(null);
   const [isSpacePanActive, setIsSpacePanActive] = useState(false);
@@ -814,6 +825,7 @@ export function BoardInteractionLayerSandbox() {
 
   const startImageDrawingMode = useCallback((imageId: string) => {
     setSelectedObjectId(imageId);
+    setDrawingTool("marker");
     setDrawingImageId(imageId);
     setLocalImageDrawingLock({
       imageId,
@@ -841,6 +853,7 @@ export function BoardInteractionLayerSandbox() {
   const finishImageDrawingMode = useCallback(() => {
     const activeImageId = drawingImageId;
     endImageStroke();
+    setDrawingTool("marker");
     setDrawingImageId(null);
     setLocalImageDrawingLock(null);
     if (activeImageId) {
@@ -891,6 +904,39 @@ export function BoardInteractionLayerSandbox() {
       appendImageStrokePointInObjects(current, imageId, activeStroke.strokeIndex, point)
     );
   }, []);
+
+  const eraseImageStrokesAtPoint = useCallback(
+    (
+      imageId: string,
+      point: { x: number; y: number },
+      radius: number,
+      mode: "partial" | "whole-stroke"
+    ) => {
+      setLocalObjects((current) => {
+        const nextObjects =
+          mode === "whole-stroke"
+            ? removeImageStrokesIntersectingCircleInObjects(
+                current,
+                imageId,
+                point,
+                radius
+              )
+            : removeImageStrokePartsIntersectingCircleInObjects(
+                current,
+                imageId,
+                point,
+                radius
+              );
+
+        if (nextObjects !== current) {
+          setSharedObjects(nextObjects);
+        }
+
+        return nextObjects;
+      });
+    },
+    []
+  );
 
   const resizeImageObject = useCallback(
     (
@@ -1074,6 +1120,7 @@ export function BoardInteractionLayerSandbox() {
           (draggingImageId === selectedImageObject.id ||
             transformingImageId === selectedImageObject.id),
         drawingImageId,
+        drawingTool,
         participantColor: LOCAL_PARTICIPANT.color,
         governanceSelectedImageClearSummary: selectedImageObject
           ? createAllowedSummary(
@@ -1091,6 +1138,7 @@ export function BoardInteractionLayerSandbox() {
     },
     [
       drawingImageId,
+      drawingTool,
       draggingImageId,
       liveSelectedImageControlAnchor,
       selectedImageObject,
@@ -1547,6 +1595,17 @@ export function BoardInteractionLayerSandbox() {
 
   const handleSelectedImageControlClick = useCallback(
     (buttonKey: string, imageId: string) => {
+      if (buttonKey === "toggle-drawing-tool") {
+        if (drawingImageId !== imageId) {
+          return;
+        }
+
+        setDrawingTool((currentTool) =>
+          currentTool === "eraser" ? "marker" : "eraser"
+        );
+        return;
+      }
+
       if (buttonKey === "draw") {
         if (drawingImageId === imageId) {
           finishImageDrawingMode();
@@ -1754,7 +1813,7 @@ export function BoardInteractionLayerSandbox() {
             sortedObjects={sortedLocalObjects}
             loadedImages={loadedImages}
             drawingImageId={drawingImageId}
-            drawingCursorTool={drawingImageId ? "marker" : null}
+            drawingCursorTool={drawingImageId ? drawingTool : null}
             drawingCursorParticipantColor={LOCAL_PARTICIPANT.color}
             draggingImageId={draggingImageId}
             transformingImageId={transformingImageId}
@@ -1798,6 +1857,7 @@ export function BoardInteractionLayerSandbox() {
             selectBoardObject={selectBoardObject}
             startImageStroke={startImageStroke}
             appendStrokePoint={appendStrokePoint}
+            eraseImageStrokesAtPoint={eraseImageStrokesAtPoint}
             endImageStroke={endImageStroke}
             updateLiveSelectedImageControlAnchor={updateLiveSelectedImageControlAnchor}
             syncImageStrokeLayerPosition={syncImageStrokeLayerPosition}
@@ -1929,6 +1989,7 @@ export function BoardInteractionLayerSandbox() {
             selectBoardObject={() => {}}
             startImageStroke={() => {}}
             appendStrokePoint={() => {}}
+            eraseImageStrokesAtPoint={() => {}}
             endImageStroke={() => {}}
             updateLiveSelectedImageControlAnchor={() => {}}
             syncImageStrokeLayerPosition={() => {}}

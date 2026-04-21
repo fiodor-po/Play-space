@@ -14,6 +14,7 @@ import {
 } from "../board/components/BoardStageDevToolsContent";
 import { BoardStageScene } from "../board/components/BoardStageScene";
 import { BoardStageShellOverlays } from "../board/components/BoardStageShellOverlays";
+import type { BoardDrawingCursorTool } from "../board/cursors";
 import { createNoteCardObject } from "../board/objects/noteCard/createNoteCardObject";
 import {
   createTokenObject,
@@ -85,6 +86,8 @@ import {
   DEFAULT_IMAGE_STROKE_WIDTH,
   getImageStorageScale,
   getInitialImageDisplaySize,
+  removeImageStrokePartsIntersectingCircleInObjects,
+  removeImageStrokesIntersectingCircleInObjects,
 } from "../lib/boardImage";
 import {
   loadDurableRoomSnapshot,
@@ -1538,6 +1541,8 @@ export default function BoardStage({
     null
   );
   const [drawingImageId, setDrawingImageId] = useState<string | null>(null);
+  const [drawingTool, setDrawingTool] =
+    useState<BoardDrawingCursorTool>("marker");
   const [draggingImageId, setDraggingImageId] = useState<string | null>(null);
   const [draggingTokenId, setDraggingTokenId] = useState<string | null>(null);
   const [draggingNoteCardId, setDraggingNoteCardId] = useState<string | null>(
@@ -2368,6 +2373,7 @@ export default function BoardStage({
 
   const setDrawingImageSessionImageId = (nextImageId: string | null) => {
     drawingImageIdRef.current = nextImageId;
+    setDrawingTool("marker");
     setDrawingImageId(nextImageId);
   };
 
@@ -2511,6 +2517,38 @@ export default function BoardStage({
         activeStroke.strokeIndex,
         point
       )
+    );
+  };
+
+  const eraseImageStrokesAtPoint = (
+    imageId: string,
+    point: { x: number; y: number },
+    radius: number,
+    mode: "partial" | "whole-stroke"
+  ) => {
+    applyBoardObjectsUpdate(
+      (currentObjects) =>
+        mode === "whole-stroke"
+          ? removeImageStrokesIntersectingCircleInObjects(
+              currentObjects,
+              imageId,
+              point,
+              radius
+            )
+          : removeImageStrokePartsIntersectingCircleInObjects(
+              currentObjects,
+              imageId,
+              point,
+              radius
+            ),
+      (currentObjects, nextObjects) =>
+        nextObjects === currentObjects
+          ? undefined
+          : { syncSharedImageIds: [imageId] },
+      (currentObjects, nextObjects) =>
+        nextObjects === currentObjects
+          ? undefined
+          : { commitBoundary: "image-draw-commit" }
     );
   };
 
@@ -4560,6 +4598,7 @@ export default function BoardStage({
     isSelectedImageLocallyDragging,
     isSelectedImageLocallyInteracting,
     drawingImageId,
+    drawingTool,
     participantColor: participantSession.color,
     governanceSelectedImageClearSummary,
     governanceSelectedImageClearOwnSummary,
@@ -5315,6 +5354,17 @@ export default function BoardStage({
     setStagePosition(newPosition);
   };
   const handleSelectedImageControlClick = (buttonKey: string, imageId: string) => {
+    if (buttonKey === "toggle-drawing-tool") {
+      if (drawingImageId !== imageId) {
+        return;
+      }
+
+      setDrawingTool((currentTool) =>
+        currentTool === "eraser" ? "marker" : "eraser"
+      );
+      return;
+    }
+
     if (buttonKey === "draw" && draggingImageId === imageId) {
       return;
     }
@@ -5602,7 +5652,7 @@ export default function BoardStage({
         sortedObjects={sortedObjects}
         loadedImages={loadedImages}
         drawingImageId={drawingImageId}
-        drawingCursorTool={drawingImageId ? "marker" : null}
+        drawingCursorTool={drawingImageId ? drawingTool : null}
         drawingCursorParticipantColor={participantSession.color}
         draggingImageId={draggingImageId}
         transformingImageId={transformingImageId}
@@ -5639,6 +5689,7 @@ export default function BoardStage({
         selectBoardObject={selectBoardObject}
         startImageStroke={startImageStroke}
         appendStrokePoint={appendStrokePoint}
+        eraseImageStrokesAtPoint={eraseImageStrokesAtPoint}
         endImageStroke={endImageStroke}
         updateLiveSelectedImageControlAnchor={updateLiveSelectedImageControlAnchor}
         syncImageStrokeLayerPosition={syncImageStrokeLayerPosition}
