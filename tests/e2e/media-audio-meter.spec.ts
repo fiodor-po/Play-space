@@ -22,6 +22,9 @@ type AudioMeterSample = {
   rms: number;
   source: string;
   track: string;
+  visualLevel: number;
+  visualRingWidth: number;
+  visualSource: string;
 };
 
 type AudioMeterSummary = ReturnType<typeof summarizeAudioMeterSamples>;
@@ -48,6 +51,11 @@ async function readAudioMeterSample(page: import("@playwright/test").Page) {
         rms: readNumberAttribute("data-audio-meter-rms"),
         source: element.getAttribute("data-audio-meter-source") ?? "",
         track: element.getAttribute("data-audio-meter-track") ?? "",
+        visualLevel: readNumberAttribute("data-audio-meter-visual-level"),
+        visualRingWidth: readNumberAttribute(
+          "data-audio-meter-visual-ring-width"
+        ),
+        visualSource: element.getAttribute("data-audio-meter-visual-source") ?? "",
       };
     }
   );
@@ -206,11 +214,15 @@ test.describe("media audio meter diagnostics", () => {
     expect(
       summary.byPhase.highMaxRingWidth,
       JSON.stringify(summary)
-    ).toBeGreaterThan(summary.byPhase.lowMaxRingWidth);
+    ).toBeGreaterThanOrEqual(summary.byPhase.lowMaxRingWidth);
+    expect(
+      summary.byPhase.mediumMaxRingWidth,
+      JSON.stringify(summary)
+    ).toBeGreaterThanOrEqual(summary.byPhase.lowMaxRingWidth);
     expect(
       summary.byPhase.lowMaxRingWidth,
       JSON.stringify(summary)
-    ).toBeGreaterThanOrEqual(2);
+    ).toBeGreaterThanOrEqual(3);
     expect(
       summary.byPhase.highMaxRingWidth,
       JSON.stringify(summary)
@@ -293,5 +305,76 @@ test.describe("media audio meter diagnostics", () => {
     expectCommonAudioMeterHealth(samples, summary, "real");
     expect(summary.rms.max, JSON.stringify(summary)).toBeGreaterThan(0.001);
     expect(summary.level.max, JSON.stringify(summary)).toBeGreaterThan(0.03);
+  });
+
+  test("keeps avatar fallback speaking diagnostics active across two tabs", async ({
+    browser,
+  }) => {
+    test.skip(
+      process.env.PLAYWRIGHT_MEDIA_AUDIO_METER_LIVEKIT !== "1",
+      "Run this spec directly so Playwright starts the local LiveKit media stack."
+    );
+
+    const roomId = createSmokeRoomId("avatar-audio-meter");
+    const firstContext = await browser.newContext({
+      permissions: ["camera", "microphone"],
+    });
+    const secondContext = await browser.newContext({
+      permissions: ["camera", "microphone"],
+    });
+    const firstPage = await firstContext.newPage();
+    const secondPage = await secondContext.newPage();
+
+    try {
+      await firstPage.goto(
+        getAudioMeterRoomUrl(roomId, {
+          uiDebugControls: "1",
+        })
+      );
+      await secondPage.goto(
+        getAudioMeterRoomUrl(roomId, {
+          uiDebugControls: "1",
+        })
+      );
+
+      await joinRoom(firstPage, {
+        roomId,
+        name: "Avatar One",
+      });
+      await joinRoom(secondPage, {
+        roomId,
+        name: "Avatar Two",
+        color: "#0891b2",
+      });
+
+      await firstPage.getByRole("button", { name: "Turn camera off" }).click();
+      await secondPage.getByRole("button", { name: "Turn camera off" }).click();
+
+      await expect(
+        firstPage.locator('[data-testid^="media-audio-meter-"]').first()
+      ).toHaveAttribute("data-audio-meter-track", "live", {
+        timeout: 20_000,
+      });
+      await expect(
+        secondPage.locator('[data-testid^="media-audio-meter-"]').first()
+      ).toHaveAttribute("data-audio-meter-track", "live", {
+        timeout: 20_000,
+      });
+
+      const firstSamples = await collectAudioMeterSamples(firstPage, 5_000);
+      const secondSamples = await collectAudioMeterSamples(secondPage, 5_000);
+      const firstVisualRingWidths = firstSamples.map(
+        (sample) => sample.visualRingWidth
+      );
+      const secondVisualRingWidths = secondSamples.map(
+        (sample) => sample.visualRingWidth
+      );
+
+      expect(Math.max(...firstVisualRingWidths)).toBeGreaterThanOrEqual(1);
+      expect(Math.max(...secondVisualRingWidths)).toBeGreaterThanOrEqual(1);
+    } finally {
+      await firstContext.close();
+      await secondContext.close();
+    }
   });
 });

@@ -1,3 +1,7 @@
+import {
+  isParticipantAvatarFaceId,
+  type ParticipantAvatarFaceId,
+} from "./participantAvatarFaces";
 import { normalizeRoomId } from "./roomId";
 
 export type RoomBaselineId = "empty" | "public-demo-v1";
@@ -10,6 +14,7 @@ export type RoomMemberRecord = {
   participantId: string;
   displayName: string;
   assignedColor: string;
+  avatarFaceId?: ParticipantAvatarFaceId;
   joinedAt: number;
   lastSeenAt: number;
   isRoomCreator: boolean;
@@ -31,6 +36,7 @@ type StoredRoomMemberRecord = {
   participantId?: string;
   displayName?: string;
   assignedColor?: string;
+  avatarFaceId?: ParticipantAvatarFaceId;
   joinedAt?: number;
   lastSeenAt?: number;
   isRoomCreator?: boolean;
@@ -84,6 +90,7 @@ export function createRoomMemberRecord(params: {
   participantId: string;
   displayName: string;
   assignedColor: string;
+  avatarFaceId?: ParticipantAvatarFaceId;
   joinedAt: number;
   lastSeenAt: number;
   isRoomCreator?: boolean;
@@ -92,6 +99,9 @@ export function createRoomMemberRecord(params: {
     participantId: params.participantId,
     displayName: params.displayName,
     assignedColor: params.assignedColor,
+    avatarFaceId: isParticipantAvatarFaceId(params.avatarFaceId)
+      ? params.avatarFaceId
+      : undefined,
     joinedAt: Number.isFinite(params.joinedAt) ? params.joinedAt : Date.now(),
     lastSeenAt: Number.isFinite(params.lastSeenAt)
       ? params.lastSeenAt
@@ -130,6 +140,7 @@ export function createRoomMemberRegistry(
             participantId: member.participantId,
             displayName: member.displayName,
             assignedColor: member.assignedColor,
+            avatarFaceId: member.avatarFaceId,
             joinedAt:
               typeof member.joinedAt === "number"
                 ? member.joinedAt
@@ -189,6 +200,7 @@ export function ensureRoomMemberRegistered(params: {
   participantId: string;
   displayName: string;
   assignedColor: string;
+  avatarFaceId?: ParticipantAvatarFaceId;
 }): RoomRecord | null {
   const existingRecord = loadRoomRecord(params.roomId);
 
@@ -204,6 +216,7 @@ export function ensureRoomMemberRegistered(params: {
     participantId: params.participantId,
     displayName: params.displayName,
     assignedColor: params.assignedColor,
+    avatarFaceId: existingMember?.avatarFaceId ?? params.avatarFaceId,
     joinedAt: existingMember?.joinedAt ?? Date.now(),
     lastSeenAt: Date.now(),
     isRoomCreator: existingRecord.creatorId === params.participantId,

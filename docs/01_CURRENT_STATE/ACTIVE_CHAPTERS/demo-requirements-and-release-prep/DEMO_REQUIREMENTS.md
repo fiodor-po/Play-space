@@ -107,7 +107,9 @@ Demo 2 is ready only when these statements are true:
 - drawing has eraser, partial stroke erase, and `Shift` straight-line support;
 - video/audio uses demo-default media bubbles, has a clear fallback state, and
   supports local bubble rearrange;
-- token creation supports more than one token during play.
+- token creation supports more than one token during play;
+- required license texts and notices are present for new third-party libraries,
+  icon sets, media assets, and attribution-bound content.
 
 ## 5. Explicit non-goals
 

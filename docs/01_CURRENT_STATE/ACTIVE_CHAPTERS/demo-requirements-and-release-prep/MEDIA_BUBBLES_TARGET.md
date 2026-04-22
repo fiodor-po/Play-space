@@ -13,7 +13,7 @@ Demo 2 media target: `media bubbles layer`.
 
 - все участники видят bubbles всех участников;
 - bubble показывает live video, если camera track доступен;
-- bubble показывает avatar / placeholder, если video нет;
+- bubble показывает stable room-scoped Tabler face avatar, если video нет;
 - border bubble использует цвет участника;
 - bubble текущего участника примерно на `10%` больше остальных;
 - bubbles можно rearrange локально;
@@ -106,7 +106,7 @@ Current working-tree checkpoint:
 
 - initial bubble placement;
 - exact bubble size, with local participant `+10%`;
-- placeholder content: initials, avatar color, token glyph, or simple fallback;
+- exact fallback avatar styling beyond the current Tabler face icon;
 - whether bubble positions persist per room;
 - whether remote participant bubbles expose any controls in Demo 2.
 

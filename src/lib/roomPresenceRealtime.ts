@@ -193,7 +193,8 @@ function areRoomOccupanciesEqual(
   return (
     current.participantId === next.participantId &&
     current.name === next.name &&
-    current.color === next.color
+    current.color === next.color &&
+    current.avatarFaceId === next.avatarFaceId
   );
 }
 
@@ -213,6 +214,7 @@ function areParticipantPresencesEqual(
     current.participantId === next.participantId &&
     current.name === next.name &&
     current.color === next.color &&
+    current.avatarFaceId === next.avatarFaceId &&
     current.lastActiveAt === next.lastActiveAt &&
     ((current.selectedObject === null && next.selectedObject === null) ||
       (current.selectedObject !== null &&

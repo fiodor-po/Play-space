@@ -761,6 +761,7 @@ function BootstrappedApp() {
         participantId: session.id,
         displayName: session.name,
         assignedColor: session.color,
+        avatarFaceId: session.avatarFaceId,
       }) ?? initializedRoomRecord
     );
   };
@@ -984,7 +985,8 @@ function BootstrappedApp() {
 
       if (
         nextStoredSession.name === participantSession.name &&
-        nextStoredSession.color === participantSession.color
+        nextStoredSession.color === participantSession.color &&
+        nextStoredSession.avatarFaceId === participantSession.avatarFaceId
       ) {
         return;
       }
@@ -995,6 +997,7 @@ function BootstrappedApp() {
             participantId: nextStoredSession.id,
             name: nextStoredSession.name,
             color: nextStoredSession.color,
+            avatarFaceId: nextStoredSession.avatarFaceId,
           }
         : {
             ...createLocalParticipantPresence(nextStoredSession),
@@ -1050,6 +1053,7 @@ function BootstrappedApp() {
       id: savedSession?.id ?? getOrCreateBrowserParticipantId(),
       name: trimmedName,
       color: draftColor,
+      avatarFaceId: savedSession?.avatarFaceId,
     };
     const blockedColors = entryAvailability.getCurrentBlockedColors();
 
@@ -1150,6 +1154,7 @@ function BootstrappedApp() {
           participantId: participantSession.id,
           name: nextSession.name,
           color: nextSession.color,
+          avatarFaceId: nextSession.avatarFaceId,
         }
       : {
           ...createLocalParticipantPresence(nextSession),

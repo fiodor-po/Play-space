@@ -28,6 +28,25 @@ const durableIdentityStorePath =
   process.env.ROOM_IDENTITY_STORE_FILE ||
   path.join(defaultRuntimeDataDir, "room-identities.json");
 const opsKey = readEnvString("PLAY_SPACE_OPS_KEY");
+const PARTICIPANT_AVATAR_FACE_IDS = [
+  "mood-smile",
+  "mood-happy",
+  "mood-crazy-happy",
+  "mood-wink",
+  "mood-tongue",
+  "mood-nerd",
+  "mood-boy",
+  "mood-xd",
+  "ghost",
+  "mood-kid",
+  "mood-surprised",
+  "mood-confuzed",
+  "mood-puzzled",
+  "mood-sad",
+  "mood-angry",
+  "mood-sick",
+];
+const PARTICIPANT_AVATAR_FACE_ID_SET = new Set(PARTICIPANT_AVATAR_FACE_IDS);
 const ROOM_DOC_PREFIXES = {
   tokens: "play-space-alpha-tokens:",
   images: "play-space-alpha-images:",
@@ -739,13 +758,17 @@ async function writeDurableRoomParticipantAppearance(
   }
 
   const nextRevision = (currentRevision ?? 0) + 1;
+  const nextParticipantAppearance = canonicalizeRoomParticipantAppearance(
+    currentSnapshot?.participantAppearance ?? {},
+    participantAppearance
+  );
   const nextSnapshot = {
     ...(currentSnapshot ?? createEmptyDurableRoomSnapshot(roomId)),
     revision: nextRevision,
     savedAt: new Date().toISOString(),
     participantAppearance: {
       ...(currentSnapshot?.participantAppearance ?? {}),
-      [participantAppearance.participantId]: participantAppearance,
+      [nextParticipantAppearance.participantId]: nextParticipantAppearance,
     },
   };
 
@@ -982,21 +1005,21 @@ function normalizeRoomParticipantAppearanceMap(participantAppearance) {
     return {};
   }
 
-  return Object.fromEntries(
-    Object.entries(participantAppearance)
-      .map(([participantId, appearance]) => {
-        const normalizedAppearance = normalizeRoomParticipantAppearance({
-          participantId,
-          ...appearance,
-        });
+  return Object.entries(participantAppearance).reduce(
+    (appearanceMap, [participantId, appearance]) => {
+      const normalizedAppearance = normalizeRoomParticipantAppearance({
+        participantId,
+        ...appearance,
+      });
 
-        if (!normalizedAppearance) {
-          return null;
-        }
+      if (!normalizedAppearance) {
+        return appearanceMap;
+      }
 
-        return [participantId, normalizedAppearance];
-      })
-      .filter((entry) => entry !== null)
+      appearanceMap[participantId] = normalizedAppearance;
+      return appearanceMap;
+    },
+    {}
   );
 }
 
@@ -1029,11 +1052,85 @@ function normalizeRoomParticipantAppearance(appearance) {
     participantId,
     lastKnownName,
     lastKnownColor,
+    avatarFaceId: isParticipantAvatarFaceId(appearance.avatarFaceId)
+      ? appearance.avatarFaceId
+      : undefined,
     lastSeenAt:
       typeof appearance.lastSeenAt === "number"
         ? appearance.lastSeenAt
         : Date.now(),
   };
+}
+
+function canonicalizeRoomParticipantAppearance(
+  currentAppearanceMap,
+  participantAppearance
+) {
+  const currentFaceId =
+    currentAppearanceMap[participantAppearance.participantId]?.avatarFaceId;
+
+  if (isParticipantAvatarFaceId(currentFaceId)) {
+    return {
+      ...participantAppearance,
+      avatarFaceId: currentFaceId,
+    };
+  }
+
+  return {
+    ...participantAppearance,
+    avatarFaceId: pickUnusedParticipantAvatarFaceId(
+      currentAppearanceMap,
+      participantAppearance.participantId,
+      participantAppearance.avatarFaceId
+    ),
+  };
+}
+
+function isParticipantAvatarFaceId(value) {
+  return (
+    typeof value === "string" && PARTICIPANT_AVATAR_FACE_ID_SET.has(value)
+  );
+}
+
+function pickUnusedParticipantAvatarFaceId(
+  existingAppearanceMap,
+  participantId,
+  requestedFaceId
+) {
+  if (isParticipantAvatarFaceId(requestedFaceId)) {
+    const duplicateEntry = Object.entries(existingAppearanceMap).find(
+      ([appearanceParticipantId, appearance]) =>
+        appearanceParticipantId !== participantId &&
+        appearance?.avatarFaceId === requestedFaceId
+    );
+
+    if (!duplicateEntry) {
+      return requestedFaceId;
+    }
+  }
+
+  const usedFaceIds = new Set(
+    Object.entries(existingAppearanceMap)
+      .filter(
+        ([appearanceParticipantId]) => appearanceParticipantId !== participantId
+      )
+      .map(([, appearance]) => appearance?.avatarFaceId)
+      .filter(isParticipantAvatarFaceId)
+  );
+  const unusedFaceIds = PARTICIPANT_AVATAR_FACE_IDS.filter(
+    (faceId) => !usedFaceIds.has(faceId)
+  );
+  const candidatePool =
+    unusedFaceIds.length > 0 ? unusedFaceIds : PARTICIPANT_AVATAR_FACE_IDS;
+
+  if (unusedFaceIds.length === 0) {
+    console.warn("[participant-avatar-face][pool-exhausted]", {
+      participantId,
+      poolSize: PARTICIPANT_AVATAR_FACE_IDS.length,
+    });
+  }
+
+  return candidatePool[Math.floor(Math.random() * candidatePool.length)];
 }
 
 function normalizeDurableRoomIdentity(roomId, identity) {

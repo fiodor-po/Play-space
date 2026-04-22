@@ -1,13 +1,23 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Track, type AudioTrack, type Participant } from "livekit-client";
+import {
+  createAudioAnalyser,
+  Track,
+  type AudioTrack,
+  type Participant,
+} from "livekit-client";
 import { Mic, MicOff, Video, VideoOff } from "lucide-react";
 import { HTML_UI_FONT_FAMILY } from "../board/constants";
+import type { ParticipantAvatarFaceId } from "../lib/participantAvatarFaces";
 import type {
   LocalParticipantSession,
   ParticipantPresenceMap,
   RoomOccupancyMap,
 } from "../lib/roomSession";
 import { normalizeRoomId } from "../lib/roomId";
+import {
+  getParticipantAvatarFaceIconPixelSize,
+  ParticipantAvatarFaceIcon,
+} from "./ParticipantAvatarFaceIcon";
 import {
   isAudioMeterDebugEnabled,
   isFakeMicrophoneLevelEnabled,
@@ -26,10 +36,16 @@ type MediaBubbleParticipant = {
   id: string;
   name: string;
   color: string;
+  avatarFaceId?: ParticipantAvatarFaceId;
   isLocal: boolean;
 };
 
 type MediaBubbleProps = {
+  audioMeterDebugEnabled: boolean;
+  onAudioMeterDebugStateChange?: (
+    participantId: string,
+    state: AudioMeterDebugDisplayState | null
+  ) => void;
   liveKitParticipant: Participant | null;
   mediaSession: LiveKitMediaSession;
   participant: MediaBubbleParticipant;
@@ -97,10 +113,28 @@ type AudioTrackLevelDebugState = {
   audioContextState: string;
   enabled: boolean;
   fakePhase: AudioMeterPhase;
+  gatedRms: number;
   hasAudioTrack: boolean;
   level: number;
   mediaStreamTrackState: string;
+  noiseFloor: number;
   rms: number;
+};
+
+type AudioMeterDebugDisplayState = {
+  audioContextState: string;
+  enabled: boolean;
+  gatedRms: number;
+  hasAudioTrack: boolean;
+  level: number;
+  mediaStreamTrackState: string;
+  noiseFloor: number;
+  phase: AudioMeterPhase;
+  ringWidth: number;
+  rms: number;
+  source: "fake" | "real";
+  visualLevel: number;
+  visualSource: "webaudio";
 };
 
 type FakeMicrophoneLevelSource = {
@@ -127,13 +161,25 @@ const LOCAL_MEDIA_CONTROL_ICON_STROKE_WIDTH = 2.25;
 const LOCAL_MEDIA_CONTROL_GROUP_ANGLE_DEGREES = 25;
 const LOCAL_MEDIA_CONTROL_CENTER_GAP = 42;
 const BUBBLE_RING_WIDTH = 4;
-const AUDIO_ACTIVITY_RING_MAX_WIDTH = 4;
+const AUDIO_ACTIVITY_RING_MAX_WIDTH = 12;
 const AUDIO_ACTIVITY_RING_ALPHA = 0.7;
-const AUDIO_ACTIVITY_THRESHOLD = 0.01;
-const AUDIO_ACTIVITY_CURVE_EXPONENT = 0.35;
-const AUDIO_LEVEL_EASING = 0.35;
+const AVATAR_AUDIO_PULSE_OPACITY_BASE = 0.25;
+const AVATAR_AUDIO_PULSE_OPACITY_GAIN = 0.45;
+const AVATAR_AUDIO_PULSE_STROKE_BASE_WIDTH = 1.8;
+const AVATAR_AUDIO_PULSE_STROKE_WIDTH = AUDIO_ACTIVITY_RING_MAX_WIDTH / 2;
+const AUDIO_ACTIVITY_THRESHOLD = 0.02;
+const AUDIO_ACTIVITY_CURVE_EXPONENT = 0.45;
+const AUDIO_ACTIVITY_MIN_ACTIVE_WIDTH = 1.5;
+const AUDIO_LEVEL_ATTACK_EASING = 0.24;
+const AUDIO_LEVEL_RELEASE_EASING = 0.18;
 const AUDIO_LEVEL_UPDATE_INTERVAL_MS = 50;
-const AUDIO_LEVEL_GAIN = 16;
+const AUDIO_RMS_NOISE_FLOOR_MIN = 0.016;
+const AUDIO_RMS_NOISE_FLOOR_MAX = 0.07;
+const AUDIO_RMS_NOISE_MARGIN = 0.008;
+const AUDIO_RMS_NOISE_FLOOR_RISE_EASING = 0.004;
+const AUDIO_RMS_NOISE_FLOOR_FALL_EASING = 0.12;
+const AUDIO_LEVEL_GAIN = 52;
+const AUDIO_LEVEL_GAIN_REDUCED_BROWSER_MULTIPLIER = 2 / 3;
 const MEDIA_BUBBLE_CIRCLE_SELECTOR = "[data-media-bubble-circle]";
 const BUBBLE_RESIZE_HIT_BAND_WIDTH = 12;
 const BUBBLE_MAX_SIZE = 720;
@@ -244,6 +290,25 @@ function getLiveKitAudioMediaStreamTrack(audioTrack: AudioTrack | null) {
   return trackWithMediaStreamTrack.mediaStreamTrack ?? null;
 }
 
+function getAudioLevelGain() {
+  if (typeof navigator === "undefined") {
+    return AUDIO_LEVEL_GAIN;
+  }
+
+  const userAgent = navigator.userAgent;
+  const isFirefox = userAgent.includes("Firefox/");
+  const isSafari =
+    userAgent.includes("Safari/") &&
+    !userAgent.includes("Chrome/") &&
+    !userAgent.includes("Chromium/") &&
+    !userAgent.includes("CriOS/") &&
+    !userAgent.includes("Edg/");
+
+  return isFirefox || isSafari
+    ? AUDIO_LEVEL_GAIN * AUDIO_LEVEL_GAIN_REDUCED_BROWSER_MULTIPLIER
+    : AUDIO_LEVEL_GAIN;
+}
+
 function createFakeMicrophoneLevelSource(): FakeMicrophoneLevelSource | null {
   const AudioContextConstructor = getAudioContextConstructor();
 
@@ -297,11 +362,11 @@ function getFakeMicrophonePhase(elapsedMs: number): {
   }
 
   if (cycleMs < 1_500) {
-    return { gain: 0.012, phase: "low" };
+    return { gain: 0.038, phase: "low" };
   }
 
   if (cycleMs < 2_500) {
-    return { gain: 0.04, phase: "medium" };
+    return { gain: 0.07, phase: "medium" };
   }
 
   if (cycleMs < 3_500) {
@@ -389,9 +454,11 @@ function useAudioTrackLevel(
     audioContextState: "idle",
     enabled,
     fakePhase,
+    gatedRms: 0,
     hasAudioTrack: false,
     level: 0,
     mediaStreamTrackState: "none",
+    noiseFloor: 0,
     rms: 0,
   });
   const fakePhaseRef = useRef(fakePhase);
@@ -410,9 +477,11 @@ function useAudioTrackLevel(
         audioContextState: "disabled",
         enabled,
         fakePhase: fakePhaseRef.current,
+        gatedRms: 0,
         hasAudioTrack: audioTrack !== null,
         level: 0,
         mediaStreamTrackState: "none",
+        noiseFloor: 0,
         rms: 0,
       });
       return;
@@ -426,9 +495,11 @@ function useAudioTrackLevel(
         audioContextState: "no-track",
         enabled,
         fakePhase: fakePhaseRef.current,
+        gatedRms: 0,
         hasAudioTrack: audioTrack !== null,
         level: 0,
         mediaStreamTrackState: mediaStreamTrack?.readyState ?? "none",
+        noiseFloor: 0,
         rms: 0,
       });
       return;
@@ -448,9 +519,11 @@ function useAudioTrackLevel(
         audioContextState: "unsupported",
         enabled,
         fakePhase: fakePhaseRef.current,
+        gatedRms: 0,
         hasAudioTrack: true,
         level: 0,
         mediaStreamTrackState: mediaStreamTrack.readyState,
+        noiseFloor: 0,
         rms: 0,
       });
       return;
@@ -460,10 +533,107 @@ function useAudioTrackLevel(
     let audioContext: AudioContext | null = null;
     let sourceNode: MediaStreamAudioSourceNode | null = null;
     let analyserNode: AnalyserNode | null = null;
+    let liveKitAudioAnalyser: ReturnType<typeof createAudioAnalyser> | null =
+      null;
     let lastUpdateAt = 0;
+    const audioLevelGain = getAudioLevelGain();
+    let noiseFloor = AUDIO_RMS_NOISE_FLOOR_MIN;
     let smoothedLevel = 0;
 
     try {
+      if (!overrideMediaStreamTrack && audioTrack) {
+        liveKitAudioAnalyser = createAudioAnalyser(audioTrack, {
+          cloneTrack: true,
+          fftSize: 1024,
+          maxDecibels: -35,
+          minDecibels: -95,
+          smoothingTimeConstant: 0.2,
+        });
+
+        const liveKitAudioContext = liveKitAudioAnalyser.analyser.context;
+
+        if ("resume" in liveKitAudioContext) {
+          void (liveKitAudioContext as AudioContext).resume();
+        }
+
+        const updateLevel = (timestamp: number) => {
+          if (!liveKitAudioAnalyser || mediaStreamTrack.readyState !== "live") {
+            setDebugState({
+              audioContextState:
+                liveKitAudioAnalyser?.analyser.context.state ?? "missing",
+              enabled,
+              fakePhase: fakePhaseRef.current,
+              gatedRms: 0,
+              hasAudioTrack: true,
+              level: 0,
+              mediaStreamTrackState: mediaStreamTrack.readyState,
+              noiseFloor,
+              rms: 0,
+            });
+            return;
+          }
+
+          const rms = liveKitAudioAnalyser.calculateVolume();
+          const noiseFloorTarget = clamp(
+            rms,
+            AUDIO_RMS_NOISE_FLOOR_MIN,
+            AUDIO_RMS_NOISE_FLOOR_MAX
+          );
+          const noiseFloorEasing =
+            noiseFloorTarget > noiseFloor
+              ? AUDIO_RMS_NOISE_FLOOR_RISE_EASING
+              : AUDIO_RMS_NOISE_FLOOR_FALL_EASING;
+          noiseFloor += (noiseFloorTarget - noiseFloor) * noiseFloorEasing;
+
+          const gatedRms = Math.max(0, rms - noiseFloor - AUDIO_RMS_NOISE_MARGIN);
+          const nextLevel = clamp(gatedRms * audioLevelGain, 0, 1);
+          const easing =
+            nextLevel > smoothedLevel
+              ? AUDIO_LEVEL_ATTACK_EASING
+              : AUDIO_LEVEL_RELEASE_EASING;
+          smoothedLevel += (nextLevel - smoothedLevel) * easing;
+
+          if (timestamp - lastUpdateAt >= AUDIO_LEVEL_UPDATE_INTERVAL_MS) {
+            lastUpdateAt = timestamp;
+            setDebugState({
+              audioContextState: liveKitAudioAnalyser.analyser.context.state,
+              enabled,
+              fakePhase: fakePhaseRef.current,
+              gatedRms,
+              hasAudioTrack: true,
+              level: smoothedLevel,
+              mediaStreamTrackState: mediaStreamTrack.readyState,
+              noiseFloor,
+              rms,
+            });
+          }
+
+          animationFrameId = window.requestAnimationFrame(updateLevel);
+        };
+
+        animationFrameId = window.requestAnimationFrame(updateLevel);
+
+        return () => {
+          if (animationFrameId !== null) {
+            window.cancelAnimationFrame(animationFrameId);
+          }
+
+          void liveKitAudioAnalyser?.cleanup();
+
+          setDebugState({
+            audioContextState: "closed",
+            enabled: false,
+            fakePhase: "silent",
+            gatedRms: 0,
+            hasAudioTrack: false,
+            level: 0,
+            mediaStreamTrackState: "none",
+            noiseFloor: 0,
+            rms: 0,
+          });
+        };
+      }
+
       audioContext = new AudioContextConstructor();
       void audioContext.resume();
       const mediaStream = new MediaStream([mediaStreamTrack]);
@@ -480,9 +650,11 @@ function useAudioTrackLevel(
             audioContextState: audioContext?.state ?? "missing",
             enabled,
             fakePhase: fakePhaseRef.current,
+            gatedRms: 0,
             hasAudioTrack: true,
             level: 0,
             mediaStreamTrackState: mediaStreamTrack.readyState,
+            noiseFloor,
             rms: 0,
           });
           return;
@@ -498,8 +670,24 @@ function useAudioTrackLevel(
         });
 
         const rms = Math.sqrt(sumSquares / samples.length);
-        const nextLevel = clamp(rms * AUDIO_LEVEL_GAIN, 0, 1);
-        smoothedLevel += (nextLevel - smoothedLevel) * AUDIO_LEVEL_EASING;
+        const noiseFloorTarget = clamp(
+          rms,
+          AUDIO_RMS_NOISE_FLOOR_MIN,
+          AUDIO_RMS_NOISE_FLOOR_MAX
+        );
+        const noiseFloorEasing =
+          noiseFloorTarget > noiseFloor
+            ? AUDIO_RMS_NOISE_FLOOR_RISE_EASING
+            : AUDIO_RMS_NOISE_FLOOR_FALL_EASING;
+        noiseFloor += (noiseFloorTarget - noiseFloor) * noiseFloorEasing;
+
+        const gatedRms = Math.max(0, rms - noiseFloor - AUDIO_RMS_NOISE_MARGIN);
+        const nextLevel = clamp(gatedRms * audioLevelGain, 0, 1);
+        const easing =
+          nextLevel > smoothedLevel
+            ? AUDIO_LEVEL_ATTACK_EASING
+            : AUDIO_LEVEL_RELEASE_EASING;
+        smoothedLevel += (nextLevel - smoothedLevel) * easing;
 
         if (timestamp - lastUpdateAt >= AUDIO_LEVEL_UPDATE_INTERVAL_MS) {
           lastUpdateAt = timestamp;
@@ -507,9 +695,11 @@ function useAudioTrackLevel(
             audioContextState: audioContext?.state ?? "missing",
             enabled,
             fakePhase: fakePhaseRef.current,
+            gatedRms,
             hasAudioTrack: true,
             level: smoothedLevel,
             mediaStreamTrackState: mediaStreamTrack.readyState,
+            noiseFloor,
             rms,
           });
         }
@@ -523,9 +713,11 @@ function useAudioTrackLevel(
         audioContextState: "error",
         enabled,
         fakePhase: fakePhaseRef.current,
+        gatedRms: 0,
         hasAudioTrack: true,
         level: 0,
         mediaStreamTrackState: mediaStreamTrack.readyState,
+        noiseFloor: 0,
         rms: 0,
       });
     }
@@ -546,9 +738,11 @@ function useAudioTrackLevel(
         audioContextState: "closed",
         enabled: false,
         fakePhase: "silent",
+        gatedRms: 0,
         hasAudioTrack: false,
         level: 0,
         mediaStreamTrackState: "none",
+        noiseFloor: 0,
         rms: 0,
       });
     };
@@ -571,7 +765,7 @@ function getAudioActivityRingWidth(level: number) {
   );
 
   return Math.max(
-    1,
+    AUDIO_ACTIVITY_MIN_ACTIVE_WIDTH,
     activeLevel ** AUDIO_ACTIVITY_CURVE_EXPONENT *
       AUDIO_ACTIVITY_RING_MAX_WIDTH
   );
@@ -773,6 +967,8 @@ function getBubbleResizeResult(
 }
 
 function MediaBubble({
+  audioMeterDebugEnabled,
+  onAudioMeterDebugStateChange,
   liveKitParticipant,
   mediaSession,
   participant,
@@ -783,11 +979,16 @@ function MediaBubble({
     Track.Source.Camera
   );
   const cameraTrack = cameraPublication?.videoTrack ?? null;
-  const microphoneTrack =
-    liveKitParticipant?.getTrackPublication(Track.Source.Microphone)?.audioTrack ??
-    null;
-  const isCameraMuted = cameraPublication?.isMuted ?? false;
   const fakeMicrophoneLevelEnabled = isFakeMicrophoneLevelEnabled();
+  const microphonePublication = liveKitParticipant?.getTrackPublication(
+    Track.Source.Microphone
+  );
+  const microphoneTrack = microphonePublication?.audioTrack ?? null;
+  const isMicrophoneMuted =
+    !fakeMicrophoneLevelEnabled &&
+    (microphonePublication?.isMuted === true ||
+      (participant.isLocal && !mediaSession.micEnabled));
+  const isCameraMuted = cameraPublication?.isMuted ?? false;
   const shouldShowCameraTrack = Boolean(
     (cameraTrack || fakeMicrophoneLevelEnabled) &&
       (!cameraTrack || !isCameraMuted) &&
@@ -796,20 +997,90 @@ function MediaBubble({
   const shouldShowFakeVideoSurface =
     fakeMicrophoneLevelEnabled && !cameraTrack && shouldShowCameraTrack;
   const hasLiveKitParticipant = liveKitParticipant !== null;
-  const shouldShowAudioActivityRing = shouldShowCameraTrack;
+  const shouldShowAvatarFallback =
+    !shouldShowCameraTrack && !!participant.avatarFaceId;
+  const shouldRunAudioMeter =
+    shouldShowCameraTrack || shouldShowAvatarFallback;
   const fakeMicrophoneLevelTrack = useFakeMicrophoneLevelSource(
-    fakeMicrophoneLevelEnabled && shouldShowAudioActivityRing
+    fakeMicrophoneLevelEnabled && shouldRunAudioMeter
   );
   const audioLevelDebug = useAudioTrackLevel(microphoneTrack, {
-    enabled: shouldShowAudioActivityRing,
+    enabled: shouldRunAudioMeter && !isMicrophoneMuted,
     fakePhase: fakeMicrophoneLevelTrack.phase,
     overrideMediaStreamTrack: fakeMicrophoneLevelTrack.track,
   });
-  const audioActivityRingWidth = getAudioActivityRingWidth(audioLevelDebug.level);
+  const audioVisualLevel = isMicrophoneMuted ? 0 : audioLevelDebug.level;
+  const audioActivityRingWidth = getAudioActivityRingWidth(audioVisualLevel);
   const audioActivityRingColor = getColorWithAlpha(
     participant.color,
     AUDIO_ACTIVITY_RING_ALPHA
   );
+  const audioMeterDiagnosticAttrs = getAudioMeterDiagnosticAttrs({
+    audioLevelDebug,
+    fakeMicrophoneLevelEnabled,
+    participantId: participant.id,
+    ringWidth: audioActivityRingWidth,
+    visualLevel: audioVisualLevel,
+    visualSource: "webaudio",
+    visualRingWidth: audioActivityRingWidth,
+  });
+  const avatarIconFrameSize = getParticipantAvatarFaceIconPixelSize(size);
+  const avatarAudioPulseOpacity =
+    audioActivityRingWidth > 0
+      ? AVATAR_AUDIO_PULSE_OPACITY_BASE +
+        audioVisualLevel * AVATAR_AUDIO_PULSE_OPACITY_GAIN
+      : 0;
+  const avatarAudioPulseStroke =
+    audioActivityRingWidth > 0
+      ? AVATAR_AUDIO_PULSE_STROKE_BASE_WIDTH +
+        audioVisualLevel *
+          (AVATAR_AUDIO_PULSE_STROKE_WIDTH -
+            AVATAR_AUDIO_PULSE_STROKE_BASE_WIDTH)
+      : AVATAR_AUDIO_PULSE_STROKE_BASE_WIDTH;
+
+  useEffect(() => {
+    if (!audioMeterDebugEnabled || !onAudioMeterDebugStateChange) {
+      return;
+    }
+
+    onAudioMeterDebugStateChange(participant.id, {
+      audioContextState: audioLevelDebug.audioContextState,
+      enabled: audioLevelDebug.enabled,
+      gatedRms: audioLevelDebug.gatedRms,
+      hasAudioTrack: audioLevelDebug.hasAudioTrack,
+      level: audioLevelDebug.level,
+      mediaStreamTrackState: audioLevelDebug.mediaStreamTrackState,
+      noiseFloor: audioLevelDebug.noiseFloor,
+      phase: audioLevelDebug.fakePhase,
+      ringWidth: audioActivityRingWidth,
+      rms: audioLevelDebug.rms,
+      source: fakeMicrophoneLevelEnabled ? "fake" : "real",
+      visualLevel: audioVisualLevel,
+      visualSource: "webaudio",
+    });
+
+    return () => {
+      onAudioMeterDebugStateChange(participant.id, null);
+    };
+  }, [
+    audioActivityRingWidth,
+    audioLevelDebug.audioContextState,
+    audioLevelDebug.enabled,
+    audioLevelDebug.fakePhase,
+    audioLevelDebug.gatedRms,
+    audioLevelDebug.hasAudioTrack,
+    audioLevelDebug.level,
+    audioLevelDebug.mediaStreamTrackState,
+    audioLevelDebug.noiseFloor,
+    audioLevelDebug.rms,
+    audioVisualLevel,
+    audioMeterDebugEnabled,
+    fakeMicrophoneLevelEnabled,
+    isMicrophoneMuted,
+    onAudioMeterDebugStateChange,
+    participant.id,
+  ]);
+
   const slotWidth = size + BUBBLE_SLOT_EXTRA_WIDTH;
   const slotHeight = BUBBLE_SLOT_HEIGHT + Math.max(0, size - LOCAL_BUBBLE_SIZE);
   const shouldShowLocalControls = participant.isLocal && mediaSession.isConnected;
@@ -902,7 +1173,14 @@ function MediaBubble({
                       "0 2px 10px rgba(2, 6, 23, 0.78), 0 0 2px rgba(2, 6, 23, 0.8)",
                   }}
                 >
-                  {getParticipantInitials(participant.name)}
+                  {participant.avatarFaceId ? (
+                    <ParticipantAvatarFaceIcon
+                      faceId={participant.avatarFaceId}
+                      size={size}
+                    />
+                  ) : (
+                    getParticipantInitials(participant.name)
+                  )}
                 </div>
               ) : (
                 <video
@@ -918,19 +1196,10 @@ function MediaBubble({
                   }}
                 />
               )}
-              {shouldShowAudioActivityRing ? (
+              {shouldShowCameraTrack ? (
                 <div
                   aria-hidden="true"
-                  data-testid={`media-audio-meter-${participant.id}`}
-                  data-audio-meter-context={audioLevelDebug.audioContextState}
-                  data-audio-meter-level={audioLevelDebug.level}
-                  data-audio-meter-phase={audioLevelDebug.fakePhase}
-                  data-audio-meter-ring-width={audioActivityRingWidth}
-                  data-audio-meter-rms={audioLevelDebug.rms}
-                  data-audio-meter-source={
-                    fakeMicrophoneLevelEnabled ? "fake" : "real"
-                  }
-                  data-audio-meter-track={audioLevelDebug.mediaStreamTrackState}
+                  {...audioMeterDiagnosticAttrs}
                   style={{
                     position: "absolute",
                     inset: 0,
@@ -959,7 +1228,39 @@ function MediaBubble({
                   "0 2px 10px rgba(2, 6, 23, 0.78), 0 0 2px rgba(2, 6, 23, 0.8)",
               }}
             >
-              {getParticipantInitials(participant.name)}
+              {participant.avatarFaceId ? (
+                <div
+                  aria-hidden="true"
+                  style={{
+                    position: "relative",
+                    width: avatarIconFrameSize,
+                    height: avatarIconFrameSize,
+                    display: "grid",
+                    placeItems: "center",
+                    pointerEvents: "none",
+                  }}
+                >
+                  <ParticipantAvatarFaceIcon
+                    {...audioMeterDiagnosticAttrs}
+                    faceId={participant.avatarFaceId}
+                    size={size}
+                    stroke={avatarAudioPulseStroke}
+                    style={{
+                      position: "absolute",
+                      left: 0,
+                      top: 0,
+                      opacity: avatarAudioPulseOpacity,
+                      transition: "opacity 80ms linear, stroke-width 80ms linear",
+                    }}
+                  />
+                  <ParticipantAvatarFaceIcon
+                    faceId={participant.avatarFaceId}
+                    size={size}
+                  />
+                </div>
+              ) : (
+                getParticipantInitials(participant.name)
+              )}
             </div>
           )}
 
@@ -1088,46 +1389,42 @@ function MediaBubble({
 }
 
 type AudioLevelDebugOverlayProps = {
+  debugStatesByParticipantId: Map<string, AudioMeterDebugDisplayState>;
   participants: MediaBubbleParticipant[];
-  liveKitParticipantsById: Map<string, Participant>;
 };
 
 function AudioLevelDebugRow({
-  liveKitParticipant,
+  debugState,
   participant,
 }: {
-  liveKitParticipant: Participant | null;
+  debugState: AudioMeterDebugDisplayState | null;
   participant: MediaBubbleParticipant;
 }) {
-  const fakeMicrophoneLevelEnabled = isFakeMicrophoneLevelEnabled();
-  const microphoneTrack =
-    liveKitParticipant?.getTrackPublication(Track.Source.Microphone)?.audioTrack ??
-    null;
-  const fakeMicrophoneLevelTrack = useFakeMicrophoneLevelSource(
-    fakeMicrophoneLevelEnabled
-  );
-  const debugState = useAudioTrackLevel(microphoneTrack, {
-    enabled: true,
-    fakePhase: fakeMicrophoneLevelTrack.phase,
-    overrideMediaStreamTrack: fakeMicrophoneLevelTrack.track,
-  });
-  const ringPixels = getAudioActivityRingWidth(debugState.level);
+  if (!debugState) {
+    return (
+      <div>
+        {participant.isLocal ? "you" : participant.name}: meter missing
+      </div>
+    );
+  }
 
   return (
     <div>
-      {participant.isLocal ? "you" : participant.name}: px {ringPixels}, level{" "}
+      {participant.isLocal ? "you" : participant.name}: px{" "}
+      {debugState.ringWidth.toFixed(2)}, level{" "}
       {debugState.level.toFixed(3)}, rms {debugState.rms.toFixed(4)}, ctx{" "}
-      {debugState.audioContextState}, enabled {debugState.enabled ? "yes" : "no"},
-      source {fakeMicrophoneLevelEnabled ? "fake" : "real"},
+      {debugState.audioContextState}, floor {debugState.noiseFloor.toFixed(4)},
+      gated {debugState.gatedRms.toFixed(4)}, enabled{" "}
+      {debugState.enabled ? "yes" : "no"}, source {debugState.source},
       track {debugState.hasAudioTrack ? "yes" : "no"}/
-      {debugState.mediaStreamTrackState}, phase {debugState.fakePhase}, lk{" "}
-      {liveKitParticipant?.identity ?? "missing"}
+      {debugState.mediaStreamTrackState}, phase {debugState.phase}, visual{" "}
+      {debugState.visualSource}/{debugState.visualLevel.toFixed(3)}
     </div>
   );
 }
 
 function AudioLevelDebugOverlay({
-  liveKitParticipantsById,
+  debugStatesByParticipantId,
   participants,
 }: AudioLevelDebugOverlayProps) {
   return (
@@ -1154,19 +1451,53 @@ function AudioLevelDebugOverlay({
       }}
     >
       <div>
-        WebAudio level, gain {AUDIO_LEVEL_GAIN}, max{" "}
-        {AUDIO_ACTIVITY_RING_MAX_WIDTH}px, fakeMicLevel{" "}
+        WebAudio level, gain {getAudioLevelGain().toFixed(1)} base{" "}
+        {AUDIO_LEVEL_GAIN}, max {AUDIO_ACTIVITY_RING_MAX_WIDTH}px, fakeMicLevel{" "}
         {isFakeMicrophoneLevelEnabled() ? "on" : "off"}
       </div>
       {participants.map((participant) => (
         <AudioLevelDebugRow
           key={participant.id}
+          debugState={debugStatesByParticipantId.get(participant.id) ?? null}
           participant={participant}
-          liveKitParticipant={liveKitParticipantsById.get(participant.id) ?? null}
         />
       ))}
     </div>
   );
+}
+
+function getAudioMeterDiagnosticAttrs({
+  audioLevelDebug,
+  fakeMicrophoneLevelEnabled,
+  participantId,
+  ringWidth,
+  visualLevel,
+  visualRingWidth,
+  visualSource,
+}: {
+  audioLevelDebug: AudioTrackLevelDebugState;
+  fakeMicrophoneLevelEnabled: boolean;
+  participantId: string;
+  ringWidth: number;
+  visualLevel: number;
+  visualRingWidth: number;
+  visualSource: "webaudio";
+}) {
+  return {
+    "data-testid": `media-audio-meter-${participantId}`,
+    "data-audio-meter-context": audioLevelDebug.audioContextState,
+    "data-audio-meter-level": audioLevelDebug.level,
+    "data-audio-meter-phase": audioLevelDebug.fakePhase,
+    "data-audio-meter-ring-width": ringWidth,
+    "data-audio-meter-gated-rms": audioLevelDebug.gatedRms,
+    "data-audio-meter-noise-floor": audioLevelDebug.noiseFloor,
+    "data-audio-meter-rms": audioLevelDebug.rms,
+    "data-audio-meter-source": fakeMicrophoneLevelEnabled ? "fake" : "real",
+    "data-audio-meter-track": audioLevelDebug.mediaStreamTrackState,
+    "data-audio-meter-visual-level": visualLevel,
+    "data-audio-meter-visual-ring-width": visualRingWidth,
+    "data-audio-meter-visual-source": visualSource,
+  };
 }
 
 function addBubbleParticipant(
@@ -1179,6 +1510,7 @@ function addBubbleParticipant(
     id: participant.id,
     name: participant.name || current?.name || "Player",
     color: participant.color || current?.color || "#64748b",
+    avatarFaceId: participant.avatarFaceId ?? current?.avatarFaceId,
     isLocal: participant.isLocal || current?.isLocal || false,
   });
 }
@@ -1370,6 +1702,10 @@ export function LiveKitMediaBubbles({
   const [activeResizePreview, setActiveResizePreview] =
     useState<BubbleResizePreview | null>(null);
   const [resizeHover, setResizeHover] = useState<BubbleResizeHover | null>(null);
+  const [audioMeterDebugStatesById, setAudioMeterDebugStatesById] = useState(
+    () => new Map<string, AudioMeterDebugDisplayState>()
+  );
+  const audioMeterDebugEnabled = isAudioMeterDebugEnabled();
   const dragStateRef = useRef<BubbleDragState | null>(null);
   const resizeStateRef = useRef<BubbleResizeState | null>(null);
 
@@ -1383,6 +1719,7 @@ export function LiveKitMediaBubbles({
     setResizeHover(null);
     dragStateRef.current = null;
     resizeStateRef.current = null;
+    setAudioMeterDebugStatesById(new Map());
   }, [participantSession.id, roomId]);
 
   const liveKitParticipantsById = useMemo(() => {
@@ -1401,6 +1738,7 @@ export function LiveKitMediaBubbles({
       id: participantSession.id,
       name: participantSession.name,
       color: participantSession.color,
+      avatarFaceId: participantSession.avatarFaceId,
       isLocal: true,
     });
 
@@ -1409,6 +1747,7 @@ export function LiveKitMediaBubbles({
         id: occupancy.participantId,
         name: occupancy.name,
         color: occupancy.color,
+        avatarFaceId: occupancy.avatarFaceId,
         isLocal: occupancy.participantId === participantSession.id,
       });
     });
@@ -1418,6 +1757,7 @@ export function LiveKitMediaBubbles({
         id: presence.participantId,
         name: presence.name,
         color: presence.color,
+        avatarFaceId: presence.avatarFaceId,
         isLocal: presence.participantId === participantSession.id,
       });
     });
@@ -1750,8 +2090,29 @@ export function LiveKitMediaBubbles({
         : "grab";
   };
 
+  const handleAudioMeterDebugStateChange = useCallback(
+    (participantId: string, state: AudioMeterDebugDisplayState | null) => {
+      setAudioMeterDebugStatesById((currentStates) => {
+        const nextStates = new Map(currentStates);
+
+        if (state) {
+          nextStates.set(participantId, state);
+        } else {
+          nextStates.delete(participantId);
+        }
+
+        return nextStates;
+      });
+    },
+    []
+  );
+
   const renderBubble = (participant: MediaBubbleParticipant) => (
     <MediaBubble
+      audioMeterDebugEnabled={audioMeterDebugEnabled}
+      onAudioMeterDebugStateChange={
+        audioMeterDebugEnabled ? handleAudioMeterDebugStateChange : undefined
+      }
       mediaSession={mediaSession}
       participant={participant}
       liveKitParticipant={liveKitParticipantsById.get(participant.id) ?? null}
@@ -1770,10 +2131,10 @@ export function LiveKitMediaBubbles({
         pointerEvents: "none",
       }}
     >
-      {isAudioMeterDebugEnabled() ? (
+      {audioMeterDebugEnabled ? (
         <AudioLevelDebugOverlay
+          debugStatesByParticipantId={audioMeterDebugStatesById}
           participants={bubbleParticipants}
-          liveKitParticipantsById={liveKitParticipantsById}
         />
       ) : null}
 

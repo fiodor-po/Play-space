@@ -25,6 +25,7 @@
   "dependencies": {
     "@3d-dice/dice-box": "^1.1.4",
     "@3d-dice/dice-box-threejs": "^0.0.12",
+    "@tabler/icons-react": "^3.41.1",
     "@y/websocket-server": "^0.1.5",
     "konva": "^10.2.3",
     "livekit-client": "^2.18.1",

@@ -3,12 +3,18 @@ import type {
   ParticipantPresenceMap,
   RoomOccupancyMap,
 } from "./roomSession";
+import {
+  isParticipantAvatarFaceId,
+  pickUnusedParticipantAvatarFaceId,
+  type ParticipantAvatarFaceId,
+} from "./participantAvatarFaces";
 
 export type RoomParticipantAppearance = {
   participantId: string;
   lastKnownName: string;
   lastKnownColor: string;
   lastSeenAt: number;
+  avatarFaceId?: ParticipantAvatarFaceId;
 };
 
 export type RoomParticipantAppearanceMap = Record<
@@ -97,6 +103,7 @@ export function createRoomParticipantAppearance(params: {
   name: string;
   color: string;
   lastSeenAt?: number;
+  avatarFaceId?: unknown;
 }): RoomParticipantAppearance | null {
   const participantId = normalizeParticipantAppearanceString(params.participantId);
   const lastKnownName = normalizeParticipantAppearanceString(params.name);
@@ -110,8 +117,44 @@ export function createRoomParticipantAppearance(params: {
     participantId,
     lastKnownName,
     lastKnownColor,
+    avatarFaceId: isParticipantAvatarFaceId(params.avatarFaceId)
+      ? params.avatarFaceId
+      : undefined,
     lastSeenAt:
       typeof params.lastSeenAt === "number" ? params.lastSeenAt : Date.now(),
+  };
+}
+
+export function createRoomParticipantAppearanceWithAssignedAvatar(params: {
+  participantId: string;
+  name: string;
+  color: string;
+  lastSeenAt?: number;
+  avatarFaceId?: unknown;
+  existingAppearanceMap: RoomParticipantAppearanceMap;
+}): RoomParticipantAppearance | null {
+  const existingAppearance = params.existingAppearanceMap[params.participantId];
+  const normalizedAppearance = createRoomParticipantAppearance({
+    participantId: params.participantId,
+    name: params.name,
+    color: params.color,
+    lastSeenAt: params.lastSeenAt,
+    avatarFaceId: params.avatarFaceId,
+  });
+
+  if (!normalizedAppearance) {
+    return null;
+  }
+
+  return {
+    ...normalizedAppearance,
+    avatarFaceId:
+      normalizedAppearance.avatarFaceId ??
+      existingAppearance?.avatarFaceId ??
+      pickUnusedParticipantAvatarFaceId(
+        params.existingAppearanceMap,
+        normalizedAppearance.participantId
+      ),
   };
 }
 
@@ -122,40 +165,38 @@ export function normalizeRoomParticipantAppearanceMap(
     return {};
   }
 
-  return Object.fromEntries(
-    Object.entries(participantAppearance)
-      .map(([participantId, appearance]) => {
-        if (!appearance || typeof appearance !== "object") {
-          return null;
-        }
+  return Object.entries(participantAppearance).reduce<RoomParticipantAppearanceMap>(
+    (appearanceMap, [participantId, appearance]) => {
+      if (!appearance || typeof appearance !== "object") {
+        return appearanceMap;
+      }
 
-        const normalizedAppearance = createRoomParticipantAppearance({
-          participantId,
-          name:
-            "lastKnownName" in appearance
-              ? (appearance.lastKnownName as string)
-              : "",
-          color:
-            "lastKnownColor" in appearance
-              ? (appearance.lastKnownColor as string)
-              : "",
-          lastSeenAt:
-            "lastSeenAt" in appearance
-              ? (appearance.lastSeenAt as number)
-              : undefined,
-        });
+      const normalizedAppearance = createRoomParticipantAppearance({
+        participantId,
+        name:
+          "lastKnownName" in appearance
+            ? (appearance.lastKnownName as string)
+            : "",
+        color:
+          "lastKnownColor" in appearance
+            ? (appearance.lastKnownColor as string)
+            : "",
+        lastSeenAt:
+          "lastSeenAt" in appearance
+            ? (appearance.lastSeenAt as number)
+            : undefined,
+        avatarFaceId:
+          "avatarFaceId" in appearance ? appearance.avatarFaceId : undefined,
+      });
 
-        if (!normalizedAppearance) {
-          return null;
-        }
+      if (!normalizedAppearance) {
+        return appearanceMap;
+      }
 
-        return [participantId, normalizedAppearance] as const;
-      })
-      .filter(
-        (
-          entry
-        ): entry is readonly [string, RoomParticipantAppearance] => entry !== null
-      )
+      appearanceMap[participantId] = normalizedAppearance;
+      return appearanceMap;
+    },
+    {}
   );
 }
 
@@ -168,14 +209,19 @@ export function upsertRoomParticipantAppearance(
   if (
     currentAppearance &&
     currentAppearance.lastKnownName === nextAppearance.lastKnownName &&
-    currentAppearance.lastKnownColor === nextAppearance.lastKnownColor
+    currentAppearance.lastKnownColor === nextAppearance.lastKnownColor &&
+    currentAppearance.avatarFaceId === nextAppearance.avatarFaceId
   ) {
     return participantAppearance;
   }
 
   return {
     ...participantAppearance,
-    [nextAppearance.participantId]: nextAppearance,
+    [nextAppearance.participantId]: {
+      ...nextAppearance,
+      avatarFaceId:
+        currentAppearance?.avatarFaceId ?? nextAppearance.avatarFaceId,
+    },
   };
 }
 

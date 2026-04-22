@@ -140,6 +140,8 @@ Current target doc:
 Нужный результат:
 
 - all Demo 2 release gates checked;
+- required license texts and notices are added for new third-party libraries,
+  icon sets, media assets, and attribution-bound content;
 - rough edges are classified into:
   - must-fix before release;
   - accepted for demo;

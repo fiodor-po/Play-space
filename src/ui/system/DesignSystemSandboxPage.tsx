@@ -13,6 +13,7 @@ import { PARTICIPANT_COLOR_OPTIONS } from "../../lib/roomSession";
 import { boardSurfaceRecipes } from "./boardSurfaces";
 import { getDesignSystemDebugAttrs } from "./debugMeta";
 import { BoardInteractionLayerSandbox } from "./BoardInteractionLayerSandbox";
+import { ParticipantAvatarFaceIconList } from "./ParticipantAvatarFaceIconList";
 import {
   buttonRecipes,
   createDraftLocalUserButtonRecipeForSlot,
@@ -4015,6 +4016,13 @@ export function DesignSystemSandboxPage() {
               />
             </PreviewCard>
           </div>
+        </SectionCard>
+
+        <SectionCard
+          title="Participant avatar faces"
+          description="Current available face-id pool for participant avatar assignment."
+        >
+          <ParticipantAvatarFaceIconList />
         </SectionCard>
 
         <SectionCard

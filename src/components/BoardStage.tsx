@@ -139,6 +139,7 @@ import {
 import { getRoomBaselinePayload } from "../lib/roomBaseline";
 import {
   createRoomParticipantAppearance,
+  createRoomParticipantAppearanceWithAssignedAvatar,
   resolveCurrentParticipantColor,
   resolveCurrentParticipantColorResolution,
   upsertRoomParticipantAppearance,
@@ -3297,12 +3298,14 @@ export default function BoardStage({
         const upsertObservedAppearance = (
           participantId: string | null | undefined,
           name: string | null | undefined,
-          color: string | null | undefined
+          color: string | null | undefined,
+          avatarFaceId?: unknown
         ) => {
           const nextAppearance = createRoomParticipantAppearance({
             participantId: participantId ?? "",
             name: name ?? "",
             color: color ?? "",
+            avatarFaceId,
           });
 
           if (!nextAppearance) {
@@ -3318,14 +3321,16 @@ export default function BoardStage({
         upsertObservedAppearance(
           participantSession.id,
           participantSession.name,
-          participantSession.color
+          participantSession.color,
+          participantSession.avatarFaceId
         );
 
         Object.values(roomOccupancies).forEach((occupancy) => {
           upsertObservedAppearance(
             occupancy.participantId,
             occupancy.name,
-            occupancy.color
+            occupancy.color,
+            occupancy.avatarFaceId
           );
         });
 
@@ -3337,7 +3342,8 @@ export default function BoardStage({
           upsertObservedAppearance(
             presence.participantId,
             presence.name,
-            presence.color
+            presence.color,
+            presence.avatarFaceId
           );
         });
 
@@ -3350,6 +3356,7 @@ export default function BoardStage({
     };
   }, [
     participantPresences,
+    participantSession.avatarFaceId,
     participantSession.color,
     participantSession.id,
     participantSession.name,
@@ -3357,14 +3364,47 @@ export default function BoardStage({
   ]);
 
   useEffect(() => {
+    const localAppearance =
+      roomParticipantAppearance[participantSession.id] ?? null;
+
+    if (
+      !localAppearance?.avatarFaceId ||
+      localAppearance.avatarFaceId === participantSession.avatarFaceId
+    ) {
+      return;
+    }
+
+    onUpdateParticipantSession((currentSession) => {
+      if (
+        currentSession.id !== participantSession.id ||
+        currentSession.avatarFaceId === localAppearance.avatarFaceId
+      ) {
+        return currentSession;
+      }
+
+      return {
+        ...currentSession,
+        avatarFaceId: localAppearance.avatarFaceId,
+      };
+    });
+  }, [
+    onUpdateParticipantSession,
+    participantSession.avatarFaceId,
+    participantSession.id,
+    roomParticipantAppearance,
+  ]);
+
+  useEffect(() => {
     if (resolvedSnapshotBootstrapRoomId !== roomId) {
       return;
     }
 
-    const nextAppearance = createRoomParticipantAppearance({
+    const nextAppearance = createRoomParticipantAppearanceWithAssignedAvatar({
       participantId: participantSession.id,
       name: participantSession.name,
       color: participantSession.color,
+      avatarFaceId: participantSession.avatarFaceId,
+      existingAppearanceMap: roomParticipantAppearance,
     });
 
     if (!nextAppearance) {
@@ -3376,6 +3416,7 @@ export default function BoardStage({
       nextAppearance.participantId,
       nextAppearance.lastKnownName,
       nextAppearance.lastKnownColor,
+      nextAppearance.avatarFaceId ?? "none",
     ].join(":");
 
     if (lastPersistedParticipantAppearanceKeyRef.current === nextPersistenceKey) {
@@ -3428,6 +3469,7 @@ export default function BoardStage({
   }, [
     objects,
     participantSession.color,
+    participantSession.avatarFaceId,
     participantSession.id,
     participantSession.name,
     persistDurableParticipantAppearance,

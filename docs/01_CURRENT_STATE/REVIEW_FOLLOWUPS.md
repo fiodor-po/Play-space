@@ -67,6 +67,17 @@ Recommended statuses:
 
 ## Open entries
 
+### RF-2026-04-22-01
+
+- `id`: `RF-2026-04-22-01`
+- `date`: `2026-04-22`
+- `source`: strategist validation review after `Add Demo 2 media bubbles layer` commit and `CI=1 npm run smoke:e2e`
+- `finding`: current `npm run smoke:e2e` runs the whole Playwright suite, including heavy room-corridor recovery checks and media diagnostics, so the command no longer behaves like a short stable demo smoke gate; the latest fresh run reported `10 passed`, `1 skipped`, and `9 failed`
+- `why_deferred`: Demo 2 media bubbles were validated through `npm run build` and direct `npx playwright test tests/e2e/media-audio-meter.spec.ts`; the red items belong to test-suite hygiene and older board/runtime corridors rather than the media bubble checkpoint
+- `expected_action`: split commands into `smoke:e2e` for a short stable demo gate, `test:e2e:runtime` for room-corridor recovery/sync coverage, `test:e2e:media` for LiveKit/audio-meter harness, and `test:e2e:all` for the full suite; then triage current red corridor expectations, especially design-system state deltas, image recovery corridors, and token count assumptions after the one-token invariant was removed
+- `target_chapter`: `Demo 2 validation hygiene`
+- `status`: `open`
+
 ### RF-2026-04-21-01
 
 - `id`: `RF-2026-04-21-01`

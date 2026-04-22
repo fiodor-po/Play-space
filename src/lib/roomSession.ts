@@ -1,4 +1,8 @@
 import { createClientId } from "./id";
+import {
+  isParticipantAvatarFaceId,
+  type ParticipantAvatarFaceId,
+} from "./participantAvatarFaces";
 import { normalizeRoomId } from "./roomId";
 import type { BoardObject } from "../types/board";
 
@@ -6,6 +10,7 @@ export type LocalParticipantSession = {
   id: string;
   name: string;
   color: string;
+  avatarFaceId?: ParticipantAvatarFaceId;
 };
 
 export type ParticipantSelectionTarget = {
@@ -18,6 +23,7 @@ export type ParticipantPresence = {
   participantId: string;
   name: string;
   color: string;
+  avatarFaceId?: ParticipantAvatarFaceId;
   cursor: { x: number; y: number } | null;
   selectedObject: ParticipantSelectionTarget | null;
   lastActiveAt: number;
@@ -29,6 +35,7 @@ export type RoomOccupancy = {
   participantId: string;
   name: string;
   color: string;
+  avatarFaceId?: ParticipantAvatarFaceId;
 };
 
 export type RoomOccupancyMap = Record<string, RoomOccupancy>;
@@ -114,6 +121,9 @@ export function loadLocalParticipantSession(roomId: string) {
       id: participantId,
       name: parsed.name,
       color: parsed.color,
+      avatarFaceId: isParticipantAvatarFaceId(parsed.avatarFaceId)
+        ? parsed.avatarFaceId
+        : undefined,
     };
   } catch {
     return null;
@@ -293,6 +303,7 @@ export function createLocalParticipantPresence(
     participantId: session.id,
     name: session.name,
     color: session.color,
+    avatarFaceId: session.avatarFaceId,
     cursor: null,
     selectedObject: null,
     lastActiveAt: Date.now(),
@@ -306,6 +317,7 @@ export function createRoomOccupancy(
     participantId: session.id,
     name: session.name,
     color: session.color,
+    avatarFaceId: session.avatarFaceId,
   };
 }
 
@@ -350,6 +362,7 @@ export function syncParticipantPresenceWithSession(
           ...presence,
           name: session.name,
           color: session.color,
+          avatarFaceId: session.avatarFaceId,
         }
       : {
           ...createLocalParticipantPresence(session),
