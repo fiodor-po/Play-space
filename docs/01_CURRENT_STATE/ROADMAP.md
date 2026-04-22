@@ -183,8 +183,8 @@ Current demo requirement set:
 - dice experience gets a `D&D Beyond`-like tightening, with simultaneous
   multi-player roll validation first;
 - drawing gets eraser, partial stroke erase, and `Shift` straight-line support;
-- video becomes the default-facing demo layer with fallback plus draggable and
-  resizable preview;
+- video/audio becomes a default-facing media bubbles layer with fallback,
+  auto-connect, room-card status, and local bubble rearrange;
 - token creation gets a stronger path than the current single-token baseline,
   with `dock/tray` versus `button` still open as a product choice.
 
@@ -192,9 +192,9 @@ Current Demo 2 execution order:
 
 1. dice concurrency validation;
 2. token-creation UX decision;
-3. video default/fallback contract;
+3. media bubbles default/fallback contract;
 4. token-creation implementation;
-5. video implementation;
+5. media bubbles implementation;
 6. drawing tools implementation;
 7. dice UX tightening;
 8. demo integration QA and release prep.

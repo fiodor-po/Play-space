@@ -67,6 +67,18 @@ Recommended statuses:
 
 ## Open entries
 
+### RF-2026-04-21-01
+
+- `id`: `RF-2026-04-21-01`
+- `date`: `2026-04-21`
+- `source`: Demo 2 media auto-connect slice manual check after `useLiveKitMediaSession` gained `autoJoin`
+- `finding`: first media auto-connect can occasionally land in a disconnected state and require a manual `Join media` retry; likely sources are browser permission timing, device initialization, or a transient LiveKit connection race
+- `why_deferred`: the issue is currently a single observation and needs another sighting before changing retry behavior; the current hook keeps manual retry available and avoids an uncontrolled reconnect loop
+- `expected_action`: during the Demo 2 media bubbles pass, watch first-permission room entry and transient disconnect behavior; if the issue repeats, add a controlled one-shot retry after permission grant or transient disconnect and surface actionable media status in the room control card
+- `current_result`: a narrow hook-level guard now cancels stale auto-join attempts, ignores stale room events, disconnects failed partial rooms, and treats browser-blocked `startAudio()` as non-fatal; keep this entry open until the first-connect failure is manually rechecked
+- `target_chapter`: `Demo 2 media bubbles`
+- `status`: `open`
+
 ### RF-2026-04-19-01
 
 - `id`: `RF-2026-04-19-01`

@@ -48,23 +48,32 @@ Demo meaning:
 
 - drawing должен ощущаться как полезный быстрый инструмент поверх изображений.
 
-### 2.3. Video
+### 2.3. Video / audio
 
-Video входит в новую демку как default-facing layer.
+Video/audio входит в новую демку как default-facing `media bubbles layer`.
 
 Demo requirements:
 
-- улучшить текущее video UX;
-- сделать video default-facing path для демки;
+- заменить текущий media dock target на participant media bubbles;
+- создавать круглый bubble для каждого room participant;
+- показывать в bubble video track участника или avatar / placeholder fallback;
+- использовать participant color как bubble border;
+- делать bubble текущего участника примерно на `10%` больше;
+- поддержать local rearrange bubbles;
+- подключаться к media conference автоматически при входе в room;
 - добавить понятный fallback, когда video недоступно, выключено или не
   конфигурировано;
-- сделать video preview draggable;
-- сделать video preview resizable.
+- перенести media errors/status в room control card;
+- вынести camera/microphone controls рядом с bubbles.
 
 Demo meaning:
 
 - media layer должен оставаться usable even when real video path is unavailable;
 - fallback path должен сохранять demo feel цельным и понятным.
+
+Current target doc:
+
+- `docs/01_CURRENT_STATE/ACTIVE_CHAPTERS/demo-requirements-and-release-prep/MEDIA_BUBBLES_TARGET.md`
 
 ### 2.4. Token creation / dock decision
 
@@ -86,7 +95,7 @@ Current requirement:
 
 1. Проверить simultaneous multi-player dice rolls на current layer.
 2. Выбрать token-creation UX: `dock/tray` или `button`.
-3. Зафиксировать video fallback and default-facing behavior.
+3. Зафиксировать media bubbles default/fallback behavior.
 4. После этого планировать implementation order для dice, drawing и video
    polish.
 
@@ -96,8 +105,8 @@ Demo 2 is ready only when these statements are true:
 
 - simultaneous dice-roll behavior has been checked and judged acceptable;
 - drawing has eraser, partial stroke erase, and `Shift` straight-line support;
-- video is demo-default, has a clear fallback state, and preview can move and
-  resize;
+- video/audio uses demo-default media bubbles, has a clear fallback state, and
+  supports local bubble rearrange;
 - token creation supports more than one token during play.
 
 ## 5. Explicit non-goals

@@ -9,9 +9,9 @@ Demo 2 идёт в таком порядке:
 
 1. dice concurrency validation;
 2. token-creation UX decision;
-3. video default/fallback contract;
+3. media bubbles default/fallback contract;
 4. token-creation implementation;
-5. video implementation;
+5. media bubbles implementation;
 6. drawing tools implementation;
 7. dice UX tightening;
 8. demo integration QA and release prep.
@@ -60,23 +60,24 @@ Demo 2 идёт в таком порядке:
 - если `dock/tray` быстро даёт ясный creation flow, берём его;
 - если `dock/tray` раздувает scope, берём явную кнопку как demo-safe path.
 
-### Slice 3 — Video default/fallback contract
+### Slice 3 — Media bubbles default/fallback contract
 
 Задача:
 
-- зафиксировать, как video ведёт себя в demo-default path и в fallback path.
+- зафиксировать, как video/audio ведёт себя в demo-default path и fallback path.
 
 Нужный результат:
 
-- одно agreed default-facing behavior;
+- agreed media bubbles behavior;
 - один понятный fallback state;
-- agreed rules for draggable/resizable preview;
+- auto-connect rule;
+- room-card status/error rule;
+- local bubble rearrange rule;
 - clear rule, как demo reads when real video is unavailable.
 
-Почему до implementation:
+Current target doc:
 
-- video layer сейчас влияет на всю demo framing;
-- без явного contract implementation легко расползётся.
+- `docs/01_CURRENT_STATE/ACTIVE_CHAPTERS/demo-requirements-and-release-prep/MEDIA_BUBBLES_TARGET.md`
 
 ### Slice 4 — Token-creation implementation
 
@@ -89,17 +90,23 @@ Demo 2 идёт в таком порядке:
 - во время play можно быстро создать больше одного token;
 - current single-token baseline больше не ограничивает demo scenario.
 
-### Slice 5 — Video implementation
+### Slice 5 — Media bubbles implementation
 
 Задача:
 
-- реализовать agreed video default/fallback path.
+- реализовать agreed media bubbles default/fallback path.
 
 Нужный результат:
 
-- video feels default-facing in the demo;
+- each room participant has a bubble;
+- bubbles show video track or avatar / placeholder;
+- participant color frames the bubble;
+- local participant bubble is slightly larger;
+- media connects automatically on room entry;
 - fallback path is clear;
-- preview can move and resize.
+- local bubble rearrange works;
+- room card shows media error/status;
+- camera/microphone controls live near bubbles.
 
 ### Slice 6 — Drawing tools implementation
 
@@ -144,7 +151,7 @@ Demo 2 идёт в таком порядке:
   начинать dice UX polish до corrective fix;
 - если token `dock/tray` начинает выглядеть как отдельный subsystem chapter,
   сразу выбрать button path;
-- если video default path ломает baseline stability, fallback clarity получает
+- если media bubbles default path ломает baseline stability, fallback clarity получает
   приоритет над media polish;
 - если drawing implementation начинает задевать broad board interaction
   semantics, остановиться и резать slice.

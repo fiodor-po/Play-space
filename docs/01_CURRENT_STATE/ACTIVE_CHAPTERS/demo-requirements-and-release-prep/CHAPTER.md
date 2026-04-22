@@ -41,6 +41,7 @@ Scope: demo scenario, release requirements, allowed fix scope on current archite
 - `docs/00_AGENT_OS/CURRENT_CONTEXT.md`
 - `docs/01_CURRENT_STATE/ACTIVE_CHAPTERS/demo-requirements-and-release-prep/DEMO_REQUIREMENTS.md`
 - `docs/01_CURRENT_STATE/ACTIVE_CHAPTERS/demo-requirements-and-release-prep/EXECUTION_ORDER.md`
+- `docs/01_CURRENT_STATE/ACTIVE_CHAPTERS/demo-requirements-and-release-prep/MEDIA_BUBBLES_TARGET.md`
 - `docs/04_ARCHITECTURE/01_RUNTIME/board-runtime-target-architecture.md`
 - `docs/04_ARCHITECTURE/01_RUNTIME/board-runtime-staged-roadmap.md`
 - current hosted/demo baseline in `main`
@@ -57,6 +58,7 @@ Current canonical brief:
 
 - `docs/01_CURRENT_STATE/ACTIVE_CHAPTERS/demo-requirements-and-release-prep/DEMO_REQUIREMENTS.md`
 - `docs/01_CURRENT_STATE/ACTIVE_CHAPTERS/demo-requirements-and-release-prep/EXECUTION_ORDER.md`
+- `docs/01_CURRENT_STATE/ACTIVE_CHAPTERS/demo-requirements-and-release-prep/MEDIA_BUBBLES_TARGET.md`
 
 ## 6. Acceptance direction
 

@@ -6,7 +6,9 @@ import {
 import { useJoinedRoomPresenceTransport } from "./app/useJoinedRoomPresenceTransport";
 import BoardStage from "./components/BoardStage";
 import { DiceSpikeOverlay } from "./dice/DiceSpikeOverlay";
-import { LiveKitMediaDock } from "./media/LiveKitMediaDock";
+import { LiveKitMediaLayer } from "./media/LiveKitMediaLayer";
+import type { LiveKitMediaStatusViewModel } from "./media/liveKitMediaStatus";
+import { isFakeMicrophoneLevelEnabled } from "./media/mediaDiagnostics";
 import { RoomsOpsPage } from "./ops/RoomsOpsPage";
 import { HTML_UI_FONT_FAMILY } from "./board/constants";
 import {
@@ -556,6 +558,9 @@ function JoinedRoomScreen({
   onUpdateParticipantSession,
   onUpdateLocalPresence,
 }: JoinedRoomScreenProps) {
+  const [mediaStatus, setMediaStatus] =
+    useState<LiveKitMediaStatusViewModel | null>(null);
+
   return (
     <>
       <BoardStage
@@ -569,6 +574,7 @@ function JoinedRoomScreen({
         roomCreatorId={roomCreatorId}
         roomBaselineToApply={roomBaselineToApply}
         roomEffectiveAccessLevel={roomEffectiveAccessLevel}
+        mediaStatus={liveKitMediaEnabled ? mediaStatus : null}
         onLeaveRoom={onLeaveRoom}
         onRoomBaselineApplied={onRoomBaselineApplied}
         onUpdateParticipantSession={onUpdateParticipantSession}
@@ -576,7 +582,13 @@ function JoinedRoomScreen({
       />
       <DiceSpikeOverlay roomId={joinedRoomId} participantSession={participantSession} />
       {liveKitMediaEnabled ? (
-        <LiveKitMediaDock roomId={joinedRoomId} participantSession={participantSession} />
+        <LiveKitMediaLayer
+          roomId={joinedRoomId}
+          participantSession={participantSession}
+          participantPresences={participantPresences}
+          roomOccupancies={roomOccupancies}
+          onMediaStatusChange={setMediaStatus}
+        />
       ) : null}
     </>
   );
@@ -653,7 +665,8 @@ export default function App() {
 
 function BootstrappedApp() {
   const isDebugControlsEnabled = isDesignSystemHoverDebugEnabled();
-  const liveKitMediaEnabled = isLiveKitMediaEnabled();
+  const liveKitMediaEnabled =
+    isLiveKitMediaEnabled() || isFakeMicrophoneLevelEnabled();
   const browserParticipantId = getOrCreateBrowserParticipantId();
   const initialRoomIdFromLocation = getRoomIdFromLocation(window.location);
   const initialSharedActiveRoomSession =

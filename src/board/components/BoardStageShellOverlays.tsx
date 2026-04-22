@@ -20,6 +20,7 @@ import {
 } from "./BoardStageDevToolsContent";
 import { CursorOverlay, type CursorOverlayItem } from "./CursorOverlay";
 import { ParticipantSessionPanel } from "./ParticipantSessionPanel";
+import type { LiveKitMediaStatusViewModel } from "../../media/liveKitMediaStatus";
 
 type EditingTextareaStyle = {
   left: number;
@@ -70,6 +71,7 @@ type BoardStageShellOverlaysProps = {
   participantColor: string;
   participantNameDraft: string;
   isEditingParticipantName: boolean;
+  mediaStatus: LiveKitMediaStatusViewModel | null;
   isDebugToolsEnabled: boolean;
   isDevToolsOpen: boolean;
   onLeaveRoom: () => void;
@@ -116,6 +118,7 @@ export function BoardStageShellOverlays({
   participantColor,
   participantNameDraft,
   isEditingParticipantName,
+  mediaStatus,
   isDebugToolsEnabled,
   isDevToolsOpen,
   onLeaveRoom,
@@ -256,6 +259,7 @@ export function BoardStageShellOverlays({
         participantColor={participantColor}
         participantNameDraft={participantNameDraft}
         isEditingParticipantName={isEditingParticipantName}
+        mediaStatus={mediaStatus}
         isDebugToolsEnabled={isDebugToolsEnabled}
         isDevToolsOpen={isDevToolsOpen}
         onLeaveRoom={onLeaveRoom}

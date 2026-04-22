@@ -129,6 +129,7 @@ import {
   type TextCardResizePresence,
 } from "../lib/roomTextCardsRealtime";
 import type { BoardObjectPropertySyncDebugEntry } from "../lib/boardObjectPropertySync";
+import type { LiveKitMediaStatusViewModel } from "../media/liveKitMediaStatus";
 import {
   type LocalParticipantSession,
   type ParticipantPresence,
@@ -259,6 +260,7 @@ type BoardStageProps = {
   roomCreatorId: string | null;
   roomBaselineToApply: RoomBaselineDescriptor | null;
   roomEffectiveAccessLevel: AccessLevel;
+  mediaStatus: LiveKitMediaStatusViewModel | null;
   onLeaveRoom: () => void;
   onRoomBaselineApplied: (baselineId: RoomBaselineId) => void;
   onUpdateParticipantSession: (
@@ -768,6 +770,7 @@ export default function BoardStage({
   roomCreatorId,
   roomBaselineToApply,
   roomEffectiveAccessLevel,
+  mediaStatus,
   onLeaveRoom,
   onRoomBaselineApplied,
   onUpdateParticipantSession,
@@ -5540,6 +5543,7 @@ export default function BoardStage({
         participantColor={participantSession.color}
         participantNameDraft={participantNameDraft}
         isEditingParticipantName={isEditingParticipantName}
+        mediaStatus={mediaStatus}
         isDebugToolsEnabled={isDebugControlsEnabled}
         isDevToolsOpen={isDevToolsOpen}
         onLeaveRoom={onLeaveRoom}

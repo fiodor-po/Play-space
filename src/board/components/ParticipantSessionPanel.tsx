@@ -11,6 +11,7 @@ import { selectionControlRecipes } from "../../ui/system/families/selectionContr
 import { inlineTextRecipes } from "../../ui/system/inlineText";
 import { border, text } from "../../ui/system/foundations";
 import { fontSize, uiTextStyle, uiTextStyleSmall } from "../../ui/system/typography";
+import type { LiveKitMediaStatusViewModel } from "../../media/liveKitMediaStatus";
 
 type ParticipantSessionPanelProps = {
   roomId: string;
@@ -21,6 +22,7 @@ type ParticipantSessionPanelProps = {
   participantColor: string;
   participantNameDraft: string;
   isEditingParticipantName: boolean;
+  mediaStatus: LiveKitMediaStatusViewModel | null;
   isDebugToolsEnabled: boolean;
   isDevToolsOpen: boolean;
   onLeaveRoom: () => void;
@@ -45,6 +47,7 @@ export const ParticipantSessionPanel = forwardRef<
     participantColor,
     participantNameDraft,
     isEditingParticipantName,
+    mediaStatus,
     isDebugToolsEnabled,
     isDevToolsOpen,
     onLeaveRoom,
@@ -62,6 +65,7 @@ export const ParticipantSessionPanel = forwardRef<
     "muted"
   );
   const resetBoardButtonRecipe = buttonRecipes.danger.small;
+  const mediaRetryButtonRecipe = buttonRecipes.secondary.small;
   const devToolsSelectionRecipe = selectionControlRecipes.checkbox.small;
   return (
     <div
@@ -139,6 +143,81 @@ export const ParticipantSessionPanel = forwardRef<
               </span>
             </>
           )}
+        </div>
+      ) : null}
+
+      {mediaStatus ? (
+        <div
+          style={{
+            display: "grid",
+            gap: 6,
+            marginTop: 2,
+            paddingTop: 10,
+            borderTop: `1px solid ${border.default}`,
+            pointerEvents: "none",
+          }}
+        >
+          <div
+            style={{
+              ...uiTextStyleSmall.label,
+              color: text.muted,
+              letterSpacing: "0.04em",
+              textTransform: "uppercase",
+              pointerEvents: "none",
+            }}
+          >
+            Room media
+          </div>
+          <div
+            style={{
+              ...inlineTextRecipes.muted.style,
+              pointerEvents: "none",
+            }}
+          >
+            {mediaStatus.mediaStatusLabel}
+          </div>
+          {mediaStatus.mediaErrorLabel ? (
+            <div
+              style={{
+                color: "#fecaca",
+                fontSize: 12,
+                lineHeight: "16px",
+                pointerEvents: "none",
+              }}
+            >
+              <div>{mediaStatus.mediaErrorLabel}</div>
+              {mediaStatus.mediaErrorDetail ? (
+                <div style={{ marginTop: 3, color: "#fca5a5" }}>
+                  {mediaStatus.mediaErrorDetail}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+          {mediaStatus.canJoinMedia ? (
+            <button
+              type="button"
+              onClick={() => {
+                mediaStatus.onJoinMedia();
+              }}
+              {...getButtonProps(mediaRetryButtonRecipe, {
+                loading: mediaStatus.isMediaJoining,
+              })}
+              style={{
+                ...getButtonProps(mediaRetryButtonRecipe, {
+                  loading: mediaStatus.isMediaJoining,
+                }).style,
+                justifyContent: "flex-start",
+                pointerEvents: "auto",
+              }}
+              {...getDesignSystemDebugAttrs(mediaRetryButtonRecipe.debug)}
+            >
+              {mediaStatus.isMediaJoining
+                ? "Joining..."
+                : mediaStatus.mediaErrorLabel
+                  ? "Retry media"
+                  : "Join media"}
+            </button>
+          ) : null}
         </div>
       ) : null}
 

@@ -53,8 +53,8 @@
   Добавить eraser, partial stroke erase и `Shift` straight-line support.
   Tags: `#soon`
 
-- `Video default path for Demo 2`
-  Сделать video default-facing layer для демки, добавить fallback и draggable/resizable preview.
+- `Media bubbles default path for Demo 2`
+  Сделать video/audio default-facing layer для демки: participant bubbles, fallback, auto-connect, room-card status и local bubble rearrange.
   Tags: `#soon`
 
 - `Token creation UX for Demo 2`
