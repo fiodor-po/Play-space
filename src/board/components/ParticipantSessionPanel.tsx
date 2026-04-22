@@ -64,9 +64,31 @@ export const ParticipantSessionPanel = forwardRef<
     buttonRecipes.secondary.small,
     "muted"
   );
+  const mediaActionButtonRecipe = createTextButtonRecipe(
+    buttonRecipes.secondary.small,
+    "muted"
+  );
   const resetBoardButtonRecipe = buttonRecipes.danger.small;
-  const mediaRetryButtonRecipe = buttonRecipes.secondary.small;
   const devToolsSelectionRecipe = selectionControlRecipes.checkbox.small;
+  const mediaActionButtonLabel = mediaStatus?.isMediaConnected
+    ? "Leave media"
+    : mediaStatus?.isMediaJoining
+      ? "Joining..."
+      : "Join media";
+  const shouldShowMediaActionButton =
+    mediaStatus !== null &&
+    (mediaStatus.canLeaveMedia ||
+      mediaStatus.canJoinMedia ||
+      mediaStatus.isMediaJoining);
+  const isMediaActionButtonDisabled =
+    mediaStatus === null ||
+    mediaStatus.isMediaJoining ||
+    (!mediaStatus.canLeaveMedia && !mediaStatus.canJoinMedia);
+  const mediaActionButtonProps = getButtonProps(mediaActionButtonRecipe, {
+    disabled: isMediaActionButtonDisabled,
+    loading: mediaStatus?.isMediaJoining ?? false,
+  });
+
   return (
     <div
       ref={ref}
@@ -159,14 +181,46 @@ export const ParticipantSessionPanel = forwardRef<
         >
           <div
             style={{
-              ...uiTextStyleSmall.label,
-              color: text.muted,
-              letterSpacing: "0.04em",
-              textTransform: "uppercase",
-              pointerEvents: "none",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 8,
             }}
           >
-            Room media
+            <div
+              style={{
+                ...uiTextStyleSmall.label,
+                color: text.muted,
+                letterSpacing: "0.04em",
+                textTransform: "uppercase",
+                pointerEvents: "none",
+              }}
+            >
+              Room media
+            </div>
+            {shouldShowMediaActionButton ? (
+              <button
+                type="button"
+                onClick={() => {
+                  if (mediaStatus.isMediaConnected) {
+                    mediaStatus.onLeaveMedia();
+                    return;
+                  }
+
+                  mediaStatus.onJoinMedia();
+                }}
+                data-testid="session-media-toggle-button"
+                {...mediaActionButtonProps}
+                style={{
+                  ...mediaActionButtonProps.style,
+                  justifyContent: "flex-end",
+                  pointerEvents: "auto",
+                }}
+                {...getDesignSystemDebugAttrs(mediaActionButtonRecipe.debug)}
+              >
+                {mediaActionButtonLabel}
+              </button>
+            ) : null}
           </div>
           <div
             style={{
@@ -192,31 +246,6 @@ export const ParticipantSessionPanel = forwardRef<
                 </div>
               ) : null}
             </div>
-          ) : null}
-          {mediaStatus.canJoinMedia ? (
-            <button
-              type="button"
-              onClick={() => {
-                mediaStatus.onJoinMedia();
-              }}
-              {...getButtonProps(mediaRetryButtonRecipe, {
-                loading: mediaStatus.isMediaJoining,
-              })}
-              style={{
-                ...getButtonProps(mediaRetryButtonRecipe, {
-                  loading: mediaStatus.isMediaJoining,
-                }).style,
-                justifyContent: "flex-start",
-                pointerEvents: "auto",
-              }}
-              {...getDesignSystemDebugAttrs(mediaRetryButtonRecipe.debug)}
-            >
-              {mediaStatus.isMediaJoining
-                ? "Joining..."
-                : mediaStatus.mediaErrorLabel
-                  ? "Retry media"
-                  : "Join media"}
-            </button>
           ) : null}
         </div>
       ) : null}

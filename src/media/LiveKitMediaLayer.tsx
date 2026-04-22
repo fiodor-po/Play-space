@@ -47,6 +47,7 @@ export function LiveKitMediaLayer({
       mediaSession.isConnected,
       mediaSession.isJoining,
       mediaSession.joinMedia,
+      mediaSession.leaveMedia,
       roomId,
     ]
   );

@@ -12,7 +12,9 @@ export type LiveKitMediaStatusViewModel = {
   isMediaConnected: boolean;
   isMediaJoining: boolean;
   canJoinMedia: boolean;
+  canLeaveMedia: boolean;
   onJoinMedia: () => void;
+  onLeaveMedia: () => void;
 };
 
 export function getLiveKitMediaErrorLabel(
@@ -56,6 +58,8 @@ export function createLiveKitMediaStatusViewModel(params: {
     isMediaJoining: mediaSession.isJoining,
     canJoinMedia:
       !mediaSession.isConnected && mediaSession.error !== "media-disabled",
+    canLeaveMedia: mediaSession.isConnected,
     onJoinMedia: mediaSession.joinMedia,
+    onLeaveMedia: mediaSession.leaveMedia,
   };
 }
