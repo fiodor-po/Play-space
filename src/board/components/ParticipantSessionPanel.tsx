@@ -88,6 +88,7 @@ export const ParticipantSessionPanel = forwardRef<
     disabled: isMediaActionButtonDisabled,
     loading: mediaStatus?.isMediaJoining ?? false,
   });
+  const resetVideoPositionsButtonProps = getButtonProps(mediaActionButtonRecipe);
 
   return (
     <div
@@ -168,88 +169,6 @@ export const ParticipantSessionPanel = forwardRef<
         </div>
       ) : null}
 
-      {mediaStatus ? (
-        <div
-          style={{
-            display: "grid",
-            gap: 6,
-            marginTop: 2,
-            paddingTop: 10,
-            borderTop: `1px solid ${border.default}`,
-            pointerEvents: "none",
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              gap: 8,
-            }}
-          >
-            <div
-              style={{
-                ...uiTextStyleSmall.label,
-                color: text.muted,
-                letterSpacing: "0.04em",
-                textTransform: "uppercase",
-                pointerEvents: "none",
-              }}
-            >
-              Room media
-            </div>
-            {shouldShowMediaActionButton ? (
-              <button
-                type="button"
-                onClick={() => {
-                  if (mediaStatus.isMediaConnected) {
-                    mediaStatus.onLeaveMedia();
-                    return;
-                  }
-
-                  mediaStatus.onJoinMedia();
-                }}
-                data-testid="session-media-toggle-button"
-                {...mediaActionButtonProps}
-                style={{
-                  ...mediaActionButtonProps.style,
-                  justifyContent: "flex-end",
-                  pointerEvents: "auto",
-                }}
-                {...getDesignSystemDebugAttrs(mediaActionButtonRecipe.debug)}
-              >
-                {mediaActionButtonLabel}
-              </button>
-            ) : null}
-          </div>
-          <div
-            style={{
-              ...inlineTextRecipes.muted.style,
-              pointerEvents: "none",
-            }}
-          >
-            {mediaStatus.mediaStatusLabel}
-          </div>
-          {mediaStatus.mediaErrorLabel ? (
-            <div
-              style={{
-                color: "#fecaca",
-                fontSize: 12,
-                lineHeight: "16px",
-                pointerEvents: "none",
-              }}
-            >
-              <div>{mediaStatus.mediaErrorLabel}</div>
-              {mediaStatus.mediaErrorDetail ? (
-                <div style={{ marginTop: 3, color: "#fca5a5" }}>
-                  {mediaStatus.mediaErrorDetail}
-                </div>
-              ) : null}
-            </div>
-          ) : null}
-        </div>
-      ) : null}
-
       <div
         style={{
           display: "flex",
@@ -305,6 +224,85 @@ export const ParticipantSessionPanel = forwardRef<
           </button>
         )}
       </div>
+
+      {mediaStatus ? (
+        <div
+          style={{
+            display: "grid",
+            gap: 6,
+            marginTop: 2,
+            paddingTop: 10,
+            borderTop: `1px solid ${border.default}`,
+            pointerEvents: "none",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 8,
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => {
+                mediaStatus.onResetVideoPositions();
+              }}
+              data-testid="session-reset-video-positions-button"
+              {...resetVideoPositionsButtonProps}
+              style={{
+                ...resetVideoPositionsButtonProps.style,
+                justifyContent: "flex-start",
+                pointerEvents: "auto",
+              }}
+              {...getDesignSystemDebugAttrs(mediaActionButtonRecipe.debug)}
+            >
+              Reset video positions
+            </button>
+            {shouldShowMediaActionButton ? (
+              <button
+                type="button"
+                onClick={() => {
+                  if (mediaStatus.isMediaConnected) {
+                    mediaStatus.onLeaveMedia();
+                    return;
+                  }
+
+                  mediaStatus.onJoinMedia();
+                }}
+                data-testid="session-media-toggle-button"
+                {...mediaActionButtonProps}
+                style={{
+                  ...mediaActionButtonProps.style,
+                  justifyContent: "flex-end",
+                  pointerEvents: "auto",
+                }}
+                {...getDesignSystemDebugAttrs(mediaActionButtonRecipe.debug)}
+              >
+                {mediaActionButtonLabel}
+              </button>
+            ) : null}
+          </div>
+          {mediaStatus.mediaErrorLabel ? (
+            <div
+              style={{
+                color: "#fecaca",
+                fontSize: 12,
+                lineHeight: "16px",
+                pointerEvents: "none",
+              }}
+            >
+              <div>{mediaStatus.mediaErrorLabel}</div>
+              {mediaStatus.mediaErrorDetail ? (
+                <div style={{ marginTop: 3, color: "#fca5a5" }}>
+                  {mediaStatus.mediaErrorDetail}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
 
       {isCurrentParticipantRoomCreator && (
         <div

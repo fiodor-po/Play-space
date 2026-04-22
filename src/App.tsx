@@ -74,7 +74,7 @@ import type {
 import type { RoomBaselineDescriptor, RoomRecord } from "./lib/roomMetadata";
 import type { JoinClaim } from "./lib/roomPresenceRealtime";
 
-const ENTRY_SCREEN_VERSION_LABEL = "alpha v0.0.0";
+const ENTRY_SCREEN_VERSION_LABEL = "alpha 2";
 const DEFAULT_ROOM_BASELINE_DESCRIPTOR: RoomBaselineDescriptor =
   createRoomBaselineDescriptor({
     baselineId: "public-demo-v1",
@@ -588,6 +588,7 @@ function JoinedRoomScreen({
           participantPresences={participantPresences}
           roomOccupancies={roomOccupancies}
           onMediaStatusChange={setMediaStatus}
+          onUpdateParticipantSession={onUpdateParticipantSession}
         />
       ) : null}
     </>
@@ -913,6 +914,7 @@ function BootstrappedApp() {
   const entryAvailability = useEntryAvailabilityState({
     draftRoomId,
     draftColor,
+    isJoinPending,
     participantSession,
     setIsJoinPending,
     setDraftRoomId,

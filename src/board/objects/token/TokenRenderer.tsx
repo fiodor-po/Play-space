@@ -1,6 +1,12 @@
 import { Circle, Group, Text } from "react-konva";
 import type { KonvaEventObject } from "konva/lib/Node";
-import type { BoardObject } from "../../../types/board";
+import type { BoardObject, TokenVisualVariant } from "../../../types/board";
+import { normalizeTokenVisualVariant } from "./createTokenObject";
+import {
+  normalizeTokenIconId,
+  TOKEN_DEFAULT_ICON_ID,
+  TokenKonvaIcon,
+} from "./tokenIconSet";
 
 type TokenRendererProps = {
   object: BoardObject;
@@ -40,11 +46,21 @@ export function TokenRenderer({
   onHoverMove,
   onHoverEnd,
 }: TokenRendererProps) {
+  const visualVariant = normalizeTokenVisualVariant(object.tokenVisualVariant);
   const radius = Math.min(object.width, object.height) / 2;
-  const bodyRadius = Math.max(radius - 3, 8);
+  const isMiniToken = visualVariant === "mini";
+  const isIconToken = visualVariant === "icon";
+  const bodyRadius = isMiniToken ? radius : Math.max(radius - 3, 8);
   const renderPosition = position ?? { x: object.x, y: object.y };
-  const tokenGlyph = object.label?.trim() ?? "";
-  const glyphFontSize = resolveTokenGlyphFontSize(tokenGlyph, radius);
+  const tokenIconId = isIconToken
+    ? normalizeTokenIconId(object.tokenIconId) ?? TOKEN_DEFAULT_ICON_ID
+    : normalizeTokenIconId(object.tokenIconId);
+  const tokenGlyph = isMiniToken || tokenIconId ? "" : object.label?.trim() ?? "";
+  const glyphFontSize = resolveTokenGlyphFontSize(
+    tokenGlyph,
+    radius,
+    visualVariant
+  );
   const glyphVisualOffsetY = resolveTokenGlyphVisualOffsetY(tokenGlyph);
 
   return (
@@ -74,13 +90,15 @@ export function TokenRenderer({
         />
       )}
 
-      <Circle
-        x={0}
-        y={0}
-        radius={radius}
-        fill="rgba(248, 250, 252, 0.16)"
-        listening={false}
-      />
+      {!isMiniToken ? (
+        <Circle
+          x={0}
+          y={0}
+          radius={radius}
+          fill="rgba(248, 250, 252, 0.16)"
+          listening={false}
+        />
+      ) : null}
 
       <Circle
         x={0}
@@ -88,10 +106,19 @@ export function TokenRenderer({
         radius={bodyRadius}
         fill={fillColor}
         stroke="rgba(248, 250, 252, 0.92)"
-        strokeWidth={2}
-        shadowBlur={8}
+        strokeWidth={isMiniToken ? 2.5 : 2}
+        shadowBlur={isMiniToken ? 0 : isIconToken ? 10 : 8}
         shadowColor="rgba(15, 23, 42, 0.45)"
       />
+
+      {tokenIconId ? (
+        <TokenKonvaIcon
+          iconId={tokenIconId}
+          size={radius * 1.18}
+          stroke="#f8fafc"
+          strokeWidth={2.15}
+        />
+      ) : null}
 
       {tokenGlyph ? (
         <Text
@@ -128,7 +155,15 @@ function resolveTokenGlyphVisualOffsetY(glyph: string) {
   return 1;
 }
 
-function resolveTokenGlyphFontSize(glyph: string, radius: number) {
+function resolveTokenGlyphFontSize(
+  glyph: string,
+  radius: number,
+  visualVariant: TokenVisualVariant
+) {
+  if (visualVariant === "icon") {
+    return Math.max(radius * 1.12, 26);
+  }
+
   if (glyph === "▲" || glyph === "▼") {
     return Math.max(radius * 0.98, 12);
   }

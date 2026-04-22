@@ -1,6 +1,6 @@
 import { LiveKitMediaBubbles } from "./LiveKitMediaBubbles";
 import { LiveKitRemoteAudioHost } from "./LiveKitRemoteAudioHost";
-import { useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type {
   LocalParticipantSession,
   ParticipantPresenceMap,
@@ -19,10 +19,14 @@ type LiveKitMediaLayerProps = {
   roomId: string;
   roomOccupancies: RoomOccupancyMap;
   onMediaStatusChange: (status: LiveKitMediaStatusViewModel | null) => void;
+  onUpdateParticipantSession: (
+    updater: (session: LocalParticipantSession) => LocalParticipantSession
+  ) => void;
 };
 
 export function LiveKitMediaLayer({
   onMediaStatusChange,
+  onUpdateParticipantSession,
   participantPresences,
   participantSession,
   roomId,
@@ -33,11 +37,17 @@ export function LiveKitMediaLayer({
     roomId,
     participantSession,
   });
+  const [resetVideoPositionsRevision, setResetVideoPositionsRevision] =
+    useState(0);
+  const resetVideoPositions = useCallback(() => {
+    setResetVideoPositionsRevision((revision) => revision + 1);
+  }, []);
 
   const mediaStatus = useMemo(
     () =>
       createLiveKitMediaStatusViewModel({
         mediaSession,
+        onResetVideoPositions: resetVideoPositions,
         roomId,
       }),
     [
@@ -48,6 +58,7 @@ export function LiveKitMediaLayer({
       mediaSession.isJoining,
       mediaSession.joinMedia,
       mediaSession.leaveMedia,
+      resetVideoPositions,
       roomId,
     ]
   );
@@ -68,8 +79,10 @@ export function LiveKitMediaLayer({
         mediaSession={mediaSession}
         participantPresences={participantPresences}
         participantSession={participantSession}
+        resetVideoPositionsRevision={resetVideoPositionsRevision}
         roomId={roomId}
         roomOccupancies={roomOccupancies}
+        onUpdateParticipantSession={onUpdateParticipantSession}
       />
       <LiveKitRemoteAudioHost
         mediaSession={mediaSession}

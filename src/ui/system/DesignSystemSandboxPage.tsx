@@ -11,9 +11,11 @@ import type { CSSProperties, ReactNode } from "react";
 import { HTML_UI_FONT_FAMILY } from "../../board/constants";
 import { PARTICIPANT_COLOR_OPTIONS } from "../../lib/roomSession";
 import { boardSurfaceRecipes } from "./boardSurfaces";
+import { ContextMenu, type ContextMenuItem } from "./ContextMenu";
 import { getDesignSystemDebugAttrs } from "./debugMeta";
 import { BoardInteractionLayerSandbox } from "./BoardInteractionLayerSandbox";
 import { ParticipantAvatarFaceIconList } from "./ParticipantAvatarFaceIconList";
+import { contextMenuRecipes } from "./families/contextMenu";
 import {
   buttonRecipes,
   createDraftLocalUserButtonRecipeForSlot,
@@ -2855,6 +2857,511 @@ function PreviewCard({
   );
 }
 
+function ContextMenuSandboxPreview() {
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const [anchorPoint, setAnchorPoint] = useState<{ x: number; y: number } | null>(
+    null
+  );
+  const sampleItems: ContextMenuItem[] = [
+    {
+      type: "section-label",
+      id: "board-section",
+      label: "Board",
+    },
+    {
+      type: "item",
+      id: "center-board",
+      label: "Center board",
+      onSelect: () => {},
+      shortcut: "C",
+    },
+    {
+      type: "separator",
+      id: "board-token-separator",
+    },
+    {
+      type: "section-label",
+      id: "token-section",
+      label: "Token",
+    },
+    {
+      type: "item",
+      id: "selected-glyph",
+      label: "Filled circle",
+      onSelect: () => {},
+      selected: true,
+    },
+    {
+      type: "item",
+      id: "disabled-glyph",
+      label: "Locked action",
+      onSelect: () => {},
+      disabled: true,
+    },
+    {
+      type: "separator",
+      id: "danger-separator",
+    },
+    {
+      type: "item",
+      id: "delete-object",
+      label: "Delete object",
+      onSelect: () => {},
+      variant: "destructive",
+      shortcut: "⌫",
+    },
+  ];
+
+  return (
+    <PreviewCard
+      title="Menu states"
+      recipeLabel="context-menu / shell-item-section-separator"
+    >
+      <button
+        ref={triggerRef}
+        type="button"
+        {...getButtonProps(buttonRecipes.secondary.compact, {
+          open: anchorPoint !== null,
+        })}
+        onClick={(event) => {
+          event.stopPropagation();
+          const rect = triggerRef.current?.getBoundingClientRect();
+
+          setAnchorPoint(
+            rect
+              ? {
+                  x: rect.left,
+                  y: rect.bottom + 6,
+                }
+              : {
+                  x: event.clientX,
+                  y: event.clientY,
+                }
+          );
+        }}
+      >
+        Open sample menu
+      </button>
+      <div style={sectionDescriptionStyle}>
+        Covers item, selected, disabled, destructive, separator, and section label
+        states.
+      </div>
+      <ContextMenu
+        anchorPoint={anchorPoint}
+        ariaLabel="Context menu sandbox"
+        items={sampleItems}
+        onClose={() => {
+          setAnchorPoint(null);
+        }}
+      />
+    </PreviewCard>
+  );
+}
+
+type ContextMenuPreviewState = "default" | "hover" | "active" | "focus-visible";
+
+function getStaticContextMenuShellStyle(width = 220): CSSProperties {
+  return {
+    ...contextMenuRecipes.shell.style,
+    position: "relative",
+    left: "auto",
+    top: "auto",
+    zIndex: "auto",
+    minWidth: width,
+    maxWidth: width,
+    boxSizing: "border-box",
+  };
+}
+
+function StaticContextMenuItemPreview({
+  label,
+  align,
+  disabled = false,
+  focusScope = "in-focus",
+  icon,
+  labelStyle,
+  previewState = "default",
+  selected = false,
+  shortcut,
+  variant = "default",
+}: {
+  label: ReactNode;
+  align?: "start" | "center";
+  disabled?: boolean;
+  focusScope?: "in-focus" | "out-of-focus";
+  icon?: ReactNode;
+  labelStyle?: CSSProperties;
+  previewState?: ContextMenuPreviewState;
+  selected?: boolean;
+  shortcut?: ReactNode;
+  variant?: "default" | "destructive";
+}) {
+  const isCentered = align === "center";
+
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      data-ui-focus-scope={focusScope === "out-of-focus" ? "out-of-focus" : undefined}
+      data-ui-preview-state={previewState === "default" ? undefined : previewState}
+      data-ui-selected={selected ? "true" : undefined}
+      data-ui-variant={variant}
+      className={contextMenuRecipes.item.className}
+      style={{
+        ...contextMenuRecipes.item.style,
+        gridTemplateColumns:
+          icon || shortcut || selected
+            ? "auto minmax(0, 1fr) auto"
+            : "minmax(0, 1fr)",
+        justifyItems: isCentered ? "center" : "stretch",
+        textAlign: isCentered ? "center" : "left",
+      }}
+      {...getDesignSystemDebugAttrs(contextMenuRecipes.item.debug)}
+    >
+      {icon ? <span aria-hidden="true">{icon}</span> : null}
+      <span
+        style={{
+          minWidth: 0,
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          whiteSpace: "nowrap",
+          ...labelStyle,
+        }}
+      >
+        {label}
+      </span>
+      {shortcut || selected ? <span aria-hidden="true">{shortcut ?? "✓"}</span> : null}
+    </button>
+  );
+}
+
+function StaticContextMenuGridItemPreview({
+  label,
+  disabled = false,
+  focusScope = "in-focus",
+  previewState = "default",
+  selected = false,
+  variant = "default",
+}: {
+  label: ReactNode;
+  disabled?: boolean;
+  focusScope?: "in-focus" | "out-of-focus";
+  previewState?: ContextMenuPreviewState;
+  selected?: boolean;
+  variant?: "default" | "destructive";
+}) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      data-ui-focus-scope={focusScope === "out-of-focus" ? "out-of-focus" : undefined}
+      data-ui-preview-state={previewState === "default" ? undefined : previewState}
+      data-ui-selected={selected ? "true" : undefined}
+      data-ui-variant={variant}
+      className={contextMenuRecipes.gridItem.className}
+      style={contextMenuRecipes.gridItem.style}
+      {...getDesignSystemDebugAttrs(contextMenuRecipes.gridItem.debug)}
+    >
+      {label}
+    </button>
+  );
+}
+
+function StaticContextMenuSectionLabel({
+  children,
+  isGrid = false,
+}: {
+  children: ReactNode;
+  isGrid?: boolean;
+}) {
+  return (
+    <div
+      className={contextMenuRecipes.sectionLabel.className}
+      style={{
+        ...contextMenuRecipes.sectionLabel.style,
+        gridColumn: isGrid ? "1 / -1" : undefined,
+      }}
+      {...getDesignSystemDebugAttrs(contextMenuRecipes.sectionLabel.debug)}
+    >
+      {children}
+    </div>
+  );
+}
+
+function StaticContextMenuSeparator({ isGrid = false }: { isGrid?: boolean }) {
+  return (
+    <div
+      role="separator"
+      className={contextMenuRecipes.separator.className}
+      style={{
+        ...contextMenuRecipes.separator.style,
+        gridColumn: isGrid ? "1 / -1" : undefined,
+      }}
+      {...getDesignSystemDebugAttrs(contextMenuRecipes.separator.debug)}
+    />
+  );
+}
+
+function StaticContextMenuShell({ children }: { children: ReactNode }) {
+  return (
+    <div
+      className={contextMenuRecipes.shell.className}
+      style={getStaticContextMenuShellStyle()}
+      {...getDesignSystemDebugAttrs(contextMenuRecipes.shell.debug)}
+    >
+      {children}
+    </div>
+  );
+}
+
+function StaticContextMenuGridShell({ children }: { children: ReactNode }) {
+  return (
+    <div
+      className={contextMenuRecipes.shell.className}
+      style={{
+        ...getStaticContextMenuShellStyle(228),
+        display: "grid",
+        gap: 5,
+        gridTemplateColumns: "repeat(5, 38px)",
+      }}
+      {...getDesignSystemDebugAttrs(contextMenuRecipes.shell.debug)}
+    >
+      {children}
+    </div>
+  );
+}
+
+function ContextMenuStateCoveragePreview() {
+  return (
+    <>
+      <PreviewCard
+        title="Action item states"
+        recipeLabel="context-menu / item / default-state-coverage"
+      >
+        <StaticContextMenuShell>
+          <StaticContextMenuItemPreview label="Default" />
+          <StaticContextMenuItemPreview label="Hover" previewState="hover" />
+          <StaticContextMenuItemPreview label="Active" previewState="active" />
+          <StaticContextMenuItemPreview
+            label="Focus visible"
+            previewState="focus-visible"
+          />
+          <StaticContextMenuItemPreview label="Selected" selected />
+          <StaticContextMenuItemPreview
+            label="Selected hover"
+            selected
+            previewState="hover"
+          />
+          <StaticContextMenuItemPreview
+            label="Active out of focus"
+            focusScope="out-of-focus"
+            previewState="active"
+          />
+          <StaticContextMenuItemPreview
+            label="Selected out of focus"
+            focusScope="out-of-focus"
+            selected
+          />
+          <StaticContextMenuItemPreview label="Disabled" disabled />
+        </StaticContextMenuShell>
+      </PreviewCard>
+
+      <PreviewCard
+        title="Destructive item states"
+        recipeLabel="context-menu / item / destructive-state-coverage"
+      >
+        <StaticContextMenuShell>
+          <StaticContextMenuItemPreview
+            label="Destructive default"
+            variant="destructive"
+          />
+          <StaticContextMenuItemPreview
+            label="Destructive hover"
+            variant="destructive"
+            previewState="hover"
+          />
+          <StaticContextMenuItemPreview
+            label="Destructive active"
+            variant="destructive"
+            previewState="active"
+          />
+          <StaticContextMenuItemPreview
+            label="Destructive focus"
+            variant="destructive"
+            previewState="focus-visible"
+          />
+          <StaticContextMenuItemPreview
+            label="Destructive disabled"
+            variant="destructive"
+            disabled
+          />
+        </StaticContextMenuShell>
+      </PreviewCard>
+
+      <PreviewCard
+        title="Item slots and alignment"
+        recipeLabel="context-menu / item / icon-shortcut-glyph-long-label"
+      >
+        <StaticContextMenuShell>
+          <StaticContextMenuItemPreview label="With icon" icon="＋" />
+          <StaticContextMenuItemPreview label="With shortcut" shortcut="⌘K" />
+          <StaticContextMenuItemPreview
+            label="Icon and shortcut"
+            icon="●"
+            shortcut="G"
+          />
+          <StaticContextMenuItemPreview
+            label="▲"
+            align="center"
+            labelStyle={{
+              fontSize: 18,
+              lineHeight: 1,
+            }}
+          />
+          <StaticContextMenuItemPreview
+            label="Very long item label that should truncate inside the menu shell"
+            shortcut="⌫"
+          />
+        </StaticContextMenuShell>
+      </PreviewCard>
+
+      <PreviewCard
+        title="Structural rows"
+        recipeLabel="context-menu / section-label-separator"
+      >
+        <StaticContextMenuShell>
+          <StaticContextMenuSectionLabel>Board</StaticContextMenuSectionLabel>
+          <StaticContextMenuItemPreview label="Center board" />
+          <StaticContextMenuSeparator />
+          <StaticContextMenuSectionLabel>Token</StaticContextMenuSectionLabel>
+          <StaticContextMenuItemPreview label="Filled circle" selected />
+          <StaticContextMenuSeparator />
+          <StaticContextMenuItemPreview
+            label="Delete object"
+            variant="destructive"
+            shortcut="⌫"
+          />
+        </StaticContextMenuShell>
+      </PreviewCard>
+    </>
+  );
+}
+
+function ContextMenuGridLayoutPreview() {
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const [anchorPoint, setAnchorPoint] = useState<{ x: number; y: number } | null>(
+    null
+  );
+  const iconItems: ContextMenuItem[] = [
+    ...["☻", "☺", "☹", "★", "✦"].map((glyph, index) => ({
+      type: "item" as const,
+      id: `icon-grid-face-${index}`,
+      label: glyph,
+      ariaLabel: `Icon ${glyph}`,
+      onSelect: () => {},
+      selected: glyph === "★",
+    })),
+    {
+      type: "separator",
+      id: "icon-grid-separator",
+    },
+    ...["●", "■", "▲", "▼", "◆"].map((glyph, index) => ({
+      type: "item" as const,
+      id: `icon-grid-shape-${index}`,
+      label: glyph,
+      ariaLabel: `Icon ${glyph}`,
+      onSelect: () => {},
+    })),
+  ];
+
+  return (
+    <>
+      <PreviewCard
+        title="Grid popup"
+        recipeLabel="context-menu / grid-layout / interactive"
+      >
+        <button
+          ref={triggerRef}
+          type="button"
+          {...getButtonProps(buttonRecipes.secondary.compact, {
+            open: anchorPoint !== null,
+          })}
+          onClick={(event) => {
+            event.stopPropagation();
+            const rect = triggerRef.current?.getBoundingClientRect();
+
+            setAnchorPoint(
+              rect
+                ? {
+                    x: rect.left,
+                    y: rect.bottom + 6,
+                  }
+                : {
+                    x: event.clientX,
+                    y: event.clientY,
+                  }
+            );
+          }}
+        >
+          Open icon grid
+        </button>
+        <div style={sectionDescriptionStyle}>
+          Square items for large icon or glyph sets.
+        </div>
+        <ContextMenu
+          anchorPoint={anchorPoint}
+          ariaLabel="Icon grid context menu sandbox"
+          gridColumnCount={5}
+          items={iconItems}
+          layout="grid"
+          maxWidth={228}
+          minWidth={228}
+          onClose={() => {
+            setAnchorPoint(null);
+          }}
+        />
+      </PreviewCard>
+
+      <PreviewCard
+        title="Grid item states"
+        recipeLabel="context-menu / grid-item / state-coverage"
+      >
+        <StaticContextMenuGridShell>
+          <StaticContextMenuGridItemPreview label="○" />
+          <StaticContextMenuGridItemPreview label="●" previewState="hover" />
+          <StaticContextMenuGridItemPreview label="■" previewState="active" />
+          <StaticContextMenuGridItemPreview
+            label="▲"
+            previewState="focus-visible"
+          />
+          <StaticContextMenuGridItemPreview label="▼" selected />
+          <StaticContextMenuSeparator isGrid />
+          <StaticContextMenuGridItemPreview
+            label="◆"
+            focusScope="out-of-focus"
+            selected
+          />
+          <StaticContextMenuGridItemPreview label="★" disabled />
+          <StaticContextMenuGridItemPreview
+            label="✕"
+            variant="destructive"
+          />
+          <StaticContextMenuGridItemPreview
+            label="✕"
+            variant="destructive"
+            previewState="hover"
+          />
+          <StaticContextMenuGridItemPreview
+            label="✕"
+            variant="destructive"
+            disabled
+          />
+        </StaticContextMenuGridShell>
+      </PreviewCard>
+    </>
+  );
+}
+
 function ButtonPreview({
   recipe,
   state,
@@ -4023,6 +4530,25 @@ export function DesignSystemSandboxPage() {
           description="Current available face-id pool for participant avatar assignment."
         >
           <ParticipantAvatarFaceIconList />
+        </SectionCard>
+
+        <SectionCard
+          title="Context menu"
+          description="Canonical menu surface for board, token, and future object actions."
+        >
+          <div style={previewGridStyle}>
+            <ContextMenuSandboxPreview />
+            <ContextMenuStateCoveragePreview />
+          </div>
+        </SectionCard>
+
+        <SectionCard
+          title="Context menu icon grid"
+          description="Square grid layout for large icon and glyph sets."
+        >
+          <div style={previewGridStyle}>
+            <ContextMenuGridLayoutPreview />
+          </div>
         </SectionCard>
 
         <SectionCard

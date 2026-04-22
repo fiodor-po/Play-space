@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type MouseEvent,
+} from "react";
 import {
   createAudioAnalyser,
   Track,
@@ -7,13 +14,17 @@ import {
 } from "livekit-client";
 import { Mic, MicOff, Video, VideoOff } from "lucide-react";
 import { HTML_UI_FONT_FAMILY } from "../board/constants";
-import type { ParticipantAvatarFaceId } from "../lib/participantAvatarFaces";
+import {
+  PARTICIPANT_AVATAR_FACE_IDS,
+  type ParticipantAvatarFaceId,
+} from "../lib/participantAvatarFaces";
 import type {
   LocalParticipantSession,
   ParticipantPresenceMap,
   RoomOccupancyMap,
 } from "../lib/roomSession";
 import { normalizeRoomId } from "../lib/roomId";
+import { ContextMenu, type ContextMenuItem } from "../ui/system/ContextMenu";
 import {
   getParticipantAvatarFaceIconPixelSize,
   ParticipantAvatarFaceIcon,
@@ -30,6 +41,10 @@ type LiveKitMediaBubblesProps = {
   participantSession: LocalParticipantSession;
   roomId: string;
   roomOccupancies: RoomOccupancyMap;
+  onUpdateParticipantSession: (
+    updater: (session: LocalParticipantSession) => LocalParticipantSession
+  ) => void;
+  resetVideoPositionsRevision: number;
 };
 
 type MediaBubbleParticipant = {
@@ -48,6 +63,10 @@ type MediaBubbleProps = {
   ) => void;
   liveKitParticipant: Participant | null;
   mediaSession: LiveKitMediaSession;
+  onLocalAvatarContextMenu?: (
+    event: MouseEvent<HTMLDivElement>,
+    participant: MediaBubbleParticipant
+  ) => void;
   participant: MediaBubbleParticipant;
   size: number;
 };
@@ -109,6 +128,11 @@ type BubbleResizeHover = {
   participantId: string;
 };
 
+type AvatarFaceContextMenuState = {
+  clientX: number;
+  clientY: number;
+} | null;
+
 type AudioTrackLevelDebugState = {
   audioContextState: string;
   enabled: boolean;
@@ -163,11 +187,18 @@ const LOCAL_MEDIA_CONTROL_CENTER_GAP = 42;
 const BUBBLE_RING_WIDTH = 4;
 const AUDIO_ACTIVITY_RING_MAX_WIDTH = 12;
 const AUDIO_ACTIVITY_RING_ALPHA = 0.7;
-const AVATAR_AUDIO_PULSE_OPACITY_BASE = 0.25;
-const AVATAR_AUDIO_PULSE_OPACITY_GAIN = 0.45;
+const AVATAR_AUDIO_PULSE_OPACITY_BASE = 0.167;
+const AVATAR_AUDIO_PULSE_OPACITY_GAIN = 0.3;
 const AVATAR_AUDIO_PULSE_STROKE_BASE_WIDTH = 1.8;
-const AVATAR_AUDIO_PULSE_STROKE_WIDTH = AUDIO_ACTIVITY_RING_MAX_WIDTH / 2;
+const AVATAR_AUDIO_PULSE_STROKE_WIDTH = 5;
+const AVATAR_AUDIO_PULSE_LEVEL_ATTACK_EASING = 0.12;
+const AVATAR_AUDIO_PULSE_LEVEL_RELEASE_EASING = 0.08;
+const AVATAR_AUDIO_PULSE_TRANSITION = "opacity 180ms ease-out, stroke-width 180ms ease-out";
+const VIDEO_AUDIO_RING_LEVEL_ATTACK_EASING = AVATAR_AUDIO_PULSE_LEVEL_ATTACK_EASING;
+const VIDEO_AUDIO_RING_LEVEL_RELEASE_EASING = AVATAR_AUDIO_PULSE_LEVEL_RELEASE_EASING;
+const VIDEO_AUDIO_RING_TRANSITION = "box-shadow 180ms ease-out";
 const AUDIO_ACTIVITY_THRESHOLD = 0.02;
+const VIDEO_AUDIO_ACTIVITY_THRESHOLD = 0.02;
 const AUDIO_ACTIVITY_CURVE_EXPONENT = 0.45;
 const AUDIO_ACTIVITY_MIN_ACTIVE_WIDTH = 1.5;
 const AUDIO_LEVEL_ATTACK_EASING = 0.24;
@@ -175,20 +206,29 @@ const AUDIO_LEVEL_RELEASE_EASING = 0.18;
 const AUDIO_LEVEL_UPDATE_INTERVAL_MS = 50;
 const AUDIO_RMS_NOISE_FLOOR_MIN = 0.016;
 const AUDIO_RMS_NOISE_FLOOR_MAX = 0.07;
-const AUDIO_RMS_NOISE_MARGIN = 0.008;
+const AUDIO_RMS_NOISE_MARGIN = 0.012;
 const AUDIO_RMS_NOISE_FLOOR_RISE_EASING = 0.004;
 const AUDIO_RMS_NOISE_FLOOR_FALL_EASING = 0.12;
-const AUDIO_LEVEL_GAIN = 52;
+const AUDIO_LEVEL_GAIN = 44;
 const AUDIO_LEVEL_GAIN_REDUCED_BROWSER_MULTIPLIER = 2 / 3;
 const MEDIA_BUBBLE_CIRCLE_SELECTOR = "[data-media-bubble-circle]";
 const BUBBLE_RESIZE_HIT_BAND_WIDTH = 12;
 const BUBBLE_MAX_SIZE = 720;
+const AVATAR_FACE_CONTEXT_MENU_GRID_ITEM_SIZE = 38;
+const AVATAR_FACE_CONTEXT_MENU_GRID_GAP = 5;
+const AVATAR_FACE_CONTEXT_MENU_SHELL_INLINE_PADDING = 12;
+const AVATAR_FACE_CONTEXT_MENU_COLUMN_COUNT = 4;
+const AVATAR_FACE_CONTEXT_MENU_WIDTH =
+  AVATAR_FACE_CONTEXT_MENU_COLUMN_COUNT * AVATAR_FACE_CONTEXT_MENU_GRID_ITEM_SIZE +
+  (AVATAR_FACE_CONTEXT_MENU_COLUMN_COUNT - 1) *
+    AVATAR_FACE_CONTEXT_MENU_GRID_GAP +
+  AVATAR_FACE_CONTEXT_MENU_SHELL_INLINE_PADDING;
 
 function getLocalMediaControlPosition(angleDegrees: number, bubbleSize: number) {
   const angleRadians = (angleDegrees * Math.PI) / 180;
   const bubbleCenter = bubbleSize / 2;
   const controlCenter = LOCAL_MEDIA_CONTROL_SIZE / 2;
-  const controlRadius = bubbleSize / 2;
+  const controlRadius = bubbleSize / 2 - BUBBLE_RING_WIDTH / 2;
 
   return {
     right: Math.round(
@@ -751,15 +791,18 @@ function useAudioTrackLevel(
   return debugState;
 }
 
-function getAudioActivityRingWidth(level: number) {
+function getAudioActivityRingWidth(
+  level: number,
+  threshold = AUDIO_ACTIVITY_THRESHOLD
+) {
   const clampedLevel = clamp(level, 0, 1);
 
-  if (clampedLevel < AUDIO_ACTIVITY_THRESHOLD) {
+  if (clampedLevel < threshold) {
     return 0;
   }
 
   const activeLevel = clamp(
-    (clampedLevel - AUDIO_ACTIVITY_THRESHOLD) / (1 - AUDIO_ACTIVITY_THRESHOLD),
+    (clampedLevel - threshold) / (1 - threshold),
     0,
     1
   );
@@ -971,6 +1014,7 @@ function MediaBubble({
   onAudioMeterDebugStateChange,
   liveKitParticipant,
   mediaSession,
+  onLocalAvatarContextMenu,
   participant,
   size,
 }: MediaBubbleProps) {
@@ -988,6 +1032,9 @@ function MediaBubble({
     !fakeMicrophoneLevelEnabled &&
     (microphonePublication?.isMuted === true ||
       (participant.isLocal && !mediaSession.micEnabled));
+  const shouldShowAudioActivity =
+    fakeMicrophoneLevelEnabled ||
+    (microphonePublication !== undefined && !isMicrophoneMuted);
   const isCameraMuted = cameraPublication?.isMuted ?? false;
   const shouldShowCameraTrack = Boolean(
     (cameraTrack || fakeMicrophoneLevelEnabled) &&
@@ -1009,8 +1056,34 @@ function MediaBubble({
     fakePhase: fakeMicrophoneLevelTrack.phase,
     overrideMediaStreamTrack: fakeMicrophoneLevelTrack.track,
   });
-  const audioVisualLevel = isMicrophoneMuted ? 0 : audioLevelDebug.level;
-  const audioActivityRingWidth = getAudioActivityRingWidth(audioVisualLevel);
+  const audioVisualLevel = shouldShowAudioActivity ? audioLevelDebug.level : 0;
+  const [videoAudioRingLevel, setVideoAudioRingLevel] = useState(0);
+  const [avatarAudioPulseLevel, setAvatarAudioPulseLevel] = useState(0);
+  useEffect(() => {
+    const nextLevel =
+      shouldShowCameraTrack && shouldShowAudioActivity ? audioVisualLevel : 0;
+    setVideoAudioRingLevel((currentLevel) => {
+      const easing =
+        nextLevel > currentLevel
+          ? VIDEO_AUDIO_RING_LEVEL_ATTACK_EASING
+          : VIDEO_AUDIO_RING_LEVEL_RELEASE_EASING;
+
+      if (nextLevel === 0 && currentLevel < 0.01) {
+        return 0;
+      }
+
+      return currentLevel + (nextLevel - currentLevel) * easing;
+    });
+  }, [audioVisualLevel, shouldShowAudioActivity, shouldShowCameraTrack]);
+
+  const audioActivityRingWidth = getAudioActivityRingWidth(
+    shouldShowAudioActivity
+      ? shouldShowCameraTrack
+        ? videoAudioRingLevel
+        : audioVisualLevel
+      : 0,
+    shouldShowCameraTrack ? VIDEO_AUDIO_ACTIVITY_THRESHOLD : AUDIO_ACTIVITY_THRESHOLD
+  );
   const audioActivityRingColor = getColorWithAlpha(
     participant.color,
     AUDIO_ACTIVITY_RING_ALPHA
@@ -1025,15 +1098,35 @@ function MediaBubble({
     visualRingWidth: audioActivityRingWidth,
   });
   const avatarIconFrameSize = getParticipantAvatarFaceIconPixelSize(size);
+  useEffect(() => {
+    const nextLevel =
+      shouldShowAvatarFallback && shouldShowAudioActivity ? audioVisualLevel : 0;
+    setAvatarAudioPulseLevel((currentLevel) => {
+      const easing =
+        nextLevel > currentLevel
+          ? AVATAR_AUDIO_PULSE_LEVEL_ATTACK_EASING
+          : AVATAR_AUDIO_PULSE_LEVEL_RELEASE_EASING;
+
+      if (nextLevel === 0 && currentLevel < 0.01) {
+        return 0;
+      }
+
+      return currentLevel + (nextLevel - currentLevel) * easing;
+    });
+  }, [audioVisualLevel, shouldShowAudioActivity, shouldShowAvatarFallback]);
+
+  const avatarAudioPulseRingWidth = getAudioActivityRingWidth(
+    avatarAudioPulseLevel
+  );
   const avatarAudioPulseOpacity =
-    audioActivityRingWidth > 0
+    avatarAudioPulseRingWidth > 0
       ? AVATAR_AUDIO_PULSE_OPACITY_BASE +
-        audioVisualLevel * AVATAR_AUDIO_PULSE_OPACITY_GAIN
+        avatarAudioPulseLevel * AVATAR_AUDIO_PULSE_OPACITY_GAIN
       : 0;
   const avatarAudioPulseStroke =
-    audioActivityRingWidth > 0
+    avatarAudioPulseRingWidth > 0
       ? AVATAR_AUDIO_PULSE_STROKE_BASE_WIDTH +
-        audioVisualLevel *
+        avatarAudioPulseLevel *
           (AVATAR_AUDIO_PULSE_STROKE_WIDTH -
             AVATAR_AUDIO_PULSE_STROKE_BASE_WIDTH)
       : AVATAR_AUDIO_PULSE_STROKE_BASE_WIDTH;
@@ -1084,6 +1177,7 @@ function MediaBubble({
   const slotWidth = size + BUBBLE_SLOT_EXTRA_WIDTH;
   const slotHeight = BUBBLE_SLOT_HEIGHT + Math.max(0, size - LOCAL_BUBBLE_SIZE);
   const shouldShowLocalControls = participant.isLocal && mediaSession.isConnected;
+  const canOpenLocalAvatarMenu = participant.isLocal && !shouldShowCameraTrack;
   const localMediaControlPositions = getLocalMediaControlPositions(size);
   const mediaControlButtonStyle = {
     width: LOCAL_MEDIA_CONTROL_SIZE,
@@ -1092,12 +1186,15 @@ function MediaBubble({
     minHeight: LOCAL_MEDIA_CONTROL_SIZE,
     padding: 0,
     borderRadius: 999,
-    border: "1px solid rgba(248, 250, 252, 0.35)",
+    border: `1.5px solid ${participant.color}`,
     background: "rgba(15, 23, 42, 0.9)",
     color: "#f8fafc",
     display: "grid",
     placeItems: "center",
-    boxShadow: "0 8px 18px rgba(2, 6, 23, 0.36)",
+    boxShadow: `0 8px 18px rgba(2, 6, 23, 0.36), 0 0 0 1px ${getColorWithAlpha(
+      participant.color,
+      0.28
+    )}`,
     cursor: "pointer",
     pointerEvents: "auto",
   } as const;
@@ -1140,6 +1237,15 @@ function MediaBubble({
           data-media-bubble-circle="true"
           aria-label={`${participant.name} media bubble`}
           title={participant.name}
+          onContextMenu={(event) => {
+            if (!canOpenLocalAvatarMenu) {
+              return;
+            }
+
+            event.preventDefault();
+            event.stopPropagation();
+            onLocalAvatarContextMenu?.(event, participant);
+          }}
           style={{
             position: "relative",
             width: "100%",
@@ -1206,7 +1312,7 @@ function MediaBubble({
                     borderRadius: 999,
                     boxShadow: `inset 0 0 0 ${audioActivityRingWidth}px ${audioActivityRingColor}`,
                     pointerEvents: "none",
-                    transition: "box-shadow 80ms linear",
+                    transition: VIDEO_AUDIO_RING_TRANSITION,
                   }}
                 />
               ) : null}
@@ -1250,7 +1356,7 @@ function MediaBubble({
                       left: 0,
                       top: 0,
                       opacity: avatarAudioPulseOpacity,
-                      transition: "opacity 80ms linear, stroke-width 80ms linear",
+                      transition: AVATAR_AUDIO_PULSE_TRANSITION,
                     }}
                   />
                   <ParticipantAvatarFaceIcon
@@ -1661,6 +1767,14 @@ function saveStoredBubblePositions(
   }
 }
 
+function clearStoredBubblePositions(roomId: string, participantId: string) {
+  try {
+    localStorage.removeItem(getMediaBubblesStorageKey(roomId, participantId));
+  } catch {
+    // Local bubble layout is an optional browser preference.
+  }
+}
+
 function saveStoredBubbleSizes(
   roomId: string,
   participantId: string,
@@ -1676,6 +1790,14 @@ function saveStoredBubbleSizes(
   }
 }
 
+function clearStoredBubbleSizes(roomId: string, participantId: string) {
+  try {
+    localStorage.removeItem(getMediaBubbleSizesStorageKey(roomId, participantId));
+  } catch {
+    // Local bubble layout is an optional browser preference.
+  }
+}
+
 function createInitialBubblePositions(roomId: string, participantId: string) {
   return loadStoredBubblePositions(roomId, participantId);
 }
@@ -1686,8 +1808,10 @@ function createInitialBubbleSizes(roomId: string, participantId: string) {
 
 export function LiveKitMediaBubbles({
   mediaSession,
+  onUpdateParticipantSession,
   participantPresences,
   participantSession,
+  resetVideoPositionsRevision,
   roomId,
   roomOccupancies,
 }: LiveKitMediaBubblesProps) {
@@ -1702,6 +1826,8 @@ export function LiveKitMediaBubbles({
   const [activeResizePreview, setActiveResizePreview] =
     useState<BubbleResizePreview | null>(null);
   const [resizeHover, setResizeHover] = useState<BubbleResizeHover | null>(null);
+  const [avatarFaceContextMenuState, setAvatarFaceContextMenuState] =
+    useState<AvatarFaceContextMenuState>(null);
   const [audioMeterDebugStatesById, setAudioMeterDebugStatesById] = useState(
     () => new Map<string, AudioMeterDebugDisplayState>()
   );
@@ -1717,10 +1843,27 @@ export function LiveKitMediaBubbles({
     setActiveDragOffset(null);
     setActiveResizePreview(null);
     setResizeHover(null);
+    setAvatarFaceContextMenuState(null);
     dragStateRef.current = null;
     resizeStateRef.current = null;
     setAudioMeterDebugStatesById(new Map());
   }, [participantSession.id, roomId]);
+
+  useEffect(() => {
+    if (resetVideoPositionsRevision <= 0) {
+      return;
+    }
+
+    clearStoredBubblePositions(roomId, participantSession.id);
+    clearStoredBubbleSizes(roomId, participantSession.id);
+    setBubblePositionsById({});
+    setBubbleSizesById({});
+    setActiveDragOffset(null);
+    setActiveResizePreview(null);
+    setResizeHover(null);
+    dragStateRef.current = null;
+    resizeStateRef.current = null;
+  }, [participantSession.id, resetVideoPositionsRevision, roomId]);
 
   const liveKitParticipantsById = useMemo(() => {
     return new Map(
@@ -1792,11 +1935,82 @@ export function LiveKitMediaBubbles({
   }, [
     mediaSession.participants,
     participantPresences,
+    participantSession.avatarFaceId,
     participantSession.color,
     participantSession.id,
     participantSession.name,
     roomOccupancies,
   ]);
+
+  const availableAvatarFaceIds = useMemo(() => {
+    const usedByOtherParticipants = new Set<ParticipantAvatarFaceId>();
+
+    bubbleParticipants.forEach((participant) => {
+      if (
+        participant.id === participantSession.id ||
+        !participant.avatarFaceId
+      ) {
+        return;
+      }
+
+      usedByOtherParticipants.add(participant.avatarFaceId);
+    });
+
+    return PARTICIPANT_AVATAR_FACE_IDS.filter(
+      (faceId) =>
+        faceId !== participantSession.avatarFaceId &&
+        !usedByOtherParticipants.has(faceId)
+    );
+  }, [bubbleParticipants, participantSession.avatarFaceId, participantSession.id]);
+
+  const avatarFaceContextMenuItems = useMemo<ContextMenuItem[]>(
+    () =>
+      availableAvatarFaceIds.map((faceId) => ({
+        type: "item",
+        id: `avatar-face-${faceId}`,
+        label: faceId,
+        ariaLabel: `Choose avatar ${faceId}`,
+        icon: (
+          <ParticipantAvatarFaceIcon
+            faceId={faceId}
+            size={AVATAR_FACE_CONTEXT_MENU_GRID_ITEM_SIZE}
+            stroke={1.55}
+          />
+        ),
+        onSelect: () => {
+          onUpdateParticipantSession((session) =>
+            session.id === participantSession.id
+              ? {
+                  ...session,
+                  avatarFaceId: faceId,
+                }
+              : session
+          );
+        },
+        testId: `avatar-face-context-menu-${faceId}`,
+      })),
+    [availableAvatarFaceIds, onUpdateParticipantSession, participantSession.id]
+  );
+
+  const handleLocalAvatarContextMenu = useCallback(
+    (
+      event: MouseEvent<HTMLDivElement>,
+      participant: MediaBubbleParticipant
+    ) => {
+      if (
+        participant.id !== participantSession.id ||
+        availableAvatarFaceIds.length === 0
+      ) {
+        return;
+      }
+
+      setAvatarFaceContextMenuState({
+        clientX: event.clientX,
+        clientY: event.clientY,
+      });
+    },
+    [availableAvatarFaceIds.length, participantSession.id]
+  );
 
   const handleBubblePointerDown = useCallback(
     (
@@ -2114,6 +2328,7 @@ export function LiveKitMediaBubbles({
         audioMeterDebugEnabled ? handleAudioMeterDebugStateChange : undefined
       }
       mediaSession={mediaSession}
+      onLocalAvatarContextMenu={handleLocalAvatarContextMenu}
       participant={participant}
       liveKitParticipant={liveKitParticipantsById.get(participant.id) ?? null}
       size={getRenderedBubbleSize(participant)}
@@ -2235,6 +2450,26 @@ export function LiveKitMediaBubbles({
           </div>
         );
       })}
+
+      <ContextMenu
+        anchorPoint={
+          avatarFaceContextMenuState
+            ? {
+                x: avatarFaceContextMenuState.clientX,
+                y: avatarFaceContextMenuState.clientY,
+              }
+            : null
+        }
+        ariaLabel="Choose avatar face"
+        gridColumnCount={AVATAR_FACE_CONTEXT_MENU_COLUMN_COUNT}
+        items={avatarFaceContextMenuItems}
+        layout="grid"
+        maxWidth={AVATAR_FACE_CONTEXT_MENU_WIDTH}
+        minWidth={AVATAR_FACE_CONTEXT_MENU_WIDTH}
+        onClose={() => {
+          setAvatarFaceContextMenuState(null);
+        }}
+      />
     </div>
   );
 }

@@ -1068,6 +1068,18 @@ function canonicalizeRoomParticipantAppearance(
 ) {
   const currentFaceId =
     currentAppearanceMap[participantAppearance.participantId]?.avatarFaceId;
+  const requestedFaceId = participantAppearance.avatarFaceId;
+
+  if (isParticipantAvatarFaceId(requestedFaceId)) {
+    return {
+      ...participantAppearance,
+      avatarFaceId: pickUnusedParticipantAvatarFaceId(
+        currentAppearanceMap,
+        participantAppearance.participantId,
+        requestedFaceId
+      ),
+    };
+  }
 
   if (isParticipantAvatarFaceId(currentFaceId)) {
     return {

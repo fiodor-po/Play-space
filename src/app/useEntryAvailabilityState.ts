@@ -123,6 +123,7 @@ const getFirstFreeParticipantColor = (
 type UseEntryAvailabilityStateParams = {
   draftRoomId: string;
   draftColor: string;
+  isJoinPending: boolean;
   participantSession: LocalParticipantSession | null;
   setIsJoinPending: (isPending: boolean) => void;
   setDraftRoomId: (roomId: string) => void;
@@ -133,6 +134,7 @@ type UseEntryAvailabilityStateParams = {
 export function useEntryAvailabilityState({
   draftRoomId,
   draftColor,
+  isJoinPending,
   participantSession,
   setIsJoinPending,
   setDraftRoomId,
@@ -252,7 +254,7 @@ export function useEntryAvailabilityState({
     draftColor.length > 0 && effectiveEntryOccupiedColors.has(draftColor);
 
   useEffect(() => {
-    if (participantSession || !entrySuggestedColor) {
+    if (participantSession || isJoinPending || !entrySuggestedColor) {
       return;
     }
 
@@ -263,6 +265,7 @@ export function useEntryAvailabilityState({
     draftColor,
     entrySuggestedColor,
     hasManualEntryColorChoice,
+    isJoinPending,
     isDraftColorOccupied,
     participantSession,
     setDraftColor,

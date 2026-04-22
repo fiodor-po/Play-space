@@ -220,7 +220,7 @@ export function upsertRoomParticipantAppearance(
     [nextAppearance.participantId]: {
       ...nextAppearance,
       avatarFaceId:
-        currentAppearance?.avatarFaceId ?? nextAppearance.avatarFaceId,
+        nextAppearance.avatarFaceId ?? currentAppearance?.avatarFaceId,
     },
   };
 }

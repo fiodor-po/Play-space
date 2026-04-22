@@ -1,6 +1,10 @@
 import * as Y from "yjs";
 import { normalizeNoteCardObject } from "../board/objects/noteCard/sizing";
-import { normalizeTokenObject } from "../board/objects/token/createTokenObject";
+import {
+  normalizeTokenObject,
+  normalizeTokenVisualVariant,
+} from "../board/objects/token/createTokenObject";
+import { normalizeTokenIconId } from "../board/objects/token/tokenIconSet";
 import type { BoardObject, TokenAttachment } from "../types/board";
 
 const PROPERTY_KEY_PREFIX = "prop:";
@@ -13,7 +17,7 @@ const SHARED_ENTRY_SCHEMA_VERSION_KEY = "schemaVersion";
 const PROPERTY_SYNC_SCHEMA_VERSION = 1;
 
 export const BOARD_OBJECT_PROPERTY_SYNC_SCHEMA = {
-  token: ["x", "y", "tokenAttachment"],
+  token: ["x", "y", "tokenAttachment", "tokenIconId", "tokenVisualVariant"],
   "note-card": ["x", "y", "width", "height"],
   image: ["x", "y", "width", "height"],
 } as const;
@@ -25,7 +29,9 @@ type SupportedPropertyName =
   | "y"
   | "width"
   | "height"
-  | "tokenAttachment";
+  | "tokenAttachment"
+  | "tokenIconId"
+  | "tokenVisualVariant";
 
 type PropertySyncWriteMode =
   | "legacy-whole-object"
@@ -190,6 +196,20 @@ function applyMigratedProperty(
       return {
         ...object,
         tokenAttachment: parsed,
+      };
+    }
+
+    if (property === "tokenVisualVariant" && typeof parsed === "string") {
+      return {
+        ...object,
+        tokenVisualVariant: normalizeTokenVisualVariant(parsed),
+      };
+    }
+
+    if (property === "tokenIconId" && typeof parsed === "string") {
+      return {
+        ...object,
+        tokenIconId: normalizeTokenIconId(parsed) ?? undefined,
       };
     }
 

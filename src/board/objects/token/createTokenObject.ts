@@ -1,34 +1,58 @@
-import type { BoardObject } from "../../../types/board";
+import type { BoardObject, TokenVisualVariant } from "../../../types/board";
+import {
+  normalizeTokenIconId,
+  TOKEN_DEFAULT_ICON_ID,
+  type TokenIconId,
+} from "./tokenIconSet";
 
-export const TOKEN_PIN_SIZE = 30;
+export const TOKEN_STANDARD_SIZE = 30;
+export const TOKEN_MINI_SIZE = 16;
+export const TOKEN_ICON_SIZE = 48;
+export const TOKEN_PIN_SIZE = TOKEN_STANDARD_SIZE;
 export const EMPTY_TOKEN_GLYPH = "○";
 const TOKEN_SYMBOL_GLYPHS = new Set(["●", "■", "▲", "▼"]);
+const TOKEN_VISUAL_VARIANTS = new Set<TokenVisualVariant>([
+  "standard",
+  "mini",
+  "icon",
+]);
 
 type CreateTokenObjectParams = {
   id: string;
   color: string;
   creatorId: string;
+  iconId?: TokenIconId | null;
   position: { x: number; y: number };
+  visualVariant?: TokenVisualVariant;
 };
 
 export function createTokenObject({
   id,
   color,
   creatorId,
+  iconId = TOKEN_DEFAULT_ICON_ID,
   position,
+  visualVariant = "icon",
 }: CreateTokenObjectParams): BoardObject {
+  const normalizedVisualVariant = normalizeTokenVisualVariant(visualVariant);
+  const size = getTokenVisualVariantSize(normalizedVisualVariant);
+  const normalizedIconId = normalizeTokenIconId(iconId) ?? TOKEN_DEFAULT_ICON_ID;
+
   return {
     id,
     kind: "token",
     creatorId,
     x: position.x,
     y: position.y,
-    width: TOKEN_PIN_SIZE,
-    height: TOKEN_PIN_SIZE,
+    width: size,
+    height: size,
     anchorPosition: "center",
     fill: color,
     label: "",
     authorColor: color,
+    tokenIconId:
+      normalizedVisualVariant === "icon" ? normalizedIconId : undefined,
+    tokenVisualVariant: normalizedVisualVariant,
     tokenAttachment: {
       mode: "free",
     },
@@ -41,8 +65,13 @@ export function normalizeTokenObject(object: BoardObject): BoardObject {
     return object;
   }
 
-  const sourceWidth = object.width || TOKEN_PIN_SIZE;
-  const sourceHeight = object.height || TOKEN_PIN_SIZE;
+  const normalizedVisualVariant = normalizeTokenVisualVariant(
+    object.tokenVisualVariant
+  );
+  const normalizedSize = getTokenVisualVariantSize(normalizedVisualVariant);
+  const normalizedIconId = normalizeTokenIconId(object.tokenIconId);
+  const sourceWidth = object.width || normalizedSize;
+  const sourceHeight = object.height || normalizedSize;
   const normalizedX =
     object.anchorPosition === "center" ? object.x : object.x + sourceWidth / 2;
   const normalizedY =
@@ -52,18 +81,60 @@ export function normalizeTokenObject(object: BoardObject): BoardObject {
     ...object,
     x: normalizedX,
     y: normalizedY,
-    width: TOKEN_PIN_SIZE,
-    height: TOKEN_PIN_SIZE,
-    label: normalizeTokenGlyphLabel(object.label),
+    width: normalizedSize,
+    height: normalizedSize,
+    label: normalizeTokenGlyphLabel(object.label, normalizedVisualVariant),
     anchorPosition: "center",
+    tokenIconId:
+      normalizedVisualVariant === "icon"
+        ? normalizedIconId ?? TOKEN_DEFAULT_ICON_ID
+        : undefined,
+    tokenVisualVariant: normalizedVisualVariant,
     tokenAttachment: object.tokenAttachment ?? {
       mode: "free",
     },
   };
 }
 
-function normalizeTokenGlyphLabel(label: string | undefined) {
+export function normalizeTokenVisualVariant(
+  visualVariant: unknown
+): TokenVisualVariant {
+  if (visualVariant === "emoji") {
+    return "icon";
+  }
+
+  return TOKEN_VISUAL_VARIANTS.has(visualVariant as TokenVisualVariant)
+    ? (visualVariant as TokenVisualVariant)
+    : "standard";
+}
+
+export function getTokenVisualVariantSize(
+  visualVariant: TokenVisualVariant
+) {
+  if (visualVariant === "mini") {
+    return TOKEN_MINI_SIZE;
+  }
+
+  if (visualVariant === "icon") {
+    return TOKEN_ICON_SIZE;
+  }
+
+  return TOKEN_STANDARD_SIZE;
+}
+
+function normalizeTokenGlyphLabel(
+  label: string | undefined,
+  visualVariant: TokenVisualVariant
+) {
+  if (visualVariant === "mini") {
+    return "";
+  }
+
   const trimmedLabel = label?.trim() ?? "";
+
+  if (visualVariant === "icon") {
+    return trimmedLabel.slice(0, 8);
+  }
 
   if (trimmedLabel === EMPTY_TOKEN_GLYPH) {
     return "";

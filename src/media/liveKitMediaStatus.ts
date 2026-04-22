@@ -1,4 +1,3 @@
-import { ConnectionState } from "livekit-client";
 import type {
   LiveKitMediaSession,
   LiveKitMediaSessionError,
@@ -8,13 +7,13 @@ export type LiveKitMediaStatusViewModel = {
   error: LiveKitMediaSessionError | null;
   mediaErrorDetail: string | null;
   mediaErrorLabel: string | null;
-  mediaStatusLabel: string;
   isMediaConnected: boolean;
   isMediaJoining: boolean;
   canJoinMedia: boolean;
   canLeaveMedia: boolean;
   onJoinMedia: () => void;
   onLeaveMedia: () => void;
+  onResetVideoPositions: () => void;
 };
 
 export function getLiveKitMediaErrorLabel(
@@ -35,25 +34,16 @@ export function getLiveKitMediaErrorLabel(
 
 export function createLiveKitMediaStatusViewModel(params: {
   mediaSession: LiveKitMediaSession;
+  onResetVideoPositions: () => void;
   roomId: string;
 }): LiveKitMediaStatusViewModel {
-  const { mediaSession, roomId } = params;
+  const { mediaSession, onResetVideoPositions } = params;
   const mediaErrorLabel = getLiveKitMediaErrorLabel(mediaSession.error);
-  const mediaStatusLabel =
-    mediaSession.error === "media-disabled"
-      ? `Media unavailable for ${roomId}`
-      : mediaSession.connectionState === ConnectionState.Connected
-        ? `Connected to ${roomId}`
-        : mediaSession.connectionState === ConnectionState.Connecting ||
-            mediaSession.isJoining
-          ? `Connecting to ${roomId}`
-          : `Optional media for ${roomId}`;
 
   return {
     error: mediaSession.error,
     mediaErrorDetail: mediaSession.errorDetail,
     mediaErrorLabel,
-    mediaStatusLabel,
     isMediaConnected: mediaSession.isConnected,
     isMediaJoining: mediaSession.isJoining,
     canJoinMedia:
@@ -61,5 +51,6 @@ export function createLiveKitMediaStatusViewModel(params: {
     canLeaveMedia: mediaSession.isConnected,
     onJoinMedia: mediaSession.joinMedia,
     onLeaveMedia: mediaSession.leaveMedia,
+    onResetVideoPositions,
   };
 }

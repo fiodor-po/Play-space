@@ -8,19 +8,26 @@ import type {
 import {
   buttonRecipes,
   createDraftLocalUserButtonRecipeForSlot,
-  createTextButtonRecipe,
   getButtonProps,
 } from "../../ui/system/families/button";
-import { boardSurfaceRecipes } from "../../ui/system/boardSurfaces";
 import { getDesignSystemDebugAttrs } from "../../ui/system/debugMeta";
 import { getParticipantColorSlotNumber } from "../../lib/roomSession";
-import { radiusPrimitive } from "../../ui/system/foundations";
 import {
   BoardStageObjectSemanticsTooltip,
 } from "./BoardStageDevToolsContent";
 import { CursorOverlay, type CursorOverlayItem } from "./CursorOverlay";
 import { ParticipantSessionPanel } from "./ParticipantSessionPanel";
 import type { LiveKitMediaStatusViewModel } from "../../media/liveKitMediaStatus";
+import { ContextMenu, type ContextMenuItem } from "../../ui/system/ContextMenu";
+import {
+  PARTICIPANT_AVATAR_FACE_TO_TOKEN_ICON_ID,
+  TOKEN_BIG_ICON_IDS,
+  TOKEN_DEFAULT_ICON_ID,
+  TokenIconPreview,
+  type TokenIconId,
+} from "../objects/token/tokenIconSet";
+import type { ParticipantAvatarFaceId } from "../../lib/participantAvatarFaces";
+import type { TokenVisualVariant } from "../../types/board";
 
 type EditingTextareaStyle = {
   left: number;
@@ -47,13 +54,27 @@ type BoardContextMenuState = {
   clientX: number;
   clientY: number;
   currentGlyph: string;
+  currentIconId: TokenIconId | null;
+  currentVisualVariant: TokenVisualVariant;
 } | null;
 
 const BOARD_SURFACE_CONTROL_BORDER_WIDTH = 2;
+const TOKEN_CONTEXT_MENU_GRID_ITEM_SIZE = 38;
+const TOKEN_CONTEXT_MENU_GRID_GAP = 5;
+const TOKEN_CONTEXT_MENU_SHELL_INLINE_PADDING = 12;
+const TOKEN_CONTEXT_MENU_COLUMN_COUNT = 5;
+const TOKEN_CONTEXT_MENU_BIG_ICON_COUNT = 34;
+const TOKEN_MENU_MINI_GLYPH = "";
 const PLUS_BUTTON_GLYPH_STYLE = {
   display: "block",
   transform: "translateY(-1px)",
 } as const;
+
+type TokenAppearanceMenuAction = {
+  glyph: string;
+  iconId?: TokenIconId | null;
+  visualVariant: TokenVisualVariant;
+};
 
 type BoardStageShellOverlaysProps = {
   cursors: CursorOverlayItem[];
@@ -97,9 +118,10 @@ type BoardStageShellOverlaysProps = {
   }>;
   isObjectSemanticsTooltipVisible: boolean;
   boardContextMenuState: BoardContextMenuState;
-  boardContextMenuRef: RefObject<HTMLDivElement | null>;
+  participantAvatarFaceId?: ParticipantAvatarFaceId;
+  onCloseBoardContextMenu: () => void;
   onShowBoardMenuAction: () => void;
-  onSelectTokenShapeAction: (glyph: string) => void;
+  onSelectTokenAppearanceAction: (action: TokenAppearanceMenuAction) => void;
 };
 
 export function BoardStageShellOverlays({
@@ -141,9 +163,10 @@ export function BoardStageShellOverlays({
   objectSemanticsRows,
   isObjectSemanticsTooltipVisible,
   boardContextMenuState,
-  boardContextMenuRef,
+  participantAvatarFaceId,
+  onCloseBoardContextMenu,
   onShowBoardMenuAction,
-  onSelectTokenShapeAction,
+  onSelectTokenAppearanceAction,
 }: BoardStageShellOverlaysProps) {
   const addTokenButtonRecipe = createDraftLocalUserButtonRecipeForSlot(
     buttonRecipes.primary.small,
@@ -156,17 +179,151 @@ export function BoardStageShellOverlays({
     getParticipantColorSlotNumber(addImageButtonColor),
     "border"
   );
-  const boardContextMenuRecipe = createTextButtonRecipe(
-    buttonRecipes.secondary.compact,
-    "secondary"
-  );
-  const tokenShapeGlyphs = ["○", "●", "■", "▲", "▼"] as const;
-  const tokenShapeMenuGlyphs =
+  const tokenShapeGlyphs = ["●", "■", "▲", "▼"] as const;
+  const currentTokenVisualVariant =
     boardContextMenuState?.kind === "token"
-      ? tokenShapeGlyphs.filter(
-          (glyph) => glyph !== boardContextMenuState.currentGlyph
-        )
-      : [];
+      ? boardContextMenuState.currentVisualVariant
+      : "standard";
+  const currentTokenGlyph =
+    boardContextMenuState?.kind === "token"
+      ? boardContextMenuState.currentGlyph
+      : "";
+  const currentTokenIconId =
+    boardContextMenuState?.kind === "token"
+      ? boardContextMenuState.currentIconId
+      : null;
+  const currentParticipantAvatarTokenIconId = participantAvatarFaceId
+    ? PARTICIPANT_AVATAR_FACE_TO_TOKEN_ICON_ID[participantAvatarFaceId]
+    : TOKEN_DEFAULT_ICON_ID;
+  const tokenBigIconIds = TOKEN_BIG_ICON_IDS.filter(
+    (iconId) => iconId !== currentParticipantAvatarTokenIconId
+  ).slice(0, TOKEN_CONTEXT_MENU_BIG_ICON_COUNT);
+  const createTokenAppearanceMenuItem = ({
+    ariaLabel,
+    glyph,
+    iconId = null,
+    icon,
+    id,
+    label,
+    visualVariant,
+  }: {
+    ariaLabel: string;
+    glyph: string;
+    iconId?: TokenIconId | null;
+    icon?: ReactNode;
+    id: string;
+    label: ReactNode;
+    visualVariant: TokenVisualVariant;
+  }): ContextMenuItem => ({
+    type: "item",
+    id,
+    label,
+    ariaLabel,
+    align: "center",
+    icon,
+    labelStyle: {
+      fontSize: visualVariant === "icon" ? 20 : 18,
+      lineHeight: 1,
+    },
+    selected:
+      currentTokenVisualVariant === visualVariant &&
+      (visualVariant === "icon"
+        ? currentTokenIconId === iconId
+        : currentTokenGlyph === glyph),
+    onSelect: () => {
+      onSelectTokenAppearanceAction({
+        glyph,
+        iconId,
+        visualVariant,
+      });
+    },
+    testId: `token-context-menu-${visualVariant}-${iconId ?? (glyph || "empty")}`,
+  });
+  const tokenShapeMenuItems: ContextMenuItem[] = [
+    createTokenAppearanceMenuItem({
+      ariaLabel: "Small token",
+      glyph: TOKEN_MENU_MINI_GLYPH,
+      id: "token-variant-mini",
+      label: (
+        <span
+          aria-hidden="true"
+          style={{
+            width: 14,
+            height: 14,
+            borderRadius: 999,
+            background: participantColor,
+            border: "2px solid rgba(248, 250, 252, 0.92)",
+            boxSizing: "border-box",
+            display: "block",
+          }}
+        />
+      ),
+      visualVariant: "mini",
+    }),
+    {
+      type: "separator",
+      id: "token-mini-section-separator",
+    },
+    ...tokenShapeGlyphs.map((glyph) =>
+      createTokenAppearanceMenuItem({
+        ariaLabel: glyph ? `Token symbol ${glyph}` : "Token without symbol",
+        glyph,
+        id: `token-symbol-${glyph || "empty"}`,
+        label: glyph,
+        visualVariant: "standard",
+      })
+    ),
+    {
+      type: "separator",
+      id: "token-symbol-section-separator",
+    },
+    createTokenAppearanceMenuItem({
+      ariaLabel: "Current player avatar token",
+      glyph: "",
+      iconId: currentParticipantAvatarTokenIconId,
+      id: "token-big-icon-current-avatar",
+      label: (
+        <TokenIconPreview
+          iconId={currentParticipantAvatarTokenIconId}
+          size={22}
+          strokeWidth={1.55}
+        />
+      ),
+      visualVariant: "icon",
+    }),
+    ...tokenBigIconIds.map((iconId) =>
+      createTokenAppearanceMenuItem({
+        ariaLabel: `Big token icon ${iconId}`,
+        glyph: "",
+        iconId,
+        id: `token-big-icon-${iconId}`,
+        label: (
+          <TokenIconPreview iconId={iconId} size={22} strokeWidth={1.55} />
+        ),
+        visualVariant: "icon",
+      })
+    ),
+  ];
+  const boardContextMenuItems: ContextMenuItem[] =
+    boardContextMenuState?.kind === "board"
+      ? [
+          {
+            type: "item",
+            id: "center-board",
+            label: "Center board",
+            onSelect: onShowBoardMenuAction,
+            testId: "board-context-menu-center-board",
+          },
+        ]
+      : boardContextMenuState?.kind === "token"
+        ? tokenShapeMenuItems
+        : [];
+  const isTokenContextMenu = boardContextMenuState?.kind === "token";
+  const tokenContextMenuWidth =
+    TOKEN_CONTEXT_MENU_COLUMN_COUNT * TOKEN_CONTEXT_MENU_GRID_ITEM_SIZE +
+    Math.max(0, TOKEN_CONTEXT_MENU_COLUMN_COUNT - 1) *
+      TOKEN_CONTEXT_MENU_GRID_GAP +
+    TOKEN_CONTEXT_MENU_SHELL_INLINE_PADDING;
 
   return (
     <>
@@ -323,66 +480,29 @@ export function BoardStageShellOverlays({
         isVisible={isObjectSemanticsTooltipVisible}
       />
 
-      {boardContextMenuState ? (
-        <div
-          ref={boardContextMenuRef}
-          style={{
-            position: "fixed",
-            left: Math.min(boardContextMenuState.clientX, window.innerWidth - 180),
-            top: Math.min(
-              boardContextMenuState.clientY,
-              window.innerHeight -
-                (boardContextMenuState.kind === "token" ? 240 : 88)
-            ),
-            zIndex: 41,
-            minWidth: 160,
-            display: "grid",
-            gap: 8,
-            padding: 8,
-            ...boardSurfaceRecipes.floatingShell.shell.style,
-            borderRadius: radiusPrimitive.r8,
-          }}
-          {...getDesignSystemDebugAttrs(boardSurfaceRecipes.floatingShell.shell.debug)}
-        >
-          {boardContextMenuState.kind === "board" ? (
-            <button
-              type="button"
-              onClick={onShowBoardMenuAction}
-              {...getButtonProps(boardContextMenuRecipe)}
-              {...getDesignSystemDebugAttrs(boardContextMenuRecipe.debug)}
-              style={{
-                ...getButtonProps(boardContextMenuRecipe).style,
-                justifyContent: "flex-start",
-                textAlign: "left",
-              }}
-            >
-              Center board
-            </button>
-          ) : (
-            tokenShapeMenuGlyphs.map((glyph) => (
-              <button
-                key={glyph}
-                type="button"
-                onClick={() => {
-                  onSelectTokenShapeAction(glyph);
-                }}
-                aria-label={`Token symbol ${glyph}`}
-                {...getButtonProps(boardContextMenuRecipe)}
-                {...getDesignSystemDebugAttrs(boardContextMenuRecipe.debug)}
-                style={{
-                  ...getButtonProps(boardContextMenuRecipe).style,
-                  justifyContent: "center",
-                  textAlign: "center",
-                  fontSize: 18,
-                  lineHeight: 1,
-                }}
-              >
-                {glyph}
-              </button>
-            ))
-          )}
-        </div>
-      ) : null}
+      <ContextMenu
+        anchorPoint={
+          boardContextMenuState
+            ? {
+                x: boardContextMenuState.clientX,
+                y: boardContextMenuState.clientY,
+              }
+            : null
+        }
+        ariaLabel={
+          boardContextMenuState?.kind === "token"
+            ? "Token context menu"
+            : "Board context menu"
+        }
+        items={boardContextMenuItems}
+        gridColumnCount={
+          isTokenContextMenu ? TOKEN_CONTEXT_MENU_COLUMN_COUNT : undefined
+        }
+        layout={isTokenContextMenu ? "grid" : "list"}
+        maxWidth={isTokenContextMenu ? tokenContextMenuWidth : undefined}
+        minWidth={isTokenContextMenu ? tokenContextMenuWidth : 160}
+        onClose={onCloseBoardContextMenu}
+      />
     </>
   );
 }

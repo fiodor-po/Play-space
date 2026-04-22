@@ -18,8 +18,15 @@ import type { BoardDrawingCursorTool } from "../board/cursors";
 import { createNoteCardObject } from "../board/objects/noteCard/createNoteCardObject";
 import {
   createTokenObject,
-  EMPTY_TOKEN_GLYPH,
+  getTokenVisualVariantSize,
+  normalizeTokenVisualVariant,
 } from "../board/objects/token/createTokenObject";
+import {
+  normalizeTokenIconId,
+  PARTICIPANT_AVATAR_FACE_TO_TOKEN_ICON_ID,
+  TOKEN_DEFAULT_ICON_ID,
+  type TokenIconId,
+} from "../board/objects/token/tokenIconSet";
 import {
   clampNoteCardWidth,
   getNoteCardHeightForLabel,
@@ -161,7 +168,11 @@ import {
   resolveTokenGlyphChangePolicyAccess,
 } from "../lib/governancePolicy";
 import type { RoomBaselineDescriptor, RoomBaselineId } from "../lib/roomMetadata";
-import type { BoardObject, TokenAttachment } from "../types/board";
+import type {
+  BoardObject,
+  TokenAttachment,
+  TokenVisualVariant,
+} from "../types/board";
 
 const LOCAL_CURSOR_PRESENCE_MIN_INTERVAL_MS = 33;
 
@@ -288,6 +299,8 @@ type BoardContextMenuState = {
   clientY: number;
   tokenId: string;
   currentGlyph: string;
+  currentIconId: TokenIconId | null;
+  currentVisualVariant: TokenVisualVariant;
 };
 
 type ActiveImageStrokeSession = {
@@ -783,7 +796,6 @@ export default function BoardStage({
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const imageInputRef = useRef<HTMLInputElement | null>(null);
   const sessionPanelRef = useRef<HTMLDivElement | null>(null);
-  const boardContextMenuRef = useRef<HTMLDivElement | null>(null);
   const stageWrapperRef = useRef<HTMLDivElement | null>(null);
   const activeRoomIdRef = useRef(roomId);
   const [stageSize, setStageSize] = useState({
@@ -3326,6 +3338,10 @@ export default function BoardStage({
         );
 
         Object.values(roomOccupancies).forEach((occupancy) => {
+          if (occupancy.participantId === participantSession.id) {
+            return;
+          }
+
           upsertObservedAppearance(
             occupancy.participantId,
             occupancy.name,
@@ -3335,7 +3351,10 @@ export default function BoardStage({
         });
 
         Object.values(participantPresences).forEach((presence) => {
-          if (roomOccupancies[presence.participantId]) {
+          if (
+            presence.participantId === participantSession.id ||
+            roomOccupancies[presence.participantId]
+          ) {
             return;
           }
 
@@ -3369,6 +3388,7 @@ export default function BoardStage({
 
     if (
       !localAppearance?.avatarFaceId ||
+      participantSession.avatarFaceId ||
       localAppearance.avatarFaceId === participantSession.avatarFaceId
     ) {
       return;
@@ -4175,6 +4195,11 @@ export default function BoardStage({
       id: `token-${createClientId()}`,
       color: currentUserColor,
       creatorId: participantSession.id,
+      iconId: participantSession.avatarFaceId
+        ? PARTICIPANT_AVATAR_FACE_TO_TOKEN_ICON_ID[
+            participantSession.avatarFaceId
+          ]
+        : TOKEN_DEFAULT_ICON_ID,
       position: center,
     });
 
@@ -4578,37 +4603,6 @@ export default function BoardStage({
     getCreatorColorSource: (object) => getCreatorColorResolution(object).source,
   });
 
-  useEffect(() => {
-    if (!boardContextMenuState) {
-      return;
-    }
-
-    const handleMouseDown = (event: MouseEvent) => {
-      const target = event.target;
-
-      if (
-        target instanceof Node &&
-        boardContextMenuRef.current?.contains(target)
-      ) {
-        return;
-      }
-
-      setBoardContextMenuState(null);
-    };
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setBoardContextMenuState(null);
-      }
-    };
-
-    window.addEventListener("mousedown", handleMouseDown, true);
-    window.addEventListener("keydown", handleKeyDown, true);
-
-    return () => {
-      window.removeEventListener("mousedown", handleMouseDown, true);
-      window.removeEventListener("keydown", handleKeyDown, true);
-    };
-  }, [boardContextMenuState]);
   const {
     governanceRoomSummary,
     governanceSelectedObjectSummary,
@@ -5434,7 +5428,17 @@ export default function BoardStage({
     }
   };
 
-  const updateTokenGlyph = (tokenId: string, glyph: string) => {
+  const updateTokenAppearance = ({
+    glyph,
+    iconId,
+    tokenId,
+    visualVariant,
+  }: {
+    glyph: string;
+    iconId?: TokenIconId | null;
+    tokenId: string;
+    visualVariant: TokenVisualVariant;
+  }) => {
     const glyphAccess = resolveObjectActionAccess(
       tokenId,
       "board-object.change-token-glyph"
@@ -5451,9 +5455,20 @@ export default function BoardStage({
             return object;
           }
 
+          const normalizedVisualVariant =
+            normalizeTokenVisualVariant(visualVariant);
+          const nextSize = getTokenVisualVariantSize(normalizedVisualVariant);
+
           return {
             ...object,
-            label: glyph === EMPTY_TOKEN_GLYPH ? "" : glyph,
+            width: nextSize,
+            height: nextSize,
+            label: normalizedVisualVariant === "icon" ? "" : glyph,
+            tokenIconId:
+              normalizedVisualVariant === "icon"
+                ? iconId ?? TOKEN_DEFAULT_ICON_ID
+                : undefined,
+            tokenVisualVariant: normalizedVisualVariant,
           };
         }),
       (currentObjects) => getUpdateBoardObjectSyncOptions(currentObjects, tokenId),
@@ -5500,7 +5515,9 @@ export default function BoardStage({
       clientX: event.evt.clientX,
       clientY: event.evt.clientY,
       tokenId: object.id,
-      currentGlyph: object.label?.trim() || EMPTY_TOKEN_GLYPH,
+      currentGlyph: object.label?.trim() || "",
+      currentIconId: normalizeTokenIconId(object.tokenIconId),
+      currentVisualVariant: normalizeTokenVisualVariant(object.tokenVisualVariant),
     });
   };
 
@@ -5654,12 +5671,15 @@ export default function BoardStage({
         objectSemanticsRows={inspectedObjectSemanticsRows}
         isObjectSemanticsTooltipVisible={isObjectSemanticsTooltipVisible}
         boardContextMenuState={boardContextMenuState}
-        boardContextMenuRef={boardContextMenuRef}
+        onCloseBoardContextMenu={() => {
+          setBoardContextMenuState(null);
+        }}
         onShowBoardMenuAction={() => {
           setBoardContextMenuState(null);
           recoverBoardViewportToCenteredMinScale();
         }}
-        onSelectTokenShapeAction={(glyph) => {
+        participantAvatarFaceId={participantSession.avatarFaceId}
+        onSelectTokenAppearanceAction={({ glyph, iconId, visualVariant }) => {
           if (boardContextMenuState?.kind !== "token") {
             return;
           }
@@ -5674,7 +5694,12 @@ export default function BoardStage({
             return;
           }
 
-          updateTokenGlyph(boardContextMenuState.tokenId, glyph);
+          updateTokenAppearance({
+            glyph,
+            iconId,
+            tokenId: boardContextMenuState.tokenId,
+            visualVariant,
+          });
           setBoardContextMenuState(null);
         }}
       />

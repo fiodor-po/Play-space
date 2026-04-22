@@ -380,6 +380,42 @@ export function DiceSpikeOverlay({
     }));
   };
 
+  const publishImmediateDieRoll = (rollKind: DiceTrayItem) => {
+    const connection = diceConnectionRef.current;
+
+    if (!connection || isPublishing) {
+      return;
+    }
+
+    setIsPublishing(true);
+    setError(null);
+
+    try {
+      const immediatePool = {
+        ...createEmptyPendingPool(),
+        [rollKind]: 1,
+      };
+      const rollEvent = createSharedRollEventFromPool({
+        actorColor: participantSession.color,
+        actorId: participantSession.id,
+        actorName: participantSession.name,
+        pendingPool: immediatePool,
+        roomId,
+      });
+
+      connection.publishRollEvent({
+        ...rollEvent,
+      });
+    } catch (publishError) {
+      console.error("Failed to publish shared immediate roll", publishError);
+      setError("Could not publish shared roll.");
+    }
+
+    window.setTimeout(() => {
+      setIsPublishing(false);
+    }, 200);
+  };
+
   const resetPendingPool = () => {
     setPendingPool(createEmptyPendingPool());
   };
@@ -498,7 +534,12 @@ export function DiceSpikeOverlay({
             >
               <button
                 type="button"
-                onClick={() => {
+                onClick={(event) => {
+                  if (event.shiftKey) {
+                    publishImmediateDieRoll(die);
+                    return;
+                  }
+
                   addDieToPendingPool(die);
                 }}
                 disabled={!isReady}

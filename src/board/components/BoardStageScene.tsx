@@ -76,6 +76,7 @@ const BLOCKED_IMAGE_PILL_RADIUS = 999;
 const BLOCKED_IMAGE_PILL_FONT_SIZE = 13;
 const BLOCKED_IMAGE_PILL_PADDING_X = 12;
 const ERASER_CURSOR_RADIUS_SCREEN_PX = 8;
+const DRAWING_HIT_SURFACE_FILL = "rgba(15, 23, 42, 0.001)";
 
 function getBlockedImagePillWidth(label: string) {
   let measuredTextWidth = label.length * BLOCKED_IMAGE_PILL_FONT_SIZE * 0.56;
@@ -551,6 +552,78 @@ export function BoardStageScene({
     markerDrawingCursor,
     stageWrapperRef,
   ]);
+
+  const activeDrawingImage =
+    drawingImageId && !isPanInteractionOverrideActive
+      ? sortedObjects.find(
+          (object) => object.kind === "image" && object.id === drawingImageId
+        )
+      : null;
+  const activeDrawingImageLock = activeDrawingImage
+    ? getImageDrawingLock(activeDrawingImage.id)
+    : null;
+  const isActiveDrawingImageLockedByAnotherParticipant =
+    !!activeDrawingImageLock &&
+    activeDrawingImageLock.participantId !== participantSession.id;
+  const isDrawingHitSurfaceVisible =
+    !!activeDrawingImage && !isActiveDrawingImageLockedByAnotherParticipant;
+
+  const handleDrawingHitSurfaceMouseDown = (
+    event: KonvaEventObject<MouseEvent>
+  ) => {
+    if (!activeDrawingImage || event.evt.button === 1) {
+      return;
+    }
+
+    event.cancelBubble = true;
+    selectBoardObject(activeDrawingImage);
+
+    const point = event.target.getRelativePointerPosition();
+
+    if (!point) {
+      return;
+    }
+
+    if (drawingCursorTool === "eraser") {
+      eraseImageStrokesAtPoint(
+        activeDrawingImage.id,
+        point,
+        ERASER_CURSOR_RADIUS_SCREEN_PX / stageScale,
+        event.evt.altKey ? "whole-stroke" : "partial"
+      );
+      return;
+    }
+
+    startImageStroke(activeDrawingImage.id, point, participantSession.color);
+  };
+
+  const handleDrawingHitSurfaceMouseMove = (
+    event: KonvaEventObject<MouseEvent>
+  ) => {
+    if (!activeDrawingImage || event.evt.buttons !== 1) {
+      return;
+    }
+
+    event.cancelBubble = true;
+
+    const point = event.target.getRelativePointerPosition();
+
+    if (!point) {
+      return;
+    }
+
+    if (drawingCursorTool === "eraser") {
+      eraseImageStrokesAtPoint(
+        activeDrawingImage.id,
+        point,
+        ERASER_CURSOR_RADIUS_SCREEN_PX / stageScale,
+        event.evt.altKey ? "whole-stroke" : "partial"
+      );
+      return;
+    }
+
+    appendStrokePoint(activeDrawingImage.id, point);
+  };
 
   return (
     <div ref={stageWrapperRef}>
@@ -1318,6 +1391,21 @@ export function BoardStageScene({
               />
             );
           })}
+
+          {isDrawingHitSurfaceVisible && activeDrawingImage ? (
+            <Rect
+              x={activeDrawingImage.x}
+              y={activeDrawingImage.y}
+              width={activeDrawingImage.width}
+              height={activeDrawingImage.height}
+              fill={DRAWING_HIT_SURFACE_FILL}
+              onMouseDown={handleDrawingHitSurfaceMouseDown}
+              onMouseMove={handleDrawingHitSurfaceMouseMove}
+              onMouseUp={() => {
+                endImageStroke();
+              }}
+            />
+          ) : null}
 
           {selectedImageObject &&
             selectedImageControlAnchor &&

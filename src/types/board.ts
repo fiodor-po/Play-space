@@ -22,6 +22,8 @@ export type TokenAttachment =
       };
     };
 
+export type TokenVisualVariant = "standard" | "mini" | "icon";
+
 export type BoardObject = {
   id: string;
   kind: BoardObjectKind;
@@ -35,6 +37,8 @@ export type BoardObject = {
   label: string;
   authorColor?: string;
   tokenAttachment?: TokenAttachment;
+  tokenIconId?: string;
+  tokenVisualVariant?: TokenVisualVariant;
   imageStrokes?: ImageStroke[];
   src?: string;
   textColor?: string;
