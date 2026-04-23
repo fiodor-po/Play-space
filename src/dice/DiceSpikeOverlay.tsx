@@ -19,6 +19,10 @@ import {
 import { HTML_UI_FONT_FAMILY } from "../board/constants";
 import { getParticipantColorSlotNumber } from "../lib/roomSession";
 import type { LocalParticipantSession } from "../lib/roomSession";
+import {
+  DiceRollLogPanel,
+  type DiceRollLogPanelEntry,
+} from "./DiceRollLogPanel";
 
 type DiceBoxModule = typeof import("@3d-dice/dice-box-threejs");
 type DiceBoxInstance = InstanceType<DiceBoxModule["default"]>;
@@ -32,6 +36,11 @@ const NEUTRAL_DICE_COLOR = "#94a3b8";
 const SHARED_ROLL_TTL_MS = 5000;
 const DICE_OVERLAY_FADE_MS = 160;
 const BOARD_SURFACE_CONTROL_BORDER_WIDTH = 2;
+const DICE_ROLL_LOG_EDGE_OFFSET = 20;
+const DICE_ROLL_LOG_MAX_WIDTH = 340;
+const DICE_ROLL_LOG_MAX_HISTORY_ITEMS = 40;
+const DICE_ROLL_LOG_Z_INDEX = 20;
+const FLOATING_BUTTON_SHADOW = "0 12px 26px rgba(2, 6, 23, 0.18)";
 const DICE_TRAY_ITEMS = ["d4", "d6", "d8", "d10", "2d10", "d12", "d20"] as const;
 type DiceTrayItem = (typeof DICE_TRAY_ITEMS)[number];
 type PendingDicePool = Record<DiceTrayItem, number>;
@@ -44,6 +53,17 @@ const SINGLE_DIE_SIDES: Record<(typeof SUPPORTED_DICE)[number], number> = {
   d12: 12,
   d20: 20,
 };
+
+const diceRollLogOverlayStyle = {
+  position: "fixed",
+  top: DICE_ROLL_LOG_EDGE_OFFSET,
+  right: DICE_ROLL_LOG_EDGE_OFFSET,
+  zIndex: DICE_ROLL_LOG_Z_INDEX,
+  width: `min(${DICE_ROLL_LOG_MAX_WIDTH}px, calc(100vw - ${
+    DICE_ROLL_LOG_EDGE_OFFSET * 2
+  }px))`,
+  pointerEvents: "auto",
+} as const;
 
 export function DiceSpikeOverlay({
   participantSession,
@@ -96,6 +116,8 @@ export function DiceSpikeOverlay({
     createEmptyPendingPool()
   );
   const [rollEvents, setRollEvents] = useState<SharedDiceRollEvent[]>([]);
+  const [rollLogEvents, setRollLogEvents] = useState<SharedDiceRollEvent[]>([]);
+  const [isRollLogExpanded, setIsRollLogExpanded] = useState(false);
 
   useEffect(() => {
     let isCancelled = false;
@@ -198,6 +220,8 @@ export function DiceSpikeOverlay({
     setIsPublishing(false);
     setIsOverlayFadingOut(false);
     setPendingPool(createEmptyPendingPool());
+    setRollLogEvents([]);
+    setIsRollLogExpanded(false);
     playbackQueueRef.current = Promise.resolve();
     liveEventIdsRef.current = new Set();
     scheduledEventIdsRef.current = new Set();
@@ -220,10 +244,35 @@ export function DiceSpikeOverlay({
     return rollEvents.filter((event) => now - event.createdAt < event.ttlMs);
   }, [rollEvents]);
 
+  useEffect(() => {
+    if (rollEvents.length === 0) {
+      return;
+    }
+
+    setRollLogEvents((currentEvents) => {
+      const eventMap = new Map<string, SharedDiceRollEvent>();
+
+      currentEvents.forEach((event) => {
+        eventMap.set(event.id, event);
+      });
+      rollEvents.forEach((event) => {
+        eventMap.set(event.id, event);
+      });
+
+      return Array.from(eventMap.values())
+        .sort((leftEvent, rightEvent) => rightEvent.createdAt - leftEvent.createdAt)
+        .slice(0, DICE_ROLL_LOG_MAX_HISTORY_ITEMS);
+    });
+  }, [rollEvents]);
+
   const pendingDiceCount = useMemo(
     () =>
       DICE_TRAY_ITEMS.reduce((total, die) => total + pendingPool[die], 0),
     [pendingPool]
+  );
+  const rollLogEntries = useMemo(
+    () => rollLogEvents.map(createDiceRollLogEntry),
+    [rollLogEvents]
   );
 
   useEffect(() => {
@@ -477,6 +526,14 @@ export function DiceSpikeOverlay({
         />
       </div>
 
+      <DiceRollLog
+        entries={rollLogEntries}
+        isExpanded={isRollLogExpanded}
+        onToggleExpanded={() => {
+          setIsRollLogExpanded((currentValue) => !currentValue);
+        }}
+      />
+
       <div
         style={boardSurfaceRecipes.diceTray.shell.style}
         {...getDesignSystemDebugAttrs(boardSurfaceRecipes.diceTray.shell.debug)}
@@ -498,6 +555,7 @@ export function DiceSpikeOverlay({
               style={{
                 ...rollButtonRecipe.style,
                 borderWidth: BOARD_SURFACE_CONTROL_BORDER_WIDTH,
+                boxShadow: FLOATING_BUTTON_SHADOW,
               }}
             >
               Roll
@@ -512,6 +570,7 @@ export function DiceSpikeOverlay({
               style={{
                 ...resetButtonRecipe.style,
                 borderWidth: BOARD_SURFACE_CONTROL_BORDER_WIDTH,
+                boxShadow: FLOATING_BUTTON_SHADOW,
               }}
             >
               Reset
@@ -548,6 +607,7 @@ export function DiceSpikeOverlay({
                 style={{
                   ...diceButtonRecipe.style,
                   borderWidth: BOARD_SURFACE_CONTROL_BORDER_WIDTH,
+                  boxShadow: FLOATING_BUTTON_SHADOW,
                   pointerEvents: "auto",
                 }}
               >
@@ -600,6 +660,79 @@ export function DiceSpikeOverlay({
       </div>
     </>
   );
+}
+
+function DiceRollLog({
+  entries,
+  isExpanded,
+  onToggleExpanded,
+}: {
+  entries: DiceRollLogPanelEntry[];
+  isExpanded: boolean;
+  onToggleExpanded: () => void;
+}) {
+  if (entries.length === 0) {
+    return null;
+  }
+
+  return (
+    <div style={diceRollLogOverlayStyle}>
+      <DiceRollLogPanel
+        entries={entries}
+        isExpanded={isExpanded}
+        maxExpandedHeight={`calc(100vh - ${DICE_ROLL_LOG_EDGE_OFFSET * 2}px)`}
+        onToggleExpanded={onToggleExpanded}
+      />
+    </div>
+  );
+}
+
+function createDiceRollLogEntry(event: SharedDiceRollEvent): DiceRollLogPanelEntry {
+  return {
+    id: event.id,
+    actorName: event.actorName.trim() || "Player",
+    actorColor: event.actorColor || NEUTRAL_DICE_COLOR,
+    rollLabel: getDiceRollLogLabel(event),
+    displayResults: getDiceRollLogDisplayResults(event),
+  };
+}
+
+function getDiceRollLogLabel(event: SharedDiceRollEvent) {
+  if (event.rollKind === "2d10") {
+    return "d100";
+  }
+
+  const firstDie = event.outcomes[0]?.die;
+  const isSingleDieKind =
+    firstDie !== undefined &&
+    event.outcomes.every((outcome) => outcome.die === firstDie);
+
+  if (isSingleDieKind && firstDie !== undefined) {
+    return event.outcomes.length > 1
+      ? `${event.outcomes.length}${firstDie}`
+      : firstDie;
+  }
+
+  return event.rollKind === "mixed" ? "mixed" : event.rollKind;
+}
+
+function getDiceRollLogDisplayResults(event: SharedDiceRollEvent) {
+  const isOnlyD20 =
+    event.outcomes.length > 0 &&
+    event.outcomes.every((outcome) => outcome.die === "d20");
+  const d20Values = event.outcomes
+    .filter((outcome) => outcome.die === "d20")
+    .map((outcome) => outcome.value);
+
+  if (isOnlyD20 && d20Values.length > 1) {
+    return [Math.min(...d20Values), Math.max(...d20Values)];
+  }
+
+  if (isOnlyD20 && d20Values.length === 1) {
+    return d20Values;
+  }
+
+  return [event.result];
 }
 
 function createActorColorset(actorColor: string) {

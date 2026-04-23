@@ -1191,10 +1191,6 @@ function MediaBubble({
     color: "#f8fafc",
     display: "grid",
     placeItems: "center",
-    boxShadow: `0 8px 18px rgba(2, 6, 23, 0.36), 0 0 0 1px ${getColorWithAlpha(
-      participant.color,
-      0.28
-    )}`,
     cursor: "pointer",
     pointerEvents: "auto",
   } as const;
@@ -1234,6 +1230,19 @@ function MediaBubble({
         }}
       >
         <div
+          aria-hidden="true"
+          style={{
+            position: "absolute",
+            inset: 0,
+            borderRadius: 999,
+            border: "1px solid rgba(255, 255, 255, 0.22)",
+            boxSizing: "border-box",
+            pointerEvents: "none",
+            zIndex: 1,
+          }}
+        />
+
+        <div
           data-media-bubble-circle="true"
           aria-label={`${participant.name} media bubble`}
           title={participant.name}
@@ -1256,8 +1265,7 @@ function MediaBubble({
             border: `${BUBBLE_RING_WIDTH}px solid ${participant.color}`,
             background: participant.color,
             pointerEvents: "auto",
-            boxShadow:
-              "0 18px 42px rgba(2, 6, 23, 0.36), inset 0 0 0 1px rgba(255, 255, 255, 0.12)",
+            boxShadow: "0 18px 42px rgba(2, 6, 23, 0.36)",
           }}
         >
           {shouldShowCameraTrack ? (
@@ -1393,6 +1401,7 @@ function MediaBubble({
               position: "absolute",
               inset: 0,
               pointerEvents: "none",
+              zIndex: 2,
             }}
           >
             <button

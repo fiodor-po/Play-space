@@ -204,6 +204,9 @@ type BoardStageSceneProps = {
     point: {
       x: number;
       y: number;
+    },
+    options?: {
+      constrainToStraightLine?: boolean;
     }
   ) => void;
   eraseImageStrokesAtPoint: (
@@ -622,7 +625,9 @@ export function BoardStageScene({
       return;
     }
 
-    appendStrokePoint(activeDrawingImage.id, point);
+    appendStrokePoint(activeDrawingImage.id, point, {
+      constrainToStraightLine: event.evt.shiftKey,
+    });
   };
 
   return (
@@ -831,7 +836,9 @@ export function BoardStageScene({
                         return;
                       }
 
-                      appendStrokePoint(object.id, point);
+                      appendStrokePoint(object.id, point, {
+                        constrainToStraightLine: event.evt.shiftKey,
+                      });
                     }}
                     onMouseUp={() => {
                       endImageStroke();

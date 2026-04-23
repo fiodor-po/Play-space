@@ -2,6 +2,20 @@ type RuntimeUrlSource = "env" | "derived-hostname";
 type ApiUrlSource = "env" | "derived-hostname";
 type LiveKitTokenUrlSource = "env" | "derived-api";
 
+export type ClientRuntimeDiagnostics = {
+  apiBaseUrl: string;
+  apiBaseUrlSource: ApiUrlSource;
+  liveKitEnabled: boolean;
+  liveKitTokenUrl: string;
+  liveKitTokenUrlSource: LiveKitTokenUrlSource;
+  liveKitUrl: string;
+  liveKitUrlSource: RuntimeUrlSource;
+  mode: "dev" | "hosted-like";
+  origin: string;
+  realtimeUrl: string;
+  realtimeUrlSource: RuntimeUrlSource;
+};
+
 const warnedRuntimeAssumptions = new Set<string>();
 let hasLoggedClientRuntimeConfig = false;
 
@@ -126,6 +140,22 @@ export function logClientRuntimeConfig(roomId: string) {
     liveKitTokenUrlSource: getLiveKitTokenUrlSource(),
     liveKitEnabled,
   });
+}
+
+export function getClientRuntimeDiagnostics(): ClientRuntimeDiagnostics {
+  return {
+    apiBaseUrl: getApiServerBaseUrl(),
+    apiBaseUrlSource: getApiBaseUrlSource(),
+    liveKitEnabled: isLiveKitMediaEnabled(),
+    liveKitTokenUrl: getLiveKitTokenUrl(),
+    liveKitTokenUrlSource: getLiveKitTokenUrlSource(),
+    liveKitUrl: getLiveKitServerUrl(),
+    liveKitUrlSource: getLiveKitUrlSource(),
+    mode: import.meta.env.DEV ? "dev" : "hosted-like",
+    origin: window.location.origin,
+    realtimeUrl: getRealtimeServerWsUrl(),
+    realtimeUrlSource: getRealtimeUrlSource(),
+  };
 }
 
 function getRealtimeUrlSource(): RuntimeUrlSource {

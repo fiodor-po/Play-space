@@ -9,6 +9,12 @@ import {
 } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import { HTML_UI_FONT_FAMILY } from "../../board/constants";
+import {
+  DICE_ROLL_LOG_ENTRY_MIN_HEIGHT,
+  DICE_ROLL_LOG_HISTORY_ROW_GAP,
+  DiceRollLogPanel,
+  type DiceRollLogPanelEntry,
+} from "../../dice/DiceRollLogPanel";
 import { PARTICIPANT_COLOR_OPTIONS } from "../../lib/roomSession";
 import { boardSurfaceRecipes } from "./boardSurfaces";
 import { ContextMenu, type ContextMenuItem } from "./ContextMenu";
@@ -3362,6 +3368,70 @@ function ContextMenuGridLayoutPreview() {
   );
 }
 
+const diceRollLogSampleEntries: DiceRollLogPanelEntry[] = [
+  {
+    id: "roll-1",
+    actorName: "Nell",
+    actorColor: participantColor[2].border.default,
+    rollLabel: "2d20",
+    displayResults: [11, 18],
+  },
+  {
+    id: "roll-2",
+    actorName: "Rook",
+    actorColor: participantColor[5].border.default,
+    rollLabel: "3d20",
+    displayResults: [3, 19],
+  },
+  {
+    id: "roll-3",
+    actorName: "Mira",
+    actorColor: participantColor[3].border.default,
+    rollLabel: "mixed",
+    displayResults: [12],
+  },
+  {
+    id: "roll-4",
+    actorName: "Ed",
+    actorColor: participantColor[6].border.default,
+    rollLabel: "d4",
+    displayResults: [2],
+  },
+];
+
+function DiceRollLogSandboxPreview() {
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  return (
+    <PreviewCard
+      title="Interactive roll log"
+      recipeLabel="dice-roll-log / collapsed-card-expanded-history"
+    >
+      <div
+        style={{
+          width: "100%",
+          maxWidth: 340,
+        }}
+      >
+        <DiceRollLogPanel
+          entries={diceRollLogSampleEntries}
+          isExpanded={isExpanded}
+          maxExpandedHeight={
+            DICE_ROLL_LOG_ENTRY_MIN_HEIGHT * 3 +
+            DICE_ROLL_LOG_HISTORY_ROW_GAP * 2
+          }
+          onToggleExpanded={() => {
+            setIsExpanded((current) => !current);
+          }}
+        />
+      </div>
+      <div style={sectionDescriptionStyle}>
+        Click the roll card to open history. Click any roll card to collapse.
+      </div>
+    </PreviewCard>
+  );
+}
+
 function ButtonPreview({
   recipe,
   state,
@@ -4548,6 +4618,15 @@ export function DesignSystemSandboxPage() {
         >
           <div style={previewGridStyle}>
             <ContextMenuGridLayoutPreview />
+          </div>
+        </SectionCard>
+
+        <SectionCard
+          title="Dice roll log"
+          description="Roll-history panel states for latest-result and full-history display."
+        >
+          <div style={previewGridStyle}>
+            <DiceRollLogSandboxPreview />
           </div>
         </SectionCard>
 

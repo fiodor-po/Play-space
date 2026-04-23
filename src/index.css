@@ -12,8 +12,17 @@ body,
 body {
   overflow: hidden;
   background: var(--ui-board-backdrop);
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 * {
   box-sizing: border-box;
+}
+
+input,
+textarea,
+[contenteditable="true"] {
+  -webkit-user-select: text;
+  user-select: text;
 }

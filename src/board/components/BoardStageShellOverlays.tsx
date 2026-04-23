@@ -18,6 +18,7 @@ import {
 import { CursorOverlay, type CursorOverlayItem } from "./CursorOverlay";
 import { ParticipantSessionPanel } from "./ParticipantSessionPanel";
 import type { LiveKitMediaStatusViewModel } from "../../media/liveKitMediaStatus";
+import type { FeedbackCaptureContext } from "../../lib/feedbackCapture";
 import { ContextMenu, type ContextMenuItem } from "../../ui/system/ContextMenu";
 import {
   PARTICIPANT_AVATAR_FACE_TO_TOKEN_ICON_ID,
@@ -59,6 +60,8 @@ type BoardContextMenuState = {
 } | null;
 
 const BOARD_SURFACE_CONTROL_BORDER_WIDTH = 2;
+const FLOATING_BUTTON_EXTRA_BORDER = "1px solid rgba(255, 255, 255, 0.22)";
+const FLOATING_BUTTON_SHADOW = "0 12px 26px rgba(2, 6, 23, 0.18)";
 const TOKEN_CONTEXT_MENU_GRID_ITEM_SIZE = 38;
 const TOKEN_CONTEXT_MENU_GRID_GAP = 5;
 const TOKEN_CONTEXT_MENU_SHELL_INLINE_PADDING = 12;
@@ -93,6 +96,7 @@ type BoardStageShellOverlaysProps = {
   participantNameDraft: string;
   isEditingParticipantName: boolean;
   mediaStatus: LiveKitMediaStatusViewModel | null;
+  feedbackContext: FeedbackCaptureContext;
   isDebugToolsEnabled: boolean;
   isDevToolsOpen: boolean;
   onLeaveRoom: () => void;
@@ -141,6 +145,7 @@ export function BoardStageShellOverlays({
   participantNameDraft,
   isEditingParticipantName,
   mediaStatus,
+  feedbackContext,
   isDebugToolsEnabled,
   isDevToolsOpen,
   onLeaveRoom,
@@ -329,82 +334,87 @@ export function BoardStageShellOverlays({
     <>
       <CursorOverlay cursors={cursors} />
 
-      <button
-        type="button"
-        onClick={onAddTokenButtonClick}
-        aria-label="Add token"
-        {...getButtonProps(addTokenButtonRecipe)}
-        {...getDesignSystemDebugAttrs(addTokenButtonRecipe.debug)}
+      <div
         style={{
-          ...getButtonProps(addTokenButtonRecipe).style,
           position: "fixed",
           top: 20,
-          right: 100,
+          left: "50%",
           zIndex: 30,
-          pointerEvents: "auto",
-          width: 32,
-          minWidth: 32,
-          height: 32,
-          minHeight: 32,
-          padding: 0,
-          borderRadius: 999,
-          fontSize: 18,
-          lineHeight: 1,
+          display: "flex",
+          gap: 8,
+          transform: "translateX(-50%)",
+          pointerEvents: "none",
         }}
       >
-        <span style={PLUS_BUTTON_GLYPH_STYLE}>+</span>
-      </button>
+        <button
+          type="button"
+          onClick={onAddTokenButtonClick}
+          aria-label="Add token"
+          {...getButtonProps(addTokenButtonRecipe)}
+          {...getDesignSystemDebugAttrs(addTokenButtonRecipe.debug)}
+          style={{
+            ...getButtonProps(addTokenButtonRecipe).style,
+            pointerEvents: "auto",
+            width: 32,
+            minWidth: 32,
+            height: 32,
+            minHeight: 32,
+            padding: 0,
+            border: FLOATING_BUTTON_EXTRA_BORDER,
+            borderRadius: 999,
+            boxShadow: FLOATING_BUTTON_SHADOW,
+            fontSize: 18,
+            lineHeight: 1,
+          }}
+        >
+          <span style={PLUS_BUTTON_GLYPH_STYLE}>+</span>
+        </button>
 
-      <button
-        type="button"
-        onClick={onAddTextCardButtonClick}
-        aria-label="Add text card"
-        {...getButtonProps(addTextCardButtonRecipe)}
-        {...getDesignSystemDebugAttrs(addTextCardButtonRecipe.debug)}
-        style={{
-          ...getButtonProps(addTextCardButtonRecipe).style,
-          position: "fixed",
-          top: 20,
-          right: 60,
-          zIndex: 30,
-          pointerEvents: "auto",
-          width: 32,
-          minWidth: 32,
-          height: 32,
-          minHeight: 32,
-          padding: 0,
-          fontSize: 18,
-          lineHeight: 1,
-        }}
-      >
-        <span style={PLUS_BUTTON_GLYPH_STYLE}>+</span>
-      </button>
+        <button
+          type="button"
+          onClick={onAddTextCardButtonClick}
+          aria-label="Add text card"
+          {...getButtonProps(addTextCardButtonRecipe)}
+          {...getDesignSystemDebugAttrs(addTextCardButtonRecipe.debug)}
+          style={{
+            ...getButtonProps(addTextCardButtonRecipe).style,
+            pointerEvents: "auto",
+            width: 32,
+            minWidth: 32,
+            height: 32,
+            minHeight: 32,
+            padding: 0,
+            boxShadow: FLOATING_BUTTON_SHADOW,
+            fontSize: 18,
+            lineHeight: 1,
+          }}
+        >
+          <span style={PLUS_BUTTON_GLYPH_STYLE}>+</span>
+        </button>
 
-      <button
-        type="button"
-        onClick={onAddImageButtonClick}
-        aria-label="Add image"
-        {...getButtonProps(addImageButtonRecipe)}
-        {...getDesignSystemDebugAttrs(addImageButtonRecipe.debug)}
-        style={{
-          ...getButtonProps(addImageButtonRecipe).style,
-          position: "fixed",
-          top: 20,
-          right: 20,
-          zIndex: 30,
-          pointerEvents: "auto",
-          width: 32,
-          minWidth: 32,
-          height: 32,
-          minHeight: 32,
-          padding: 0,
-          borderWidth: BOARD_SURFACE_CONTROL_BORDER_WIDTH,
-          fontSize: 18,
-          lineHeight: 1,
-        }}
-      >
-        <span style={PLUS_BUTTON_GLYPH_STYLE}>+</span>
-      </button>
+        <button
+          type="button"
+          onClick={onAddImageButtonClick}
+          aria-label="Add image"
+          {...getButtonProps(addImageButtonRecipe)}
+          {...getDesignSystemDebugAttrs(addImageButtonRecipe.debug)}
+          style={{
+            ...getButtonProps(addImageButtonRecipe).style,
+            pointerEvents: "auto",
+            width: 32,
+            minWidth: 32,
+            height: 32,
+            minHeight: 32,
+            padding: 0,
+            borderWidth: BOARD_SURFACE_CONTROL_BORDER_WIDTH,
+            boxShadow: FLOATING_BUTTON_SHADOW,
+            fontSize: 18,
+            lineHeight: 1,
+          }}
+        >
+          <span style={PLUS_BUTTON_GLYPH_STYLE}>+</span>
+        </button>
+      </div>
 
       <ParticipantSessionPanel
         ref={sessionPanelRef}
@@ -417,6 +427,7 @@ export function BoardStageShellOverlays({
         participantNameDraft={participantNameDraft}
         isEditingParticipantName={isEditingParticipantName}
         mediaStatus={mediaStatus}
+        feedbackContext={feedbackContext}
         isDebugToolsEnabled={isDebugToolsEnabled}
         isDevToolsOpen={isDevToolsOpen}
         onLeaveRoom={onLeaveRoom}

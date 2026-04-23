@@ -13,3 +13,4 @@ canonical docs.
 - [`room-creator-participant-model-draft.md`](/Users/fedorpodrezov/Developer/play-space-alpha/docs/03_PRODUCT/01_FLOWS/room-creator-participant-model-draft.md)
 - [`room-initialization-design.md`](/Users/fedorpodrezov/Developer/play-space-alpha/docs/03_PRODUCT/01_FLOWS/room-initialization-design.md)
 - [`dice-layer-spec.md`](/Users/fedorpodrezov/Developer/play-space-alpha/docs/03_PRODUCT/01_FLOWS/dice-layer-spec.md)
+- [`feedback-capture-flow.md`](/Users/fedorpodrezov/Developer/play-space-alpha/docs/03_PRODUCT/01_FLOWS/feedback-capture-flow.md)

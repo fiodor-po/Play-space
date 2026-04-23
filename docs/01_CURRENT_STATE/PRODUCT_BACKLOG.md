@@ -149,6 +149,10 @@
   Добавить канонический context-menu building block в UI kit, чтобы token menu и будущие board/object menus собирались на общей menu surface, а не на локальных реализациях.
   Tags: `#later`
 
+- `UI kit shadow primitives`
+  Завести канонические shadow primitives для viewport UI и floating controls. Текущие варианты покрываются набором `floating`, `card`, `control`, `label`, `hairline`, `insetHairline`; focus ring и audio activity ring остаются semantic effects.
+  Tags: `#later`
+
 ## 6. Someday
 
 - `Media-centered session polish`

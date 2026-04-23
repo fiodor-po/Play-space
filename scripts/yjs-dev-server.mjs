@@ -1,4 +1,5 @@
 import http from "node:http";
+import { randomUUID } from "node:crypto";
 import fs from "node:fs/promises";
 import fsSync from "node:fs";
 import path from "node:path";
@@ -27,6 +28,9 @@ const durableSnapshotStorePath =
 const durableIdentityStorePath =
   process.env.ROOM_IDENTITY_STORE_FILE ||
   path.join(defaultRuntimeDataDir, "room-identities.json");
+const feedbackStorePath =
+  process.env.FEEDBACK_STORE_FILE ||
+  path.join(defaultRuntimeDataDir, "feedback.jsonl");
 const opsKey = readEnvString("PLAY_SPACE_OPS_KEY");
 const PARTICIPANT_AVATAR_FACE_IDS = [
   "mood-smile",
@@ -191,6 +195,7 @@ server.listen(port, host, () => {
       process.env.PLAY_SPACE_ENV_FILE || path.join(process.cwd(), ".env.localdev"),
     durableSnapshotStorePath,
     durableIdentityStorePath,
+    feedbackStorePath,
     liveKitTokenRouteEnabled: liveKitConfig.enabled,
     liveKitStatus: liveKitConfig.enabled ? "enabled" : "disabled",
     liveKitCredentials: {
@@ -272,11 +277,15 @@ async function handleHttpRequest(req, res) {
     requestUrl.pathname === "/api/client-reset-policy";
   const liveKitTokenRouteMatch =
     requestUrl.pathname === "/api/livekit/token";
+  const feedbackRouteMatch = requestUrl.pathname === "/api/feedback";
+  const feedbackOpsRouteMatch = requestUrl.pathname === "/api/ops/feedback";
   const healthRouteMatch = requestUrl.pathname === "/api/health";
 
   if (
     !snapshotRouteMatch &&
     !liveKitTokenRouteMatch &&
+    !feedbackRouteMatch &&
+    !feedbackOpsRouteMatch &&
     !healthRouteMatch &&
     !roomIdentityRouteMatch &&
     !clientResetPolicyRouteMatch &&
@@ -308,6 +317,7 @@ async function handleHttpRequest(req, res) {
         features: {
           roomIdentity: true,
           roomSnapshots: true,
+          feedbackCapture: true,
           liveKitTokenRoute: liveKitConfig.enabled,
         },
         liveKitStatus: liveKitConfig.enabled ? "enabled" : "disabled",
@@ -317,6 +327,118 @@ async function handleHttpRequest(req, res) {
         },
         durableIdentityStorePath,
         durableSnapshotStorePath,
+        feedbackStorePath,
+      })
+    );
+    return;
+  }
+
+  if (feedbackRouteMatch) {
+    if (req.method !== "POST") {
+      res.writeHead(405, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Method not allowed" }));
+      return;
+    }
+
+    const body = await readJsonBody(req);
+    const feedbackEntry = normalizeFeedbackCapture(body);
+
+    if (!feedbackEntry) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(
+        JSON.stringify({
+          error: "type, message, roomId, and participant are required",
+          code: "INVALID_FEEDBACK_REQUEST",
+        })
+      );
+      return;
+    }
+
+    await appendFeedbackCapture(feedbackEntry);
+
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ ok: true }));
+    return;
+  }
+
+  if (feedbackOpsRouteMatch) {
+    if (!requireOpsAuthorization(req, res)) {
+      return;
+    }
+
+    if (req.method !== "GET") {
+      res.writeHead(405, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Method not allowed" }));
+      return;
+    }
+
+    const limit = readQueryPositiveInteger(requestUrl, "limit", 50, 1, 200);
+    const cursorParseResult = readFeedbackRecordCursorQuery(requestUrl, "cursor");
+
+    if (!cursorParseResult.ok) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(
+        JSON.stringify({
+          error: "Invalid feedback cursor",
+          code: "INVALID_FEEDBACK_CURSOR",
+        })
+      );
+      return;
+    }
+
+    const cursor = cursorParseResult.value;
+    const type = readFeedbackQueryType(requestUrl);
+    const roomId = readOptionalNormalizedRoomIdQuery(requestUrl, "roomId");
+    const participantId = readOptionalFeedbackQueryString(
+      requestUrl,
+      "participantId",
+      160
+    );
+    const since = readOptionalIsoTimestampQuery(requestUrl, "since");
+    const feedbackEntries = await readFeedbackCaptures();
+    const filteredEntries = feedbackEntries.filter((entry) => {
+      if (type && entry.type !== type) {
+        return false;
+      }
+
+      if (roomId && entry.roomId !== roomId) {
+        return false;
+      }
+
+      if (participantId && entry.participant.id !== participantId) {
+        return false;
+      }
+
+      if (since && entry.receivedAt < since) {
+        return false;
+      }
+
+      return true;
+    });
+    const pagedEntries = cursor
+      ? filteredEntries.filter(
+          (entry) => compareFeedbackCursorPoint(entry, cursor) > 0
+        )
+      : filteredEntries;
+    const items = pagedEntries.slice(0, limit);
+    const nextCursor =
+      items.length === limit && pagedEntries.length > limit
+        ? createFeedbackRecordCursor(items[items.length - 1])
+        : null;
+
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(
+      JSON.stringify({
+        items,
+        totalCount: filteredEntries.length,
+        limit,
+        nextCursor,
+        filters: {
+          type,
+          roomId,
+          participantId,
+          since,
+        },
       })
     );
     return;
@@ -892,6 +1014,102 @@ async function writeDurableIdentityStore(store) {
   }
 }
 
+async function appendFeedbackCapture(entry) {
+  try {
+    await fs.mkdir(path.dirname(feedbackStorePath), { recursive: true });
+    await fs.appendFile(feedbackStorePath, `${JSON.stringify(entry)}\n`, "utf8");
+  } catch (error) {
+    console.error("Failed to append feedback capture", error);
+    throw error;
+  }
+}
+
+async function readFeedbackCaptures() {
+  let fileContents = "";
+
+  try {
+    fileContents = await fs.readFile(feedbackStorePath, "utf8");
+  } catch (error) {
+    if (error && typeof error === "object" && error.code === "ENOENT") {
+      return [];
+    }
+
+    console.error("Failed to read feedback capture store", error);
+    throw error;
+  }
+
+  return fileContents
+    .split(/\r?\n/)
+    .map((line, index) => normalizeStoredFeedbackCaptureLine(line, index))
+    .filter(Boolean)
+    .sort(compareFeedbackCapturesNewestFirst);
+}
+
+function normalizeStoredFeedbackCaptureLine(line, index) {
+  const trimmedLine = typeof line === "string" ? line.trim() : "";
+
+  if (!trimmedLine) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(trimmedLine);
+    return normalizeStoredFeedbackCapture(parsed, index);
+  } catch (error) {
+    console.warn("[feedback-capture][invalid-jsonl-line]", {
+      feedbackStorePath,
+      index,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return null;
+  }
+}
+
+function normalizeStoredFeedbackCapture(body, index) {
+  const fields = normalizeFeedbackCaptureFields(body);
+
+  if (!fields) {
+    return null;
+  }
+
+  const receivedAt =
+    readOptionalFeedbackString(body.receivedAt, 80) ||
+    fields.timestamp ||
+    new Date(0).toISOString();
+  const schemaVersion = readPositiveInteger(body.schemaVersion, 1);
+  const id =
+    readOptionalFeedbackString(body.id, 160) ||
+    buildLegacyFeedbackCaptureId(receivedAt, index);
+
+  return {
+    id,
+    schemaVersion,
+    receivedAt,
+    ...fields,
+  };
+}
+
+function compareFeedbackCapturesNewestFirst(left, right) {
+  const leftTimestamp = Date.parse(left.receivedAt);
+  const rightTimestamp = Date.parse(right.receivedAt);
+  const leftValue = Number.isFinite(leftTimestamp) ? leftTimestamp : 0;
+  const rightValue = Number.isFinite(rightTimestamp) ? rightTimestamp : 0;
+
+  if (leftValue !== rightValue) {
+    return rightValue - leftValue;
+  }
+
+  return right.id.localeCompare(left.id);
+}
+
+function compareFeedbackCursorPoint(left, right) {
+  return compareFeedbackCapturesNewestFirst(left, right);
+}
+
+function createFeedbackRecordCursor(entry) {
+  return `${entry.receivedAt}|${entry.id}`;
+}
+
 function createDurableRoomSnapshot(roomId, body) {
   return {
     roomId,
@@ -1377,6 +1595,317 @@ function normalizeRoomId(roomId) {
   }
 
   return roomId.trim().replace(/\s+/g, " ").toLowerCase();
+}
+
+function normalizeFeedbackCapture(body) {
+  const fields = normalizeFeedbackCaptureFields(body);
+
+  if (!fields) {
+    return null;
+  }
+
+  return {
+    id: `fbk_${randomUUID()}`,
+    schemaVersion: 4,
+    receivedAt: new Date().toISOString(),
+    ...fields,
+  };
+}
+
+function normalizeFeedbackCaptureFields(body) {
+  if (!body || typeof body !== "object") {
+    return null;
+  }
+
+  const type =
+    body.type === "feedback" ? "feedback" : body.type === "bug" ? "bug" : "";
+  const message = readLimitedFeedbackString(body.message, 2000);
+  const roomId = normalizeRoomId(body.roomId);
+  const participant =
+    body.participant && typeof body.participant === "object"
+      ? body.participant
+      : null;
+  const participantId = readLimitedFeedbackString(participant?.id, 160);
+  const participantName = readLimitedFeedbackString(participant?.name, 160);
+  const participantColor = readLimitedFeedbackString(participant?.color, 80);
+
+  if (!type || !message || !roomId || !participantId || !participantName) {
+    return null;
+  }
+
+  return {
+    type,
+    message,
+    roomId,
+    participant: {
+      id: participantId,
+      name: participantName,
+      color: participantColor,
+    },
+    appVersionLabel: readOptionalFeedbackString(body.appVersionLabel, 120),
+    buildId: readOptionalFeedbackString(body.buildId, 160),
+    path: readLimitedFeedbackString(body.path, 500),
+    userAgent: readLimitedFeedbackString(body.userAgent, 500),
+    timestamp: readLimitedFeedbackString(body.timestamp, 80),
+    clientDiagnostics: normalizeFeedbackClientDiagnostics(body.clientDiagnostics),
+  };
+}
+
+function normalizeFeedbackClientDiagnostics(value) {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const viewport =
+    value.viewport && typeof value.viewport === "object"
+      ? {
+          width: readNonNegativeNumber(value.viewport.width),
+          height: readNonNegativeNumber(value.viewport.height),
+          devicePixelRatio: readNonNegativeNumber(value.viewport.devicePixelRatio),
+        }
+      : null;
+  const browser =
+    value.browser && typeof value.browser === "object"
+      ? {
+          language: readOptionalFeedbackString(value.browser.language, 80),
+          platform: readOptionalFeedbackString(value.browser.platform, 160),
+          online: readBooleanOrNull(value.browser.online),
+        }
+      : null;
+  const room =
+    value.room && typeof value.room === "object"
+      ? {
+          roomId: readOptionalFeedbackString(value.room.roomId, 160),
+          participantId: readOptionalFeedbackString(value.room.participantId, 160),
+          participantName: readOptionalFeedbackString(value.room.participantName, 160),
+          participantColor: readOptionalFeedbackString(value.room.participantColor, 80),
+          isRoomOwner: readBooleanOrNull(value.room.isRoomOwner),
+          participantCount: readNonNegativeInteger(value.room.participantCount),
+          objectCounts:
+            value.room.objectCounts && typeof value.room.objectCounts === "object"
+              ? {
+                  tokens: readNonNegativeInteger(value.room.objectCounts.tokens),
+                  images: readNonNegativeInteger(value.room.objectCounts.images),
+                  textCards: readNonNegativeInteger(value.room.objectCounts.textCards),
+                }
+              : null,
+        }
+      : null;
+  const media =
+    value.media && typeof value.media === "object"
+      ? {
+          enabled: readBooleanOrNull(value.media.enabled),
+          connectionState: readOptionalFeedbackString(
+            value.media.connectionState,
+            80
+          ),
+          micEnabled: readBooleanOrNull(value.media.micEnabled),
+          cameraEnabled: readBooleanOrNull(value.media.cameraEnabled),
+        }
+      : null;
+  const runtime =
+    value.runtime && typeof value.runtime === "object"
+      ? {
+          mode: readOptionalFeedbackString(value.runtime.mode, 80),
+          origin: readOptionalFeedbackString(value.runtime.origin, 500),
+          realtimeUrl: readOptionalFeedbackString(value.runtime.realtimeUrl, 500),
+          realtimeUrlSource: readOptionalFeedbackString(
+            value.runtime.realtimeUrlSource,
+            80
+          ),
+          apiBaseUrl: readOptionalFeedbackString(value.runtime.apiBaseUrl, 500),
+          apiBaseUrlSource: readOptionalFeedbackString(
+            value.runtime.apiBaseUrlSource,
+            80
+          ),
+          liveKitUrl: readOptionalFeedbackString(value.runtime.liveKitUrl, 500),
+          liveKitUrlSource: readOptionalFeedbackString(
+            value.runtime.liveKitUrlSource,
+            80
+          ),
+          liveKitTokenUrl: readOptionalFeedbackString(
+            value.runtime.liveKitTokenUrl,
+            500
+          ),
+          liveKitTokenUrlSource: readOptionalFeedbackString(
+            value.runtime.liveKitTokenUrlSource,
+            80
+          ),
+          liveKitEnabled: readBooleanOrNull(value.runtime.liveKitEnabled),
+        }
+      : null;
+  const recentErrors = Array.isArray(value.recentErrors)
+    ? value.recentErrors
+        .map((entry) => normalizeFeedbackRecentError(entry))
+        .filter(Boolean)
+        .slice(-20)
+    : [];
+
+  if (!viewport && !browser && !room && !media && !runtime && recentErrors.length === 0) {
+    return null;
+  }
+
+  return {
+    viewport,
+    browser,
+    room,
+    media,
+    runtime,
+    recentErrors,
+  };
+}
+
+function normalizeFeedbackRecentError(value) {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const kind = readOptionalFeedbackString(value.kind, 80);
+  const message = readOptionalFeedbackString(value.message, 1000);
+  const source = readOptionalFeedbackString(value.source, 500);
+  const timestamp = readOptionalFeedbackString(value.timestamp, 80);
+
+  if (!kind || !message || !source || !timestamp) {
+    return null;
+  }
+
+  return {
+    kind,
+    message,
+    source,
+    timestamp,
+  };
+}
+
+function buildLegacyFeedbackCaptureId(receivedAt, index) {
+  const safeTimestamp = receivedAt.replace(/[^a-z0-9]+/gi, "-").slice(0, 80);
+  return `fbk_legacy_${safeTimestamp || "unknown"}_${index}`;
+}
+
+function readLimitedFeedbackString(value, maxLength) {
+  if (typeof value !== "string") {
+    return "";
+  }
+
+  return value.trim().slice(0, maxLength);
+}
+
+function readOptionalFeedbackString(value, maxLength) {
+  const normalized = readLimitedFeedbackString(value, maxLength);
+
+  return normalized || null;
+}
+
+function readBooleanOrNull(value) {
+  return typeof value === "boolean" ? value : null;
+}
+
+function readNonNegativeNumber(value) {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0
+    ? value
+    : null;
+}
+
+function readNonNegativeInteger(value) {
+  return Number.isInteger(value) && value >= 0 ? value : null;
+}
+
+function readPositiveInteger(value, fallbackValue) {
+  const parsed = Number.parseInt(String(value ?? ""), 10);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : fallbackValue;
+}
+
+function readQueryPositiveInteger(
+  requestUrl,
+  name,
+  fallbackValue,
+  minValue,
+  maxValue = Number.POSITIVE_INFINITY
+) {
+  const parsed = Number.parseInt(requestUrl.searchParams.get(name) || "", 10);
+
+  if (!Number.isInteger(parsed)) {
+    return fallbackValue;
+  }
+
+  return Math.min(Math.max(parsed, minValue), maxValue);
+}
+
+function readOptionalFeedbackQueryString(requestUrl, name, maxLength) {
+  const value = readOptionalFeedbackString(requestUrl.searchParams.get(name), maxLength);
+  return value || null;
+}
+
+function readFeedbackRecordCursorQuery(requestUrl, name) {
+  const rawCursor = requestUrl.searchParams.get(name);
+
+  if (rawCursor === null || rawCursor === "") {
+    return {
+      ok: true,
+      value: null,
+    };
+  }
+
+  const separatorIndex = rawCursor.indexOf("|");
+
+  if (separatorIndex <= 0 || separatorIndex === rawCursor.length - 1) {
+    return {
+      ok: false,
+      value: null,
+    };
+  }
+
+  const receivedAt = readOptionalFeedbackString(
+    rawCursor.slice(0, separatorIndex),
+    80
+  );
+  const id = readOptionalFeedbackString(rawCursor.slice(separatorIndex + 1), 160);
+
+  if (!receivedAt || !id) {
+    return {
+      ok: false,
+      value: null,
+    };
+  }
+
+  const timestampValue = Date.parse(receivedAt);
+
+  if (!Number.isFinite(timestampValue)) {
+    return {
+      ok: false,
+      value: null,
+    };
+  }
+
+  return {
+    ok: true,
+    value: {
+      receivedAt: new Date(timestampValue).toISOString(),
+      id,
+    },
+  };
+}
+
+function readFeedbackQueryType(requestUrl) {
+  const value = requestUrl.searchParams.get("type");
+  return value === "bug" || value === "feedback" ? value : null;
+}
+
+function readOptionalNormalizedRoomIdQuery(requestUrl, name) {
+  const value = requestUrl.searchParams.get(name);
+  const normalized = normalizeRoomId(value);
+  return normalized || null;
+}
+
+function readOptionalIsoTimestampQuery(requestUrl, name) {
+  const value = readOptionalFeedbackString(requestUrl.searchParams.get(name), 80);
+
+  if (!value) {
+    return null;
+  }
+
+  const timestampValue = Date.parse(value);
+  return Number.isFinite(timestampValue) ? new Date(timestampValue).toISOString() : null;
 }
 
 function normalizeRealtimeDocName(docName) {

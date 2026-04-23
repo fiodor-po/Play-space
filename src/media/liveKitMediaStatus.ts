@@ -4,7 +4,11 @@ import type {
 } from "./useLiveKitMediaSession";
 
 export type LiveKitMediaStatusViewModel = {
+  cameraEnabled: boolean;
+  connectionState: string;
+  enabled: boolean;
   error: LiveKitMediaSessionError | null;
+  micEnabled: boolean;
   mediaErrorDetail: string | null;
   mediaErrorLabel: string | null;
   isMediaConnected: boolean;
@@ -41,7 +45,11 @@ export function createLiveKitMediaStatusViewModel(params: {
   const mediaErrorLabel = getLiveKitMediaErrorLabel(mediaSession.error);
 
   return {
+    cameraEnabled: mediaSession.cameraEnabled,
+    connectionState: String(mediaSession.connectionState),
+    enabled: true,
     error: mediaSession.error,
+    micEnabled: mediaSession.micEnabled,
     mediaErrorDetail: mediaSession.errorDetail,
     mediaErrorLabel,
     isMediaConnected: mediaSession.isConnected,

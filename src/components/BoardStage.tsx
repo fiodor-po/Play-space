@@ -95,6 +95,7 @@ import {
   getInitialImageDisplaySize,
   removeImageStrokePartsIntersectingCircleInObjects,
   removeImageStrokesIntersectingCircleInObjects,
+  updateImageStrokeInObjects,
 } from "../lib/boardImage";
 import {
   loadDurableRoomSnapshot,
@@ -137,6 +138,7 @@ import {
 } from "../lib/roomTextCardsRealtime";
 import type { BoardObjectPropertySyncDebugEntry } from "../lib/boardObjectPropertySync";
 import type { LiveKitMediaStatusViewModel } from "../media/liveKitMediaStatus";
+import type { FeedbackCaptureContext } from "../lib/feedbackCapture";
 import {
   type LocalParticipantSession,
   type ParticipantPresence,
@@ -175,6 +177,7 @@ import type {
 } from "../types/board";
 
 const LOCAL_CURSOR_PRESENCE_MIN_INTERVAL_MS = 33;
+const IMAGE_STRAIGHT_LINE_SNAP_ANGLE_RADIANS = Math.PI / 4;
 
 function getSharedBoardObjects(nextObjects: BoardObject[]) {
   return nextObjects.filter(
@@ -183,6 +186,29 @@ function getSharedBoardObjects(nextObjects: BoardObject[]) {
       object.kind === "image" ||
       isNoteCardObject(object)
   );
+}
+
+function getStraightLineSnappedPoint(
+  startPoint: { x: number; y: number },
+  pointerPoint: { x: number; y: number }
+) {
+  const dx = pointerPoint.x - startPoint.x;
+  const dy = pointerPoint.y - startPoint.y;
+  const distance = Math.hypot(dx, dy);
+
+  if (distance === 0) {
+    return pointerPoint;
+  }
+
+  const angle = Math.atan2(dy, dx);
+  const snappedAngle =
+    Math.round(angle / IMAGE_STRAIGHT_LINE_SNAP_ANGLE_RADIANS) *
+    IMAGE_STRAIGHT_LINE_SNAP_ANGLE_RADIANS;
+
+  return {
+    x: startPoint.x + Math.cos(snappedAngle) * distance,
+    y: startPoint.y + Math.sin(snappedAngle) * distance,
+  };
 }
 
 function getReplicaObjectCount(content: {
@@ -305,6 +331,10 @@ type BoardContextMenuState = {
 
 type ActiveImageStrokeSession = {
   imageId: string;
+  startPoint: {
+    x: number;
+    y: number;
+  };
   strokeIndex: number;
 };
 
@@ -1669,6 +1699,58 @@ export default function BoardStage({
   const sharedNoteCount = sharedNoteObjects.length;
   const sharedObjectCount =
     sharedTokenCount + sharedImageCount + sharedNoteCount;
+  const participantCount = useMemo(() => {
+    const participantIds = new Set<string>([participantSession.id]);
+
+    Object.keys(participantPresences).forEach((participantId) => {
+      if (participantId) {
+        participantIds.add(participantId);
+      }
+    });
+
+    Object.keys(roomOccupancies).forEach((participantId) => {
+      if (participantId) {
+        participantIds.add(participantId);
+      }
+    });
+
+    return participantIds.size;
+  }, [participantPresences, participantSession.id, roomOccupancies]);
+  const feedbackContext: FeedbackCaptureContext = useMemo(
+    () => ({
+      isRoomOwner: isCurrentParticipantRoomCreator,
+      media: {
+        enabled: mediaStatus?.enabled ?? false,
+        connectionState: mediaStatus?.connectionState ?? "disabled",
+        micEnabled: mediaStatus?.micEnabled ?? false,
+        cameraEnabled: mediaStatus?.cameraEnabled ?? false,
+      },
+      room: {
+        roomId,
+        participantId: participantSession.id,
+        participantName: participantSession.name,
+        participantColor: participantSession.color,
+        participantCount,
+        objectCounts: {
+          tokens: sharedTokenCount,
+          images: sharedImageCount,
+          textCards: sharedNoteCount,
+        },
+      },
+    }),
+    [
+      isCurrentParticipantRoomCreator,
+      mediaStatus,
+      participantCount,
+      participantSession.color,
+      participantSession.id,
+      participantSession.name,
+      roomId,
+      sharedImageCount,
+      sharedNoteCount,
+      sharedTokenCount,
+    ]
+  );
   const getRoomDocumentCreatorAppearance = (creatorId: string | null | undefined) => {
     if (!creatorId) {
       return null;
@@ -2501,6 +2583,7 @@ export default function BoardStage({
 
       activeImageStrokeRef.current = {
         imageId: id,
+        startPoint: point,
         strokeIndex: imageStrokes.length,
       };
 
@@ -2519,10 +2602,41 @@ export default function BoardStage({
     });
   };
 
-  const appendStrokePoint = (imageId: string, point: { x: number; y: number }) => {
+  const appendStrokePoint = (
+    imageId: string,
+    point: { x: number; y: number },
+    options?: {
+      constrainToStraightLine?: boolean;
+    }
+  ) => {
     const activeStroke = activeImageStrokeRef.current;
 
     if (!activeStroke || activeStroke.imageId !== imageId) {
+      return;
+    }
+
+    if (options?.constrainToStraightLine) {
+      const snappedPoint = getStraightLineSnappedPoint(
+        activeStroke.startPoint,
+        point
+      );
+
+      applyBoardObjectsUpdate((currentObjects) =>
+        updateImageStrokeInObjects(
+          currentObjects,
+          imageId,
+          activeStroke.strokeIndex,
+          (stroke) => ({
+            ...stroke,
+            points: [
+              activeStroke.startPoint.x,
+              activeStroke.startPoint.y,
+              snappedPoint.x,
+              snappedPoint.y,
+            ],
+          })
+        )
+      );
       return;
     }
 
@@ -5603,6 +5717,7 @@ export default function BoardStage({
         participantNameDraft={participantNameDraft}
         isEditingParticipantName={isEditingParticipantName}
         mediaStatus={mediaStatus}
+        feedbackContext={feedbackContext}
         isDebugToolsEnabled={isDebugControlsEnabled}
         isDevToolsOpen={isDevToolsOpen}
         onLeaveRoom={onLeaveRoom}

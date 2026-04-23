@@ -1,4 +1,4 @@
-import { forwardRef, type ReactNode } from "react";
+import { forwardRef, useState, type FormEvent, type ReactNode } from "react";
 import { HTML_UI_FONT_FAMILY } from "../constants";
 import { getDesignSystemDebugAttrs } from "../../ui/system/debugMeta";
 import {
@@ -6,12 +6,19 @@ import {
   createTextButtonRecipe,
   getButtonProps,
 } from "../../ui/system/families/button";
+import { fieldRecipes, getFieldShellProps } from "../../ui/system/families/field";
 import { boardSurfaceRecipes } from "../../ui/system/boardSurfaces";
 import { selectionControlRecipes } from "../../ui/system/families/selectionControls";
 import { inlineTextRecipes } from "../../ui/system/inlineText";
-import { border, text } from "../../ui/system/foundations";
+import { border, surface, text } from "../../ui/system/foundations";
 import { fontSize, uiTextStyle, uiTextStyleSmall } from "../../ui/system/typography";
 import type { LiveKitMediaStatusViewModel } from "../../media/liveKitMediaStatus";
+import {
+  buildFeedbackCapturePayload,
+  submitFeedbackCapture,
+  type FeedbackCaptureContext,
+  type FeedbackCaptureType,
+} from "../../lib/feedbackCapture";
 
 type ParticipantSessionPanelProps = {
   roomId: string;
@@ -23,6 +30,7 @@ type ParticipantSessionPanelProps = {
   participantNameDraft: string;
   isEditingParticipantName: boolean;
   mediaStatus: LiveKitMediaStatusViewModel | null;
+  feedbackContext: FeedbackCaptureContext;
   isDebugToolsEnabled: boolean;
   isDevToolsOpen: boolean;
   onLeaveRoom: () => void;
@@ -48,6 +56,7 @@ export const ParticipantSessionPanel = forwardRef<
     participantNameDraft,
     isEditingParticipantName,
     mediaStatus,
+    feedbackContext,
     isDebugToolsEnabled,
     isDevToolsOpen,
     onLeaveRoom,
@@ -60,16 +69,42 @@ export const ParticipantSessionPanel = forwardRef<
   },
   ref
 ) {
+  const [isFeedbackFormOpen, setIsFeedbackFormOpen] = useState(false);
+  const [feedbackType, setFeedbackType] =
+    useState<FeedbackCaptureType>("bug");
+  const [feedbackMessage, setFeedbackMessage] = useState("");
+  const [feedbackSubmitState, setFeedbackSubmitState] = useState<
+    "idle" | "submitting" | "success" | "error"
+  >("idle");
+  const [feedbackStatusMessage, setFeedbackStatusMessage] = useState("");
   const leaveRoomButtonRecipe = createTextButtonRecipe(
     buttonRecipes.secondary.small,
     "muted"
   );
+  const feedbackButtonRecipe = createTextButtonRecipe(
+    buttonRecipes.secondary.small,
+    "muted"
+  );
+  const feedbackCancelButtonRecipe = createTextButtonRecipe(
+    buttonRecipes.secondary.small,
+    "muted"
+  );
+  const feedbackSubmitButtonRecipe = buttonRecipes.primaryNeutral.small;
   const mediaActionButtonRecipe = createTextButtonRecipe(
     buttonRecipes.secondary.small,
     "muted"
   );
   const resetBoardButtonRecipe = buttonRecipes.danger.small;
   const devToolsSelectionRecipe = selectionControlRecipes.checkbox.small;
+  const feedbackTypeSelectionRecipe = selectionControlRecipes.radio.small;
+  const feedbackSubmitButtonProps = getButtonProps(feedbackSubmitButtonRecipe, {
+    disabled:
+      feedbackSubmitState === "submitting" || feedbackMessage.trim().length === 0,
+    loading: feedbackSubmitState === "submitting",
+  });
+  const feedbackCancelButtonProps = getButtonProps(feedbackCancelButtonRecipe, {
+    disabled: feedbackSubmitState === "submitting",
+  });
   const mediaActionButtonLabel = mediaStatus?.isMediaConnected
     ? "Leave media"
     : mediaStatus?.isMediaJoining
@@ -89,6 +124,51 @@ export const ParticipantSessionPanel = forwardRef<
     loading: mediaStatus?.isMediaJoining ?? false,
   });
   const resetVideoPositionsButtonProps = getButtonProps(mediaActionButtonRecipe);
+  const feedbackFieldShellProps = getFieldShellProps(fieldRecipes.small.shell, {
+    invalid: feedbackSubmitState === "error",
+  });
+
+  const handleFeedbackSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    const trimmedMessage = feedbackMessage.trim();
+
+    if (!trimmedMessage) {
+      setFeedbackSubmitState("error");
+      setFeedbackStatusMessage("Add a short note before submitting.");
+      return;
+    }
+
+    setFeedbackSubmitState("submitting");
+    setFeedbackStatusMessage("");
+
+    try {
+      await submitFeedbackCapture(
+        buildFeedbackCapturePayload({
+          type: feedbackType,
+          message: trimmedMessage,
+          context: feedbackContext,
+        })
+      );
+
+      setFeedbackSubmitState("success");
+      setFeedbackStatusMessage("Feedback saved. Thank you.");
+      setFeedbackMessage("");
+    } catch {
+      setFeedbackSubmitState("error");
+      setFeedbackStatusMessage("Could not save feedback. Try again later.");
+    }
+  };
+
+  const closeFeedbackForm = () => {
+    if (feedbackSubmitState === "submitting") {
+      return;
+    }
+
+    setIsFeedbackFormOpen(false);
+    setFeedbackSubmitState("idle");
+    setFeedbackStatusMessage("");
+  };
 
   return (
     <div
@@ -343,6 +423,180 @@ export const ParticipantSessionPanel = forwardRef<
           </button>
         </div>
       )}
+
+      <div
+        style={{
+          display: "grid",
+          gap: 8,
+          marginTop: 2,
+          paddingTop: 10,
+          borderTop: `1px solid ${border.default}`,
+          pointerEvents: "none",
+        }}
+      >
+        <button
+          type="button"
+          onClick={() => {
+            setIsFeedbackFormOpen((current) => !current);
+            setFeedbackSubmitState("idle");
+            setFeedbackStatusMessage("");
+          }}
+          data-testid="session-feedback-toggle"
+          {...getButtonProps(feedbackButtonRecipe)}
+          style={{
+            ...getButtonProps(feedbackButtonRecipe).style,
+            justifyContent: "flex-start",
+            pointerEvents: "auto",
+          }}
+          {...getDesignSystemDebugAttrs(feedbackButtonRecipe.debug)}
+        >
+          Report bug
+        </button>
+
+        {isFeedbackFormOpen ? (
+          <form
+            onSubmit={handleFeedbackSubmit}
+            data-testid="session-feedback-form"
+            style={{
+              display: "grid",
+              gap: 8,
+              padding: 10,
+              border: `1px solid ${border.default}`,
+              borderRadius: 8,
+              background: surface.inset,
+              pointerEvents: "auto",
+            }}
+          >
+            <div
+              role="radiogroup"
+              aria-label="Feedback type"
+              style={{
+                display: "flex",
+                gap: 10,
+              }}
+            >
+              {(["bug", "feedback"] as const).map((type) => (
+                <label
+                  key={type}
+                  style={feedbackTypeSelectionRecipe.row.style}
+                  className={feedbackTypeSelectionRecipe.row.className}
+                  {...getDesignSystemDebugAttrs(
+                    feedbackTypeSelectionRecipe.row.debug
+                  )}
+                >
+                  <input
+                    type="radio"
+                    name="session-feedback-type"
+                    value={type}
+                    checked={feedbackType === type}
+                    onChange={() => {
+                      setFeedbackType(type);
+                    }}
+                    style={feedbackTypeSelectionRecipe.indicator.style}
+                    className={feedbackTypeSelectionRecipe.indicator.className}
+                  />
+                  <span
+                    style={feedbackTypeSelectionRecipe.label.style}
+                    className={feedbackTypeSelectionRecipe.label.className}
+                  >
+                    {type === "bug" ? "Bug" : "Feedback"}
+                  </span>
+                </label>
+              ))}
+            </div>
+
+            <label
+              style={{
+                display: "grid",
+                gap: 5,
+              }}
+            >
+              <span
+                style={{
+                  ...uiTextStyleSmall.label,
+                  color: text.muted,
+                }}
+              >
+                Message
+              </span>
+              <span
+                {...feedbackFieldShellProps}
+                style={{
+                  ...feedbackFieldShellProps.style,
+                  alignItems: "stretch",
+                  minHeight: 88,
+                }}
+              >
+                <textarea
+                  value={feedbackMessage}
+                  onChange={(event) => {
+                    setFeedbackMessage(event.target.value);
+                    if (feedbackSubmitState !== "submitting") {
+                      setFeedbackSubmitState("idle");
+                      setFeedbackStatusMessage("");
+                    }
+                  }}
+                  data-testid="session-feedback-message"
+                  rows={4}
+                  maxLength={2000}
+                  placeholder="What happened?"
+                  style={{
+                    ...fieldRecipes.small.input.style,
+                    minHeight: 70,
+                    resize: "vertical",
+                    border: "none",
+                    outline: "none",
+                    background: "transparent",
+                    fontFamily: HTML_UI_FONT_FAMILY,
+                  }}
+                />
+              </span>
+            </label>
+
+            {feedbackStatusMessage ? (
+              <div
+                role="status"
+                data-testid="session-feedback-status"
+                style={{
+                  ...uiTextStyleSmall.caption,
+                  color:
+                    feedbackSubmitState === "error" ? text.danger : text.secondary,
+                }}
+              >
+                {feedbackStatusMessage}
+              </div>
+            ) : null}
+
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "flex-end",
+                gap: 8,
+              }}
+            >
+              <button
+                type="button"
+                onClick={closeFeedbackForm}
+                data-testid="session-feedback-cancel"
+                {...feedbackCancelButtonProps}
+                style={feedbackCancelButtonProps.style}
+                {...getDesignSystemDebugAttrs(feedbackCancelButtonRecipe.debug)}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                data-testid="session-feedback-submit"
+                {...feedbackSubmitButtonProps}
+                style={feedbackSubmitButtonProps.style}
+                {...getDesignSystemDebugAttrs(feedbackSubmitButtonRecipe.debug)}
+              >
+                Submit
+              </button>
+            </div>
+          </form>
+        ) : null}
+      </div>
 
       {isDebugToolsEnabled ? (
         <div
