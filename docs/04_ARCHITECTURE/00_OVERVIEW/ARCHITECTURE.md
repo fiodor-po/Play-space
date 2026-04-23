@@ -188,8 +188,11 @@ Default local runtime data files:
 
 - `.runtime-data/room-snapshots.json`
 - `.runtime-data/room-identities.json`
+- `.runtime-data/feedback.jsonl`
 
-Hosted/container setups can override those paths explicitly with `ROOM_SNAPSHOT_STORE_FILE` and `ROOM_IDENTITY_STORE_FILE`.
+Hosted/container setups can override those paths explicitly with
+`ROOM_SNAPSHOT_STORE_FILE`, `ROOM_IDENTITY_STORE_FILE`, and
+`FEEDBACK_STORE_FILE`.
 
 Important hosted caveat:
 

@@ -138,11 +138,14 @@ Before first hosted alpha, make these runtime assumptions explicit:
 ### Realtime / API backend
 - websocket host/bind configuration
 - durable room snapshot store path or equivalent persistent storage path
+- feedback store path or equivalent persistent storage path
+- `PLAY_SPACE_OPS_KEY` for hosted ops routes
 - `LIVEKIT_API_KEY` and `LIVEKIT_API_SECRET` if token minting stays on this service
 
 Important hosted persistence rule:
 
 - do not assume `ROOM_SNAPSHOT_STORE_FILE` is truly deploy-persistent just because it survives restart;
+- do not assume `FEEDBACK_STORE_FILE` is truly deploy-persistent just because it survives restart;
 - current hosted reality has already shown restart persistence without redeploy persistence;
 - this must be explicitly validated, not inferred.
 
