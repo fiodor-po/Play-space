@@ -36,6 +36,11 @@ Current active chapter:
     the current architecture;
   - keep hosted core + video baseline stable while the demo requirements are
     fixed;
+  - current practical baseline is now the Alpha 2 demo line:
+    - Railway backend: `https://play-space-demo.up.railway.app`
+    - Vercel frontend: `https://play-space-eight.vercel.app`
+    - hosted feedback capture and hosted feedback ops readback are verified on
+      that line;
   - do not mix this chapter with broad runtime rewrites or post-demo migration
     work;
   - canonical focused doc:
@@ -98,6 +103,17 @@ Current branch reached its cleanup sprint checkpoint:
 - unified room entry screen now exists and room name is editable before join;
 - in-room lifecycle now uses `Leave room` instead of direct room switching;
 - hosted core checkpoint remains valid and has now expanded into a practical hosted core + video checkpoint.
+- current Alpha 2 demo line is now live on the dedicated demo deploy pair:
+  - frontend: `https://play-space-eight.vercel.app`
+  - backend: `https://play-space-demo.up.railway.app`
+- hosted frontend wiring is now aligned on that demo line:
+  - `VITE_API_BASE_URL` points to the demo backend;
+  - `VITE_Y_WEBSOCKET_URL` points to the demo backend;
+- hosted feedback stack is now verified end to end on the demo line:
+  - `POST /api/feedback` works;
+  - `GET /api/ops/feedback` works with ops key;
+  - invalid feedback cursor returns the expected `400 INVALID_FEEDBACK_CURSOR`;
+  - feedback records persist across Railway redeploy on `/data/feedback.jsonl`;
 - `App` structural hotspot is closed for the current phase;
 - narrow `BoardStage` cleanup chapter is checkpoint-closed;
 - refreshed architecture/runtime audit is completed;
@@ -172,14 +188,14 @@ Current multiplayer interaction truth to remember:
 
 Current expected order from here:
 
-1. keep `main` as the stable hosted/demo line;
+1. keep the Alpha 2 demo line as the stable hosted/demo baseline;
 2. keep planning mode after the closed creator-color checkpoint;
-3. carry forward the per-property sync baseline from `main` rather than from a separate experiment branch;
+3. carry forward the per-property sync baseline from the current demo line rather than from a separate experiment branch;
 4. carry forward staged hosted hydration waves and multi-context slowdown as a separate hosted/runtime follow-up;
 5. carry forward stale `live-occupancy` after abrupt tab close as a separate room-liveness follow-up;
-6. define demo requirements and release gates on the current architecture;
-7. build and release the next demo without opening the runtime migration track;
-8. promote the runtime migration track only after demo release;
+6. carry forward remaining Alpha 2 pre-release fixes on the current architecture;
+7. release Alpha 2 without opening the runtime migration track;
+8. promote the runtime migration track only after Alpha 2 release;
 9. avoid reopening `BoardStage` cleanup micro-slices unless a new sprint is started explicitly.
 
 Current demo chapter framing:

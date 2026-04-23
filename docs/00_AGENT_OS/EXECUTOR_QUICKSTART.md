@@ -73,6 +73,10 @@ Additional checks:
 ```bash
 npm run smoke:e2e
 npm run smoke:e2e:headed
+npm run test:e2e:runtime
+npm run test:e2e:media
+npm run test:e2e:design-system
+npm run test:e2e:all
 npm run build:smoke
 npm run lint
 ```
@@ -123,7 +127,10 @@ If the mechanism is unclear:
 After a meaningful implementation pass:
 
 - run `npm run build`
-- run `npm run smoke:e2e` for board/runtime/recovery/persistence changes
+- run `npm run smoke:e2e` for the short local demo gate
+- add `npm run test:e2e:runtime` for room/runtime/recovery corridor changes
+- add `npm run test:e2e:media` for media/audio-meter changes
+- add `npm run test:e2e:design-system` for DOM state-delta sandbox changes
 - state exactly what you validated
 - say what you did not validate
 - list manual QA steps for the touched flow
@@ -136,7 +143,7 @@ If the change touches board/runtime behavior, use:
 
 If the change is architectural or runtime-internal, prefer a small inspectability path over relying only on "UI still looks fine."
 
-`npm run smoke:e2e` is a machine gate.
+`npm run smoke:e2e` is the short machine gate for this phase.
 It does not replace human product validation.
 If the task changes replica-track recovery semantics, review the bridge-bound
 smoke assertions in `docs/05_OPERATIONS_AND_VALIDATION/03_QA_AND_SMOKE/playwright-smoke-harness.md` and

@@ -30,4 +30,8 @@ fi
 
 echo "[lan-proxy] starting Caddy for https://${LAN_HOST}:3443"
 
+export XDG_DATA_HOME="${XDG_DATA_HOME:-$ROOT_DIR/.runtime-data/caddy/data}"
+export XDG_CONFIG_HOME="${XDG_CONFIG_HOME:-$ROOT_DIR/.runtime-data/caddy/config}"
+mkdir -p "$XDG_DATA_HOME" "$XDG_CONFIG_HOME"
+
 exec caddy run --config ./Caddyfile.lan

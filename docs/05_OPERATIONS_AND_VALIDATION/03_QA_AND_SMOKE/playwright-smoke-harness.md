@@ -28,22 +28,31 @@ One-time browser install на новой машине:
 npm run smoke:e2e:install
 ```
 
-Обычный headless smoke run:
+Обычный headless demo smoke gate:
 
 ```bash
 npm run smoke:e2e
 ```
 
-Headed run для живого просмотра:
+Headed demo smoke run для живого просмотра:
 
 ```bash
 npm run smoke:e2e:headed
 ```
 
+Отдельные расширенные suites:
+
+```bash
+npm run test:e2e:runtime
+npm run test:e2e:media
+npm run test:e2e:design-system
+npm run test:e2e:all
+```
+
 ## Когда запускать harness
 
-Для board/runtime/recovery/persistence changes локальный smoke harness является
-обязательным machine gate.
+Для demo-release readiness локальный short smoke gate остаётся обязательным
+machine gate.
 
 Базовое правило:
 
@@ -59,23 +68,24 @@ npm run smoke:e2e:headed
 - object commit corridors
 - narrow inspectability, которая нужна для проверки этих коридоров
 
+Для runtime/recovery/media changes short gate сам по себе не заменяет полный
+suite review.
+
+Добавляй:
+
+- `npm run test:e2e:runtime` для room/recovery corridors;
+- `npm run test:e2e:media` для media/audio-meter checks;
+- `npm run test:e2e:design-system` для DOM state-delta sandbox;
+- `npm run test:e2e:all` только когда нужен полный локальный прогон.
+
 ## Что harness покрывает сейчас
 
-Текущий accepted local smoke baseline покрывает:
+Текущий accepted local demo smoke baseline покрывает:
 
 - shared note sync between two browser contexts;
 - active-room refresh while live state stays available;
 - same-browser second-tab attach to the active room session inside one browser
   profile;
-- committed image move/resize sync to a second browser context;
-- committed image move/resize refresh survival while room stays live;
-- committed image draw/save refresh survival while room stays live;
-- same-browser local-only recovery for image state through current
-  `replica-converged` / IndexedDB settled corridor;
-- same-browser token move recovery through current
-  `replica-converged` / IndexedDB settled corridor;
-- versioned empty local replica keeps same-browser reopen on the empty local
-  document instead of stale `room-snapshot` or baseline fallback;
 - same-browser note move recovery through current
   `replica-converged` / IndexedDB settled corridor;
 - same-browser note resize recovery through current
@@ -88,12 +98,18 @@ npm run smoke:e2e:headed
   `replica-converged` / IndexedDB settled corridor;
 - same-browser durable-ahead reopen now verifies per-slice durable catch-up for
   the `textCards` slice after provisional local-open;
-- stale `room-snapshot` no longer changes same-browser reopen when no local
-  replica exists;
-- same-browser local recovery corridors now expose the provisional
-  `Initial open` inspectability contract before settled bootstrap;
 - runtime failure policy for uncaught page errors and disallowed console
   events.
+
+Расширенные suites отдельно покрывают:
+
+- image move/resize sync and refresh survival;
+- image draw/save refresh survival;
+- same-browser image recovery corridors;
+- token recovery corridors;
+- stale `room-snapshot` reopen corridor;
+- media audio-meter diagnostics and LiveKit browser-media checks;
+- design-system DOM state-delta checks.
 
 ## Stable smoke invariants
 
@@ -147,7 +163,9 @@ Smoke harness не заменяет:
 - human product judgement;
 - hosted validation;
 - pointer-level UX assessment;
+- runtime/recovery suites outside the short gate;
 - full media / LiveKit automation;
+- design-system sandbox coverage;
 - every possible board corridor.
 
 Он даёт machine gate для текущих локальных board/runtime/recovery рисков.
@@ -157,8 +175,11 @@ Smoke harness не заменяет:
 Если `npm run smoke:e2e` зелёный, это означает:
 
 - локальный stack поднимается автоматически;
-- covered room corridors проходят без ручных шагов;
+- covered short-gate corridors проходят без ручных шагов;
 - suite не видит disallowed runtime failures в этих сценариях.
+
+Это не означает, что `test:e2e:runtime`, `test:e2e:media` или
+`test:e2e:design-system` тоже зелёные.
 
 Если suite падает, это означает одно из двух:
 

@@ -102,6 +102,13 @@ Use these statuses in roadmap notes when useful:
 - media dock UX остаётся spike-level;
 - dice tray / residual dice polish остаются слегка rough;
 - hosted alpha environment уже включает working core stack и working optional video layer;
+- current Alpha 2 demo line is now switched to the dedicated demo deploy pair:
+  - frontend: `https://play-space-eight.vercel.app`
+  - backend: `https://play-space-demo.up.railway.app`
+- hosted frontend wiring is aligned on the demo backend for both API and
+  realtime;
+- hosted feedback stack is now verified on that demo line, including ops read,
+  invalid-cursor behavior, and persistence across Railway redeploy;
 - production-hardening отсутствует и не нужен прямо сейчас;
 - room lifecycle уже отделяет draft room selection от active participation, но broader room UX ещё intentionally rough;
 - browser-local participant identity stabilization is now closed after human gate;
@@ -198,6 +205,14 @@ Current Demo 2 execution order:
 6. drawing tools implementation;
 7. dice UX tightening;
 8. demo integration QA and release prep.
+
+Current Alpha 2 release truth:
+
+- Alpha 2 demo line is live and acts as the stable hosted baseline for the
+  remaining pre-release fixes;
+- deploy switching is no longer the blocker;
+- remaining Alpha 2 work is now a narrow fix-and-polish set on top of the live
+  demo line.
 
 Current creator-color truth now looks like this:
 
