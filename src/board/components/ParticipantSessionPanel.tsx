@@ -1,5 +1,16 @@
 import {
+  IconBug,
+  IconDoorExit,
+  IconDots,
+  IconRefresh,
+  IconSettings,
+  IconVideo,
+  IconVideoOff,
+  type TablerIcon,
+} from "@tabler/icons-react";
+import {
   forwardRef,
+  useEffect,
   useLayoutEffect,
   useRef,
   useState,
@@ -9,17 +20,18 @@ import { HTML_UI_FONT_FAMILY } from "../constants";
 import { getDesignSystemDebugAttrs } from "../../ui/system/debugMeta";
 import {
   buttonRecipes,
-  createTextButtonRecipe,
   getButtonProps,
+  interactionButtonRecipes,
 } from "../../ui/system/families/button";
 import { boardSurfaceRecipes } from "../../ui/system/boardSurfaces";
-import { getBoardBackgroundTheme, getBoardBackgroundThemeOptions } from "../../ui/system/boardMaterials";
-import { selectionControlRecipes } from "../../ui/system/families/selectionControls";
-import { inlineTextRecipes } from "../../ui/system/inlineText";
-import { border, text } from "../../ui/system/foundations";
-import { fontSize, uiTextStyle, uiTextStyleSmall } from "../../ui/system/typography";
-import { FeedbackDock } from "../../ui/system/FeedbackDock";
+import {
+  getBoardBackgroundTheme,
+  getBoardBackgroundThemeOptions,
+} from "../../ui/system/boardMaterials";
+import { uiTextStyle, uiTextStyleSmall } from "../../ui/system/typography";
+import { FeedbackDock, MailGlyph } from "../../ui/system/FeedbackDock";
 import { ContextMenu, type ContextMenuItem } from "../../ui/system/ContextMenu";
+import { FloatingPanel } from "../../ui/system/FloatingPanel";
 import type { LiveKitMediaStatusViewModel } from "../../media/liveKitMediaStatus";
 import {
   buildFeedbackCapturePayload,
@@ -27,6 +39,7 @@ import {
   type FeedbackCaptureContext,
 } from "../../lib/feedbackCapture";
 import type { RoomBackgroundThemeId } from "../../lib/roomSettings";
+import { border, text } from "../../ui/system/foundations";
 
 type ParticipantSessionPanelProps = {
   roomId: string;
@@ -36,8 +49,6 @@ type ParticipantSessionPanelProps = {
   roomBackgroundThemeId: RoomBackgroundThemeId;
   participantName: string;
   participantColor: string;
-  participantNameDraft: string;
-  isEditingParticipantName: boolean;
   mediaStatus: LiveKitMediaStatusViewModel | null;
   feedbackContext: FeedbackCaptureContext;
   isDebugToolsEnabled: boolean;
@@ -46,11 +57,18 @@ type ParticipantSessionPanelProps = {
   onResetBoard: () => void;
   onRoomBackgroundThemeChange: (backgroundThemeId: RoomBackgroundThemeId) => void;
   onToggleDevTools: () => void;
-  onParticipantNameDraftChange: (value: string) => void;
-  onParticipantNameSubmit: () => void;
-  onStartEditingParticipantName: () => void;
   devToolsContent: ReactNode;
+  placement?: "fixed" | "inline";
 };
+
+type AnchorPoint = {
+  x: number;
+  y: number;
+};
+
+const SESSION_PANEL_Z_INDEX = 10;
+const SESSION_MENU_Z_INDEX = 45;
+const SESSION_FEEDBACK_Z_INDEX = 44;
 
 export const ParticipantSessionPanel = forwardRef<
   HTMLDivElement,
@@ -64,8 +82,6 @@ export const ParticipantSessionPanel = forwardRef<
     roomBackgroundThemeId,
     participantName,
     participantColor,
-    participantNameDraft,
-    isEditingParticipantName,
     mediaStatus,
     feedbackContext,
     isDebugToolsEnabled,
@@ -74,473 +90,555 @@ export const ParticipantSessionPanel = forwardRef<
     onResetBoard,
     onRoomBackgroundThemeChange,
     onToggleDevTools,
-    onParticipantNameDraftChange,
-    onParticipantNameSubmit,
-    onStartEditingParticipantName,
     devToolsContent,
+    placement = "fixed",
   },
   ref
 ) {
-  const [isBackgroundMenuOpen, setIsBackgroundMenuOpen] = useState(false);
-  const [backgroundMenuAnchorPoint, setBackgroundMenuAnchorPoint] = useState<{
-    x: number;
-    y: number;
-  } | null>(null);
-  const backgroundMenuButtonRef = useRef<HTMLButtonElement | null>(null);
-  const leaveRoomButtonRecipe = createTextButtonRecipe(
-    buttonRecipes.secondary.small,
-    "muted"
-  );
-  const mediaActionButtonRecipe = createTextButtonRecipe(
-    buttonRecipes.secondary.small,
-    "muted"
-  );
+  const [isSessionMenuOpen, setIsSessionMenuOpen] = useState(false);
+  const [sessionMenuAnchorPoint, setSessionMenuAnchorPoint] =
+    useState<AnchorPoint | null>(null);
+  const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
+  const [feedbackAnchorPoint, setFeedbackAnchorPoint] =
+    useState<AnchorPoint | null>(null);
+  const [isRoomSettingsOpen, setIsRoomSettingsOpen] = useState(false);
+  const menuButtonRef = useRef<HTMLButtonElement | null>(null);
+  const feedbackButtonRef = useRef<HTMLButtonElement | null>(null);
+  const feedbackPanelRef = useRef<HTMLDivElement | null>(null);
+  const iconButtonRecipe = interactionButtonRecipes.secondary.circle;
+  const iconButtonProps = getButtonProps(iconButtonRecipe);
   const resetBoardButtonRecipe = buttonRecipes.danger.small;
   const roomBackgroundButtonRecipe = buttonRecipes.secondary.small;
-  const devToolsSelectionRecipe = selectionControlRecipes.checkbox.small;
   const roomBackgroundTheme = getBoardBackgroundTheme(roomBackgroundThemeId);
   const roomBackgroundOptions = getBoardBackgroundThemeOptions();
-  const mediaActionButtonLabel = mediaStatus?.isMediaConnected
+  const sessionTitleColor =
+    roomCreatorColor ??
+    (isCurrentParticipantRoomCreator ? participantColor : text.primary);
+  const sessionTitle = roomId.toUpperCase();
+  const mediaActionLabel = mediaStatus?.isMediaConnected
     ? "Leave media"
     : mediaStatus?.isMediaJoining
       ? "Joining..."
       : "Join media";
-  const shouldShowMediaActionButton =
+  const shouldShowMediaAction =
     mediaStatus !== null &&
-    (mediaStatus.canLeaveMedia ||
-      mediaStatus.canJoinMedia ||
-      mediaStatus.isMediaJoining);
-  const isMediaActionButtonDisabled =
+    (mediaStatus.canLeaveMedia || mediaStatus.canJoinMedia || mediaStatus.isMediaJoining);
+  const isMediaActionDisabled =
     mediaStatus === null ||
     mediaStatus.isMediaJoining ||
     (!mediaStatus.canLeaveMedia && !mediaStatus.canJoinMedia);
-  const mediaActionButtonProps = getButtonProps(mediaActionButtonRecipe, {
-    disabled: isMediaActionButtonDisabled,
-    loading: mediaStatus?.isMediaJoining ?? false,
-  });
-  const resetVideoPositionsButtonProps = getButtonProps(mediaActionButtonRecipe);
 
   useLayoutEffect(() => {
-    if (!isBackgroundMenuOpen) {
-      setBackgroundMenuAnchorPoint(null);
+    if (!isSessionMenuOpen) {
+      setSessionMenuAnchorPoint(null);
       return;
     }
 
-    const updateBackgroundMenuAnchorPoint = () => {
-      const buttonRect = backgroundMenuButtonRef.current?.getBoundingClientRect();
+    const updateSessionMenuAnchor = () => {
+      const buttonRect = menuButtonRef.current?.getBoundingClientRect();
 
       if (!buttonRect) {
-        setBackgroundMenuAnchorPoint(null);
+        setSessionMenuAnchorPoint(null);
         return;
       }
 
-      setBackgroundMenuAnchorPoint({
+      setSessionMenuAnchorPoint({
         x: buttonRect.left,
         y: buttonRect.bottom + 8,
       });
     };
 
-    updateBackgroundMenuAnchorPoint();
-    window.addEventListener("resize", updateBackgroundMenuAnchorPoint);
-    window.addEventListener("scroll", updateBackgroundMenuAnchorPoint, true);
+    updateSessionMenuAnchor();
+    window.addEventListener("resize", updateSessionMenuAnchor);
+    window.addEventListener("scroll", updateSessionMenuAnchor, true);
 
     return () => {
-      window.removeEventListener("resize", updateBackgroundMenuAnchorPoint);
-      window.removeEventListener("scroll", updateBackgroundMenuAnchorPoint, true);
+      window.removeEventListener("resize", updateSessionMenuAnchor);
+      window.removeEventListener("scroll", updateSessionMenuAnchor, true);
     };
-  }, [isBackgroundMenuOpen]);
+  }, [isSessionMenuOpen]);
 
-  const roomBackgroundMenuItems: ContextMenuItem[] = [
+  useLayoutEffect(() => {
+    if (!isFeedbackOpen) {
+      setFeedbackAnchorPoint(null);
+      return;
+    }
+
+    const updateFeedbackAnchor = () => {
+      const buttonRect = feedbackButtonRef.current?.getBoundingClientRect();
+
+      if (!buttonRect) {
+        setFeedbackAnchorPoint(null);
+        return;
+      }
+
+      setFeedbackAnchorPoint({
+        x: buttonRect.left,
+        y: buttonRect.bottom + 8,
+      });
+    };
+
+    updateFeedbackAnchor();
+    window.addEventListener("resize", updateFeedbackAnchor);
+    window.addEventListener("scroll", updateFeedbackAnchor, true);
+
+    return () => {
+      window.removeEventListener("resize", updateFeedbackAnchor);
+      window.removeEventListener("scroll", updateFeedbackAnchor, true);
+    };
+  }, [isFeedbackOpen]);
+
+  useEffect(() => {
+    if (!isFeedbackOpen) {
+      return;
+    }
+
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target;
+
+      if (
+        target instanceof Node &&
+        (feedbackPanelRef.current?.contains(target) ||
+          feedbackButtonRef.current?.contains(target))
+      ) {
+        return;
+      }
+
+      setIsFeedbackOpen(false);
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsFeedbackOpen(false);
+      }
+    };
+
+    window.addEventListener("pointerdown", handlePointerDown, true);
+    window.addEventListener("keydown", handleKeyDown, true);
+
+    return () => {
+      window.removeEventListener("pointerdown", handlePointerDown, true);
+      window.removeEventListener("keydown", handleKeyDown, true);
+    };
+  }, [isFeedbackOpen]);
+
+  const sessionMenuItems: ContextMenuItem[] = [
     {
       type: "section-label",
-      id: "room-background-section",
-      label: "Room background",
+      id: "session-media-section",
+      label: "Media",
     },
-    ...roomBackgroundOptions.map((option) => ({
-      type: "item" as const,
-      id: option.id,
-      label: option.label,
-      selected: option.id === roomBackgroundThemeId,
+    ...(shouldShowMediaAction
+      ? [
+          {
+            type: "item" as const,
+            id: "session-media-toggle",
+            label: mediaActionLabel,
+            disabled: isMediaActionDisabled,
+            icon: mediaStatus?.isMediaConnected ? (
+              <IconVideoOff size={16} stroke={2} />
+            ) : (
+              <IconVideo size={16} stroke={2} />
+            ),
+            onSelect: () => {
+              if (!mediaStatus) {
+                return;
+              }
+
+              if (mediaStatus.isMediaConnected) {
+                mediaStatus.onLeaveMedia();
+                return;
+              }
+
+              mediaStatus.onJoinMedia();
+            },
+          },
+        ]
+      : []),
+    {
+      type: "item",
+      id: "session-reset-video-positions",
+      label: "Reset video positions",
+      disabled: mediaStatus === null,
+      icon: <IconRefresh size={16} stroke={2} />,
       onSelect: () => {
-        onRoomBackgroundThemeChange(option.id);
+        mediaStatus?.onResetVideoPositions();
       },
-    })),
+    },
+    ...(isCurrentParticipantRoomCreator
+      ? [
+          {
+            type: "separator" as const,
+            id: "session-room-separator",
+          },
+          {
+            type: "item" as const,
+            id: "session-room-settings",
+            label: "Room settings",
+            icon: <IconSettings size={16} stroke={2} />,
+            onSelect: () => {
+              setIsRoomSettingsOpen(true);
+            },
+          },
+        ]
+      : []),
+    ...(isDebugToolsEnabled
+      ? [
+          {
+            type: "separator" as const,
+            id: "session-debug-separator",
+          },
+          {
+            type: "item" as const,
+            id: "session-debug-tools",
+            label: "Open debug panel",
+            icon: <IconBug size={16} stroke={2} />,
+            testId: "session-debug-tools-menu-item",
+            onSelect: () => {
+              if (!isDevToolsOpen) {
+                onToggleDevTools();
+              }
+            },
+          },
+        ]
+      : []),
   ];
 
   return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "flex-start",
-        gap: 12,
-        position: "fixed",
-        top: 20,
-        left: 20,
-        zIndex: 10,
-        pointerEvents: "none",
-      }}
-    >
+    <>
       <div
-        ref={ref}
         style={{
-          ...boardSurfaceRecipes.floatingShell.shell.style,
-          display: "flex",
-          flexDirection: "column",
+          display: "grid",
           gap: 8,
-          minWidth: 180,
-          maxWidth: "min(360px, calc(100vw - 84px))",
-          maxHeight: "calc(100vh - 40px)",
-          paddingBottom: 14,
-          fontFamily: HTML_UI_FONT_FAMILY,
+          position: placement === "fixed" ? "fixed" : "relative",
+          top: placement === "fixed" ? 20 : undefined,
+          left: placement === "fixed" ? 20 : undefined,
+          zIndex: SESSION_PANEL_Z_INDEX,
           pointerEvents: "none",
-          overflow: "hidden",
+          fontFamily: HTML_UI_FONT_FAMILY,
         }}
-        {...getDesignSystemDebugAttrs(boardSurfaceRecipes.floatingShell.shell.debug)}
       >
         <div
+          ref={ref}
           style={{
-            display: "flex",
+            ...boardSurfaceRecipes.floatingShell.shell.style,
+            display: "grid",
+            gridTemplateColumns: "minmax(0, 1fr) auto auto auto auto",
             alignItems: "center",
-            justifyContent: "space-between",
             gap: 8,
+            minWidth: 292,
+            maxWidth: "min(380px, calc(100vw - 40px))",
+            padding: "10px 10px 10px 14px",
+            pointerEvents: "auto",
           }}
+          {...getDesignSystemDebugAttrs(boardSurfaceRecipes.floatingShell.shell.debug)}
         >
           <div
+            title={roomId}
             style={{
               ...uiTextStyle.label,
-              fontSize: 15,
-              pointerEvents: "none",
-              overflowWrap: "anywhere",
+              minWidth: 0,
+              color: sessionTitleColor,
+              fontWeight: 700,
+              letterSpacing: "0.045em",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              textTransform: "uppercase",
+              whiteSpace: "nowrap",
             }}
           >
-            {roomId}
+            {sessionTitle}
           </div>
-          <button
-            type="button"
+
+          <SessionIconButton
+            ariaLabel="Leave room"
+            Icon={IconDoorExit}
+            iconButtonProps={iconButtonProps}
+            iconButtonRecipe={iconButtonRecipe}
             onClick={onLeaveRoom}
-            data-testid="session-leave-room-button"
-            {...getButtonProps(leaveRoomButtonRecipe)}
-            style={{
-              ...getButtonProps(leaveRoomButtonRecipe).style,
-              justifyContent: "flex-end",
-              pointerEvents: "auto",
+            testId="session-leave-room-button"
+          />
+
+          <SessionIconButton
+            ref={menuButtonRef}
+            ariaLabel="Open session menu"
+            Icon={IconDots}
+            iconButtonProps={iconButtonProps}
+            iconButtonRecipe={iconButtonRecipe}
+            isOpen={isSessionMenuOpen}
+            onClick={() => {
+              setIsFeedbackOpen(false);
+              setIsSessionMenuOpen((current) => !current);
             }}
-            {...getDesignSystemDebugAttrs(leaveRoomButtonRecipe.debug)}
+            testId="session-menu-button"
+          />
+
+          <div
+            aria-hidden="true"
+            style={{
+              width: 1,
+              height: 24,
+              marginInline: 2,
+              background: border.default,
+            }}
+          />
+
+          <button
+            ref={feedbackButtonRef}
+            type="button"
+            aria-label="Open feedback panel"
+            {...getButtonProps(iconButtonRecipe, { open: isFeedbackOpen })}
+            style={{
+              ...getButtonProps(iconButtonRecipe, { open: isFeedbackOpen }).style,
+              width: 32,
+              minWidth: 32,
+              minHeight: 32,
+              padding: 0,
+            }}
+            onClick={() => {
+              setIsSessionMenuOpen(false);
+              setIsFeedbackOpen((current) => !current);
+            }}
+            {...getDesignSystemDebugAttrs(iconButtonRecipe.debug)}
           >
-            Leave room
+            <MailGlyph />
           </button>
         </div>
 
-        {isCurrentParticipantRoomCreator || roomCreatorName ? (
+        {mediaStatus?.mediaErrorLabel ? (
           <div
             style={{
-              ...inlineTextRecipes.muted.style,
-              pointerEvents: "none",
-              whiteSpace: "nowrap",
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-            }}
-          >
-            {isCurrentParticipantRoomCreator ? (
-              "Room Owner: You"
-            ) : (
-              <>
-                {"Room Owner: "}
-                <span style={{ color: roomCreatorColor ?? text.secondary }}>
-                  {roomCreatorName}
-                </span>
-              </>
-            )}
-          </div>
-        ) : null}
-
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-          }}
-        >
-          {isEditingParticipantName ? (
-            <input
-              value={participantNameDraft}
-              onChange={(event) => {
-                onParticipantNameDraftChange(event.target.value);
-              }}
-              onKeyDown={(event) => {
-                if (event.key !== "Enter") {
-                  return;
-                }
-
-                event.preventDefault();
-                onParticipantNameSubmit();
-              }}
-              autoFocus
-              style={{
-                minWidth: 0,
-                padding: 0,
-                border: "none",
-                outline: "none",
-                background: "transparent",
-                color: participantColor,
-                fontSize: fontSize["2xl"],
-                fontWeight: 700,
-                fontFamily: HTML_UI_FONT_FAMILY,
-                pointerEvents: "auto",
-              }}
-            />
-          ) : (
-            <button
-              type="button"
-              onClick={onStartEditingParticipantName}
-              style={{
-                padding: 0,
-                border: "none",
-                background: "transparent",
-                color: participantColor,
-                fontSize: fontSize["2xl"],
-                fontWeight: 700,
-                fontFamily: HTML_UI_FONT_FAMILY,
-                cursor: "text",
-                pointerEvents: "auto",
-              }}
-            >
-              {participantName}
-            </button>
-          )}
-        </div>
-
-        {mediaStatus ? (
-          <div
-            style={{
-              display: "grid",
-              gap: 6,
-              marginTop: 2,
-              paddingTop: 10,
-              borderTop: `1px solid ${border.default}`,
+              ...boardSurfaceRecipes.floatingShell.shell.style,
+              maxWidth: 292,
+              padding: "10px 12px",
+              color: "#fecaca",
+              fontSize: 12,
+              lineHeight: "16px",
               pointerEvents: "none",
             }}
+            {...getDesignSystemDebugAttrs(boardSurfaceRecipes.floatingShell.shell.debug)}
           >
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                gap: 8,
-              }}
-            >
-              <button
-                type="button"
-                onClick={() => {
-                  mediaStatus.onResetVideoPositions();
-                }}
-                data-testid="session-reset-video-positions-button"
-                {...resetVideoPositionsButtonProps}
-                style={{
-                  ...resetVideoPositionsButtonProps.style,
-                  justifyContent: "flex-start",
-                  pointerEvents: "auto",
-                }}
-                {...getDesignSystemDebugAttrs(mediaActionButtonRecipe.debug)}
-              >
-                Reset video positions
-              </button>
-              {shouldShowMediaActionButton ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (mediaStatus.isMediaConnected) {
-                      mediaStatus.onLeaveMedia();
-                      return;
-                    }
-
-                    mediaStatus.onJoinMedia();
-                  }}
-                  data-testid="session-media-toggle-button"
-                  {...mediaActionButtonProps}
-                  style={{
-                    ...mediaActionButtonProps.style,
-                    justifyContent: "flex-end",
-                    pointerEvents: "auto",
-                  }}
-                  {...getDesignSystemDebugAttrs(mediaActionButtonRecipe.debug)}
-                >
-                  {mediaActionButtonLabel}
-                </button>
-              ) : null}
-            </div>
-            {mediaStatus.mediaErrorLabel ? (
-              <div
-                style={{
-                  color: "#fecaca",
-                  fontSize: 12,
-                  lineHeight: "16px",
-                  pointerEvents: "none",
-                }}
-              >
-                <div>{mediaStatus.mediaErrorLabel}</div>
-                {mediaStatus.mediaErrorDetail ? (
-                  <div style={{ marginTop: 3, color: "#fca5a5" }}>
-                    {mediaStatus.mediaErrorDetail}
-                  </div>
-                ) : null}
+            <div>{mediaStatus.mediaErrorLabel}</div>
+            {mediaStatus.mediaErrorDetail ? (
+              <div style={{ marginTop: 3, color: "#fca5a5" }}>
+                {mediaStatus.mediaErrorDetail}
               </div>
             ) : null}
           </div>
         ) : null}
-
-        {isCurrentParticipantRoomCreator && (
-          <div
-            style={{
-              display: "grid",
-              gap: 8,
-              marginTop: 2,
-              paddingTop: 10,
-              borderTop: `1px solid ${border.default}`,
-              pointerEvents: "none",
-            }}
-          >
-            <div
-              style={{
-                ...uiTextStyleSmall.label,
-                color: text.muted,
-                letterSpacing: "0.04em",
-                textTransform: "uppercase",
-                pointerEvents: "none",
-              }}
-            >
-              Room tools
-            </div>
-
-            <button
-              type="button"
-              onClick={onResetBoard}
-              {...getButtonProps(resetBoardButtonRecipe)}
-              style={{
-                ...getButtonProps(resetBoardButtonRecipe).style,
-                textAlign: "left",
-                justifyContent: "flex-start",
-                pointerEvents: "auto",
-              }}
-              {...getDesignSystemDebugAttrs(resetBoardButtonRecipe.debug)}
-            >
-              Reset board
-            </button>
-
-            <button
-              ref={backgroundMenuButtonRef}
-              type="button"
-              onClick={() => {
-                setIsBackgroundMenuOpen((current) => !current);
-              }}
-              {...getButtonProps(roomBackgroundButtonRecipe)}
-              style={{
-                ...getButtonProps(roomBackgroundButtonRecipe).style,
-                width: "100%",
-                textAlign: "left",
-                justifyContent: "flex-start",
-                pointerEvents: "auto",
-              }}
-              {...getDesignSystemDebugAttrs(roomBackgroundButtonRecipe.debug)}
-            >
-              {roomBackgroundTheme.label}
-            </button>
-          </div>
-        )}
-
-        {isDebugToolsEnabled ? (
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              gap: 10,
-              marginTop: 2,
-              paddingTop: 10,
-              borderTop: `1px solid ${border.default}`,
-              pointerEvents: "none",
-              minHeight: 0,
-              flex: isDevToolsOpen ? 1 : "0 0 auto",
-            }}
-          >
-            <label
-              style={{
-                ...devToolsSelectionRecipe.row.style,
-                pointerEvents: "auto",
-              }}
-              className={devToolsSelectionRecipe.row.className}
-              {...getDesignSystemDebugAttrs(devToolsSelectionRecipe.row.debug)}
-            >
-              <input
-                type="checkbox"
-                data-testid="session-debug-tools-toggle"
-                checked={isDevToolsOpen}
-                onChange={() => {
-                  onToggleDevTools();
-                }}
-                style={devToolsSelectionRecipe.indicator.style}
-                className={devToolsSelectionRecipe.indicator.className}
-              />
-              <span
-                style={devToolsSelectionRecipe.label.style}
-                className={devToolsSelectionRecipe.label.className}
-              >
-                Debug tools
-              </span>
-            </label>
-
-            {isDevToolsOpen && (
-              <div
-                style={{
-                  pointerEvents: "auto",
-                  minHeight: 0,
-                  overflowY: "auto",
-                  overscrollBehavior: "contain",
-                  paddingRight: 4,
-                }}
-              >
-                {devToolsContent}
-              </div>
-            )}
-          </div>
-        ) : null}
       </div>
 
-      {isBackgroundMenuOpen ? (
+      {isSessionMenuOpen ? (
         <ContextMenu
-          anchorPoint={backgroundMenuAnchorPoint}
-          ariaLabel="Room background"
-          items={roomBackgroundMenuItems}
-          minWidth={240}
+          anchorPoint={sessionMenuAnchorPoint}
+          ariaLabel="Session menu"
+          items={sessionMenuItems}
+          minWidth={230}
           onClose={() => {
-            setIsBackgroundMenuOpen(false);
+            setIsSessionMenuOpen(false);
           }}
-          zIndex={30}
+          zIndex={SESSION_MENU_Z_INDEX}
         />
       ) : null}
 
-      <div
-        style={{
-          position: "relative",
-        }}
-      >
-        <FeedbackDock
-          title="Report a problem"
-          description="Quick note from the current room, with a short path for bugs and general feedback."
-          testIdPrefix="session-feedback"
-          wrapperStyle={{
-            pointerEvents: "none",
+      {isFeedbackOpen && feedbackAnchorPoint ? (
+        <div
+          ref={feedbackPanelRef}
+          style={{
+            position: "fixed",
+            left: feedbackAnchorPoint.x,
+            top: feedbackAnchorPoint.y,
+            zIndex: SESSION_FEEDBACK_Z_INDEX,
           }}
-          onSubmit={async ({ type, message }) => {
-            await submitFeedbackCapture(
-              buildFeedbackCapturePayload({
-                type,
-                message,
-                context: feedbackContext,
-              })
-            );
+        >
+          <FeedbackDock
+            open
+            hideLauncher
+            title="Report a problem"
+            description="Quick note from the current room, with a short path for bugs and general feedback."
+            testIdPrefix="session-feedback"
+            onOpenChange={setIsFeedbackOpen}
+            onSubmit={async ({ type, message }) => {
+              await submitFeedbackCapture(
+                buildFeedbackCapturePayload({
+                  type,
+                  message,
+                  context: feedbackContext,
+                })
+              );
+            }}
+          />
+        </div>
+      ) : null}
+
+      {isCurrentParticipantRoomCreator && isRoomSettingsOpen ? (
+        <FloatingPanel
+          title="Room settings"
+          mode="modal"
+          width={380}
+          cancelLabel="Close room settings"
+          onCancel={() => {
+            setIsRoomSettingsOpen(false);
           }}
-        />
-      </div>
-    </div>
+        >
+          <div style={{ display: "grid", gap: 18 }}>
+            <section style={{ display: "grid", gap: 10 }}>
+              <div
+                style={{
+                  ...uiTextStyleSmall.label,
+                  color: text.muted,
+                  letterSpacing: "0.04em",
+                  textTransform: "uppercase",
+                }}
+              >
+                Board material
+              </div>
+              <div style={{ display: "grid", gap: 8 }}>
+                {roomBackgroundOptions.map((option) => {
+                  const isSelected = option.id === roomBackgroundThemeId;
+                  const buttonProps = getButtonProps(roomBackgroundButtonRecipe, {
+                    selected: isSelected,
+                  });
+
+                  return (
+                    <button
+                      key={option.id}
+                      type="button"
+                      aria-pressed={isSelected}
+                      {...buttonProps}
+                      style={{
+                        ...buttonProps.style,
+                        justifyContent: "space-between",
+                        textAlign: "left",
+                        width: "100%",
+                      }}
+                      onClick={() => {
+                        onRoomBackgroundThemeChange(option.id);
+                      }}
+                      {...getDesignSystemDebugAttrs(roomBackgroundButtonRecipe.debug)}
+                    >
+                      <span>{option.label}</span>
+                      {isSelected ? <span aria-hidden="true">✓</span> : null}
+                    </button>
+                  );
+                })}
+              </div>
+              <div style={{ ...uiTextStyleSmall.body, color: text.muted }}>
+                Current: {roomBackgroundTheme.label}
+              </div>
+            </section>
+
+            {isCurrentParticipantRoomCreator ? (
+              <section style={{ display: "grid", gap: 10 }}>
+                <div
+                  style={{
+                    ...uiTextStyleSmall.label,
+                    color: text.muted,
+                    letterSpacing: "0.04em",
+                    textTransform: "uppercase",
+                  }}
+                >
+                  Room actions
+                </div>
+                <button
+                  type="button"
+                  {...getButtonProps(resetBoardButtonRecipe)}
+                  style={{
+                    ...getButtonProps(resetBoardButtonRecipe).style,
+                    justifyContent: "flex-start",
+                    width: "100%",
+                  }}
+                  onClick={onResetBoard}
+                  {...getDesignSystemDebugAttrs(resetBoardButtonRecipe.debug)}
+                >
+                  Reset board
+                </button>
+              </section>
+            ) : null}
+
+            {roomCreatorName || participantName ? (
+              <div style={{ ...uiTextStyleSmall.body, color: text.muted }}>
+                Room owner:{" "}
+                <span style={{ color: roomCreatorColor ?? participantColor }}>
+                  {isCurrentParticipantRoomCreator
+                    ? `${participantName} (you)`
+                    : roomCreatorName ?? "Unknown"}
+                </span>
+              </div>
+            ) : null}
+          </div>
+        </FloatingPanel>
+      ) : null}
+
+      {isDebugToolsEnabled && isDevToolsOpen ? (
+        <FloatingPanel
+          title="Debug tools"
+          mode="floating"
+          width={420}
+          initialPosition={{ x: 20, y: 84 }}
+          cancelLabel="Close debug tools"
+          onCancel={onToggleDevTools}
+        >
+          <div
+            style={{
+              maxHeight: "min(520px, calc(100vh - 160px))",
+              overflowY: "auto",
+              overscrollBehavior: "contain",
+              paddingRight: 4,
+            }}
+          >
+            {devToolsContent}
+          </div>
+        </FloatingPanel>
+      ) : null}
+    </>
+  );
+});
+
+const SessionIconButton = forwardRef<
+  HTMLButtonElement,
+  {
+    ariaLabel: string;
+    Icon: TablerIcon;
+    iconButtonProps: ReturnType<typeof getButtonProps>;
+    iconButtonRecipe: typeof interactionButtonRecipes.secondary.circle;
+    isOpen?: boolean;
+    onClick: () => void;
+    testId?: string;
+  }
+>(function SessionIconButton(
+  {
+    ariaLabel,
+    Icon,
+    iconButtonProps,
+    iconButtonRecipe,
+    isOpen = false,
+    onClick,
+    testId,
+  },
+  ref
+) {
+  const buttonProps = isOpen
+    ? getButtonProps(iconButtonRecipe, { open: true })
+    : iconButtonProps;
+
+  return (
+    <button
+      ref={ref}
+      type="button"
+      aria-label={ariaLabel}
+      data-testid={testId}
+      {...buttonProps}
+      style={{
+        ...buttonProps.style,
+        width: 32,
+        minWidth: 32,
+        minHeight: 32,
+        padding: 0,
+      }}
+      onClick={onClick}
+      {...getDesignSystemDebugAttrs(iconButtonRecipe.debug)}
+    >
+      <Icon aria-hidden="true" size={18} stroke={2} />
+    </button>
   );
 });

@@ -1,14 +1,26 @@
 import {
+  IconBug,
+  IconDoorExit,
+  IconDots,
+  IconRefresh,
+  IconSettings,
+  IconVideo,
+  IconVideoOff,
+  type TablerIcon,
+} from "@tabler/icons-react";
+import {
   createContext,
   useContext,
   useEffect,
   useId,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
 } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import { HTML_UI_FONT_FAMILY } from "../../board/constants";
+import { ParticipantSessionPanel } from "../../board/components/ParticipantSessionPanel";
 import {
   DICE_ROLL_LOG_ENTRY_MIN_HEIGHT,
   DICE_ROLL_LOG_HISTORY_ROW_GAP,
@@ -35,6 +47,7 @@ import {
   type ButtonState,
 } from "./families/button";
 import { fieldRecipes, getFieldShellProps } from "./families/field";
+import { FloatingPanel } from "./FloatingPanel";
 import { getSwatchButtonProps, swatchPillRecipes } from "./families/swatchPill";
 import { FeedbackDock, MailGlyph } from "./FeedbackDock";
 import { HoverHint, type HoverHintPlacement } from "./HoverHint";
@@ -45,6 +58,7 @@ import {
   getBoardBackgroundThemeOptions,
   type BoardBackgroundTheme,
 } from "./boardMaterials";
+import { boardSurfaceRecipes } from "./boardSurfaces";
 import {
   border,
   DRAFT_LOCAL_USER_SOURCE_SLOT,
@@ -58,6 +72,7 @@ import {
 } from "./foundations";
 import { inlineTextRecipes } from "./inlineText";
 import { surfaceRecipes } from "./surfaces";
+import type { FeedbackCaptureContext } from "../../lib/feedbackCapture";
 
 type SwatchRecipe =
   | (typeof swatchPillRecipes)["swatch"]["default"]
@@ -3095,6 +3110,563 @@ function HoverHintSandboxPreview() {
   );
 }
 
+const sessionPanelSandboxFeedbackContext: FeedbackCaptureContext = {
+  isRoomOwner: true,
+  media: {
+    enabled: true,
+    connectionState: "connected",
+    micEnabled: false,
+    cameraEnabled: false,
+  },
+  room: {
+    roomId: "alpha-2-session",
+    participantId: "sandbox-player",
+    participantName: "air",
+    participantColor: PARTICIPANT_COLOR_OPTIONS[2],
+    participantCount: 3,
+    objectCounts: {
+      tokens: 4,
+      images: 2,
+      textCards: 1,
+    },
+  },
+};
+
+function SessionPanelSandboxPreview() {
+  const [roomBackgroundThemeId, setRoomBackgroundThemeId] =
+    useState<RoomBackgroundThemeId>("dot-grid-dark-blue");
+  const [isDevToolsOpen, setIsDevToolsOpen] = useState(false);
+
+  return (
+    <div
+      style={{
+        minHeight: 520,
+        padding: 20,
+        borderRadius: radius.surface,
+        overflow: "hidden",
+        background:
+          "radial-gradient(circle at 18% 12%, rgba(56, 189, 248, 0.16), transparent 34%), linear-gradient(135deg, #dce8f2 0%, #cbd9e5 100%)",
+      }}
+    >
+      <ParticipantSessionPanel
+        roomId="alpha-2-session"
+        isCurrentParticipantRoomCreator
+        roomCreatorName={null}
+        roomCreatorColor={null}
+        roomBackgroundThemeId={roomBackgroundThemeId}
+        participantName="air"
+        participantColor={PARTICIPANT_COLOR_OPTIONS[2]}
+        mediaStatus={{
+          cameraEnabled: false,
+          connectionState: "disconnected",
+          enabled: true,
+          error: null,
+          micEnabled: false,
+          isMediaConnected: false,
+          isMediaJoining: false,
+          canJoinMedia: true,
+          canLeaveMedia: false,
+          mediaErrorLabel: null,
+          mediaErrorDetail: null,
+          onJoinMedia: () => {},
+          onLeaveMedia: () => {},
+          onResetVideoPositions: () => {},
+        }}
+        feedbackContext={sessionPanelSandboxFeedbackContext}
+        isDebugToolsEnabled
+        isDevToolsOpen={isDevToolsOpen}
+        onLeaveRoom={() => {}}
+        onResetBoard={() => {}}
+        onRoomBackgroundThemeChange={setRoomBackgroundThemeId}
+        onToggleDevTools={() => {
+          setIsDevToolsOpen((current) => !current);
+        }}
+        devToolsContent={
+          <div style={{ ...sectionDescriptionStyle, display: "grid", gap: 6 }}>
+            <div>Sandbox dev-tools placeholder</div>
+            <div>Room: alpha-2-session</div>
+            <div>Objects: 7</div>
+          </div>
+        }
+        placement="inline"
+      />
+    </div>
+  );
+}
+
+function SessionPanelNextIcon({ icon: Icon }: { icon: TablerIcon }) {
+  return <Icon aria-hidden="true" size={18} stroke={1.9} />;
+}
+
+function SessionPanelNextSandboxPreview() {
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [menuAnchorPoint, setMenuAnchorPoint] = useState<{
+    x: number;
+    y: number;
+  } | null>(null);
+  const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
+  const [feedbackAnchorPoint, setFeedbackAnchorPoint] = useState<{
+    x: number;
+    y: number;
+  } | null>(null);
+  const [mediaActionLabel, setMediaActionLabel] = useState("Join media");
+  const [isMediaNoticeVisible, setIsMediaNoticeVisible] = useState(true);
+  const menuButtonRef = useRef<HTMLButtonElement | null>(null);
+  const mailButtonRef = useRef<HTMLButtonElement | null>(null);
+  const feedbackPanelRef = useRef<HTMLDivElement | null>(null);
+  const roomOwnerColor = PARTICIPANT_COLOR_OPTIONS[6];
+  const iconButtonRecipe = interactionButtonRecipes.secondary.circle;
+  const leaveButtonProps = getButtonProps(iconButtonRecipe);
+  const menuButtonProps = getButtonProps(iconButtonRecipe, {
+    open: isMenuOpen,
+  });
+  const mailButtonProps = getButtonProps(iconButtonRecipe, {
+    open: isFeedbackOpen,
+  });
+  const sessionMenuItems: ContextMenuItem[] = [
+    {
+      type: "section-label",
+      id: "media-section",
+      label: "Media",
+    },
+    {
+      type: "item",
+      id: "media-toggle",
+      icon:
+        mediaActionLabel === "Join media" ? (
+          <SessionPanelNextIcon icon={IconVideo} />
+        ) : (
+          <SessionPanelNextIcon icon={IconVideoOff} />
+        ),
+      label: mediaActionLabel,
+      onSelect: () => {
+        setMediaActionLabel((current) =>
+          current === "Join media" ? "Leave media" : "Join media"
+        );
+        setIsMediaNoticeVisible(false);
+      },
+    },
+    {
+      type: "item",
+      id: "reset-video-positions",
+      icon: <SessionPanelNextIcon icon={IconRefresh} />,
+      label: "Reset video positions",
+      onSelect: () => {
+        setIsMediaNoticeVisible(false);
+      },
+    },
+    {
+      type: "separator",
+      id: "room-settings-separator",
+    },
+    {
+      type: "item",
+      id: "room-settings",
+      icon: <SessionPanelNextIcon icon={IconSettings} />,
+      label: "Room settings",
+      onSelect: () => {},
+    },
+    {
+      type: "separator",
+      id: "debug-separator",
+    },
+    {
+      type: "item",
+      id: "open-debug-panel",
+      icon: <SessionPanelNextIcon icon={IconBug} />,
+      label: "Open debug panel",
+      onSelect: () => {},
+    },
+  ];
+
+  useLayoutEffect(() => {
+    if (!isMenuOpen) {
+      setMenuAnchorPoint(null);
+      return;
+    }
+
+    const updateMenuAnchorPoint = () => {
+      const rect = menuButtonRef.current?.getBoundingClientRect();
+
+      if (!rect) {
+        setMenuAnchorPoint(null);
+        return;
+      }
+
+      setMenuAnchorPoint({
+        x: rect.left,
+        y: rect.bottom + 8,
+      });
+    };
+
+    updateMenuAnchorPoint();
+    window.addEventListener("resize", updateMenuAnchorPoint);
+    window.addEventListener("scroll", updateMenuAnchorPoint, true);
+
+    return () => {
+      window.removeEventListener("resize", updateMenuAnchorPoint);
+      window.removeEventListener("scroll", updateMenuAnchorPoint, true);
+    };
+  }, [isMenuOpen]);
+
+  useLayoutEffect(() => {
+    if (!isFeedbackOpen) {
+      setFeedbackAnchorPoint(null);
+      return;
+    }
+
+    const updateFeedbackAnchorPoint = () => {
+      const rect = mailButtonRef.current?.getBoundingClientRect();
+
+      if (!rect) {
+        setFeedbackAnchorPoint(null);
+        return;
+      }
+
+      setFeedbackAnchorPoint({
+        x: rect.left,
+        y: rect.bottom + 8,
+      });
+    };
+
+    updateFeedbackAnchorPoint();
+    window.addEventListener("resize", updateFeedbackAnchorPoint);
+    window.addEventListener("scroll", updateFeedbackAnchorPoint, true);
+
+    return () => {
+      window.removeEventListener("resize", updateFeedbackAnchorPoint);
+      window.removeEventListener("scroll", updateFeedbackAnchorPoint, true);
+    };
+  }, [isFeedbackOpen]);
+
+  useEffect(() => {
+    if (!isFeedbackOpen) {
+      return;
+    }
+
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target;
+
+      if (
+        target instanceof Node &&
+        (feedbackPanelRef.current?.contains(target) ||
+          mailButtonRef.current?.contains(target))
+      ) {
+        return;
+      }
+
+      setIsFeedbackOpen(false);
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsFeedbackOpen(false);
+      }
+    };
+
+    window.addEventListener("pointerdown", handlePointerDown, true);
+    window.addEventListener("keydown", handleKeyDown, true);
+
+    return () => {
+      window.removeEventListener("pointerdown", handlePointerDown, true);
+      window.removeEventListener("keydown", handleKeyDown, true);
+    };
+  }, [isFeedbackOpen]);
+
+  return (
+    <div
+      style={{
+        minHeight: 300,
+        position: "relative",
+        padding: 20,
+        borderRadius: radius.surface,
+        overflow: "hidden",
+        background:
+          "radial-gradient(circle at 18% 12%, rgba(56, 189, 248, 0.16), transparent 34%), linear-gradient(135deg, #dce8f2 0%, #cbd9e5 100%)",
+      }}
+    >
+      <div
+        style={{
+          position: "absolute",
+          top: 16,
+          left: 16,
+          display: "grid",
+          gap: 8,
+        }}
+      >
+        <div
+          style={{
+            ...boardSurfaceRecipes.floatingShell.shell.style,
+            display: "grid",
+            gridTemplateColumns: "minmax(0, 1fr) auto auto auto auto",
+            alignItems: "center",
+            gap: 8,
+            width: 286,
+            minHeight: 46,
+            padding: "6px 8px 6px 14px",
+            boxShadow: FLOATING_OBJECT_SHADOW,
+            fontFamily: HTML_UI_FONT_FAMILY,
+          }}
+          {...getDesignSystemDebugAttrs(boardSurfaceRecipes.floatingShell.shell.debug)}
+        >
+          <div
+            style={{
+              minWidth: 0,
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+              color: roomOwnerColor,
+              fontSize: 22,
+              lineHeight: 1,
+              fontWeight: 700,
+              letterSpacing: "-0.03em",
+              textTransform: "uppercase",
+            }}
+          >
+            air
+          </div>
+          <button
+            type="button"
+            aria-label="Leave room"
+            title="Leave room"
+            {...leaveButtonProps}
+            style={{
+              ...leaveButtonProps.style,
+              width: 34,
+              minWidth: 34,
+              minHeight: 34,
+            }}
+          >
+            <SessionPanelNextIcon icon={IconDoorExit} />
+          </button>
+          <button
+            ref={menuButtonRef}
+            type="button"
+            aria-label="Open session menu"
+            title="Open session menu"
+            onClick={() => {
+              setIsFeedbackOpen(false);
+              setIsMenuOpen((current) => !current);
+            }}
+            {...menuButtonProps}
+            style={{
+              ...menuButtonProps.style,
+              width: 34,
+              minWidth: 34,
+              minHeight: 34,
+            }}
+          >
+            <SessionPanelNextIcon icon={IconDots} />
+          </button>
+          <div
+            aria-hidden="true"
+            style={{
+              width: 1,
+              height: 22,
+              background: border.default,
+            }}
+          />
+          <button
+            ref={mailButtonRef}
+            type="button"
+            aria-label="Report a problem"
+            title="Report a problem"
+            onClick={() => {
+              setIsMenuOpen(false);
+              setIsFeedbackOpen((current) => !current);
+            }}
+            {...mailButtonProps}
+            style={{
+              ...mailButtonProps.style,
+              width: 34,
+              minWidth: 34,
+              minHeight: 34,
+            }}
+          >
+            <MailGlyph />
+          </button>
+        </div>
+
+        {isMediaNoticeVisible ? (
+          <div
+            style={{
+              ...boardSurfaceRecipes.floatingShell.shell.style,
+              width: 286,
+              padding: 10,
+              boxShadow: FLOATING_OBJECT_SHADOW,
+              color: "#fecaca",
+              fontSize: 12,
+              lineHeight: "16px",
+              fontFamily: HTML_UI_FONT_FAMILY,
+            }}
+            {...getDesignSystemDebugAttrs(boardSurfaceRecipes.floatingShell.shell.debug)}
+          >
+            <div style={{ fontWeight: 700 }}>Could not load a media token.</div>
+            <div style={{ marginTop: 3, color: "#fca5a5" }}>
+              Media session messages live outside the compact panel.
+            </div>
+          </div>
+        ) : null}
+      </div>
+
+      {isMenuOpen ? (
+        <ContextMenu
+          anchorPoint={menuAnchorPoint}
+          ariaLabel="Session panel menu"
+          items={sessionMenuItems}
+          minWidth={240}
+          onClose={() => {
+            setIsMenuOpen(false);
+          }}
+          zIndex={60}
+        />
+      ) : null}
+      {isFeedbackOpen && feedbackAnchorPoint ? (
+        <div
+          ref={feedbackPanelRef}
+          style={{
+            position: "fixed",
+            left: feedbackAnchorPoint.x,
+            top: feedbackAnchorPoint.y,
+            zIndex: 61,
+          }}
+        >
+          <FeedbackDock
+            title="Report a problem"
+            description="Quick note from the current room."
+            testIdPrefix="session-panel-next-feedback"
+            open
+            onOpenChange={setIsFeedbackOpen}
+            hideLauncher
+            wrapperStyle={{
+              pointerEvents: "none",
+            }}
+            onSubmit={async () => {}}
+          />
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function FloatingPanelSandboxPreview() {
+  const [isFloatingPanelOpen, setIsFloatingPanelOpen] = useState(true);
+  const [isModalPanelOpen, setIsModalPanelOpen] = useState(false);
+  const actionButtonProps = getButtonProps(buttonRecipes.secondary.small);
+  const modalButtonProps = getButtonProps(buttonRecipes.primaryNeutral.small);
+  const fieldShellProps = getFieldShellProps(fieldRecipes.small.shell);
+
+  return (
+    <div
+      style={{
+        minHeight: 460,
+        position: "relative",
+        borderRadius: radius.surface,
+        overflow: "hidden",
+        background:
+          "radial-gradient(circle at 18% 12%, rgba(56, 189, 248, 0.16), transparent 34%), linear-gradient(135deg, #dce8f2 0%, #cbd9e5 100%)",
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          gap: 8,
+          padding: 16,
+          position: "relative",
+          zIndex: 1,
+        }}
+      >
+        <button
+          type="button"
+          onClick={() => {
+            setIsFloatingPanelOpen((current) => !current);
+          }}
+          {...actionButtonProps}
+          style={actionButtonProps.style}
+        >
+          Open debug panel
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setIsModalPanelOpen((current) => !current);
+          }}
+          {...modalButtonProps}
+          style={modalButtonProps.style}
+        >
+          Open room settings modal
+        </button>
+      </div>
+
+      {isFloatingPanelOpen ? (
+        <FloatingPanel
+          title="Debug tools"
+          mode="floating"
+          positioning="absolute"
+          initialPosition={{ x: 88, y: 150 }}
+          width={360}
+          onCancel={() => {
+            setIsFloatingPanelOpen(false);
+          }}
+        >
+          <div style={{ display: "grid", gap: 10 }}>
+            <div style={sectionDescriptionStyle}>
+              Non-modal panels float over the board and can be moved by dragging
+              the header.
+            </div>
+            <div
+              style={{
+                display: "grid",
+                gap: 8,
+                padding: 10,
+                borderRadius: radius.inset,
+                border: `1px solid ${border.default}`,
+                background: surface.panelSubtle,
+              }}
+            >
+              <div style={cardTitleStyle}>Room diagnostics</div>
+              <div style={sectionDescriptionStyle}>Transport: attached</div>
+              <div style={sectionDescriptionStyle}>Snapshot: ready</div>
+            </div>
+          </div>
+        </FloatingPanel>
+      ) : null}
+
+      {isModalPanelOpen ? (
+        <FloatingPanel
+          title="Room settings"
+          mode="modal"
+          positioning="absolute"
+          width={380}
+          cancelLabel="Cancel"
+          confirmLabel="Confirm"
+          onCancel={() => {
+            setIsModalPanelOpen(false);
+          }}
+          onConfirm={() => {
+            setIsModalPanelOpen(false);
+          }}
+        >
+          <div style={{ display: "grid", gap: 12 }}>
+            <div style={sectionDescriptionStyle}>
+              Modal panels dim the board and apply staged changes with Confirm.
+            </div>
+            <label style={{ display: "grid", gap: 6 }}>
+              <span style={fieldLabelStyle}>Room name</span>
+              <span {...fieldShellProps}>
+                <input
+                  defaultValue="alpha-2-session"
+                  className={fieldRecipes.small.input.className}
+                  style={fieldRecipes.small.input.style}
+                />
+              </span>
+            </label>
+          </div>
+        </FloatingPanel>
+      ) : null}
+    </div>
+  );
+}
+
 const BOARD_MATERIAL_PREVIEW_WIDTH = 420;
 const BOARD_MATERIAL_PREVIEW_HEIGHT = 150;
 const BOARD_MATERIAL_DOT_SPACING = 32;
@@ -5684,6 +6256,51 @@ export function DesignSystemSandboxPage() {
               contentStyle={{ display: "block" }}
             >
               <HoverHintSandboxPreview />
+            </PreviewCard>
+          </div>
+        </SectionCard>
+
+        <SectionCard
+          title="Session panel"
+          description="Room header/control panel rendered from the production component in inline sandbox placement."
+        >
+          <div style={previewGridStyle}>
+            <PreviewCard
+              title="Room owner state"
+              recipeLabel="floatingShell / session panel / production component"
+              contentStyle={{ display: "block" }}
+            >
+              <SessionPanelSandboxPreview />
+            </PreviewCard>
+          </div>
+        </SectionCard>
+
+        <SectionCard
+          title="Session panel next"
+          description="Prototype for the compact top-left session panel: name, leave icon, menu trigger, external media status panel."
+        >
+          <div style={previewGridStyle}>
+            <PreviewCard
+              title="Compact panel draft"
+              recipeLabel="floatingShell / session panel / next prototype"
+              contentStyle={{ display: "block" }}
+            >
+              <SessionPanelNextSandboxPreview />
+            </PreviewCard>
+          </div>
+        </SectionCard>
+
+        <SectionCard
+          title="Floating panel"
+          description="Standard draggable panel shell for room settings and debug tools, with modal and non-modal behavior."
+        >
+          <div style={previewGridStyle}>
+            <PreviewCard
+              title="Panel behavior"
+              recipeLabel="floatingShell / draggable panel / modal and floating"
+              contentStyle={{ display: "block" }}
+            >
+              <FloatingPanelSandboxPreview />
             </PreviewCard>
           </div>
         </SectionCard>

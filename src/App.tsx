@@ -59,7 +59,6 @@ import {
   createRoomBaselineDescriptor,
   ensureRoomMemberRegistered,
   ensureRoomRecordInitialized,
-  getRoomMemberRecord,
   loadRoomRecord,
   markRoomBaselineApplied,
   mirrorRoomCreatorId,
@@ -89,6 +88,24 @@ const DEFAULT_ROOM_BASELINE_DESCRIPTOR: RoomBaselineDescriptor =
 const JOIN_CLAIM_TTL_MS = 5000;
 const JOIN_CLAIM_SETTLE_MS = 220;
 const entryDebugActionButtonRecipe = buttonRecipes.secondary.compact;
+
+function getExplicitRoomIdFromLocation(location: Location) {
+  const searchRoomId = normalizeRoomId(
+    new URLSearchParams(location.search).get("room")
+  );
+
+  if (searchRoomId) {
+    return searchRoomId;
+  }
+
+  const pathSegments = location.pathname.split("/").filter(Boolean);
+
+  if (pathSegments.length > 0) {
+    return normalizeRoomId(decodeURIComponent(pathSegments[pathSegments.length - 1]));
+  }
+
+  return "";
+}
 
 type JoinedRoomActivationState = {
   draftRoomId: string;
@@ -162,7 +179,6 @@ type EntryModeScreenProps = {
   draftRoomId: string;
   draftName: string;
   draftColor: string;
-  returningRoomMember: ReturnType<typeof getRoomMemberRecord> | null;
   effectiveEntryOccupiedColors: Set<string>;
   entryHasFreeColor: boolean;
   isJoinPending: boolean;
@@ -190,7 +206,6 @@ function EntryModeScreen({
   draftRoomId,
   draftName,
   draftColor,
-  returningRoomMember,
   effectiveEntryOccupiedColors,
   entryHasFreeColor,
   isJoinPending,
@@ -211,6 +226,7 @@ function EntryModeScreen({
   onFillEntryDebugOccupiedColors,
   onClearEntryDebugOverrides,
 }: EntryModeScreenProps) {
+  const isRoomMissing = !normalizeRoomId(draftRoomId);
   const feedbackContext: FeedbackCaptureContext = {
     isRoomOwner: false,
     media: {
@@ -313,6 +329,8 @@ function EntryModeScreen({
                 }}
                 data-testid="entry-room-input"
                 placeholder="Room name"
+                autoFocus={isRoomMissing}
+                autoComplete="off"
                 className={fieldRecipes.default.input.className}
                 style={fieldRecipes.default.input.style}
               />
@@ -332,7 +350,8 @@ function EntryModeScreen({
                 }}
                 data-testid="entry-name-input"
                 placeholder="Your name"
-                autoFocus
+                autoFocus={!isRoomMissing && !draftName.trim()}
+                autoComplete="off"
                 className={fieldRecipes.default.input.className}
                 style={fieldRecipes.default.input.style}
               />
@@ -342,11 +361,6 @@ function EntryModeScreen({
           <div style={{ display: "grid", gap: 8 }}>
             <div style={{ fontSize: 14, color: "#cbd5e1" }}>Color</div>
             <div style={{ display: "grid", gap: 8 }}>
-              {returningRoomMember ? (
-                <div style={{ fontSize: 12, color: "#94a3b8" }}>
-                  Previous room color is remembered and preselected when it is free.
-                </div>
-              ) : null}
               <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
                 {PARTICIPANT_COLOR_OPTIONS.map((color) => {
                   const isSelected = color === draftColor;
@@ -382,21 +396,17 @@ function EntryModeScreen({
                   );
                 })}
               </div>
-              {entryHasFreeColor ? (
-                <div style={{ fontSize: 12, color: "#94a3b8" }}>
-                  Dashed swatches are currently occupied by active participants, active join claims, or local debug overrides.
-                </div>
-              ) : (
-                <div
-                  style={calloutRecipes.warning.default.style}
-                  className={calloutRecipes.warning.default.className}
-                  {...getDesignSystemDebugAttrs(
-                    calloutRecipes.warning.default.debug
-                  )}
-                >
-                  Room full right now: all 8 participant colors are currently occupied.
-                </div>
-              )}
+              <div
+                style={{
+                  minHeight: 16,
+                  fontSize: 12,
+                  color: entryHasFreeColor ? "#94a3b8" : "#fecaca",
+                }}
+              >
+                {entryHasFreeColor
+                  ? "Choose a room, enter your name, and pick a color."
+                  : "Room full right now: all 8 participant colors are occupied."}
+              </div>
             </div>
           </div>
 
@@ -744,13 +754,13 @@ function BootstrappedApp() {
   const liveKitMediaEnabled =
     isLiveKitMediaEnabled() || isFakeMicrophoneLevelEnabled();
   const browserParticipantId = getOrCreateBrowserParticipantId();
-  const initialRoomIdFromLocation = getRoomIdFromLocation(window.location);
+  const initialRoomIdFromLocation = getExplicitRoomIdFromLocation(window.location);
   const initialSharedActiveRoomSession =
     loadActiveParticipantRoomSession(browserParticipantId);
   const initialActiveRoomId =
     initialSharedActiveRoomSession?.roomId ?? loadActiveRoomId();
   const initialDraftRoomId =
-    initialRoomIdFromLocation ?? initialActiveRoomId;
+    initialRoomIdFromLocation || initialActiveRoomId || "";
   const initialParticipantDraft = loadParticipantDraftForRoom(initialDraftRoomId);
   const shouldRestoreJoinedRoom =
     !!initialActiveRoomId &&
@@ -766,7 +776,7 @@ function BootstrappedApp() {
       : null;
 
   const [draftRoomId, setDraftRoomId] = useState(
-    initialJoinedRoomState?.draftRoomId ?? initialDraftRoomId
+    initialJoinedRoomState?.draftRoomId ?? initialRoomIdFromLocation
   );
   const [activeRoomId, setActiveRoomId] = useState<string | null>(
     initialJoinedRoomState?.activeRoomId ?? null
@@ -954,7 +964,7 @@ function BootstrappedApp() {
         return;
       }
 
-      const nextRoomId = getRoomIdFromLocation(window.location);
+      const nextRoomId = getExplicitRoomIdFromLocation(window.location);
       const nextParticipantDraft = loadParticipantDraftForRoom(nextRoomId);
 
       setDraftRoomId(nextRoomId);
@@ -1299,12 +1309,11 @@ function BootstrappedApp() {
 
   if (!participantSession) {
     return (
-      <EntryModeScreen
-        draftRoomId={draftRoomId}
-        draftName={draftName}
-        draftColor={draftColor}
-        returningRoomMember={entryAvailability.returningRoomMember}
-        effectiveEntryOccupiedColors={entryAvailability.effectiveEntryOccupiedColors}
+        <EntryModeScreen
+          draftRoomId={draftRoomId}
+          draftName={draftName}
+          draftColor={draftColor}
+          effectiveEntryOccupiedColors={entryAvailability.effectiveEntryOccupiedColors}
         entryHasFreeColor={entryAvailability.entryHasFreeColor}
         isJoinPending={isJoinPending}
         isDraftColorOccupied={entryAvailability.isDraftColorOccupied}

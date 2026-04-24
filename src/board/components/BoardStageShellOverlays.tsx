@@ -99,8 +99,6 @@ type BoardStageShellOverlaysProps = {
   roomBackgroundThemeId: RoomBackgroundThemeId;
   participantName: string;
   participantColor: string;
-  participantNameDraft: string;
-  isEditingParticipantName: boolean;
   mediaStatus: LiveKitMediaStatusViewModel | null;
   feedbackContext: FeedbackCaptureContext;
   isDebugToolsEnabled: boolean;
@@ -109,9 +107,6 @@ type BoardStageShellOverlaysProps = {
   onResetBoard: () => void;
   onRoomBackgroundThemeChange: (backgroundThemeId: RoomBackgroundThemeId) => void;
   onToggleDevTools: () => void;
-  onParticipantNameDraftChange: (value: string) => void;
-  onParticipantNameSubmit: () => void;
-  onStartEditingParticipantName: () => void;
   devToolsContent: ReactNode;
   imageInputRef: RefObject<HTMLInputElement | null>;
   onImageInputChange: ChangeEventHandler<HTMLInputElement>;
@@ -150,8 +145,6 @@ export function BoardStageShellOverlays({
   roomBackgroundThemeId,
   participantName,
   participantColor,
-  participantNameDraft,
-  isEditingParticipantName,
   mediaStatus,
   feedbackContext,
   isDebugToolsEnabled,
@@ -160,9 +153,6 @@ export function BoardStageShellOverlays({
   onResetBoard,
   onRoomBackgroundThemeChange,
   onToggleDevTools,
-  onParticipantNameDraftChange,
-  onParticipantNameSubmit,
-  onStartEditingParticipantName,
   devToolsContent,
   imageInputRef,
   onImageInputChange,
@@ -476,8 +466,6 @@ export function BoardStageShellOverlays({
         roomBackgroundThemeId={roomBackgroundThemeId}
         participantName={participantName}
         participantColor={participantColor}
-        participantNameDraft={participantNameDraft}
-        isEditingParticipantName={isEditingParticipantName}
         mediaStatus={mediaStatus}
         feedbackContext={feedbackContext}
         isDebugToolsEnabled={isDebugToolsEnabled}
@@ -486,9 +474,6 @@ export function BoardStageShellOverlays({
         onResetBoard={onResetBoard}
         onRoomBackgroundThemeChange={onRoomBackgroundThemeChange}
         onToggleDevTools={onToggleDevTools}
-        onParticipantNameDraftChange={onParticipantNameDraftChange}
-        onParticipantNameSubmit={onParticipantNameSubmit}
-        onStartEditingParticipantName={onStartEditingParticipantName}
         devToolsContent={devToolsContent}
       />
 

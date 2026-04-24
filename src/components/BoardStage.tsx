@@ -1601,10 +1601,6 @@ export default function BoardStage({
   const [isSpacePanActive, setIsSpacePanActive] = useState(false);
   const [isSpacePanDragging, setIsSpacePanDragging] = useState(false);
   const [isMiddleMousePanDragging, setIsMiddleMousePanDragging] = useState(false);
-  const [isEditingParticipantName, setIsEditingParticipantName] = useState(false);
-  const [participantNameDraft, setParticipantNameDraft] = useState(
-    participantSession.name
-  );
   const [isDevToolsOpen, setIsDevToolsOpen] = useState(false);
   const [isObjectInspectionEnabled, setIsObjectInspectionEnabled] = useState(false);
   const [objectSemanticsHoverState, setObjectSemanticsHoverState] =
@@ -2915,46 +2911,6 @@ export default function BoardStage({
       isCancelled = true;
     };
   }, [appendNavigationInspectEntry, armPendingViewportCause, replaceBoardObjects, roomId]);
-
-  useEffect(() => {
-    if (!isEditingParticipantName) {
-      return;
-    }
-
-    const handlePointerDown = (event: MouseEvent | TouchEvent) => {
-      if (sessionPanelRef.current?.contains(event.target as Node)) {
-        return;
-      }
-
-      if (isEditingParticipantName) {
-        const trimmedName = participantNameDraft.trim();
-
-        if (trimmedName && trimmedName !== participantSession.name) {
-          onUpdateParticipantSession((session) => ({
-            ...session,
-            name: trimmedName,
-          }));
-        }
-
-        setParticipantNameDraft(trimmedName || participantSession.name);
-        setIsEditingParticipantName(false);
-      }
-
-    };
-
-    window.addEventListener("mousedown", handlePointerDown);
-    window.addEventListener("touchstart", handlePointerDown);
-
-    return () => {
-      window.removeEventListener("mousedown", handlePointerDown);
-      window.removeEventListener("touchstart", handlePointerDown);
-    };
-  }, [
-    isEditingParticipantName,
-    onUpdateParticipantSession,
-    participantNameDraft,
-    participantSession.name,
-  ]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -5722,8 +5678,6 @@ export default function BoardStage({
         roomBackgroundThemeId={roomBackgroundThemeId}
         participantName={participantSession.name}
         participantColor={participantSession.color}
-        participantNameDraft={participantNameDraft}
-        isEditingParticipantName={isEditingParticipantName}
         mediaStatus={mediaStatus}
         feedbackContext={feedbackContext}
         isDebugToolsEnabled={isDebugControlsEnabled}
@@ -5733,24 +5687,6 @@ export default function BoardStage({
         onRoomBackgroundThemeChange={onRoomBackgroundThemeChange}
         onToggleDevTools={() => {
           setIsDevToolsOpen((current) => !current);
-        }}
-        onParticipantNameDraftChange={setParticipantNameDraft}
-        onParticipantNameSubmit={() => {
-          const trimmedName = participantNameDraft.trim();
-
-          if (trimmedName && trimmedName !== participantSession.name) {
-            onUpdateParticipantSession((session) => ({
-              ...session,
-              name: trimmedName,
-            }));
-          }
-
-          setParticipantNameDraft(trimmedName || participantSession.name);
-          setIsEditingParticipantName(false);
-        }}
-        onStartEditingParticipantName={() => {
-          setParticipantNameDraft(participantSession.name);
-          setIsEditingParticipantName(true);
         }}
         devToolsContent={devToolsContent}
         imageInputRef={imageInputRef}

@@ -110,12 +110,9 @@ export async function joinRoom(page: Page, options: JoinRoomOptions) {
 }
 
 export async function openDebugTools(page: Page) {
-  const toggle = page.getByTestId("session-debug-tools-toggle");
-
-  await expect(toggle).toBeVisible();
-
-  if (!(await toggle.isChecked())) {
-    await toggle.check({ force: true });
+  if (!(await page.getByTestId("debug-room-object-counts").isVisible())) {
+    await page.getByTestId("session-menu-button").click();
+    await page.getByTestId("session-debug-tools-menu-item").click();
   }
 
   await expect(page.getByTestId("debug-room-object-counts")).toBeVisible();

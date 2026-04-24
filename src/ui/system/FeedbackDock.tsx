@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { CSSProperties, FormEvent } from "react";
 import { HTML_UI_FONT_FAMILY } from "../../board/constants";
 import { getDesignSystemDebugAttrs } from "./debugMeta";
@@ -40,6 +40,9 @@ type FeedbackDockProps = {
   submitLabel?: string;
   emptyMessageError?: string;
   submitErrorMessage?: string;
+  open?: boolean;
+  onOpenChange?: (isOpen: boolean) => void;
+  hideLauncher?: boolean;
 };
 
 export function FeedbackDock({
@@ -62,8 +65,11 @@ export function FeedbackDock({
   submitLabel = "Submit",
   emptyMessageError = "Add a short note before submitting.",
   submitErrorMessage = "Could not save feedback. Try again later.",
+  open,
+  onOpenChange,
+  hideLauncher = false,
 }: FeedbackDockProps) {
-  const [isOpen, setIsOpen] = useState(false);
+  const [internalIsOpen, setInternalIsOpen] = useState(false);
   const [feedbackType, setFeedbackType] = useState<FeedbackType>("bug");
   const [feedbackMessage, setFeedbackMessage] = useState("");
   const [submitState, setSubmitState] = useState<"idle" | "submitting" | "error">(
@@ -83,16 +89,32 @@ export function FeedbackDock({
       submitState === "submitting" || feedbackMessage.trim().length === 0,
     loading: submitState === "submitting",
   });
+  const isOpen = open ?? internalIsOpen;
+
+  const setFeedbackOpen = (nextIsOpen: boolean) => {
+    setInternalIsOpen(nextIsOpen);
+    onOpenChange?.(nextIsOpen);
+  };
+
+  const resetFeedbackForm = () => {
+    setSubmitState("idle");
+    setStatusMessage("");
+    setFeedbackMessage("");
+  };
+
+  useEffect(() => {
+    if (open === false) {
+      resetFeedbackForm();
+    }
+  }, [open]);
 
   const closeFeedbackForm = () => {
     if (submitState === "submitting") {
       return;
     }
 
-    setIsOpen(false);
-    setSubmitState("idle");
-    setStatusMessage("");
-    setFeedbackMessage("");
+    setFeedbackOpen(false);
+    resetFeedbackForm();
   };
 
   const handleFeedbackSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -287,11 +309,11 @@ export function FeedbackDock({
             </button>
           </div>
         </form>
-      ) : (
+      ) : hideLauncher ? null : (
         <button
           type="button"
           onClick={() => {
-            setIsOpen(true);
+            setFeedbackOpen(true);
             setSubmitState("idle");
             setStatusMessage("");
           }}
