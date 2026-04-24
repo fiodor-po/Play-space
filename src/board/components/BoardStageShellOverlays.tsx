@@ -11,7 +11,9 @@ import {
   getButtonProps,
 } from "../../ui/system/families/button";
 import { getDesignSystemDebugAttrs } from "../../ui/system/debugMeta";
+import { HoverHint } from "../../ui/system/HoverHint";
 import { getParticipantColorSlotNumber } from "../../lib/roomSession";
+import type { RoomBackgroundThemeId } from "../../lib/roomSettings";
 import {
   BoardStageObjectSemanticsTooltip,
 } from "./BoardStageDevToolsContent";
@@ -20,6 +22,7 @@ import { ParticipantSessionPanel } from "./ParticipantSessionPanel";
 import type { LiveKitMediaStatusViewModel } from "../../media/liveKitMediaStatus";
 import type { FeedbackCaptureContext } from "../../lib/feedbackCapture";
 import { ContextMenu, type ContextMenuItem } from "../../ui/system/ContextMenu";
+import { getBoardObjectElevationShadowRecipe } from "../../ui/system/boardMaterials";
 import {
   PARTICIPANT_AVATAR_FACE_TO_TOKEN_ICON_ID,
   TOKEN_BIG_ICON_IDS,
@@ -61,7 +64,8 @@ type BoardContextMenuState = {
 
 const BOARD_SURFACE_CONTROL_BORDER_WIDTH = 2;
 const FLOATING_BUTTON_EXTRA_BORDER = "1px solid rgba(255, 255, 255, 0.22)";
-const FLOATING_BUTTON_SHADOW = "0 12px 26px rgba(2, 6, 23, 0.18)";
+const FLOATING_BUTTON_SHADOW =
+  getBoardObjectElevationShadowRecipe("floating").cssBoxShadow;
 const TOKEN_CONTEXT_MENU_GRID_ITEM_SIZE = 38;
 const TOKEN_CONTEXT_MENU_GRID_GAP = 5;
 const TOKEN_CONTEXT_MENU_SHELL_INLINE_PADDING = 12;
@@ -72,6 +76,7 @@ const PLUS_BUTTON_GLYPH_STYLE = {
   display: "block",
   transform: "translateY(-1px)",
 } as const;
+const FLOATING_CONTROL_HINT_OFFSET_Y = 10;
 
 type TokenAppearanceMenuAction = {
   glyph: string;
@@ -91,6 +96,7 @@ type BoardStageShellOverlaysProps = {
   isCurrentParticipantRoomCreator: boolean;
   roomCreatorName: string | null;
   roomCreatorColor: string | null;
+  roomBackgroundThemeId: RoomBackgroundThemeId;
   participantName: string;
   participantColor: string;
   participantNameDraft: string;
@@ -101,6 +107,7 @@ type BoardStageShellOverlaysProps = {
   isDevToolsOpen: boolean;
   onLeaveRoom: () => void;
   onResetBoard: () => void;
+  onRoomBackgroundThemeChange: (backgroundThemeId: RoomBackgroundThemeId) => void;
   onToggleDevTools: () => void;
   onParticipantNameDraftChange: (value: string) => void;
   onParticipantNameSubmit: () => void;
@@ -140,6 +147,7 @@ export function BoardStageShellOverlays({
   isCurrentParticipantRoomCreator,
   roomCreatorName,
   roomCreatorColor,
+  roomBackgroundThemeId,
   participantName,
   participantColor,
   participantNameDraft,
@@ -150,6 +158,7 @@ export function BoardStageShellOverlays({
   isDevToolsOpen,
   onLeaveRoom,
   onResetBoard,
+  onRoomBackgroundThemeChange,
   onToggleDevTools,
   onParticipantNameDraftChange,
   onParticipantNameSubmit,
@@ -346,74 +355,116 @@ export function BoardStageShellOverlays({
           pointerEvents: "none",
         }}
       >
-        <button
-          type="button"
-          onClick={onAddTokenButtonClick}
-          aria-label="Add token"
-          {...getButtonProps(addTokenButtonRecipe)}
-          {...getDesignSystemDebugAttrs(addTokenButtonRecipe.debug)}
-          style={{
-            ...getButtonProps(addTokenButtonRecipe).style,
+        <HoverHint
+          placement="bottom"
+          offset={FLOATING_CONTROL_HINT_OFFSET_Y}
+          body="Add token"
+          minWidth="max-content"
+          maxWidth={160}
+          wrapperStyle={{
+            justifyItems: "center",
             pointerEvents: "auto",
-            width: 32,
-            minWidth: 32,
-            height: 32,
-            minHeight: 32,
-            padding: 0,
-            border: FLOATING_BUTTON_EXTRA_BORDER,
-            borderRadius: 999,
-            boxShadow: FLOATING_BUTTON_SHADOW,
-            fontSize: 18,
-            lineHeight: 1,
+          }}
+          tooltipStyle={{
+            padding: "8px 10px",
           }}
         >
-          <span style={PLUS_BUTTON_GLYPH_STYLE}>+</span>
-        </button>
+          <button
+            type="button"
+            onClick={onAddTokenButtonClick}
+            aria-label="Add token"
+            {...getButtonProps(addTokenButtonRecipe)}
+            {...getDesignSystemDebugAttrs(addTokenButtonRecipe.debug)}
+            style={{
+              ...getButtonProps(addTokenButtonRecipe).style,
+              width: 32,
+              minWidth: 32,
+              height: 32,
+              minHeight: 32,
+              padding: 0,
+              border: FLOATING_BUTTON_EXTRA_BORDER,
+              borderRadius: 999,
+              boxShadow: FLOATING_BUTTON_SHADOW,
+              fontSize: 18,
+              lineHeight: 1,
+            }}
+          >
+            <span style={PLUS_BUTTON_GLYPH_STYLE}>+</span>
+          </button>
+        </HoverHint>
 
-        <button
-          type="button"
-          onClick={onAddTextCardButtonClick}
-          aria-label="Add text card"
-          {...getButtonProps(addTextCardButtonRecipe)}
-          {...getDesignSystemDebugAttrs(addTextCardButtonRecipe.debug)}
-          style={{
-            ...getButtonProps(addTextCardButtonRecipe).style,
+        <HoverHint
+          placement="bottom"
+          offset={FLOATING_CONTROL_HINT_OFFSET_Y}
+          body="Add note"
+          minWidth="max-content"
+          maxWidth={160}
+          wrapperStyle={{
+            justifyItems: "center",
             pointerEvents: "auto",
-            width: 32,
-            minWidth: 32,
-            height: 32,
-            minHeight: 32,
-            padding: 0,
-            boxShadow: FLOATING_BUTTON_SHADOW,
-            fontSize: 18,
-            lineHeight: 1,
+          }}
+          tooltipStyle={{
+            padding: "8px 10px",
           }}
         >
-          <span style={PLUS_BUTTON_GLYPH_STYLE}>+</span>
-        </button>
+          <button
+            type="button"
+            onClick={onAddTextCardButtonClick}
+            aria-label="Add text card"
+            {...getButtonProps(addTextCardButtonRecipe)}
+            {...getDesignSystemDebugAttrs(addTextCardButtonRecipe.debug)}
+            style={{
+              ...getButtonProps(addTextCardButtonRecipe).style,
+              width: 32,
+              minWidth: 32,
+              height: 32,
+              minHeight: 32,
+              padding: 0,
+              boxShadow: FLOATING_BUTTON_SHADOW,
+              fontSize: 18,
+              lineHeight: 1,
+            }}
+          >
+            <span style={PLUS_BUTTON_GLYPH_STYLE}>+</span>
+          </button>
+        </HoverHint>
 
-        <button
-          type="button"
-          onClick={onAddImageButtonClick}
-          aria-label="Add image"
-          {...getButtonProps(addImageButtonRecipe)}
-          {...getDesignSystemDebugAttrs(addImageButtonRecipe.debug)}
-          style={{
-            ...getButtonProps(addImageButtonRecipe).style,
+        <HoverHint
+          placement="bottom"
+          offset={FLOATING_CONTROL_HINT_OFFSET_Y}
+          body="Add image"
+          minWidth="max-content"
+          maxWidth={160}
+          wrapperStyle={{
+            justifyItems: "center",
             pointerEvents: "auto",
-            width: 32,
-            minWidth: 32,
-            height: 32,
-            minHeight: 32,
-            padding: 0,
-            borderWidth: BOARD_SURFACE_CONTROL_BORDER_WIDTH,
-            boxShadow: FLOATING_BUTTON_SHADOW,
-            fontSize: 18,
-            lineHeight: 1,
+          }}
+          tooltipStyle={{
+            padding: "8px 10px",
           }}
         >
-          <span style={PLUS_BUTTON_GLYPH_STYLE}>+</span>
-        </button>
+          <button
+            type="button"
+            onClick={onAddImageButtonClick}
+            aria-label="Add image"
+            {...getButtonProps(addImageButtonRecipe)}
+            {...getDesignSystemDebugAttrs(addImageButtonRecipe.debug)}
+            style={{
+              ...getButtonProps(addImageButtonRecipe).style,
+              width: 32,
+              minWidth: 32,
+              height: 32,
+              minHeight: 32,
+              padding: 0,
+              borderWidth: BOARD_SURFACE_CONTROL_BORDER_WIDTH,
+              boxShadow: FLOATING_BUTTON_SHADOW,
+              fontSize: 18,
+              lineHeight: 1,
+            }}
+          >
+            <span style={PLUS_BUTTON_GLYPH_STYLE}>+</span>
+          </button>
+        </HoverHint>
       </div>
 
       <ParticipantSessionPanel
@@ -422,6 +473,7 @@ export function BoardStageShellOverlays({
         isCurrentParticipantRoomCreator={isCurrentParticipantRoomCreator}
         roomCreatorName={roomCreatorName}
         roomCreatorColor={roomCreatorColor}
+        roomBackgroundThemeId={roomBackgroundThemeId}
         participantName={participantName}
         participantColor={participantColor}
         participantNameDraft={participantNameDraft}
@@ -432,6 +484,7 @@ export function BoardStageShellOverlays({
         isDevToolsOpen={isDevToolsOpen}
         onLeaveRoom={onLeaveRoom}
         onResetBoard={onResetBoard}
+        onRoomBackgroundThemeChange={onRoomBackgroundThemeChange}
         onToggleDevTools={onToggleDevTools}
         onParticipantNameDraftChange={onParticipantNameDraftChange}
         onParticipantNameSubmit={onParticipantNameSubmit}

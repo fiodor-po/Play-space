@@ -58,6 +58,17 @@ const ROOM_DOC_PREFIXES = {
   presence: "play-space-alpha-presence:",
   roomState: "play-space-alpha-room-state:",
 };
+const ROOM_BACKGROUND_THEME_IDS = new Set([
+  "dot-grid-dark-blue",
+  "dot-grid-soft-light",
+  "graph-paper",
+  "granite",
+  "granite-mid",
+  "granite-dark",
+  "cork-board",
+  "starfield",
+]);
+const DEFAULT_ROOM_BACKGROUND_THEME_ID = "dot-grid-dark-blue";
 
 class WSSharedDoc extends Y.Doc {
   constructor(name) {
@@ -932,9 +943,27 @@ async function ensureDurableRoomIdentity(roomId, body) {
     roomId,
     identityStore[roomId]
   );
+  const requestedBackgroundThemeId =
+    typeof body.backgroundThemeId === "string" &&
+    ROOM_BACKGROUND_THEME_IDS.has(body.backgroundThemeId)
+      ? body.backgroundThemeId
+      : null;
 
   if (existingIdentity) {
-    return existingIdentity;
+    if (
+      !requestedBackgroundThemeId ||
+      existingIdentity.backgroundThemeId === requestedBackgroundThemeId
+    ) {
+      return existingIdentity;
+    }
+
+    const nextIdentity = {
+      ...existingIdentity,
+      backgroundThemeId: requestedBackgroundThemeId,
+    };
+    identityStore[roomId] = nextIdentity;
+    await writeDurableIdentityStore(identityStore);
+    return nextIdentity;
   }
 
   const snapshotStore = await readDurableSnapshotStore();
@@ -949,6 +978,8 @@ async function ensureDurableRoomIdentity(roomId, body) {
     roomId,
     creatorId,
     createdAt: new Date().toISOString(),
+    backgroundThemeId:
+      requestedBackgroundThemeId ?? DEFAULT_ROOM_BACKGROUND_THEME_ID,
   };
 
   identityStore[roomId] = nextIdentity;
@@ -1378,6 +1409,11 @@ function normalizeDurableRoomIdentity(roomId, identity) {
       typeof identity.createdAt === "string"
         ? identity.createdAt
         : new Date(0).toISOString(),
+    backgroundThemeId:
+      typeof identity.backgroundThemeId === "string" &&
+      ROOM_BACKGROUND_THEME_IDS.has(identity.backgroundThemeId)
+        ? identity.backgroundThemeId
+        : DEFAULT_ROOM_BACKGROUND_THEME_ID,
   };
 }
 

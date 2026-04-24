@@ -1,5 +1,5 @@
 import type { MutableRefObject } from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import {
   Group,
@@ -14,9 +14,9 @@ import {
 import type Konva from "konva";
 import type { KonvaEventObject } from "konva/lib/Node";
 import {
-  BOARD_HEIGHT,
-  BOARD_WIDTH,
   HTML_UI_FONT_FAMILY,
+  MAX_SCALE,
+  MIN_SCALE,
   MIN_IMAGE_SIZE,
   NOTE_HANDLE_SIZE,
 } from "../constants";
@@ -42,6 +42,10 @@ import {
   resolveCanvasButtonTone,
   type ButtonRecipe,
 } from "../../ui/system/families/button";
+import {
+  getBoardBackgroundTheme,
+  getBoardObjectElevationShadowRecipe,
+} from "../../ui/system/boardMaterials";
 import { RemoteInteractionIndicator } from "./RemoteInteractionIndicator";
 import type {
   BoardStageSelectedImageControlButton,
@@ -60,6 +64,7 @@ import type {
   ImageStroke,
   TokenAttachment,
 } from "../../types/board";
+import type { RoomBackgroundThemeId } from "../../lib/roomSettings";
 
 type RemoteSelectedObjectIndicator = {
   participantId: string;
@@ -70,6 +75,32 @@ type RemoteSelectedObjectIndicator = {
 
 const IMAGE_ATTACHED_CONTROLS_GAP = 8;
 const IMAGE_ATTACHED_CONTROLS_OUTER_OFFSET_Y = 12;
+const BOARD_BACKGROUND_HIT_MARGIN_SCREEN_PX = 32;
+const DOT_GRID_DETAIL_SPACING = 64;
+const DOT_GRID_MINOR_SPACING = 128;
+const DOT_GRID_MAJOR_SPACING = 512;
+const DOT_GRID_DETAIL_SIZE = 1;
+const DOT_GRID_MAJOR_SIZE = 2;
+const GRAPH_PAPER_MINOR_SPACING = 64;
+const GRAPH_PAPER_MAJOR_SPACING = 512;
+const GRAPH_PAPER_MINOR_LINE_WIDTH = 1;
+const GRAPH_PAPER_MAJOR_LINE_WIDTH = 1.5;
+const GRANITE_CELL_SIZE = 42;
+const GRANITE_VISIBLE_THRESHOLD = 0.42;
+const GRANITE_MIN_DOT_SIZE = 0.75;
+const GRANITE_DOT_SIZE_RANGE = 1.8;
+const CORK_CELL_SIZE = 34;
+const CORK_VISIBLE_THRESHOLD = 0.32;
+const CORK_MIN_FLECK_SIZE = 1.1;
+const CORK_FLECK_SIZE_RANGE = 2.4;
+const STARFIELD_CELL_SIZE = 54;
+const STARFIELD_VISIBLE_THRESHOLD = 0.72;
+const STARFIELD_MIN_SIZE = 0.35;
+const STARFIELD_SIZE_RANGE = 0.85;
+const DOT_GRID_ZOOM_OUT_ONLY_MAJOR_THRESHOLD =
+  MIN_SCALE + (MAX_SCALE - MIN_SCALE) * 0.08;
+const DOT_GRID_ZOOM_IN_DETAIL_THRESHOLD =
+  MAX_SCALE - (MAX_SCALE - MIN_SCALE) * 0.12;
 const BLOCKED_IMAGE_PILL_INSET = 10;
 const BLOCKED_IMAGE_PILL_HEIGHT = 28;
 const BLOCKED_IMAGE_PILL_RADIUS = 999;
@@ -77,6 +108,8 @@ const BLOCKED_IMAGE_PILL_FONT_SIZE = 13;
 const BLOCKED_IMAGE_PILL_PADDING_X = 12;
 const ERASER_CURSOR_RADIUS_SCREEN_PX = 8;
 const DRAWING_HIT_SURFACE_FILL = "rgba(15, 23, 42, 0.001)";
+const SURFACE_KONVA_SHADOW =
+  getBoardObjectElevationShadowRecipe("surface").konva;
 
 function getBlockedImagePillWidth(label: string) {
   let measuredTextWidth = label.length * BLOCKED_IMAGE_PILL_FONT_SIZE * 0.56;
@@ -92,6 +125,22 @@ function getBlockedImagePillWidth(label: string) {
   }
 
   return Math.ceil(measuredTextWidth + BLOCKED_IMAGE_PILL_PADDING_X * 2);
+}
+
+function getDeterministicUnitValue(seed: number) {
+  return Math.abs(Math.sin(seed) * 10000) % 1;
+}
+
+function getGraniteCellSeed(cellX: number, cellY: number) {
+  return cellX * 127.1 + cellY * 311.7;
+}
+
+function getCorkCellSeed(cellX: number, cellY: number) {
+  return cellX * 211.3 + cellY * 89.9;
+}
+
+function getStarfieldCellSeed(cellX: number, cellY: number) {
+  return cellX * 43.7 + cellY * 269.9;
 }
 
 type NoteCardPreviewBounds = {
@@ -130,6 +179,7 @@ type BoardStageSceneProps = {
     y: number;
   };
   stageScale: number;
+  roomBackgroundThemeId: RoomBackgroundThemeId;
   participantSession: LocalParticipantSession;
   boardBackgroundRef: MutableRefObject<Konva.Rect | null>;
   noteCardRefs: MutableRefObject<Record<string, Konva.Group | null>>;
@@ -139,8 +189,6 @@ type BoardStageSceneProps = {
   imageTransformerRef: MutableRefObject<Konva.Transformer | null>;
   liveNoteCardResizePreviewRef: MutableRefObject<NoteCardPreviewBounds | null>;
   transformingImageSnapshotRef: MutableRefObject<Record<string, BoardObject>>;
-  boardSurfaceFill: string;
-  boardSurfaceRadius: number;
   sortedObjects: BoardObject[];
   loadedImages: Record<string, HTMLImageElement>;
   drawingImageId: string | null;
@@ -399,6 +447,11 @@ function SmallFloatingActionButton({
         fill={toneStyles.fill}
         stroke={toneStyles.stroke}
         strokeWidth={strokeWidth}
+        shadowBlur={SURFACE_KONVA_SHADOW.shadowBlur}
+        shadowColor={SURFACE_KONVA_SHADOW.shadowColor}
+        shadowOffsetX={SURFACE_KONVA_SHADOW.shadowOffsetX}
+        shadowOffsetY={SURFACE_KONVA_SHADOW.shadowOffsetY}
+        shadowOpacity={SURFACE_KONVA_SHADOW.shadowOpacity}
       />
       <Text
         x={0}
@@ -425,6 +478,7 @@ export function BoardStageScene({
   stageSize,
   stagePosition,
   stageScale,
+  roomBackgroundThemeId,
   participantSession,
   boardBackgroundRef,
   noteCardRefs,
@@ -434,8 +488,6 @@ export function BoardStageScene({
   imageTransformerRef,
   liveNoteCardResizePreviewRef,
   transformingImageSnapshotRef,
-  boardSurfaceFill,
-  boardSurfaceRadius,
   sortedObjects,
   loadedImages,
   drawingImageId,
@@ -507,7 +559,12 @@ export function BoardStageScene({
   onTokenContextMenu,
   onSelectedImageControlClick,
 }: BoardStageSceneProps) {
+  const backgroundCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const [blockedImageHoverId, setBlockedImageHoverId] = useState<string | null>(null);
+  const backgroundTheme = useMemo(
+    () => getBoardBackgroundTheme(roomBackgroundThemeId),
+    [roomBackgroundThemeId]
+  );
   const isPanInteractionOverrideActive =
     isSpacePanActive || isMiddleMousePanDragging;
   const markerDrawingCursor = useMemo(
@@ -556,6 +613,305 @@ export function BoardStageScene({
     stageWrapperRef,
   ]);
 
+  useEffect(() => {
+    const canvas = backgroundCanvasRef.current;
+
+    if (!canvas || stageScale <= 0) {
+      return;
+    }
+
+    const context = canvas.getContext("2d");
+
+    if (!context) {
+      return;
+    }
+
+    const devicePixelRatio =
+      typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1;
+    const pixelWidth = Math.max(1, Math.round(stageSize.width * devicePixelRatio));
+    const pixelHeight = Math.max(1, Math.round(stageSize.height * devicePixelRatio));
+
+    if (canvas.width !== pixelWidth || canvas.height !== pixelHeight) {
+      canvas.width = pixelWidth;
+      canvas.height = pixelHeight;
+    }
+
+    canvas.style.width = `${stageSize.width}px`;
+    canvas.style.height = `${stageSize.height}px`;
+    context.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+    context.clearRect(0, 0, stageSize.width, stageSize.height);
+
+    const drawGridLayer = (
+      worldSpacing: number,
+      dotSize: number,
+      color: string
+    ) => {
+      const screenSpacing = worldSpacing * stageScale;
+
+      if (screenSpacing < dotSize * 2.2) {
+        return;
+      }
+
+      const minWorldX = -stagePosition.x / stageScale;
+      const minWorldY = -stagePosition.y / stageScale;
+      const maxWorldX = (stageSize.width - stagePosition.x) / stageScale;
+      const maxWorldY = (stageSize.height - stagePosition.y) / stageScale;
+      const firstWorldX = Math.floor(minWorldX / worldSpacing) * worldSpacing;
+      const firstWorldY = Math.floor(minWorldY / worldSpacing) * worldSpacing;
+
+      context.fillStyle = color;
+
+      for (
+        let worldY = firstWorldY;
+        worldY <= maxWorldY + worldSpacing;
+        worldY += worldSpacing
+      ) {
+        const screenY = worldY * stageScale + stagePosition.y - dotSize / 2;
+
+        for (
+          let worldX = firstWorldX;
+          worldX <= maxWorldX + worldSpacing;
+          worldX += worldSpacing
+        ) {
+          const screenX = worldX * stageScale + stagePosition.x - dotSize / 2;
+          context.fillRect(screenX, screenY, dotSize, dotSize);
+        }
+      }
+    };
+    const drawGraphPaperLines = (
+      worldSpacing: number,
+      lineWidth: number,
+      color: string
+    ) => {
+      const screenSpacing = worldSpacing * stageScale;
+
+      if (screenSpacing < lineWidth * 2.2) {
+        return;
+      }
+
+      const minWorldX = -stagePosition.x / stageScale;
+      const minWorldY = -stagePosition.y / stageScale;
+      const maxWorldX = (stageSize.width - stagePosition.x) / stageScale;
+      const maxWorldY = (stageSize.height - stagePosition.y) / stageScale;
+      const firstWorldX = Math.floor(minWorldX / worldSpacing) * worldSpacing;
+      const firstWorldY = Math.floor(minWorldY / worldSpacing) * worldSpacing;
+
+      context.strokeStyle = color;
+      context.lineWidth = lineWidth;
+      context.beginPath();
+
+      for (
+        let worldX = firstWorldX;
+        worldX <= maxWorldX + worldSpacing;
+        worldX += worldSpacing
+      ) {
+        const screenX = worldX * stageScale + stagePosition.x;
+        context.moveTo(screenX, 0);
+        context.lineTo(screenX, stageSize.height);
+      }
+
+      for (
+        let worldY = firstWorldY;
+        worldY <= maxWorldY + worldSpacing;
+        worldY += worldSpacing
+      ) {
+        const screenY = worldY * stageScale + stagePosition.y;
+        context.moveTo(0, screenY);
+        context.lineTo(stageSize.width, screenY);
+      }
+
+      context.stroke();
+    };
+    const drawGraniteSpeckles = (colors: string[]) => {
+      const minWorldX = -stagePosition.x / stageScale;
+      const minWorldY = -stagePosition.y / stageScale;
+      const maxWorldX = (stageSize.width - stagePosition.x) / stageScale;
+      const maxWorldY = (stageSize.height - stagePosition.y) / stageScale;
+      const firstCellX = Math.floor(minWorldX / GRANITE_CELL_SIZE) - 1;
+      const firstCellY = Math.floor(minWorldY / GRANITE_CELL_SIZE) - 1;
+      const lastCellX = Math.ceil(maxWorldX / GRANITE_CELL_SIZE) + 1;
+      const lastCellY = Math.ceil(maxWorldY / GRANITE_CELL_SIZE) + 1;
+
+      for (let cellY = firstCellY; cellY <= lastCellY; cellY += 1) {
+        for (let cellX = firstCellX; cellX <= lastCellX; cellX += 1) {
+          const seed = getGraniteCellSeed(cellX, cellY);
+          const visibility = getDeterministicUnitValue(seed);
+
+          if (visibility < GRANITE_VISIBLE_THRESHOLD) {
+            continue;
+          }
+
+          const localX = getDeterministicUnitValue(seed + 19.19) * GRANITE_CELL_SIZE;
+          const localY = getDeterministicUnitValue(seed + 73.73) * GRANITE_CELL_SIZE;
+          const dotSize =
+            GRANITE_MIN_DOT_SIZE +
+            getDeterministicUnitValue(seed + 41.41) * GRANITE_DOT_SIZE_RANGE;
+          const colorIndex = Math.floor(
+            getDeterministicUnitValue(seed + 97.97) * colors.length
+          );
+          const worldX = cellX * GRANITE_CELL_SIZE + localX;
+          const worldY = cellY * GRANITE_CELL_SIZE + localY;
+          const screenX = worldX * stageScale + stagePosition.x;
+          const screenY = worldY * stageScale + stagePosition.y;
+
+          context.fillStyle = colors[colorIndex] ?? colors[0] ?? "rgba(0,0,0,0.1)";
+          context.beginPath();
+          context.arc(screenX, screenY, dotSize, 0, Math.PI * 2);
+          context.fill();
+        }
+      }
+    };
+    const drawCorkFlecks = (colors: string[]) => {
+      const minWorldX = -stagePosition.x / stageScale;
+      const minWorldY = -stagePosition.y / stageScale;
+      const maxWorldX = (stageSize.width - stagePosition.x) / stageScale;
+      const maxWorldY = (stageSize.height - stagePosition.y) / stageScale;
+      const firstCellX = Math.floor(minWorldX / CORK_CELL_SIZE) - 1;
+      const firstCellY = Math.floor(minWorldY / CORK_CELL_SIZE) - 1;
+      const lastCellX = Math.ceil(maxWorldX / CORK_CELL_SIZE) + 1;
+      const lastCellY = Math.ceil(maxWorldY / CORK_CELL_SIZE) + 1;
+
+      for (let cellY = firstCellY; cellY <= lastCellY; cellY += 1) {
+        for (let cellX = firstCellX; cellX <= lastCellX; cellX += 1) {
+          const seed = getCorkCellSeed(cellX, cellY);
+          const visibility = getDeterministicUnitValue(seed);
+
+          if (visibility < CORK_VISIBLE_THRESHOLD) {
+            continue;
+          }
+
+          const localX = getDeterministicUnitValue(seed + 11.11) * CORK_CELL_SIZE;
+          const localY = getDeterministicUnitValue(seed + 37.37) * CORK_CELL_SIZE;
+          const fleckWidth =
+            CORK_MIN_FLECK_SIZE +
+            getDeterministicUnitValue(seed + 53.53) * CORK_FLECK_SIZE_RANGE;
+          const fleckHeight =
+            CORK_MIN_FLECK_SIZE +
+            getDeterministicUnitValue(seed + 79.79) * CORK_FLECK_SIZE_RANGE;
+          const colorIndex = Math.floor(
+            getDeterministicUnitValue(seed + 101.1) * colors.length
+          );
+          const worldX = cellX * CORK_CELL_SIZE + localX;
+          const worldY = cellY * CORK_CELL_SIZE + localY;
+          const screenX = worldX * stageScale + stagePosition.x - fleckWidth / 2;
+          const screenY = worldY * stageScale + stagePosition.y - fleckHeight / 2;
+
+          context.fillStyle = colors[colorIndex] ?? colors[0] ?? "rgba(0,0,0,0.1)";
+          context.fillRect(screenX, screenY, fleckWidth, fleckHeight);
+        }
+      }
+    };
+    const drawStarfield = (colors: string[]) => {
+      const minWorldX = -stagePosition.x / stageScale;
+      const minWorldY = -stagePosition.y / stageScale;
+      const maxWorldX = (stageSize.width - stagePosition.x) / stageScale;
+      const maxWorldY = (stageSize.height - stagePosition.y) / stageScale;
+      const firstCellX = Math.floor(minWorldX / STARFIELD_CELL_SIZE) - 1;
+      const firstCellY = Math.floor(minWorldY / STARFIELD_CELL_SIZE) - 1;
+      const lastCellX = Math.ceil(maxWorldX / STARFIELD_CELL_SIZE) + 1;
+      const lastCellY = Math.ceil(maxWorldY / STARFIELD_CELL_SIZE) + 1;
+
+      for (let cellY = firstCellY; cellY <= lastCellY; cellY += 1) {
+        for (let cellX = firstCellX; cellX <= lastCellX; cellX += 1) {
+          const seed = getStarfieldCellSeed(cellX, cellY);
+          const visibility = getDeterministicUnitValue(seed);
+
+          if (visibility < STARFIELD_VISIBLE_THRESHOLD) {
+            continue;
+          }
+
+          const localX = getDeterministicUnitValue(seed + 23.23) * STARFIELD_CELL_SIZE;
+          const localY = getDeterministicUnitValue(seed + 61.61) * STARFIELD_CELL_SIZE;
+          const starSize =
+            STARFIELD_MIN_SIZE +
+            getDeterministicUnitValue(seed + 17.17) * STARFIELD_SIZE_RANGE;
+          const colorIndex = Math.floor(
+            getDeterministicUnitValue(seed + 131.31) * colors.length
+          );
+          const worldX = cellX * STARFIELD_CELL_SIZE + localX;
+          const worldY = cellY * STARFIELD_CELL_SIZE + localY;
+          const screenX = worldX * stageScale + stagePosition.x;
+          const screenY = worldY * stageScale + stagePosition.y;
+
+          context.fillStyle = colors[colorIndex] ?? colors[0] ?? "rgba(255,255,255,0.7)";
+          context.beginPath();
+          context.arc(screenX, screenY, starSize, 0, Math.PI * 2);
+          context.fill();
+        }
+      }
+    };
+
+    if (backgroundTheme.pattern === "starfield" && backgroundTheme.starfield) {
+      drawStarfield(backgroundTheme.starfield.starColors);
+      return;
+    }
+
+    if (backgroundTheme.pattern === "cork" && backgroundTheme.cork) {
+      drawCorkFlecks(backgroundTheme.cork.fleckColors);
+      return;
+    }
+
+    if (backgroundTheme.pattern === "granite" && backgroundTheme.granite) {
+      drawGraniteSpeckles(backgroundTheme.granite.speckColors);
+      return;
+    }
+
+    if (backgroundTheme.pattern === "graph-paper" && backgroundTheme.graphPaper) {
+      drawGraphPaperLines(
+        GRAPH_PAPER_MINOR_SPACING,
+        GRAPH_PAPER_MINOR_LINE_WIDTH,
+        backgroundTheme.graphPaper.minorLineColor
+      );
+      drawGraphPaperLines(
+        GRAPH_PAPER_MAJOR_SPACING,
+        GRAPH_PAPER_MAJOR_LINE_WIDTH,
+        backgroundTheme.graphPaper.majorLineColor
+      );
+      return;
+    }
+
+    const isNearZoomOutLimit =
+      stageScale <= DOT_GRID_ZOOM_OUT_ONLY_MAJOR_THRESHOLD;
+    const isNearZoomInLimit =
+      stageScale >= DOT_GRID_ZOOM_IN_DETAIL_THRESHOLD;
+    if (isNearZoomInLimit) {
+      drawGridLayer(
+        DOT_GRID_DETAIL_SPACING,
+        DOT_GRID_DETAIL_SIZE,
+        backgroundTheme.dotGrid.detailColor
+      );
+    }
+
+    if (!isNearZoomOutLimit) {
+      drawGridLayer(
+        DOT_GRID_MINOR_SPACING,
+        DOT_GRID_MAJOR_SIZE,
+        backgroundTheme.dotGrid.majorColor
+      );
+    }
+
+    if (isNearZoomOutLimit) {
+      drawGridLayer(
+        DOT_GRID_MAJOR_SPACING,
+        DOT_GRID_MAJOR_SIZE,
+        backgroundTheme.dotGrid.majorColor
+      );
+    }
+  }, [
+    backgroundTheme.cork,
+    backgroundTheme.dotGrid.detailColor,
+    backgroundTheme.dotGrid.majorColor,
+    backgroundTheme.granite,
+    backgroundTheme.graphPaper,
+    backgroundTheme.pattern,
+    backgroundTheme.starfield,
+    stagePosition.x,
+    stagePosition.y,
+    stageScale,
+    stageSize.height,
+    stageSize.width,
+  ]);
+
   const activeDrawingImage =
     drawingImageId && !isPanInteractionOverrideActive
       ? sortedObjects.find(
@@ -570,6 +926,18 @@ export function BoardStageScene({
     activeDrawingImageLock.participantId !== participantSession.id;
   const isDrawingHitSurfaceVisible =
     !!activeDrawingImage && !isActiveDrawingImageLockedByAnotherParticipant;
+  const boardBackgroundHitBounds = useMemo(() => {
+    const safeScale = stageScale > 0 ? stageScale : 1;
+
+    return {
+      x: (-stagePosition.x - BOARD_BACKGROUND_HIT_MARGIN_SCREEN_PX) / safeScale,
+      y: (-stagePosition.y - BOARD_BACKGROUND_HIT_MARGIN_SCREEN_PX) / safeScale,
+      width:
+        (stageSize.width + BOARD_BACKGROUND_HIT_MARGIN_SCREEN_PX * 2) / safeScale,
+      height:
+        (stageSize.height + BOARD_BACKGROUND_HIT_MARGIN_SCREEN_PX * 2) / safeScale,
+    };
+  }, [stagePosition.x, stagePosition.y, stageScale, stageSize.height, stageSize.width]);
 
   const handleDrawingHitSurfaceMouseDown = (
     event: KonvaEventObject<MouseEvent>
@@ -631,7 +999,25 @@ export function BoardStageScene({
   };
 
   return (
-    <div ref={stageWrapperRef}>
+    <div
+      ref={stageWrapperRef}
+      style={{
+        position: "relative",
+        width: stageSize.width,
+        height: stageSize.height,
+      }}
+    >
+      <canvas
+        ref={backgroundCanvasRef}
+        aria-hidden="true"
+        style={{
+          position: "absolute",
+          inset: 0,
+          width: "100%",
+          height: "100%",
+          pointerEvents: "none",
+        }}
+      />
       <Stage
         width={stageSize.width}
         height={stageSize.height}
@@ -660,12 +1046,11 @@ export function BoardStageScene({
         <Layer>
           <Rect
             ref={boardBackgroundRef}
-            x={0}
-            y={0}
-            width={BOARD_WIDTH}
-            height={BOARD_HEIGHT}
-            fill={boardSurfaceFill}
-            cornerRadius={boardSurfaceRadius}
+            x={boardBackgroundHitBounds.x}
+            y={boardBackgroundHitBounds.y}
+            width={boardBackgroundHitBounds.width}
+            height={boardBackgroundHitBounds.height}
+            fill="rgba(0, 0, 0, 0)"
             onMouseDown={(event) => {
               if (event.evt.button === 1) {
                 return;
@@ -760,7 +1145,11 @@ export function BoardStageScene({
                     height={object.height}
                     fill={loadedImage ? undefined : object.fill}
                     opacity={isRemoteDragPreviewActive ? 0.28 : 1}
-                    shadowBlur={8}
+                    shadowBlur={SURFACE_KONVA_SHADOW.shadowBlur}
+                    shadowColor={SURFACE_KONVA_SHADOW.shadowColor}
+                    shadowOffsetX={SURFACE_KONVA_SHADOW.shadowOffsetX}
+                    shadowOffsetY={SURFACE_KONVA_SHADOW.shadowOffsetY}
+                    shadowOpacity={SURFACE_KONVA_SHADOW.shadowOpacity}
                     draggable={
                       !isPanInteractionOverrideActive &&
                       !isDrawing &&

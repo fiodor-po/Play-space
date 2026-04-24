@@ -1,4 +1,8 @@
 import { HTML_UI_FONT_FAMILY } from "../constants";
+import { getBoardObjectElevationShadowRecipe } from "../../ui/system/boardMaterials";
+
+const FLOATING_OBJECT_SHADOW =
+  getBoardObjectElevationShadowRecipe("floating").cssBoxShadow;
 
 export type CursorOverlayItem = {
   participantId: string;
@@ -51,7 +55,7 @@ export function CursorOverlay({ cursors }: CursorOverlayProps) {
               borderRadius: 999,
               background: "rgba(15, 23, 42, 0.92)",
               color: "#f8fafc",
-              boxShadow: "0 8px 24px rgba(2, 6, 23, 0.28)",
+              boxShadow: FLOATING_OBJECT_SHADOW,
               fontFamily: HTML_UI_FONT_FAMILY,
               fontSize: 12,
               fontWeight: 600,

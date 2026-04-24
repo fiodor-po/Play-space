@@ -1,9 +1,14 @@
 import { getApiServerBaseUrl } from "./runtimeConfig";
+import {
+  normalizeRoomBackgroundThemeId,
+  type RoomBackgroundThemeId,
+} from "./roomSettings";
 
 export type DurableRoomIdentity = {
   roomId: string;
   creatorId: string | null;
   createdAt: string;
+  backgroundThemeId: RoomBackgroundThemeId;
 };
 
 export async function loadDurableRoomIdentity(
@@ -49,6 +54,7 @@ export async function ensureDurableRoomIdentity(
   roomId: string,
   options?: {
     creatorId?: string | null;
+    backgroundThemeId?: RoomBackgroundThemeId;
   }
 ): Promise<DurableRoomIdentity | null> {
   const identityUrl = getDurableRoomIdentityUrl(roomId);
@@ -61,6 +67,7 @@ export async function ensureDurableRoomIdentity(
       },
       body: JSON.stringify({
         creatorId: options?.creatorId ?? null,
+        backgroundThemeId: options?.backgroundThemeId,
       }),
     });
 
@@ -101,6 +108,7 @@ function normalizeDurableRoomIdentity(
       typeof identity.createdAt === "string"
         ? identity.createdAt
         : new Date(0).toISOString(),
+    backgroundThemeId: normalizeRoomBackgroundThemeId(identity.backgroundThemeId),
   };
 }
 

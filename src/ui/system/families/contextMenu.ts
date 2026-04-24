@@ -1,8 +1,12 @@
 import type { CSSProperties } from "react";
 import { HTML_UI_FONT_FAMILY } from "../../../board/constants";
+import { getBoardObjectElevationShadowRecipe } from "../boardMaterials";
 import type { DesignSystemDebugMeta } from "../debugMeta";
 import { border, radiusPrimitive, surface, text } from "../foundations";
 import { uiTextStyleSmall } from "../typography";
+
+const FLOATING_OBJECT_SHADOW =
+  getBoardObjectElevationShadowRecipe("floating").cssBoxShadow;
 
 type ContextMenuRecipe = {
   className: string;
@@ -22,7 +26,7 @@ function createContextMenuShellRecipe(): ContextMenuRecipe {
       border: `1px solid ${border.default}`,
       background: surface.panel,
       color: text.secondary,
-      boxShadow: "0 18px 50px rgba(2, 6, 23, 0.35)",
+      boxShadow: FLOATING_OBJECT_SHADOW,
       backdropFilter: "blur(10px)",
       fontFamily: HTML_UI_FONT_FAMILY,
       pointerEvents: "auto",

@@ -25,6 +25,7 @@ import type {
 } from "../lib/roomSession";
 import { normalizeRoomId } from "../lib/roomId";
 import { ContextMenu, type ContextMenuItem } from "../ui/system/ContextMenu";
+import { getBoardObjectElevationShadowRecipe } from "../ui/system/boardMaterials";
 import {
   getParticipantAvatarFaceIconPixelSize,
   ParticipantAvatarFaceIcon,
@@ -34,6 +35,9 @@ import {
   isFakeMicrophoneLevelEnabled,
 } from "./mediaDiagnostics";
 import type { LiveKitMediaSession } from "./useLiveKitMediaSession";
+
+const FLOATING_OBJECT_SHADOW =
+  getBoardObjectElevationShadowRecipe("floating").cssBoxShadow;
 
 type LiveKitMediaBubblesProps = {
   mediaSession: LiveKitMediaSession;
@@ -1227,21 +1231,10 @@ function MediaBubble({
           position: "relative",
           width: size,
           height: size,
+          borderRadius: 999,
+          boxShadow: FLOATING_OBJECT_SHADOW,
         }}
       >
-        <div
-          aria-hidden="true"
-          style={{
-            position: "absolute",
-            inset: 0,
-            borderRadius: 999,
-            border: "1px solid rgba(255, 255, 255, 0.22)",
-            boxSizing: "border-box",
-            pointerEvents: "none",
-            zIndex: 1,
-          }}
-        />
-
         <div
           data-media-bubble-circle="true"
           aria-label={`${participant.name} media bubble`}
@@ -1260,12 +1253,9 @@ function MediaBubble({
             width: "100%",
             height: "100%",
             borderRadius: 999,
-            clipPath: "circle(50% at 50% 50%)",
             overflow: "hidden",
-            border: `${BUBBLE_RING_WIDTH}px solid ${participant.color}`,
             background: participant.color,
             pointerEvents: "auto",
-            boxShadow: "0 18px 42px rgba(2, 6, 23, 0.36)",
           }}
         >
           {shouldShowCameraTrack ? (
@@ -1393,6 +1383,17 @@ function MediaBubble({
               }}
             />
           ) : null}
+
+          <div
+            aria-hidden="true"
+            style={{
+              position: "absolute",
+              inset: 0,
+              borderRadius: 999,
+              boxShadow: `inset 0 0 0 ${BUBBLE_RING_WIDTH}px ${participant.color}`,
+              pointerEvents: "none",
+            }}
+          />
         </div>
 
         {shouldShowLocalControls ? (
@@ -1486,7 +1487,7 @@ function MediaBubble({
           color: "#f8fafc",
           background: "rgba(15, 23, 42, 0.72)",
           border: "1px solid rgba(248, 250, 252, 0.12)",
-          boxShadow: "0 8px 20px rgba(2, 6, 23, 0.24)",
+          boxShadow: FLOATING_OBJECT_SHADOW,
           fontSize: 11,
           fontWeight: 700,
           lineHeight: "14px",

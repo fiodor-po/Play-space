@@ -39,6 +39,10 @@ Machine-local env files should stay untracked. Update the local copy when your m
 `VITE_ENABLE_LIVEKIT_MEDIA` can disable the media dock for the cheapest first hosted-alpha shape.
 For the hosted video enable pass, set `VITE_ENABLE_LIVEKIT_MEDIA=true` and provide valid `VITE_LIVEKIT_URL`, `LIVEKIT_API_KEY`, and `LIVEKIT_API_SECRET`.
 
+Local wrapper workflows also expect an explicit `VITE_LIVEKIT_TOKEN_URL`.
+This keeps `dev:local` and `dev:lan` hermetic and prevents `.env.local` or hosted
+Vercel linkage from silently changing the media token route.
+
 ## 2.1 Local runtime data
 
 Normal local backend runtime writes durable snapshot and identity data to ignored repo-local files:
@@ -66,6 +70,13 @@ This starts:
 - `presence-server`
 - native `livekit-server`
 
+Expected local routing:
+
+- app: `http://localhost:5173`
+- realtime/API: `http://localhost:1234`
+- LiveKit signaling: `ws://localhost:7880`
+- LiveKit token route: `http://localhost:1234/api/livekit/token`
+
 App URL:
 
 ```text
@@ -92,6 +103,13 @@ This starts:
 - `presence-server`
 - native `livekit-server`
 - Caddy LAN HTTPS proxy
+
+Expected LAN routing:
+
+- app: `https://<LAN_HOST>:3443`
+- realtime/API: `https://<LAN_HOST>:3444`
+- LiveKit signaling: `wss://<LAN_HOST>:3445`
+- LiveKit token route: `https://<LAN_HOST>:3444/api/livekit/token`
 
 App URL:
 
@@ -173,11 +191,14 @@ The wrapper scripts should stop child services too.
 - `npm run dev:lan` requires both `livekit-server` and `caddy`
 - localhost mode reads from `.env.localdev`
 - LAN mode reads from `.env.landev`
+- both wrapper commands are expected to fail fast if one of the required child
+  services exits or if a required env var is missing
 - when your LAN IP changes, update `.env.landev`:
   - `LAN_HOST`
   - `VITE_Y_WEBSOCKET_URL`
   - `VITE_API_BASE_URL`
   - `VITE_LIVEKIT_URL`
+  - `VITE_LIVEKIT_TOKEN_URL`
 
 ## 8. Recommended sanity checks
 

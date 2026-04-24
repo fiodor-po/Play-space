@@ -558,6 +558,26 @@ Do not continue hosted, cloud, connector, CI, or protected-environment work on
 assumptions when access is unverified.
 baseline as canonical.
 
+## Autonomy policy
+
+For this repo, work autonomously inside the repository by default.
+
+You may without asking:
+- read and edit code and docs inside this repository;
+- run local validation and smoke checks;
+- install needed npm dependencies for the current task;
+- create local commits on the current working branch.
+
+Ask before:
+- any push;
+- any deploy or release action;
+- any history rewrite (`rebase`, `reset`, `commit --amend`, force push);
+- any change to `main`;
+- any access to real secrets beyond normal local project workflow;
+- any action outside this repository.
+
+When reporting progress, explain decisions and results in plain Russian, focusing on what changed, why, and how it was verified.
+
 ## Inspectability default
 
 When an important change is mostly architectural, runtime-level, semantic, or otherwise not reliably verifiable through ordinary visible UI behavior:

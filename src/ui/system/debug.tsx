@@ -1,5 +1,9 @@
 import { useEffect, useState } from "react";
+import { getBoardObjectElevationShadowRecipe } from "./boardMaterials";
 import { isDesignSystemHoverDebugEnabled } from "./debugMeta";
+
+const FLOATING_OBJECT_SHADOW =
+  getBoardObjectElevationShadowRecipe("floating").cssBoxShadow;
 
 type HoverState = {
   label: string;
@@ -80,7 +84,7 @@ export function DesignSystemHoverInspector() {
         fontSize: 11,
         fontWeight: 700,
         letterSpacing: "0.01em",
-        boxShadow: "0 10px 30px rgba(2, 6, 23, 0.35)",
+        boxShadow: FLOATING_OBJECT_SHADOW,
         whiteSpace: "nowrap",
       }}
     >

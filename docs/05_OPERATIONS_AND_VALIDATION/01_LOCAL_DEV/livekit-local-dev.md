@@ -101,6 +101,7 @@ Current narrow local-dev expectation:
 
 ```env
 VITE_LIVEKIT_URL=ws://localhost:7880
+VITE_LIVEKIT_TOKEN_URL=http://localhost:1234/api/livekit/token
 LIVEKIT_API_KEY=devkey
 LIVEKIT_API_SECRET=secret
 ```
@@ -117,6 +118,8 @@ Current logic is expected to resolve token requests against the existing backend
 Practical dev expectation:
 
 - token requests go to the backend on port `1234`, directly or through the LAN proxy host mapping.
+- local wrapper env files should set this explicitly so hosted `.env.local`
+  values cannot leak into `dev:local` or `dev:lan`.
 
 ## 8. Verify LiveKit is up
 

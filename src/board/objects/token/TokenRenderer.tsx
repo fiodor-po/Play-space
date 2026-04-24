@@ -1,6 +1,7 @@
 import { Circle, Group, Text } from "react-konva";
 import type { KonvaEventObject } from "konva/lib/Node";
 import type { BoardObject, TokenVisualVariant } from "../../../types/board";
+import { getBoardObjectElevationShadowRecipe } from "../../../ui/system/boardMaterials";
 import { normalizeTokenVisualVariant } from "./createTokenObject";
 import {
   normalizeTokenIconId,
@@ -62,6 +63,9 @@ export function TokenRenderer({
     visualVariant
   );
   const glyphVisualOffsetY = resolveTokenGlyphVisualOffsetY(tokenGlyph);
+  const tokenShadow = getBoardObjectElevationShadowRecipe(
+    object.tokenAttachment?.mode === "attached" ? "surface" : "raised"
+  ).konva;
 
   return (
     <Group
@@ -90,16 +94,6 @@ export function TokenRenderer({
         />
       )}
 
-      {!isMiniToken ? (
-        <Circle
-          x={0}
-          y={0}
-          radius={radius}
-          fill="rgba(248, 250, 252, 0.16)"
-          listening={false}
-        />
-      ) : null}
-
       <Circle
         x={0}
         y={0}
@@ -107,8 +101,11 @@ export function TokenRenderer({
         fill={fillColor}
         stroke="rgba(248, 250, 252, 0.92)"
         strokeWidth={isMiniToken ? 2.5 : 2}
-        shadowBlur={isMiniToken ? 0 : isIconToken ? 10 : 8}
-        shadowColor="rgba(15, 23, 42, 0.45)"
+        shadowBlur={tokenShadow.shadowBlur}
+        shadowColor={tokenShadow.shadowColor}
+        shadowOffsetX={tokenShadow.shadowOffsetX}
+        shadowOffsetY={tokenShadow.shadowOffsetY}
+        shadowOpacity={tokenShadow.shadowOpacity}
       />
 
       {tokenIconId ? (

@@ -34,8 +34,7 @@ import {
 } from "../board/objects/noteCard/sizing";
 import { isDesignSystemHoverDebugEnabled } from "../ui/system/debugMeta";
 import {
-  boardMaterials,
-  resolveBoardCanvasMaterials,
+  getBoardBackgroundTheme,
 } from "../ui/system/boardMaterials";
 import {
   resolveEffectiveImageBounds,
@@ -84,6 +83,7 @@ import {
   getWheelPanDelta,
   getZoomedViewport,
 } from "../board/viewport";
+import type { RoomBackgroundThemeId } from "../lib/roomSettings";
 import { EMPTY_BOARD_STATE } from "../data/emptyBoard";
 import {
   appendImageStrokePointInObjects,
@@ -296,11 +296,13 @@ type BoardStageProps = {
   isCurrentParticipantRoomCreator: boolean;
   roomCreatorName: string | null;
   roomCreatorId: string | null;
+  roomBackgroundThemeId: RoomBackgroundThemeId;
   roomBaselineToApply: RoomBaselineDescriptor | null;
   roomEffectiveAccessLevel: AccessLevel;
   mediaStatus: LiveKitMediaStatusViewModel | null;
   onLeaveRoom: () => void;
   onRoomBaselineApplied: (baselineId: RoomBaselineId) => void;
+  onRoomBackgroundThemeChange: (backgroundThemeId: RoomBackgroundThemeId) => void;
   onUpdateParticipantSession: (
     updater: (session: LocalParticipantSession) => LocalParticipantSession
   ) => void;
@@ -812,11 +814,13 @@ export default function BoardStage({
   isCurrentParticipantRoomCreator,
   roomCreatorName,
   roomCreatorId,
+  roomBackgroundThemeId,
   roomBaselineToApply,
   roomEffectiveAccessLevel,
   mediaStatus,
   onLeaveRoom,
   onRoomBaselineApplied,
+  onRoomBackgroundThemeChange,
   onUpdateParticipantSession,
   onUpdateLocalPresence,
 }: BoardStageProps) {
@@ -5195,7 +5199,6 @@ export default function BoardStage({
     stageScale,
   ]);
 
-  const canvasBoardMaterials = useMemo(() => resolveBoardCanvasMaterials(), []);
   const roomCreatorLiveColor =
     roomCreatorId && roomCreatorId !== participantSession.id
       ? resolveCurrentParticipantColor({
@@ -5205,6 +5208,10 @@ export default function BoardStage({
           roomOccupancies,
         })
       : null;
+  const boardBackgroundTheme = useMemo(
+    () => getBoardBackgroundTheme(roomBackgroundThemeId),
+    [roomBackgroundThemeId]
+  );
   const devToolsViewModel = getBoardStageDevToolsViewModel({
     sharedObjectCount,
     sharedTokenCount,
@@ -5644,7 +5651,7 @@ export default function BoardStage({
         height: "100vh",
         margin: 0,
         overflow: "hidden",
-        background: boardMaterials.backdrop,
+        background: boardBackgroundTheme.backdrop,
       }}
       onMouseMove={(event) => {
         updateLocalCursorPresence(event.clientX, event.clientY);
@@ -5712,6 +5719,7 @@ export default function BoardStage({
         isCurrentParticipantRoomCreator={isCurrentParticipantRoomCreator}
         roomCreatorName={roomCreatorName}
         roomCreatorColor={roomCreatorLiveColor}
+        roomBackgroundThemeId={roomBackgroundThemeId}
         participantName={participantSession.name}
         participantColor={participantSession.color}
         participantNameDraft={participantNameDraft}
@@ -5722,6 +5730,7 @@ export default function BoardStage({
         isDevToolsOpen={isDevToolsOpen}
         onLeaveRoom={onLeaveRoom}
         onResetBoard={resetBoard}
+        onRoomBackgroundThemeChange={onRoomBackgroundThemeChange}
         onToggleDevTools={() => {
           setIsDevToolsOpen((current) => !current);
         }}
@@ -5824,6 +5833,7 @@ export default function BoardStage({
         stageSize={stageSize}
         stagePosition={stagePosition}
         stageScale={stageScale}
+        roomBackgroundThemeId={roomBackgroundThemeId}
         participantSession={participantSession}
         boardBackgroundRef={boardBackgroundRef}
         noteCardRefs={noteCardRefs}
@@ -5833,8 +5843,6 @@ export default function BoardStage({
         imageTransformerRef={imageTransformerRef}
         liveNoteCardResizePreviewRef={liveNoteCardResizePreviewRef}
         transformingImageSnapshotRef={transformingImageSnapshotRef}
-        boardSurfaceFill={canvasBoardMaterials.surface}
-        boardSurfaceRadius={canvasBoardMaterials.surfaceRadius}
         sortedObjects={sortedObjects}
         loadedImages={loadedImages}
         drawingImageId={drawingImageId}

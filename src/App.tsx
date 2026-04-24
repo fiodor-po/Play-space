@@ -28,6 +28,7 @@ import {
   getSwatchButtonProps,
   swatchPillRecipes,
 } from "./ui/system/families/swatchPill";
+import { FeedbackDock } from "./ui/system/FeedbackDock";
 import { surfaceRecipes } from "./ui/system/surfaces";
 import { applyClientResetPolicyIfNeeded } from "./lib/clientResetPolicy";
 import {
@@ -35,7 +36,7 @@ import {
   createRoomGovernedEntityRef,
   resolveGovernedEntityAccess,
 } from "./lib/governance";
-import { createRoomCreatorConnection } from "./lib/roomCreatorRealtime";
+import { createRoomStateConnection } from "./lib/roomCreatorRealtime";
 import {
   clearActiveParticipantRoomSession,
   clearActiveRoomId,
@@ -65,6 +66,7 @@ import {
 } from "./lib/roomMetadata";
 import { isLiveKitMediaEnabled, logClientRuntimeConfig } from "./lib/runtimeConfig";
 import type { FormEvent, ReactNode } from "react";
+import { createRoomSettings, type RoomSettings } from "./lib/roomSettings";
 import type {
   LocalParticipantSession,
   ParticipantPresence,
@@ -73,6 +75,11 @@ import type {
 } from "./lib/roomSession";
 import type { RoomBaselineDescriptor, RoomRecord } from "./lib/roomMetadata";
 import type { JoinClaim } from "./lib/roomPresenceRealtime";
+import {
+  buildFeedbackCapturePayload,
+  submitFeedbackCapture,
+  type FeedbackCaptureContext,
+} from "./lib/feedbackCapture";
 
 const ENTRY_SCREEN_VERSION_LABEL = "alpha 2";
 const DEFAULT_ROOM_BASELINE_DESCRIPTOR: RoomBaselineDescriptor =
@@ -93,6 +100,7 @@ type JoinedRoomActivationState = {
   localParticipantPresence: ParticipantPresence;
   roomRecord: RoomRecord | null;
   roomCreatorId: string | null;
+  roomSettings: RoomSettings;
 };
 
 function getIsForegroundPresenceCarrier() {
@@ -116,6 +124,7 @@ function createJoinedRoomActivationState(params: {
     ),
     roomRecord: params.roomRecord,
     roomCreatorId: null,
+    roomSettings: createRoomSettings(),
   };
 }
 
@@ -202,6 +211,28 @@ function EntryModeScreen({
   onFillEntryDebugOccupiedColors,
   onClearEntryDebugOverrides,
 }: EntryModeScreenProps) {
+  const feedbackContext: FeedbackCaptureContext = {
+    isRoomOwner: false,
+    media: {
+      enabled: isLiveKitMediaEnabled(),
+      connectionState: "not-joined",
+      micEnabled: false,
+      cameraEnabled: false,
+    },
+    room: {
+      roomId: normalizeRoomId(draftRoomId) || "entry-screen",
+      participantId: getOrCreateBrowserParticipantId(),
+      participantName: draftName.trim() || "Guest",
+      participantColor: draftColor,
+      participantCount: 0,
+      objectCounts: {
+        tokens: 0,
+        images: 0,
+        textCards: 0,
+      },
+    },
+  };
+
   return (
     <div
       style={{
@@ -515,7 +546,45 @@ function EntryModeScreen({
           </button>
         </form>
       </div>
+      <EntryFeedbackDock feedbackContext={feedbackContext} />
     </div>
+  );
+}
+
+function EntryFeedbackDock({
+  feedbackContext,
+}: {
+  feedbackContext: FeedbackCaptureContext;
+}) {
+  return (
+    <FeedbackDock
+      title="Report a problem"
+      description="Quick note before joining the room."
+      testIdPrefix="entry-feedback"
+      launcherRecipe={buttonRecipes.secondary.small}
+      launcherStyle={{
+        width: 40,
+        minWidth: 40,
+        minHeight: 40,
+        borderRadius: 999,
+        boxShadow: "0 18px 40px rgba(2, 6, 23, 0.28)",
+      }}
+      wrapperStyle={{
+        position: "fixed",
+        right: 24,
+        bottom: 24,
+        zIndex: 12,
+      }}
+      onSubmit={async ({ type, message }) => {
+        await submitFeedbackCapture(
+          buildFeedbackCapturePayload({
+            type,
+            message,
+            context: feedbackContext,
+          })
+        );
+      }}
+    />
   );
 }
 
@@ -527,6 +596,7 @@ type JoinedRoomScreenProps = {
   isCurrentParticipantRoomCreator: boolean;
   roomCreatorName: string | null;
   roomCreatorId: string | null;
+  roomSettings: RoomSettings;
   roomBaselineToApply: RoomBaselineDescriptor | null;
   roomEffectiveAccessLevel: AccessLevel;
   liveKitMediaEnabled: boolean;
@@ -534,6 +604,7 @@ type JoinedRoomScreenProps = {
   onRoomBaselineApplied: (
     baselineId: RoomBaselineDescriptor["baselineId"]
   ) => void;
+  onRoomBackgroundThemeChange: (backgroundThemeId: RoomSettings["backgroundThemeId"]) => void;
   onUpdateParticipantSession: (
     updater: (session: LocalParticipantSession) => LocalParticipantSession
   ) => void;
@@ -550,11 +621,13 @@ function JoinedRoomScreen({
   isCurrentParticipantRoomCreator,
   roomCreatorName,
   roomCreatorId,
+  roomSettings,
   roomBaselineToApply,
   roomEffectiveAccessLevel,
   liveKitMediaEnabled,
   onLeaveRoom,
   onRoomBaselineApplied,
+  onRoomBackgroundThemeChange,
   onUpdateParticipantSession,
   onUpdateLocalPresence,
 }: JoinedRoomScreenProps) {
@@ -572,11 +645,13 @@ function JoinedRoomScreen({
         isCurrentParticipantRoomCreator={isCurrentParticipantRoomCreator}
         roomCreatorName={roomCreatorName}
         roomCreatorId={roomCreatorId}
+        roomBackgroundThemeId={roomSettings.backgroundThemeId}
         roomBaselineToApply={roomBaselineToApply}
         roomEffectiveAccessLevel={roomEffectiveAccessLevel}
         mediaStatus={liveKitMediaEnabled ? mediaStatus : null}
         onLeaveRoom={onLeaveRoom}
         onRoomBaselineApplied={onRoomBaselineApplied}
+        onRoomBackgroundThemeChange={onRoomBackgroundThemeChange}
         onUpdateParticipantSession={onUpdateParticipantSession}
         onUpdateLocalPresence={onUpdateLocalPresence}
       />
@@ -713,6 +788,9 @@ function BootstrappedApp() {
   const [roomCreatorId, setRoomCreatorId] = useState<string | null>(
     initialJoinedRoomState?.roomCreatorId ?? null
   );
+  const [roomSettings, setRoomSettings] = useState<RoomSettings>(
+    initialJoinedRoomState?.roomSettings ?? createRoomSettings()
+  );
   const [draftName, setDraftName] = useState(
     initialJoinedRoomState?.draftName ?? initialParticipantDraft.draftName
   );
@@ -728,8 +806,8 @@ function BootstrappedApp() {
     getParticipantColorSlotNumber(draftColor),
     "fill"
   );
-  const roomCreatorConnectionRef = useRef<ReturnType<
-    typeof createRoomCreatorConnection
+  const roomStateConnectionRef = useRef<ReturnType<
+    typeof createRoomStateConnection
   > | null>(null);
   const {
     roomOccupancies,
@@ -779,6 +857,7 @@ function BootstrappedApp() {
     setLocalParticipantPresence(nextJoinedRoomState.localParticipantPresence);
     setRoomRecord(nextJoinedRoomState.roomRecord);
     setRoomCreatorId(nextJoinedRoomState.roomCreatorId);
+    setRoomSettings(nextJoinedRoomState.roomSettings);
   };
 
   const getOccupiedParticipantColors = (
@@ -833,6 +912,7 @@ function BootstrappedApp() {
       setLocalParticipantPresence(null);
       setRoomRecord(loadRoomRecord(normalizedRoomId));
       setRoomCreatorId(null);
+      setRoomSettings(createRoomSettings());
       return;
     }
 
@@ -852,8 +932,8 @@ function BootstrappedApp() {
   const collapseToEntryScreen = (nextDraftRoomId: string) => {
     const normalizedNextDraftRoomId = normalizeRoomId(nextDraftRoomId);
     disconnectJoinedRoomPresence();
-    roomCreatorConnectionRef.current?.destroy();
-    roomCreatorConnectionRef.current = null;
+    roomStateConnectionRef.current?.destroy();
+    roomStateConnectionRef.current = null;
 
     clearActiveRoomId();
     setDraftRoomId(normalizedNextDraftRoomId);
@@ -865,6 +945,7 @@ function BootstrappedApp() {
     setLocalParticipantPresence(null);
     setRoomRecord(null);
     setRoomCreatorId(null);
+    setRoomSettings(createRoomSettings());
   };
 
   useEffect(() => {
@@ -924,19 +1005,20 @@ function BootstrappedApp() {
 
   useEffect(() => {
     if (!isInRoom || !activeRoomId || !participantSession?.id) {
-      roomCreatorConnectionRef.current?.destroy();
-      roomCreatorConnectionRef.current = null;
+      roomStateConnectionRef.current?.destroy();
+      roomStateConnectionRef.current = null;
       return;
     }
 
-    const connection = createRoomCreatorConnection({
+    const connection = createRoomStateConnection({
       roomId: activeRoomId,
       participantId: participantSession.id,
-      onCreatorIdChange: (nextCreatorId) => {
-        setRoomCreatorId(nextCreatorId);
+      onStateChange: (nextRoomState) => {
+        setRoomCreatorId(nextRoomState.creatorId);
+        setRoomSettings(nextRoomState.settings);
         const nextRoomRecord = mirrorRoomCreatorId({
           roomId: activeRoomId,
-          creatorId: nextCreatorId,
+          creatorId: nextRoomState.creatorId,
         });
 
         if (nextRoomRecord) {
@@ -945,11 +1027,11 @@ function BootstrappedApp() {
       },
     });
 
-    roomCreatorConnectionRef.current = connection;
+    roomStateConnectionRef.current = connection;
 
     return () => {
-      if (roomCreatorConnectionRef.current === connection) {
-        roomCreatorConnectionRef.current = null;
+      if (roomStateConnectionRef.current === connection) {
+        roomStateConnectionRef.current = null;
       }
 
       connection.destroy();
@@ -1258,11 +1340,22 @@ function BootstrappedApp() {
       isCurrentParticipantRoomCreator={isCurrentParticipantRoomCreator}
       roomCreatorName={roomCreatorName}
       roomCreatorId={roomCreatorId}
+      roomSettings={roomSettings}
       roomBaselineToApply={roomBaselineToApply}
       roomEffectiveAccessLevel={roomEffectiveAccessLevel}
       liveKitMediaEnabled={liveKitMediaEnabled}
       onLeaveRoom={leaveRoom}
       onRoomBaselineApplied={handleRoomBaselineApplied}
+      onRoomBackgroundThemeChange={(backgroundThemeId) => {
+        setRoomSettings(
+          createRoomSettings({
+            backgroundThemeId,
+          })
+        );
+        void roomStateConnectionRef.current?.updateRoomSettings({
+          backgroundThemeId,
+        });
+      }}
       onUpdateParticipantSession={updateParticipantSession}
       onUpdateLocalPresence={(updater) => {
         setLocalParticipantPresence((currentPresence) =>

@@ -6,6 +6,7 @@ import {
 import { calloutRecipes } from "../ui/system/families/callout";
 import { boardSurfaceRecipes } from "../ui/system/boardSurfaces";
 import { getDesignSystemDebugAttrs } from "../ui/system/debugMeta";
+import { HoverHint } from "../ui/system/HoverHint";
 import { fontSize } from "../ui/system/typography";
 import { createClientId } from "../lib/id";
 import {
@@ -581,16 +582,8 @@ export function DiceSpikeOverlay({
         <div
           style={boardSurfaceRecipes.diceTray.stack.style}
         >
-          {DICE_TRAY_ITEMS.map((die) => (
-            <div
-              key={die}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                pointerEvents: "none",
-              }}
-            >
+          {DICE_TRAY_ITEMS.map((die) => {
+            const dieButton = (
               <button
                 type="button"
                 onClick={(event) => {
@@ -613,35 +606,66 @@ export function DiceSpikeOverlay({
               >
                 {die === "2d10" ? "d100" : die}
               </button>
+            );
 
-              {pendingPool[die] > 0 && (
-                <span
-                  style={{
-                    minWidth: 34,
-                    padding: "2px 6px",
-                    borderRadius: 999,
-                    border: "1px solid rgba(248, 250, 252, 0.22)",
-                    background: "rgba(15, 23, 42, 0.72)",
-                    boxShadow:
-                      "0 1px 2px rgba(2, 6, 23, 0.38), 0 0 0 1px rgba(255, 255, 255, 0.08) inset",
-                    color: "rgba(248, 250, 252, 0.98)",
-                    fontFamily: HTML_UI_FONT_FAMILY,
-                    fontSize: fontSize.md,
-                    fontWeight: 700,
-                    lineHeight: 1,
-                    letterSpacing: "0",
-                    textAlign: "center",
-                    textShadow:
-                      "0 1px 1px rgba(2, 6, 23, 0.85), 0 0 1px rgba(255, 255, 255, 0.18)",
-                    backdropFilter: "blur(6px)",
-                    pointerEvents: "none",
-                  }}
-                >
-                  x{pendingPool[die]}
-                </span>
-              )}
-            </div>
-          ))}
+            return (
+              <div
+                key={die}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  pointerEvents: "none",
+                }}
+              >
+                {pendingDiceCount === 0 ? (
+                  <HoverHint
+                    placement="right"
+                    body="Shift-click to quick roll"
+                    maxWidth={180}
+                    wrapperStyle={{
+                      pointerEvents: "auto",
+                    }}
+                    tooltipStyle={{
+                      minWidth: "max-content",
+                      padding: "8px 10px",
+                    }}
+                  >
+                    {dieButton}
+                  </HoverHint>
+                ) : (
+                  dieButton
+                )}
+
+                {pendingPool[die] > 0 && (
+                  <span
+                    style={{
+                      minWidth: 34,
+                      padding: "2px 6px",
+                      borderRadius: 999,
+                      border: "1px solid rgba(248, 250, 252, 0.22)",
+                      background: "rgba(15, 23, 42, 0.72)",
+                      boxShadow:
+                        "0 1px 2px rgba(2, 6, 23, 0.38), 0 0 0 1px rgba(255, 255, 255, 0.08) inset",
+                      color: "rgba(248, 250, 252, 0.98)",
+                      fontFamily: HTML_UI_FONT_FAMILY,
+                      fontSize: fontSize.md,
+                      fontWeight: 700,
+                      lineHeight: 1,
+                      letterSpacing: "0",
+                      textAlign: "center",
+                      textShadow:
+                        "0 1px 1px rgba(2, 6, 23, 0.85), 0 0 1px rgba(255, 255, 255, 0.18)",
+                      backdropFilter: "blur(6px)",
+                      pointerEvents: "none",
+                    }}
+                  >
+                    x{pendingPool[die]}
+                  </span>
+                )}
+              </div>
+            );
+          })}
         </div>
 
         {error && (

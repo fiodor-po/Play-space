@@ -9,10 +9,47 @@ import {
   TEXT_CARD_BODY_LINE_HEIGHT,
 } from "../../constants";
 import type { BoardObject } from "../../../types/board";
+import { getBoardObjectElevationShadowRecipe } from "../../../ui/system/boardMaterials";
 
 const NOTE_CARD_AUTHOR_STRIPE_HEIGHT = 8;
 const NOTE_CARD_AUTHOR_STRIPE_FALLBACK = "#94a3b8";
 const NOTE_CARD_CORNER_RADIUS = 10;
+
+type NoteCardClipContext = {
+  beginPath: () => void;
+  moveTo: (x: number, y: number) => void;
+  lineTo: (x: number, y: number) => void;
+  quadraticCurveTo: (
+    cpx: number,
+    cpy: number,
+    x: number,
+    y: number
+  ) => void;
+  closePath: () => void;
+};
+
+function clipRoundedNoteCard(
+  context: NoteCardClipContext,
+  width: number,
+  height: number
+) {
+  context.beginPath();
+  context.moveTo(NOTE_CARD_CORNER_RADIUS, 0);
+  context.lineTo(width - NOTE_CARD_CORNER_RADIUS, 0);
+  context.quadraticCurveTo(width, 0, width, NOTE_CARD_CORNER_RADIUS);
+  context.lineTo(width, height - NOTE_CARD_CORNER_RADIUS);
+  context.quadraticCurveTo(
+    width,
+    height,
+    width - NOTE_CARD_CORNER_RADIUS,
+    height
+  );
+  context.lineTo(NOTE_CARD_CORNER_RADIUS, height);
+  context.quadraticCurveTo(0, height, 0, height - NOTE_CARD_CORNER_RADIUS);
+  context.lineTo(0, NOTE_CARD_CORNER_RADIUS);
+  context.quadraticCurveTo(0, 0, NOTE_CARD_CORNER_RADIUS, 0);
+  context.closePath();
+}
 
 type NoteCardRendererProps = {
   object: BoardObject;
@@ -63,6 +100,7 @@ export function NoteCardRenderer({
   const cardHeight = displayHeight ?? object.height;
   const authorStripeColor =
     object.authorColor?.trim() || NOTE_CARD_AUTHOR_STRIPE_FALLBACK;
+  const noteShadow = getBoardObjectElevationShadowRecipe("surface").konva;
 
   return (
     <Group
@@ -71,29 +109,6 @@ export function NoteCardRenderer({
       y={cardY}
       width={cardWidth}
       height={cardHeight}
-      clipFunc={(context) => {
-        context.beginPath();
-        context.moveTo(NOTE_CARD_CORNER_RADIUS, 0);
-        context.lineTo(cardWidth - NOTE_CARD_CORNER_RADIUS, 0);
-        context.quadraticCurveTo(cardWidth, 0, cardWidth, NOTE_CARD_CORNER_RADIUS);
-        context.lineTo(cardWidth, cardHeight - NOTE_CARD_CORNER_RADIUS);
-        context.quadraticCurveTo(
-          cardWidth,
-          cardHeight,
-          cardWidth - NOTE_CARD_CORNER_RADIUS,
-          cardHeight
-        );
-        context.lineTo(NOTE_CARD_CORNER_RADIUS, cardHeight);
-        context.quadraticCurveTo(
-          0,
-          cardHeight,
-          0,
-          cardHeight - NOTE_CARD_CORNER_RADIUS
-        );
-        context.lineTo(0, NOTE_CARD_CORNER_RADIUS);
-        context.quadraticCurveTo(0, 0, NOTE_CARD_CORNER_RADIUS, 0);
-        context.closePath();
-      }}
       draggable={draggable && !isEditing}
       onMouseDown={onSelect}
       onDblClick={onDoubleClick}
@@ -111,36 +126,50 @@ export function NoteCardRenderer({
         width={cardWidth}
         height={cardHeight}
         fill={object.fill || "#ffffff"}
-        stroke="#cbd5e1"
-        strokeWidth={1}
         cornerRadius={NOTE_CARD_CORNER_RADIUS}
-        shadowColor="#0f172a"
-        shadowBlur={10}
-        shadowOpacity={0.08}
-        shadowOffsetY={4}
+        shadowColor={noteShadow.shadowColor}
+        shadowBlur={noteShadow.shadowBlur}
+        shadowOpacity={noteShadow.shadowOpacity}
+        shadowOffsetX={noteShadow.shadowOffsetX}
+        shadowOffsetY={noteShadow.shadowOffsetY}
       />
 
-      <Rect
-        width={cardWidth}
-        height={NOTE_CARD_AUTHOR_STRIPE_HEIGHT}
-        fill={authorStripeColor}
+      <Group
+        clipFunc={(context) => {
+          clipRoundedNoteCard(context, cardWidth, cardHeight);
+        }}
         listening={false}
-      />
-
-      {!isEditing && (
-        <Text
-          x={TEXT_CARD_BODY_INSET_X}
-          y={TEXT_CARD_BODY_INSET_Y}
-          width={cardWidth - TEXT_CARD_BODY_INSET_X * 2}
-          height={cardHeight - TEXT_CARD_BODY_INSET_Y * 2}
-          text={object.label}
-          fontSize={TEXT_CARD_BODY_FONT_SIZE}
-          lineHeight={TEXT_CARD_BODY_LINE_HEIGHT}
-          fontFamily={TEXT_CARD_BODY_FONT_FAMILY}
-          fill={object.textColor ?? "#0f172a"}
+      >
+        <Rect
+          width={cardWidth}
+          height={cardHeight}
+          fill={object.fill || "#ffffff"}
           listening={false}
         />
-      )}
+
+        <Rect
+          width={cardWidth}
+          height={NOTE_CARD_AUTHOR_STRIPE_HEIGHT}
+          fill={authorStripeColor}
+          listening={false}
+        />
+
+        {!isEditing && (
+          <Text
+            x={TEXT_CARD_BODY_INSET_X}
+            y={TEXT_CARD_BODY_INSET_Y}
+            width={cardWidth - TEXT_CARD_BODY_INSET_X * 2}
+            height={cardHeight - TEXT_CARD_BODY_INSET_Y * 2}
+            text={object.label}
+            fontSize={TEXT_CARD_BODY_FONT_SIZE}
+            lineHeight={TEXT_CARD_BODY_LINE_HEIGHT}
+            fontFamily={TEXT_CARD_BODY_FONT_FAMILY}
+            fill={object.textColor ?? "#0f172a"}
+            listening={false}
+          />
+        )}
+      </Group>
+
     </Group>
   );
 }

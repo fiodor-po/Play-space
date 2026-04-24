@@ -16,7 +16,7 @@ import {
   type DiceRollLogPanelEntry,
 } from "../../dice/DiceRollLogPanel";
 import { PARTICIPANT_COLOR_OPTIONS } from "../../lib/roomSession";
-import { boardSurfaceRecipes } from "./boardSurfaces";
+import type { RoomBackgroundThemeId } from "../../lib/roomSettings";
 import { ContextMenu, type ContextMenuItem } from "./ContextMenu";
 import { getDesignSystemDebugAttrs } from "./debugMeta";
 import { BoardInteractionLayerSandbox } from "./BoardInteractionLayerSandbox";
@@ -36,6 +36,15 @@ import {
 } from "./families/button";
 import { fieldRecipes, getFieldShellProps } from "./families/field";
 import { getSwatchButtonProps, swatchPillRecipes } from "./families/swatchPill";
+import { FeedbackDock, MailGlyph } from "./FeedbackDock";
+import { HoverHint, type HoverHintPlacement } from "./HoverHint";
+import {
+  boardObjectElevationShadowRecipes,
+  getBoardBackgroundTheme,
+  getBoardObjectElevationShadowRecipe,
+  getBoardBackgroundThemeOptions,
+  type BoardBackgroundTheme,
+} from "./boardMaterials";
 import {
   border,
   DRAFT_LOCAL_USER_SOURCE_SLOT,
@@ -58,6 +67,8 @@ type SwatchRecipe =
 type CSSVariableProperties = CSSProperties & Record<`--${string}`, string | number>;
 type InspectNodeId = string;
 type InspectRelation = "idle" | "selected" | "upstream" | "downstream" | "unrelated";
+const FLOATING_OBJECT_SHADOW =
+  getBoardObjectElevationShadowRecipe("floating").cssBoxShadow;
 type InspectableProps = {
   inspectNodeId?: InspectNodeId;
   inspectRelation?: InspectRelation;
@@ -227,6 +238,153 @@ const tokenOverrideIndicatorStyle: CSSProperties = {
   letterSpacing: "0.04em",
 };
 
+const feedbackDockStageStyle: CSSProperties = {
+  position: "relative",
+  minHeight: 440,
+  padding: 16,
+  borderRadius: radius.surface,
+  border: `1px solid ${border.default}`,
+  background:
+    "radial-gradient(circle at top left, rgba(14, 116, 144, 0.18), transparent 38%), linear-gradient(180deg, rgba(15, 23, 42, 0.96), rgba(7, 12, 25, 0.98))",
+  overflow: "visible",
+};
+
+const feedbackDockHintStyle: CSSProperties = {
+  ...inlineTextRecipes.muted.style,
+  maxWidth: 240,
+  fontSize: 12,
+  lineHeight: 1.45,
+};
+
+const feedbackDockAnchorStyle: CSSProperties = {
+  position: "absolute",
+  left: "50%",
+  top: "56%",
+  transform: "translate(-50%, -50%)",
+  display: "grid",
+  justifyItems: "center",
+  gap: 12,
+};
+
+const feedbackDockPlacementSelectorStyle: CSSProperties = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: 8,
+  alignItems: "center",
+};
+
+const hoverHintStageStyle: CSSProperties = {
+  position: "relative",
+  minHeight: 340,
+  padding: 16,
+  borderRadius: radius.surface,
+  border: `1px solid ${border.default}`,
+  background:
+    "radial-gradient(circle at top right, rgba(34, 197, 94, 0.12), transparent 36%), linear-gradient(180deg, rgba(15, 23, 42, 0.96), rgba(7, 12, 25, 0.98))",
+  overflow: "visible",
+};
+
+const hoverHintControlsWrapStyle: CSSProperties = {
+  minHeight: 220,
+  display: "grid",
+  placeItems: "center",
+};
+
+const hoverHintControlsRowStyle: CSSProperties = {
+  display: "flex",
+  flexWrap: "wrap",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: 24,
+};
+
+const hoverHintAnchorStyle: CSSProperties = {
+  position: "relative",
+  display: "grid",
+  justifyItems: "center",
+  gap: 8,
+};
+
+const hoverHintLabelStyle: CSSProperties = {
+  ...inlineTextRecipes.muted.style,
+  fontSize: 11,
+  lineHeight: 1.15,
+  textAlign: "center",
+};
+
+const hoverHintFieldWrapStyle: CSSProperties = {
+  width: 180,
+};
+
+const boardMaterialPreviewCardStyle: CSSProperties = {
+  display: "grid",
+  gap: 10,
+  padding: 12,
+  borderRadius: 14,
+  border: `1px solid ${border.default}`,
+  background: surface.panelSubtle,
+};
+
+const boardMaterialCanvasStyle: CSSProperties = {
+  width: "100%",
+  height: 150,
+  borderRadius: 12,
+  border: `1px solid ${border.default}`,
+  display: "block",
+};
+
+const boardMaterialTokenGridStyle: CSSProperties = {
+  display: "grid",
+  gap: 4,
+  fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+  fontSize: 10,
+  lineHeight: 1.35,
+  color: text.muted,
+};
+
+const boardShadowPreviewStageStyle: CSSProperties = {
+  position: "relative",
+  minHeight: 190,
+  padding: 18,
+  borderRadius: 16,
+  border: `1px solid ${border.default}`,
+  overflow: "hidden",
+};
+
+const boardShadowPreviewCanvasStyle: CSSProperties = {
+  position: "absolute",
+  inset: 0,
+  width: "100%",
+  height: "100%",
+  border: "none",
+  borderRadius: "inherit",
+};
+
+const boardShadowPreviewContentStyle: CSSProperties = {
+  position: "relative",
+  zIndex: 1,
+  display: "grid",
+  gap: 14,
+};
+
+const boardShadowPreviewGridStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+  gap: 14,
+};
+
+const boardShadowPreviewCardStyle: CSSProperties = {
+  display: "grid",
+  alignContent: "space-between",
+  minHeight: 112,
+  padding: 14,
+  borderRadius: 16,
+  border: "1px solid rgba(255, 255, 255, 0.22)",
+  background:
+    "linear-gradient(180deg, rgba(248, 250, 252, 0.96), rgba(226, 232, 240, 0.92))",
+  color: "#0f172a",
+};
+
 const participantSelectorRowStyle: CSSProperties = {
   display: "grid",
   gridTemplateColumns: "repeat(8, minmax(0, 1fr))",
@@ -291,7 +449,7 @@ const tokenOverridePanelStyle: CSSProperties = {
   borderRadius: 16,
   border: `1px solid ${border.default}`,
   background: surface.panel,
-  boxShadow: "0 18px 48px rgba(2, 6, 23, 0.42)",
+  boxShadow: FLOATING_OBJECT_SHADOW,
 };
 
 const tokenOverridePanelHeaderStyle: CSSProperties = {
@@ -2727,6 +2885,560 @@ function ParticipantColorSelectorRow({
   );
 }
 
+function FeedbackDockSandboxPreview() {
+  const placementOptions = [
+    { id: "top-left", label: "Top left" },
+    { id: "top-right", label: "Top right" },
+    { id: "bottom-left", label: "Bottom left" },
+    { id: "bottom-right", label: "Bottom right" },
+  ] as const;
+  const diagonalOffset = -16;
+  const [placement, setPlacement] =
+    useState<(typeof placementOptions)[number]["id"]>("top-left");
+  const placementButtonRecipe = createToggleButtonRecipe(
+    buttonRecipes.secondary.compact
+  );
+  const panelPlacementStyle = (() => {
+    switch (placement) {
+      case "top-right":
+        return {
+          left: diagonalOffset,
+          bottom: diagonalOffset,
+        } satisfies CSSProperties;
+      case "bottom-left":
+        return {
+          right: diagonalOffset,
+          top: diagonalOffset,
+        } satisfies CSSProperties;
+      case "bottom-right":
+        return {
+          left: diagonalOffset,
+          top: diagonalOffset,
+        } satisfies CSSProperties;
+      case "top-left":
+      default:
+        return {
+          right: diagonalOffset,
+          bottom: diagonalOffset,
+        } satisfies CSSProperties;
+    }
+  })();
+
+  return (
+    <div style={feedbackDockStageStyle}>
+      <div style={{ display: "grid", gap: 10 }}>
+        <div style={feedbackDockHintStyle}>
+          Floating launcher stays compact until the player decides to report a
+          problem or leave quick feedback.
+        </div>
+        <div style={feedbackDockPlacementSelectorStyle}>
+          <span style={fieldLabelStyle}>Placement</span>
+          {placementOptions.map((option) => {
+            const buttonProps = getButtonProps(placementButtonRecipe, {
+              selected: placement === option.id,
+            });
+
+            return (
+              <button
+                key={option.id}
+                type="button"
+                onClick={() => {
+                  setPlacement(option.id);
+                }}
+                {...buttonProps}
+                style={buttonProps.style}
+              >
+                {option.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+      <div style={feedbackDockAnchorStyle}>
+        <FeedbackDock
+          title="Report a problem"
+          description="Quick note from the current room, with a short path for bugs and general feedback."
+          submitLabel="Send"
+          cancelButtonRecipe={createTextButtonRecipe(
+            buttonRecipes.secondary.small,
+            "muted"
+          )}
+          wrapperStyle={{
+            position: "relative",
+          }}
+          panelStyle={{
+            position: "absolute",
+            ...panelPlacementStyle,
+            width: 320,
+            maxWidth: "min(320px, calc(100vw - 96px))",
+            gap: 12,
+          }}
+          onSubmit={async () => {
+            await new Promise((resolve) => {
+              window.setTimeout(resolve, 300);
+            });
+          }}
+        />
+      </div>
+    </div>
+  );
+}
+
+function HoverHintSandboxPreview() {
+  const placementOptions = [
+    { id: "top", label: "Top" },
+    { id: "right", label: "Right" },
+    { id: "bottom", label: "Bottom" },
+    { id: "left", label: "Left" },
+  ] as const;
+  const [placement, setPlacement] =
+    useState<(typeof placementOptions)[number]["id"]>("right");
+  const placementButtonRecipe = createToggleButtonRecipe(
+    buttonRecipes.secondary.compact
+  );
+  const launcherButtonProps = getButtonProps(interactionButtonRecipes.secondary.circle);
+  const quickActionButtonProps = getButtonProps(buttonRecipes.secondary.small);
+  const fieldShellProps = getFieldShellProps(fieldRecipes.small.shell);
+
+  return (
+    <div style={hoverHintStageStyle}>
+      <div style={{ display: "grid", gap: 10 }}>
+        <div style={feedbackDockHintStyle}>
+          Hover or keyboard focus reveals a directional hint anchored to the
+          control. Use one selector to inspect all four sides.
+        </div>
+        <div style={feedbackDockPlacementSelectorStyle}>
+          <span style={fieldLabelStyle}>Placement</span>
+          {placementOptions.map((option) => {
+            const buttonProps = getButtonProps(placementButtonRecipe, {
+              selected: placement === option.id,
+            });
+
+            return (
+              <button
+                key={option.id}
+                type="button"
+                onClick={() => {
+                  setPlacement(option.id);
+                }}
+                {...buttonProps}
+                style={buttonProps.style}
+              >
+                {option.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div style={hoverHintControlsWrapStyle}>
+        <div style={hoverHintControlsRowStyle}>
+          <HoverHint
+            placement={placement as HoverHintPlacement}
+            title="Problem report"
+            body="Opens the quick feedback panel without shifting the rest of the layout."
+            wrapperStyle={hoverHintAnchorStyle}
+          >
+            <button
+              type="button"
+              aria-label="Open feedback panel"
+              {...launcherButtonProps}
+              style={launcherButtonProps.style}
+            >
+              <MailGlyph />
+            </button>
+            <div style={hoverHintLabelStyle}>Icon button</div>
+          </HoverHint>
+
+          <HoverHint
+            placement={placement as HoverHintPlacement}
+            title="Leave room"
+            body="Small destructive-adjacent actions get a short clarifying hint before click."
+            wrapperStyle={hoverHintAnchorStyle}
+          >
+            <button
+              type="button"
+              {...quickActionButtonProps}
+              style={quickActionButtonProps.style}
+            >
+              Leave room
+            </button>
+            <div style={hoverHintLabelStyle}>Compact action</div>
+          </HoverHint>
+
+          <HoverHint
+            placement={placement as HoverHintPlacement}
+            title="Room name"
+            body="Hints can explain expected input before focus leaves the entry flow."
+            wrapperStyle={hoverHintAnchorStyle}
+          >
+            <label style={{ display: "grid", gap: 8 }}>
+              <span style={fieldLabelStyle}>Room</span>
+              <span
+                {...fieldShellProps}
+                style={{
+                  ...fieldShellProps.style,
+                  ...hoverHintFieldWrapStyle,
+                }}
+              >
+                <input
+                  defaultValue="alpha-2"
+                  style={fieldRecipes.small.input.style}
+                />
+              </span>
+            </label>
+            <div style={hoverHintLabelStyle}>Field shell</div>
+          </HoverHint>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const BOARD_MATERIAL_PREVIEW_WIDTH = 420;
+const BOARD_MATERIAL_PREVIEW_HEIGHT = 150;
+const BOARD_MATERIAL_DOT_SPACING = 32;
+const BOARD_MATERIAL_MAJOR_DOT_SPACING = 128;
+const BOARD_MATERIAL_GRAPH_SPACING = 16;
+const BOARD_MATERIAL_GRAPH_MAJOR_SPACING = 128;
+const BOARD_MATERIAL_GRANITE_CELL_SIZE = 18;
+const BOARD_MATERIAL_CORK_CELL_SIZE = 12;
+const BOARD_MATERIAL_STARFIELD_CELL_SIZE = 24;
+
+function getMaterialPreviewUnit(seed: number) {
+  return Math.abs(Math.sin(seed) * 10000) % 1;
+}
+
+function getMaterialPreviewSeed(cellX: number, cellY: number, salt: number) {
+  return cellX * 127.1 + cellY * 311.7 + salt;
+}
+
+function BoardMaterialTokensSandboxPreview({
+  selectedThemeId,
+  onSelectTheme,
+}: {
+  selectedThemeId: RoomBackgroundThemeId;
+  onSelectTheme: (themeId: RoomBackgroundThemeId) => void;
+}) {
+  const themes = getBoardBackgroundThemeOptions();
+
+  return (
+    <div
+      style={{
+        display: "flex",
+        gap: 12,
+        overflowX: "auto",
+        paddingBottom: 2,
+      }}
+    >
+      {themes.map((theme) => {
+        const isSelected = theme.id === selectedThemeId;
+
+        return (
+        <button
+          key={theme.id}
+          type="button"
+          onClick={() => {
+            onSelectTheme(theme.id);
+          }}
+          style={{
+            ...boardMaterialPreviewCardStyle,
+            flex: "0 0 260px",
+            textAlign: "left",
+            cursor: "pointer",
+            boxShadow: isSelected ? `0 0 0 2px ${focusRing.default}` : undefined,
+            borderColor: isSelected ? border.focus : border.default,
+          }}
+        >
+          <BoardMaterialPreviewCanvas theme={theme} />
+          <div style={{ display: "grid", gap: 3 }}>
+            <div style={cardTitleStyle}>{theme.label}</div>
+            <div style={sectionDescriptionStyle}>{theme.id}</div>
+          </div>
+          <div style={boardMaterialTokenGridStyle}>
+            <div>backdrop: {theme.backdrop}</div>
+            <div>pattern: {theme.pattern}</div>
+            {theme.pattern === "dot-grid" ? (
+              <>
+                <div>detailColor: {theme.dotGrid.detailColor}</div>
+                <div>majorColor: {theme.dotGrid.majorColor}</div>
+              </>
+            ) : null}
+            {theme.graphPaper ? (
+              <>
+                <div>minorLineColor: {theme.graphPaper.minorLineColor}</div>
+                <div>majorLineColor: {theme.graphPaper.majorLineColor}</div>
+              </>
+            ) : null}
+            {theme.granite ? (
+              <div>speckColors: {theme.granite.speckColors.join(" / ")}</div>
+            ) : null}
+            {theme.cork ? (
+              <div>fleckColors: {theme.cork.fleckColors.join(" / ")}</div>
+            ) : null}
+            {theme.starfield ? (
+              <div>starColors: {theme.starfield.starColors.join(" / ")}</div>
+            ) : null}
+          </div>
+        </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function BoardObjectShadowTokensSandboxPreview({
+  selectedThemeId,
+}: {
+  selectedThemeId: RoomBackgroundThemeId;
+}) {
+  const selectedTheme = getBoardBackgroundTheme(selectedThemeId);
+
+  return (
+    <div style={boardShadowPreviewStageStyle}>
+      <BoardMaterialPreviewCanvas
+        theme={selectedTheme}
+        ariaHidden
+        style={boardShadowPreviewCanvasStyle}
+      />
+      <div style={boardShadowPreviewContentStyle}>
+        <div style={{ display: "grid", gap: 4 }}>
+          <div style={cardTitleStyle}>Object elevation shadows</div>
+          <div style={{ ...sectionDescriptionStyle, maxWidth: 520 }}>
+            Base recipes for objects resting on the selected board material.
+          </div>
+        </div>
+        <div style={boardShadowPreviewGridStyle}>
+          {boardObjectElevationShadowRecipes.map((recipe) => (
+            <div
+              key={recipe.id}
+              style={{
+                ...boardShadowPreviewCardStyle,
+                boxShadow: recipe.cssBoxShadow,
+              }}
+            >
+              <div style={{ display: "grid", gap: 4 }}>
+                <div style={{ fontSize: 13, fontWeight: 800 }}>{recipe.label}</div>
+                <div style={{ fontSize: 11, lineHeight: 1.35, color: "#475569" }}>
+                  {recipe.description}
+                </div>
+              </div>
+              <div
+                style={{
+                  fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+                  fontSize: 10,
+                  lineHeight: 1.35,
+                  color: "#334155",
+                }}
+              >
+                blur {recipe.konva.shadowBlur}px / y {recipe.konva.shadowOffsetY}px
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function BoardMaterialPreviewCanvas({
+  theme,
+  ariaHidden = false,
+  style,
+}: {
+  theme: BoardBackgroundTheme;
+  ariaHidden?: boolean;
+  style?: CSSProperties;
+}) {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+
+    if (!canvas) {
+      return;
+    }
+
+    const context = canvas.getContext("2d");
+
+    if (!context) {
+      return;
+    }
+
+    const devicePixelRatio = window.devicePixelRatio || 1;
+    canvas.width = Math.round(BOARD_MATERIAL_PREVIEW_WIDTH * devicePixelRatio);
+    canvas.height = Math.round(BOARD_MATERIAL_PREVIEW_HEIGHT * devicePixelRatio);
+    context.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+    context.clearRect(
+      0,
+      0,
+      BOARD_MATERIAL_PREVIEW_WIDTH,
+      BOARD_MATERIAL_PREVIEW_HEIGHT
+    );
+    context.fillStyle = theme.backdrop;
+    context.fillRect(0, 0, BOARD_MATERIAL_PREVIEW_WIDTH, BOARD_MATERIAL_PREVIEW_HEIGHT);
+
+    if (theme.pattern === "graph-paper" && theme.graphPaper) {
+      drawMaterialPreviewLines(
+        context,
+        BOARD_MATERIAL_GRAPH_SPACING,
+        1,
+        theme.graphPaper.minorLineColor
+      );
+      drawMaterialPreviewLines(
+        context,
+        BOARD_MATERIAL_GRAPH_MAJOR_SPACING,
+        1.5,
+        theme.graphPaper.majorLineColor
+      );
+      return;
+    }
+
+    if (theme.pattern === "granite" && theme.granite) {
+      drawMaterialPreviewSpeckles(
+        context,
+        BOARD_MATERIAL_GRANITE_CELL_SIZE,
+        0.42,
+        0.75,
+        1.8,
+        theme.granite.speckColors,
+        "circle"
+      );
+      return;
+    }
+
+    if (theme.pattern === "cork" && theme.cork) {
+      drawMaterialPreviewSpeckles(
+        context,
+        BOARD_MATERIAL_CORK_CELL_SIZE,
+        0.32,
+        1.1,
+        2.4,
+        theme.cork.fleckColors,
+        "rect"
+      );
+      return;
+    }
+
+    if (theme.pattern === "starfield" && theme.starfield) {
+      drawMaterialPreviewSpeckles(
+        context,
+        BOARD_MATERIAL_STARFIELD_CELL_SIZE,
+        0.72,
+        0.35,
+        0.85,
+        theme.starfield.starColors,
+        "circle"
+      );
+      return;
+    }
+
+    drawMaterialPreviewDots(
+      context,
+      BOARD_MATERIAL_DOT_SPACING,
+      2,
+      theme.dotGrid.majorColor
+    );
+    drawMaterialPreviewDots(
+      context,
+      BOARD_MATERIAL_MAJOR_DOT_SPACING,
+      2,
+      theme.dotGrid.majorColor
+    );
+  }, [theme]);
+
+  return (
+    <canvas
+      ref={canvasRef}
+      style={{ ...boardMaterialCanvasStyle, background: theme.backdrop, ...style }}
+      aria-hidden={ariaHidden ? true : undefined}
+      aria-label={ariaHidden ? undefined : `${theme.label} board material preview`}
+    />
+  );
+}
+
+function drawMaterialPreviewDots(
+  context: CanvasRenderingContext2D,
+  spacing: number,
+  size: number,
+  color: string
+) {
+  context.fillStyle = color;
+
+  for (let y = 0; y <= BOARD_MATERIAL_PREVIEW_HEIGHT + spacing; y += spacing) {
+    for (let x = 0; x <= BOARD_MATERIAL_PREVIEW_WIDTH + spacing; x += spacing) {
+      context.fillRect(x - size / 2, y - size / 2, size, size);
+    }
+  }
+}
+
+function drawMaterialPreviewLines(
+  context: CanvasRenderingContext2D,
+  spacing: number,
+  lineWidth: number,
+  color: string
+) {
+  context.strokeStyle = color;
+  context.lineWidth = lineWidth;
+  context.beginPath();
+
+  for (let x = 0; x <= BOARD_MATERIAL_PREVIEW_WIDTH + spacing; x += spacing) {
+    context.moveTo(x, 0);
+    context.lineTo(x, BOARD_MATERIAL_PREVIEW_HEIGHT);
+  }
+
+  for (let y = 0; y <= BOARD_MATERIAL_PREVIEW_HEIGHT + spacing; y += spacing) {
+    context.moveTo(0, y);
+    context.lineTo(BOARD_MATERIAL_PREVIEW_WIDTH, y);
+  }
+
+  context.stroke();
+}
+
+function drawMaterialPreviewSpeckles(
+  context: CanvasRenderingContext2D,
+  cellSize: number,
+  visibleThreshold: number,
+  minSize: number,
+  sizeRange: number,
+  colors: string[],
+  shape: "circle" | "rect"
+) {
+  const lastCellX = Math.ceil(BOARD_MATERIAL_PREVIEW_WIDTH / cellSize) + 1;
+  const lastCellY = Math.ceil(BOARD_MATERIAL_PREVIEW_HEIGHT / cellSize) + 1;
+
+  for (let cellY = -1; cellY <= lastCellY; cellY += 1) {
+    for (let cellX = -1; cellX <= lastCellX; cellX += 1) {
+      const seed = getMaterialPreviewSeed(cellX, cellY, shape === "circle" ? 3.7 : 11.3);
+      const visibility = getMaterialPreviewUnit(seed);
+
+      if (visibility < visibleThreshold) {
+        continue;
+      }
+
+      const x = cellX * cellSize + getMaterialPreviewUnit(seed + 19.19) * cellSize;
+      const y = cellY * cellSize + getMaterialPreviewUnit(seed + 73.73) * cellSize;
+      const width = minSize + getMaterialPreviewUnit(seed + 41.41) * sizeRange;
+      const height =
+        shape === "circle"
+          ? width
+          : minSize + getMaterialPreviewUnit(seed + 79.79) * sizeRange;
+      const colorIndex = Math.floor(getMaterialPreviewUnit(seed + 97.97) * colors.length);
+
+      context.fillStyle = colors[colorIndex] ?? colors[0] ?? "rgba(0,0,0,0.1)";
+
+      if (shape === "circle") {
+        context.beginPath();
+        context.arc(x, y, width, 0, Math.PI * 2);
+        context.fill();
+        continue;
+      }
+
+      context.fillRect(x - width / 2, y - height / 2, width, height);
+    }
+  }
+}
+
 function SectionCard({
   title,
   description,
@@ -3993,6 +4705,8 @@ export function DesignSystemSandboxPage() {
   const [selectedDraftLocalUserSlot, setSelectedDraftLocalUserSlot] = useState<
     1 | 2 | 3 | 4 | 5 | 6 | 7 | 8
   >(DRAFT_LOCAL_USER_SOURCE_SLOT);
+  const [selectedBoardMaterialThemeId, setSelectedBoardMaterialThemeId] =
+    useState<RoomBackgroundThemeId>("dot-grid-dark-blue");
   const [tokenOverrides, setTokenOverrides] = useState<Record<string, string>>({});
   const [activeTokenOverrideEditor, setActiveTokenOverrideEditor] =
     useState<ActiveTokenOverrideEditor | null>(null);
@@ -4945,6 +5659,36 @@ export function DesignSystemSandboxPage() {
         </SectionCard>
 
         <SectionCard
+          title="Feedback launcher and report panel"
+          description="Compact round launcher that expands into the current problem-report and feedback panel."
+        >
+          <div style={previewGridStyle}>
+            <PreviewCard
+              title="Expandable feedback dock"
+              recipeLabel="interactionButton / circle + floatingShell / feedback panel"
+              contentStyle={{ display: "block" }}
+            >
+              <FeedbackDockSandboxPreview />
+            </PreviewCard>
+          </div>
+        </SectionCard>
+
+        <SectionCard
+          title="Hover hint anchors"
+          description="Directional hint pattern for controls that need short explanatory copy on hover or focus."
+        >
+          <div style={previewGridStyle}>
+            <PreviewCard
+              title="Hint placements"
+              recipeLabel="object-semantics-tooltip / control hover hint / directional anchors"
+              contentStyle={{ display: "block" }}
+            >
+              <HoverHintSandboxPreview />
+            </PreviewCard>
+          </div>
+        </SectionCard>
+
+        <SectionCard
           title="Toggle and menu trigger"
           description="Current selected and open states on the ordinary shared-control path."
         >
@@ -5176,23 +5920,28 @@ export function DesignSystemSandboxPage() {
           </div>
         </SectionCard>
 
-        <section
-          style={{
-            ...boardSurfaceRecipes.floatingShell.shell.style,
-            justifySelf: "start",
-            maxWidth: 360,
-          }}
-          {...getDesignSystemDebugAttrs(boardSurfaceRecipes.floatingShell.shell.debug)}
+        <SectionCard
+          title="Board material tokens"
+          description="Material-source switcher for the board preview below. These options read from the same room background theme registry as the product."
         >
-          <div style={cardTitleStyle}>Current scope boundary</div>
-          <div style={sectionDescriptionStyle}>
-            This sandbox covers current standard control families only. It does not open
-            shell state rollout, interaction exceptions, media redesign, checkbox/radio,
-            tabs, or textarea families.
-          </div>
-        </section>
+          <BoardMaterialTokensSandboxPreview
+            selectedThemeId={selectedBoardMaterialThemeId}
+            onSelectTheme={setSelectedBoardMaterialThemeId}
+          />
+        </SectionCard>
 
-        <BoardInteractionLayerSandbox />
+        <SectionCard
+          title="Board object shadow tokens"
+          description="Elevation recipes for objects on the selected board material. These are preview-only until we wire them into board objects."
+        >
+          <BoardObjectShadowTokensSandboxPreview
+            selectedThemeId={selectedBoardMaterialThemeId}
+          />
+        </SectionCard>
+
+        <BoardInteractionLayerSandbox
+          roomBackgroundThemeId={selectedBoardMaterialThemeId}
+        />
         {activeTokenOverrideEditor ? (
           <div
             data-sandbox-inspect-node-id="token-override-panel"

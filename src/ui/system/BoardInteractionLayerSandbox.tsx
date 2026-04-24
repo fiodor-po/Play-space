@@ -50,11 +50,15 @@ import { updateBoardObjectLabel } from "../../lib/boardObjects";
 import type { GovernedActionAccessResolution } from "../../lib/governance";
 import type { ImageDrawingLock } from "../../lib/roomImagesRealtime";
 import { PARTICIPANT_COLOR_OPTIONS, type LocalParticipantSession } from "../../lib/roomSession";
+import type { RoomBackgroundThemeId } from "../../lib/roomSettings";
 import type { TextCardEditingPresence, TextCardResizePresence } from "../../lib/roomTextCardsRealtime";
 import type { ActiveObjectMove } from "../../lib/roomTokensRealtime";
 import type { BoardObject, ImageStroke, TokenAttachment } from "../../types/board";
-import { resolveBoardCanvasMaterials } from "./boardMaterials";
 import { getBoardStageSelectedImageControlsViewModel } from "../../board/viewModels/boardStageInspectability";
+import {
+  getBoardBackgroundTheme,
+  getBoardObjectElevationShadowRecipe,
+} from "./boardMaterials";
 import { boardSurfaceRecipes } from "./boardSurfaces";
 import { getDesignSystemDebugAttrs } from "./debugMeta";
 import { inlineTextRecipes } from "./inlineText";
@@ -73,6 +77,9 @@ type SandboxCursorOverlayItem = {
   name: string;
   color: string;
 };
+
+const FLOATING_OBJECT_SHADOW =
+  getBoardObjectElevationShadowRecipe("floating").cssBoxShadow;
 
 type StageSize = {
   width: number;
@@ -405,7 +412,7 @@ function SimulatorCursorOverlay({
               borderRadius: 999,
               background: "rgba(15, 23, 42, 0.92)",
               color: "#f8fafc",
-              boxShadow: "0 8px 24px rgba(2, 6, 23, 0.28)",
+              boxShadow: FLOATING_OBJECT_SHADOW,
               fontSize: 12,
               fontWeight: 600,
               lineHeight: 1.2,
@@ -421,7 +428,11 @@ function SimulatorCursorOverlay({
   );
 }
 
-export function BoardInteractionLayerSandbox() {
+export function BoardInteractionLayerSandbox({
+  roomBackgroundThemeId = "dot-grid-dark-blue",
+}: {
+  roomBackgroundThemeId?: RoomBackgroundThemeId;
+}) {
   const initialObjects = useMemo(() => createInitialObjects(), []);
   const initialViewport = useMemo(
     () => getInitialRoomViewport(640, SIMULATOR_HEIGHT),
@@ -464,6 +475,17 @@ export function BoardInteractionLayerSandbox() {
     useState<ResizePreviewBounds>(null);
   const [isLocalPaneHovered, setIsLocalPaneHovered] = useState(false);
   const [isRemotePaneHovered, setIsRemotePaneHovered] = useState(false);
+  const boardBackgroundTheme = useMemo(
+    () => getBoardBackgroundTheme(roomBackgroundThemeId),
+    [roomBackgroundThemeId]
+  );
+  const themedPaneStyle = useMemo<CSSProperties>(
+    () => ({
+      ...paneStyle,
+      background: boardBackgroundTheme.backdrop,
+    }),
+    [boardBackgroundTheme.backdrop]
+  );
 
   const localOuterRef = useRef<HTMLDivElement | null>(null);
   const remoteOuterRef = useRef<HTMLDivElement | null>(null);
@@ -503,7 +525,6 @@ export function BoardInteractionLayerSandbox() {
   const localStageViewportRect = usePaneViewportRect(localStageWrapperRef);
   const remoteStageViewportRect = usePaneViewportRect(remoteStageWrapperRef);
 
-  const boardMaterials = useMemo(() => resolveBoardCanvasMaterials(), []);
   const sortedLocalObjects = useMemo(() => sortObjects(localObjects), [localObjects]);
   const sortedSharedObjects = useMemo(() => sortObjects(sharedObjects), [sharedObjects]);
   const noopMouseStageHandler = useCallback(() => {}, []);
@@ -1746,7 +1767,7 @@ export function BoardInteractionLayerSandbox() {
       <div style={splitGridStyle}>
         <div
           ref={localOuterRef}
-          style={paneStyle}
+          style={themedPaneStyle}
           onMouseMove={(event) => {
             updatePaneCursor(event, localStageWrapperRef, setLocalCursor);
           }}
@@ -1799,6 +1820,7 @@ export function BoardInteractionLayerSandbox() {
             stageSize={localStageSize}
             stagePosition={stagePosition}
             stageScale={stageScale}
+            roomBackgroundThemeId={roomBackgroundThemeId}
             participantSession={LOCAL_PARTICIPANT}
             boardBackgroundRef={localBoardBackgroundRef}
             noteCardRefs={localNoteCardRefs}
@@ -1808,8 +1830,6 @@ export function BoardInteractionLayerSandbox() {
             imageTransformerRef={localImageTransformerRef}
             liveNoteCardResizePreviewRef={liveNoteCardResizePreviewRef}
             transformingImageSnapshotRef={localTransformingImageSnapshotRef}
-            boardSurfaceFill={boardMaterials.surface}
-            boardSurfaceRadius={boardMaterials.surfaceRadius}
             sortedObjects={sortedLocalObjects}
             loadedImages={loadedImages}
             drawingImageId={drawingImageId}
@@ -1905,7 +1925,7 @@ export function BoardInteractionLayerSandbox() {
 
         <div
           ref={remoteOuterRef}
-          style={paneStyle}
+          style={themedPaneStyle}
           onMouseMove={(event) => {
             updatePaneCursor(event, remoteStageWrapperRef, setRemoteCursor);
           }}
@@ -1932,6 +1952,7 @@ export function BoardInteractionLayerSandbox() {
             stageSize={remoteStageSize}
             stagePosition={stagePosition}
             stageScale={stageScale}
+            roomBackgroundThemeId={roomBackgroundThemeId}
             participantSession={REMOTE_PARTICIPANT}
             boardBackgroundRef={remoteBoardBackgroundRef}
             noteCardRefs={remoteNoteCardRefs}
@@ -1941,8 +1962,6 @@ export function BoardInteractionLayerSandbox() {
             imageTransformerRef={remoteImageTransformerRef}
             liveNoteCardResizePreviewRef={{ current: null }}
             transformingImageSnapshotRef={remoteTransformingImageSnapshotRef}
-            boardSurfaceFill={boardMaterials.surface}
-            boardSurfaceRadius={boardMaterials.surfaceRadius}
             sortedObjects={sortedSharedObjects}
             loadedImages={loadedImages}
             drawingImageId={null}

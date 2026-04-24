@@ -40,6 +40,7 @@ run_with_prefix() {
   shift
 
   (
+    set -o pipefail
     "$@" 2>&1 | sed "s/^/[${prefix}] /"
   ) &
 
@@ -64,6 +65,22 @@ if [[ ! -f "$ENV_FILE" ]]; then
   exit 1
 fi
 
+require_env_var() {
+  local name="$1"
+
+  if [[ -z "${!name:-}" ]]; then
+    echo "[dev-local] missing required env var: $name"
+    exit 1
+  fi
+}
+
+require_env_var VITE_Y_WEBSOCKET_URL
+require_env_var VITE_API_BASE_URL
+require_env_var VITE_LIVEKIT_URL
+require_env_var VITE_LIVEKIT_TOKEN_URL
+require_env_var LIVEKIT_API_KEY
+require_env_var LIVEKIT_API_SECRET
+
 echo "[dev-local] starting localhost development stack"
 echo "[dev-local] services: vite, presence-server, livekit-server"
 echo "[dev-local] app url: http://localhost:5173"
@@ -73,4 +90,17 @@ run_with_prefix "vite" npm run dev
 run_with_prefix "presence" npm run presence-server
 run_with_prefix "livekit" npm run livekit-server
 
-wait
+while true; do
+  for pid in "${PIDS[@]:-}"; do
+    if ! kill -0 "$pid" 2>/dev/null; then
+      if wait "$pid"; then
+        echo "[dev-local] service exited unexpectedly"
+        exit 1
+      fi
+
+      exit "$?"
+    fi
+  done
+
+  sleep 1
+done

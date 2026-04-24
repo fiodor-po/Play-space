@@ -1,6 +1,10 @@
 import type { CSSProperties } from "react";
+import { getBoardObjectElevationShadowRecipe } from "./boardMaterials";
 import type { DesignSystemDebugMeta } from "./debugMeta";
 import { border, radius, surface, text } from "./foundations";
+
+const FLOATING_OBJECT_SHADOW =
+  getBoardObjectElevationShadowRecipe("floating").cssBoxShadow;
 
 type BoardSurfaceRecipe = {
   style: CSSProperties;
@@ -23,7 +27,7 @@ function createObjectSemanticsTooltipRecipe(): BoardSurfaceRecipe {
       border: "1px solid rgba(148, 163, 184, 0.24)",
       background: "rgba(15, 23, 42, 0.94)",
       color: text.secondary,
-      boxShadow: "0 20px 48px rgba(2, 6, 23, 0.34)",
+      boxShadow: FLOATING_OBJECT_SHADOW,
       pointerEvents: "none",
       fontSize: 12,
     },
@@ -72,7 +76,7 @@ function createFloatingShellRecipe(): BoardSurfaceRecipe {
       background: surface.panel,
       border: `1px solid ${border.default}`,
       color: text.secondary,
-      boxShadow: "0 18px 50px rgba(2, 6, 23, 0.35)",
+      boxShadow: FLOATING_OBJECT_SHADOW,
       backdropFilter: "blur(10px)",
     },
     debug: {
